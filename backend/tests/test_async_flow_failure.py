@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import cast
-from workflow import ingest, cognition, VideoProcessingState
+from workflow import ingest, cognition, cleanup, VideoProcessingState
 from constants import TaskStatus
 
 @pytest.mark.asyncio
@@ -145,6 +145,42 @@ async def test_cognition_failure_handling():
             assert "errors" in updates
             assert any("LLM Rate Limit" in str(e) for e in updates["errors"])
 
-            # Note: The current implementation of cognition/_run_summarize does NOT
-            # update the output status to 'error' in the DB, it only reports the error in the state.
-            # So we do not assert mock_db.update_output_status(status='error').
+            # Note: cognition returns the error in state, and cleanup is responsible
+            # for marking the parent task as terminal error.
+
+@pytest.mark.asyncio
+async def test_cleanup_marks_parent_task_error_when_state_has_errors():
+    state = cast(VideoProcessingState, {
+        "task_id": "test-task-cleanup-error",
+        "user_id": "test-user",
+        "video_url": "http://test.com/video",
+        "audio_path": None,
+        "errors": ["summary failed"],
+        "cache_hit": False,
+        "is_youtube": False,
+        "transcript_text": "long enough transcript",
+        "video_title": "Test Video",
+        "thumbnail_url": "",
+        "author": "",
+        "duration": 0,
+        "direct_audio_url": None,
+        "transcript_raw": None,
+        "transcript_lang": "en",
+        "classification_result": None,
+        "final_summary_json": None,
+        "comprehension_brief_json": None,
+        "transcript_source": None,
+        "ingest_error": None
+    })
+
+    mock_db = MagicMock()
+
+    with patch('workflow._get_db_client', return_value=mock_db), \
+         patch('workflow.event_bus.publish_progress', new=AsyncMock()), \
+         patch('workflow.event_bus.publish_error', new=AsyncMock()):
+        updates = await cleanup(state)
+
+    assert updates == {}
+    mock_db.update_task_status.assert_called_once()
+    assert mock_db.update_task_status.call_args.kwargs['status'] == TaskStatus.ERROR
+    assert mock_db.update_task_status.call_args.kwargs['progress'] == 100

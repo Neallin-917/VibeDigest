@@ -953,8 +953,11 @@ async def cleanup(state: VideoProcessingState) -> Dict:
             duration=state.get("duration"),
         )
     else:
-        # Emit error event if there were errors
+        # Mark parent task as terminal error instead of leaving it stuck in processing.
         error_msg = "; ".join(state.get("errors", ["Unknown error"]))
+        _get_db_client().update_task_status(
+            task_id, status=TaskStatus.ERROR, progress=100, error=error_msg
+        )
         await event_bus.publish_error(
             task_id=task_id,
             error=error_msg,

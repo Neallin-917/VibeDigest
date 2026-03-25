@@ -79,5 +79,85 @@ async def test_generate_comprehension_brief():
         assert "reusable_takeaway" in data_en
         assert isinstance(data_en["what_to_ignore"], list)
 
+@pytest.mark.asyncio
+async def test_generate_comprehension_brief_retries_after_empty_json():
+    agent = ComprehensionAgent()
+    transcript = "This transcript is long enough to avoid skip logic. " * 5
+
+    valid_payload = {
+        "core_intent": "intent",
+        "core_position": "position",
+        "key_insights": [
+            {"title": "a", "new_perspective": "b", "why_it_matters": "c"},
+            {"title": "d", "new_perspective": "e", "why_it_matters": "f"},
+            {"title": "g", "new_perspective": "h", "why_it_matters": "i"}
+        ],
+        "what_to_ignore": ["sponsor"],
+        "target_audience": {"who_benefits": ["builders"], "who_wont": ["tourists"]},
+        "reusable_takeaway": "takeaway"
+    }
+
+    first = MagicMock(); first.content = "{}"
+    second = MagicMock(); second.content = json.dumps(valid_payload)
+
+    mock_llm = MagicMock()
+    mock_llm.ainvoke = AsyncMock(side_effect=[first, second])
+
+    with patch.object(agent, '_get_llm', return_value=mock_llm), \
+         patch.object(agent, 'comprehension_models', ['model-a']):
+        result = await agent.generate_comprehension_brief(transcript, target_language="en")
+
+    data = json.loads(result)
+    assert data["core_intent"] == "intent"
+    assert mock_llm.ainvoke.await_count == 2
+
+@pytest.mark.asyncio
+async def test_generate_comprehension_brief_repairs_after_invalid_retry():
+    agent = ComprehensionAgent()
+    transcript = "This transcript is long enough to avoid skip logic. " * 5
+
+    first = MagicMock(); first.content = "{}"
+    second = MagicMock(); second.content = "not-json"
+    mock_llm = MagicMock()
+    mock_llm.ainvoke = AsyncMock(side_effect=[first, second])
+
+    repaired_payload = {
+        "core_intent": "intent",
+        "core_position": "position",
+        "key_insights": [
+            {"title": "a", "new_perspective": "b", "why_it_matters": "c"},
+            {"title": "d", "new_perspective": "e", "why_it_matters": "f"},
+            {"title": "g", "new_perspective": "h", "why_it_matters": "i"}
+        ],
+        "what_to_ignore": ["sponsor"],
+        "target_audience": {"who_benefits": ["builders"], "who_wont": ["tourists"]},
+        "reusable_takeaway": "takeaway"
+    }
+
+    with patch.object(agent, '_get_llm', return_value=mock_llm), \
+         patch.object(agent, 'comprehension_models', ['model-a']), \
+         patch.object(agent, '_repair_json_to_schema', new=AsyncMock(return_value=json.dumps(repaired_payload))) as mock_repair:
+        result = await agent.generate_comprehension_brief(transcript, target_language="en")
+
+    data = json.loads(result)
+    assert data["core_position"] == "position"
+    mock_repair.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_generate_comprehension_brief_raises_after_all_models_fail():
+    agent = ComprehensionAgent()
+    transcript = "This transcript is long enough to avoid skip logic. " * 5
+
+    mock_message = MagicMock()
+    mock_message.content = "{}"
+
+    mock_llm = MagicMock()
+    mock_llm.ainvoke = AsyncMock(return_value=mock_message)
+
+    with patch.object(agent, '_get_llm', return_value=mock_llm), \
+         patch.object(agent, 'comprehension_models', ['model-a']):
+        with pytest.raises(Exception, match="validation errors|empty JSON object|All models failed"):
+            await agent.generate_comprehension_brief(transcript, target_language="en")
+
 if __name__ == "__main__":
     asyncio.run(test_generate_comprehension_brief())

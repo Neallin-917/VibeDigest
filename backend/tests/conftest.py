@@ -11,6 +11,19 @@ backend_root = Path(__file__).resolve().parents[1]
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
+# Keep pytest hermetic and quiet:
+# - disable Sentry entirely in tests
+# - disable LangSmith/LangChain tracing background threads
+# - reduce default console noise
+os.environ["SENTRY_DSN"] = ""
+os.environ["SENTRY_TRACES_SAMPLE_RATE"] = "0"
+os.environ["SENTRY_PROFILES_SAMPLE_RATE"] = "0"
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["LANGCHAIN_API_KEY"] = ""
+os.environ["LANGSMITH_API_KEY"] = ""
+os.environ.setdefault("LOG_LEVEL", "WARNING")
+
 if os.getenv("SKIP_DB_TESTS") == "1":
     pytest.skip("DB tests disabled via SKIP_DB_TESTS=1", allow_module_level=True)
 

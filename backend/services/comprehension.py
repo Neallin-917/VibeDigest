@@ -93,14 +93,12 @@ class ComprehensionAgent:
                     )
 
                 if self.use_response_format_json:
-                    raw = await llm.ainvoke(messages, config=lc_config)
-                    raw_text = getattr(raw, "content", None) or str(raw)
-                    json_text = extract_first_json_object(raw_text) or raw_text
-                    parsed = ComprehensionBriefResponse(**json.loads(json_text))
-                    if hasattr(parsed, "model_dump"):
-                        obj = parsed.model_dump()
-                    else:
-                        obj = parsed.dict()
+                    obj = await self._invoke_with_retry_and_repair(
+                        llm=llm,
+                        schema=ComprehensionBriefResponse,
+                        messages=messages,
+                        config=lc_config,
+                    )
                 else:
                     obj = await ainvoke_structured_json(
                         llm,
@@ -114,18 +112,114 @@ class ComprehensionAgent:
                 logger.warning(f"Comprehension Brief with model {model} failed: {e}")
                 continue
         
+        error = last_exception or Exception("All models failed for Comprehension Brief")
+        logger.error(f"Comprehension Brief failed: {error}")
+        raise error
+
+    async def _invoke_with_retry_and_repair(
+        self,
+        llm,
+        schema,
+        messages,
+        config: Optional[dict] = None,
+    ) -> dict:
+        raw = await llm.ainvoke(messages, config=config)
+        raw_text = self._extract_raw_text(raw)
+
         try:
-            raise last_exception or Exception("All models failed for Comprehension Brief")
-        except Exception as e:
-            logger.error(f"Comprehension Brief failed: {e}")
-            return json.dumps({
-                "core_intent": "Failed to generate core intent.",
-                "core_position": "Failed to generate speaker's position.",
-                "key_insights": [],
-                "what_to_ignore": [],
-                "target_audience": {
-                    "who_benefits": [],
-                    "who_wont": []
-                },
-                "reusable_takeaway": "Failed to generate takeaway."
-            }, ensure_ascii=False)
+            return self._parse_schema_json(raw_text, schema)
+        except Exception as first_error:
+            logger.warning(
+                "Comprehension structured parse failed for %s, retrying once: %s",
+                getattr(schema, "__name__", "schema"),
+                first_error,
+            )
+
+            retry_text = await self._retry_for_valid_json(
+                llm=llm,
+                schema=schema,
+                messages=messages,
+                raw_text=raw_text,
+                error=first_error,
+                config=config,
+            )
+            if retry_text is not None:
+                try:
+                    return self._parse_schema_json(retry_text, schema)
+                except Exception as retry_error:
+                    logger.warning(
+                        "Comprehension retry parse failed for %s, attempting repair: %s",
+                        getattr(schema, "__name__", "schema"),
+                        retry_error,
+                    )
+                    first_error = retry_error
+
+            repaired_text = await self._repair_json_to_schema(
+                source_text=retry_text or raw_text,
+                schema=schema,
+                config=config,
+            )
+            try:
+                return self._parse_schema_json(repaired_text, schema)
+            except Exception as repair_error:
+                raise repair_error from first_error
+
+    def _extract_raw_text(self, raw) -> str:
+        raw_text = getattr(raw, "content", None) or str(raw)
+        logger.info("[comprehension] raw_text (%s chars): %s...", len(raw_text), raw_text[:500])
+        return raw_text
+
+    def _parse_schema_json(self, raw_text: str, schema) -> dict:
+        json_text = extract_first_json_object(raw_text) or raw_text
+        obj_raw = json.loads(json_text)
+        if obj_raw == {}:
+            raise ValueError(
+                f"LLM returned empty JSON object for {getattr(schema, '__name__', 'schema')}"
+            )
+        parsed = schema(**obj_raw)
+        if hasattr(parsed, "model_dump"):
+            return parsed.model_dump()
+        return parsed.dict()
+
+    async def _retry_for_valid_json(
+        self,
+        llm,
+        schema,
+        messages,
+        raw_text: str,
+        error: Exception,
+        config: Optional[dict] = None,
+    ) -> str:
+        retry_prompt = HumanMessage(
+            content=(
+                "Your previous response could not be parsed into the required JSON schema. "
+                "Return ONLY one valid JSON object, no markdown, no explanation.\n\n"
+                f"Schema JSON Schema:\n{json.dumps(schema.model_json_schema(), ensure_ascii=False)}\n\n"
+                f"Validation error:\n{error}\n\n"
+                f"Previous response:\n{raw_text[:4000]}"
+            )
+        )
+        retry_raw = await llm.ainvoke(messages + [retry_prompt], config=config)
+        return self._extract_raw_text(retry_raw)
+
+    async def _repair_json_to_schema(
+        self,
+        source_text: str,
+        schema,
+        config: Optional[dict] = None,
+    ) -> str:
+        repair_llm = self._get_llm(settings.OPENAI_HELPER_MODEL)
+        repair_messages = [
+            SystemMessage(
+                content=(
+                    "You are a strict JSON repair tool. Return ONLY one valid JSON object matching the provided JSON Schema. "
+                    "No markdown, no code fences. If the source is malformed or incomplete, salvage faithfully without inventing facts.\n\n"
+                    f"JSON Schema:\n{json.dumps(schema.model_json_schema(), ensure_ascii=False)}"
+                )
+            ),
+            HumanMessage(content=f"Repair this into valid JSON:\n\n{source_text[:12000]}"),
+        ]
+        repair_raw = await repair_llm.ainvoke(repair_messages, config=config)
+        repaired_text = self._extract_raw_text(repair_raw)
+        logger.info("[comprehension] repaired_text (%s chars): %s...", len(repaired_text), repaired_text[:500])
+        return repaired_text

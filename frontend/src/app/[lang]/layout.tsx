@@ -144,7 +144,9 @@ export default async function RootLayout({
                 "@type": "SoftwareApplication",
                 "name": "VibeDigest",
                 "applicationCategory": "ProductivityApplication",
+                "applicationSubCategory": "AI Video Summarizer",
                 "operatingSystem": "Web",
+                "url": "https://vibedigest.io",
                 "offers": {
                   "@type": "Offer",
                   "price": "0",

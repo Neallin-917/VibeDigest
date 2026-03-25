@@ -13,6 +13,37 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
 
+// HowTo schema step data per locale (mirrors i18n but accessible at server level)
+const HOW_TO_STEPS: Record<string, { name: string; text: string }[]> = {
+  en: [
+    { name: "Paste Link", text: "Copy the URL from YouTube, Apple Podcasts, or Bilibili and paste it into our analyzer." },
+    { name: "AI Processing", text: "Our advanced AI engine analyzes audio and video content to extract key insights." },
+    { name: "Get Summary", text: "Receive accurate structured summary, interactive transcript, and mind map." },
+  ],
+  zh: [
+    { name: "粘贴链接", text: "复制 YouTube、Apple Podcasts 或 Bilibili 的链接并粘贴到我们的分析器中。" },
+    { name: "AI 处理", text: "我们先进的 AI 引擎分析音频和视频内容以提取关键见解。" },
+    { name: "获取摘要", text: "接收准确的结构化摘要、交互式逐字稿和思维导图。" },
+  ],
+  ja: [
+    { name: "リンクを貼り付け", text: "YouTube、Apple Podcasts、またはBilibiliからURLをコピーし、アナライザーに貼り付けます。" },
+    { name: "AI処理", text: "高度なAIエンジンが音声と動画コンテンツを分析し、重要な洞察を抽出します。" },
+    { name: "要約を取得", text: "正確で構造化された要約、インタラクティブな文字起こし、マインドマップを受け取ります。" },
+  ],
+}
+
+const HOW_TO_NAME: Record<string, string> = {
+  en: "How to summarize a video with VibeDigest",
+  zh: "如何使用 VibeDigest 摘要视频",
+  ja: "VibeDigestで動画を要約する方法",
+}
+
+const HOW_TO_DESC: Record<string, string> = {
+  en: "Get your summary in 3 simple steps",
+  zh: "只需简单 3 步即可获取摘要",
+  ja: "3つの簡単なステップで要約を取得",
+}
+
 const SEO_COPY: Record<string, { title: string; description: string }> = {
   en: {
     title: "VibeDigest - AI Video Summarizer & Transcriber for YouTube",
@@ -60,6 +91,21 @@ export async function generateMetadata({
 
 export default async function LandingPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
+
+  const steps = HOW_TO_STEPS[lang] ?? HOW_TO_STEPS.en
+  const howToSchema = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": HOW_TO_NAME[lang] ?? HOW_TO_NAME.en,
+    "description": HOW_TO_DESC[lang] ?? HOW_TO_DESC.en,
+    "step": steps.map((s, i) => ({
+      "@type": "HowToStep",
+      "position": i + 1,
+      "name": s.name,
+      "text": s.text,
+    })),
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-transparent text-slate-800 dark:text-zinc-100 relative overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
 
@@ -130,6 +176,12 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
             <Link href={`/${lang}/terms`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{lang === 'zh' ? '服务条款' : lang === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
           </div>
       </footer>
+
+      {/* HowTo structured data - uses server-side constants, safe from XSS */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
+      />
     </div>
   )
 }

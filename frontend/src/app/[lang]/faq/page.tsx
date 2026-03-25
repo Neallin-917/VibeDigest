@@ -154,6 +154,36 @@ export default async function FAQPage(props: Props) {
         }))
     }
 
+    // BreadcrumbList Structured Data
+    const breadcrumbLabels: Record<string, string> = {
+        en: "FAQ",
+        zh: "常见问题",
+        ja: "よくある質問",
+    }
+    const homeLabels: Record<string, string> = {
+        en: "Home",
+        zh: "首页",
+        ja: "ホーム",
+    }
+    const breadcrumbSchema = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": homeLabels[lang] ?? homeLabels.en,
+                "item": `https://vibedigest.io/${lang}`
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": breadcrumbLabels[lang] ?? breadcrumbLabels.en,
+                "item": `https://vibedigest.io/${lang}/faq`
+            }
+        ]
+    }
+
     return (
         <div className="min-h-screen bg-transparent text-slate-800 dark:text-[#F5F5F5] font-sans selection:bg-primary/30">
             {/* Background Blobs (Light Mode) */}
@@ -221,6 +251,10 @@ export default async function FAQPage(props: Props) {
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+            />
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
             />
         </div>
     )

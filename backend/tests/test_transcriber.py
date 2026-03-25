@@ -7,7 +7,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(current_dir)
 sys.path.append(backend_dir)
 
-# MOCK DEPENDENCIES BEFORE IMPORT
+# MOCK DEPENDENCIES BEFORE IMPORT (scoped and restored immediately after import)
+_original_openai = sys.modules.get("openai")
+_original_pydub = sys.modules.get("pydub")
 sys.modules["openai"] = MagicMock()
 sys.modules["pydub"] = MagicMock()
 
@@ -19,6 +21,16 @@ from utils.text_utils import (  # noqa: E402
     count_words_or_units,
     ends_with_sentence,
 )
+
+if _original_openai is not None:
+    sys.modules["openai"] = _original_openai
+else:
+    sys.modules.pop("openai", None)
+
+if _original_pydub is not None:
+    sys.modules["pydub"] = _original_pydub
+else:
+    sys.modules.pop("pydub", None)
 
 # Mock Segment class to avoid import issues or full object creation
 class MockSegment:

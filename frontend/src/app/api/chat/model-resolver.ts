@@ -17,7 +17,7 @@ const API_BASE_URL = env.BACKEND_API_URL || 'http://127.0.0.1:8000';
 
 export async function resolveModelName(tier: ModelTier): Promise<ResolvedModel> {
     const fallbackProvider = 'openai';
-    const fallbackModel = tier === 'fast' ? 'gpt-4o-mini' : 'gpt-4o';
+    const fallbackModel = tier === 'fast' ? 'gpt-4.1-mini' : 'gpt-4.1';
 
     if (env.OPENAI_MODEL) {
         return {
@@ -75,7 +75,7 @@ export async function resolveModelName(tier: ModelTier): Promise<ResolvedModel> 
 
         if (!modelName) {
             if (activeProvider === 'openrouter') {
-                modelName = tier === 'fast' ? 'google/gemini-2.0-flash-001' : 'google/gemini-2.0-flash-001';
+                modelName = tier === 'fast' ? 'google/gemini-2.5-flash' : 'google/gemini-2.5-pro';
             } else {
                 modelName = fallbackModel;
             }
@@ -91,7 +91,7 @@ export async function resolveModelName(tier: ModelTier): Promise<ResolvedModel> 
 
         if (env.LLM_PROVIDER === 'openrouter') {
             return {
-                model: tier === 'fast' ? 'google/gemini-2.0-flash-001' : 'google/gemini-2.0-flash-001',
+                model: tier === 'fast' ? 'google/gemini-2.5-flash' : 'google/gemini-2.5-pro',
                 provider: 'openrouter',
             };
         }

@@ -36,7 +36,6 @@ export function createOnFinishHandler(params: PersistenceParams) {
 
     return async ({ messages: finalMessages }: { messages: UIMessage[] }) => {
         try {
-            console.log(`[API/Chat] onFinish called. Final messages count: ${finalMessages.length}`);
             if (!threadId) {
                 console.warn('[API/Chat] No threadId in onFinish, skipping persistence.');
                 return;
@@ -54,7 +53,6 @@ export function createOnFinishHandler(params: PersistenceParams) {
                 .single();
 
             if (!existingThread) {
-                console.log('[API/Chat] Lazy creating thread in onFinish:', threadId);
                 const threadInsertPayload: Record<string, unknown> = {
                     id: threadId,
                     user_id: user.id,
@@ -89,10 +87,6 @@ export function createOnFinishHandler(params: PersistenceParams) {
 
             if (upsertError) {
                 console.error('[API/Chat] Batch message upsert failed:', upsertError);
-            } else {
-                console.log(
-                    `[API/Chat] Upserted ${messagesToUpsert.length} messages to thread ${threadId}`
-                );
             }
 
             const threadUpdatePayload: Record<string, unknown> = {
@@ -124,7 +118,6 @@ export function createOnFinishHandler(params: PersistenceParams) {
                     const assistantText = getTextFromUIMessage(firstAssistantTextMsg);
 
                     try {
-                        console.log('[API/Chat] Generating title for thread:', threadId);
                         const { text: title } = await generateText({
                             model: openai.chat(modelName),
                             system: 'Generate a very concise title (3-6 words) for this chat conversation based on the first message. Do not use quotes.',
@@ -136,7 +129,6 @@ export function createOnFinishHandler(params: PersistenceParams) {
                                 .from('chat_threads')
                                 .update({ title: title.trim() })
                                 .eq('id', threadId);
-                            console.log('[API/Chat] Updated thread title:', title.trim());
                         }
                     } catch (e) {
                         console.error('[API/Chat] Failed to generate title:', e);

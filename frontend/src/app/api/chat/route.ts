@@ -11,31 +11,20 @@ import { createOnFinishHandler } from './persistence';
 
 const SHORT_QUERY_CHAR_LIMIT = 200;
 
-// --- Startup Logging ---
-console.log('>>> [API/Chat] Route Initialized <<<');
-console.log(`    Model:    ${env.OPENAI_MODEL || 'dynamic (from backend)'}`);
-console.log(`    Provider: ${env.LLM_PROVIDER || 'dynamic (defaults to backend)'}`);
-console.log(`    Base URL: ${env.OPENAI_BASE_URL || 'Default'}`);
-console.log(`    Backend:  ${env.BACKEND_API_URL || 'http://127.0.0.1:8000'}`);
-console.log('>>> ---------------------------- <<<');
-
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
     try {
         // Parse request body
         const jsonBody = (await req.json()) as RequestPayload;
-        console.log('[API/Chat] Request Body:', JSON.stringify(jsonBody, null, 2));
 
         const { message, threadId, taskId: bodyTaskId } = jsonBody;
-        console.log(`[API/Chat] Incoming Request - Thread: ${threadId}, Task: ${bodyTaskId}`);
 
         // Fallback for taskId if passed via URL (legacy support)
         const url = new URL(req.url);
         const queryTaskId = url.searchParams.get('taskId');
         const taskId = bodyTaskId || queryTaskId;
         const requestTaskId = isUsableTaskId(taskId) ? taskId : null;
-        console.log(`[API/Chat] Resolved TaskID: ${taskId}`);
 
         // 1. Auth
         const authResult = await verifyAuth();
@@ -57,10 +46,6 @@ export async function POST(req: Request) {
 
             if (threadError && threadError.code !== 'PGRST116') {
                 console.error('[API/Chat] Thread lookup error:', threadError);
-            }
-
-            if (!thread) {
-                console.log('[API/Chat] Thread does not exist yet (Lazy Creation pending):', threadId);
             }
 
             const { data: dbMessages, error: msgError } = await supabase
@@ -95,8 +80,6 @@ export async function POST(req: Request) {
         } else {
             console.warn('[API/Chat] No new message received in request body');
         }
-
-        console.log(`[API/Chat] Processing ${messages.length} messages for thread ${threadId}`);
 
         // 3. Build RAG Context
         const context = await buildRagContext(taskId, supabase);
@@ -167,7 +150,6 @@ When users provide video URLs:
         const tools = buildTools(toolContext, allowVideoTools);
 
         // 8. Prepare model messages
-        console.log('[API/Chat] Converting to model messages...');
         const messagesForModel = messages
             .map((msg) => {
                 const textParts = (msg.parts || []).filter((part) => isTextPart(part));
@@ -176,10 +158,8 @@ When users provide video URLs:
             })
             .filter((msg): msg is UIMessage => Boolean(msg));
         const coreMessages = await convertToModelMessages(messagesForModel);
-        console.log('[API/Chat] Core messages count:', coreMessages.length);
 
         // 9. Stream response
-        console.log('[API/Chat] Starting streamText...');
         const result = streamText({
             model: openai.chat(modelName),
             system: systemPrompt,

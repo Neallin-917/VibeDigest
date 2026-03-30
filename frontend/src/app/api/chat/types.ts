@@ -7,16 +7,6 @@ export type ResolvedModel = {
     provider: string;
 };
 
-export type ProviderDefaults = {
-    fast?: string;
-    smart?: string;
-};
-
-export type ProviderEntry = {
-    provider?: string;
-    defaults?: ProviderDefaults;
-};
-
 export type RequestPayload = {
     message?: UIMessage & { content?: string };
     threadId?: string;

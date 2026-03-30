@@ -42,22 +42,15 @@ def test_openrouter_provider_is_active():
     )
 
 
-def test_openrouter_model_registry():
-    """Verify ModelRegistry correctly reflects openrouter provider and its defaults."""
-    from utils.model_registry import ModelRegistry
+def test_openrouter_model_defaults():
+    """Verify MODEL_SMART and MODEL_FAST resolve correctly for openrouter provider."""
+    from config import settings
 
-    registry = ModelRegistry()
-    data = registry.get_all()
-
-    assert data["active_provider"] == "openrouter", (
-        f"ModelRegistry reports active_provider={data['active_provider']!r}"
+    assert settings.MODEL_SMART, "MODEL_SMART should be configured"
+    assert settings.MODEL_FAST, "MODEL_FAST should be configured"
+    assert "gemini" in settings.MODEL_SMART or "gpt" in settings.MODEL_SMART, (
+        f"Unexpected smart model: {settings.MODEL_SMART}"
     )
-
-    provider = registry.get_provider("openrouter")
-    assert provider is not None, "openrouter provider config not found in YAML configs"
-    defaults = provider.get("defaults", {})
-    assert defaults.get("smart"), "smart model default not configured in openrouter.yaml"
-    assert defaults.get("fast"), "fast model default not configured in openrouter.yaml"
 
 
 def test_openrouter_chat_completion():

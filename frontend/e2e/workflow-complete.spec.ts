@@ -59,14 +59,6 @@ test.describe('Complete Task Workflow (Mocked)', () => {
       })
     })
 
-    await page.route('**/api/models/providers', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ providers: [] })
-      })
-    })
-
     // Mock Threads API (needed for resolveOrCreateThreadForTask and fetchThreadTaskId)
     await page.route('**/api/threads*', async (route) => {
       const method = route.request().method()

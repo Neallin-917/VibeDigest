@@ -18,16 +18,7 @@ test.describe('Settings Page', () => {
       });
     });
 
-    // 2. Mock API Providers (prevent 404s/errors)
-    await page.route('**/api/models/providers', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ providers: [] })
-      });
-    });
-
-    // 3. Inject Fake Session into LocalStorage and Cookies
+    // 2. Inject Fake Session into LocalStorage and Cookies
     // This is critical for the client-side Supabase SDK to "restore" the session
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://cwdgdytqafqrqnlcdpcc.supabase.co';
     const projectRef = supabaseUrl.match(/https?:\/\/([^.]+)\./)?.[1] || 'placeholder';

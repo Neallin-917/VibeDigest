@@ -1,15 +1,26 @@
 import { streamText, convertToModelMessages, UIMessage, createIdGenerator, stepCountIs } from 'ai';
 import { createProviderClient } from '@/lib/llm-config';
 import { env } from '@/env';
-import type { RequestPayload, ChatMessageRow, ModelTier, PreviewCache, ToolContext } from './types';
+import type { RequestPayload, ChatMessageRow, ModelTier, ResolvedModel, PreviewCache, ToolContext } from './types';
 import { isTextPart, getLegacyContent, getTextFromUIMessage, extractUrl, isUsableTaskId, getErrorMessage, getErrorStack } from './utils';
 import { verifyAuth, isAuthError } from './auth';
-import { resolveModelName } from './model-resolver';
 import { buildRagContext } from './rag';
 import { buildTools } from './tools';
 import { createOnFinishHandler } from './persistence';
 
 const SHORT_QUERY_CHAR_LIMIT = 200;
+
+const PROVIDER_DEFAULTS: Record<string, Record<ModelTier, string>> = {
+    openrouter: { smart: 'google/gemini-3-pro-preview', fast: 'google/gemini-3-flash-preview' },
+    openai: { smart: 'gpt-5', fast: 'gpt-5-mini' },
+    custom: { smart: 'gemini-3-pro', fast: 'gemini-3-flash' },
+};
+
+function resolveModel(tier: ModelTier): ResolvedModel {
+    const provider = env.LLM_PROVIDER || 'openrouter';
+    const model = env.OPENAI_MODEL || PROVIDER_DEFAULTS[provider]?.[tier] || PROVIDER_DEFAULTS.openrouter[tier];
+    return { model, provider };
+}
 
 export const maxDuration = 30;
 
@@ -96,7 +107,7 @@ export async function POST(req: Request) {
         const modelTier: ModelTier = isShortFollowup ? 'fast' : 'smart';
 
         // 5. Resolve model and create provider client
-        const { model: modelName, provider: providerName } = await resolveModelName(modelTier);
+        const { model: modelName, provider: providerName } = resolveModel(modelTier);
         const openai = createProviderClient(providerName);
 
         // 6. Build System Prompt

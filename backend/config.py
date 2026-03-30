@@ -76,60 +76,36 @@ class Settings:
     MODEL_ALIAS_SMART: Optional[str] = os.getenv("MODEL_ALIAS_SMART")
     MODEL_ALIAS_FAST: Optional[str] = os.getenv("MODEL_ALIAS_FAST")
 
-    # --- Functional Mappings ---
+    # Provider → (smart, fast) defaults — single source of truth for model names
+    _PROVIDER_DEFAULTS: Dict[str, tuple] = {
+        "openrouter": ("google/gemini-3-pro-preview", "google/gemini-3-flash-preview"),
+        "openai": ("gpt-5", "gpt-5-mini"),
+        "custom": ("gemini-3-pro", "gemini-3-flash"),
+    }
 
     @property
-    def OPENAI_MODEL(self) -> str:
+    def MODEL_SMART(self) -> str:
         if self.MODEL_ALIAS_SMART:
             return self.MODEL_ALIAS_SMART
-        from utils.model_registry import get_model_registry
-
-        registry = get_model_registry()
-        provider = registry.get_provider(self.LLM_PROVIDER)
-        return (provider or {}).get("defaults", {}).get("smart") or "gpt-4o"
+        return self._PROVIDER_DEFAULTS.get(self.LLM_PROVIDER, self._PROVIDER_DEFAULTS["openrouter"])[0]
 
     @property
-    def OPENAI_COMPREHENSION_MODELS(self) -> list[str]:
-        if self.MODEL_ALIAS_SMART:
-            return [self.MODEL_ALIAS_SMART]
-        from utils.model_registry import get_model_registry
-
-        registry = get_model_registry()
-        provider = registry.get_provider(self.LLM_PROVIDER)
-        smart = (provider or {}).get("defaults", {}).get("smart")
-        return [smart] if smart else []
-
-    @property
-    def OPENAI_SUMMARY_MODELS(self) -> list[str]:
-        # Summary now uses SMART tier for higher quality output (gpt-5/gemini-3-pro-preview)
-        if self.MODEL_ALIAS_SMART:
-            return [self.MODEL_ALIAS_SMART]
-        from utils.model_registry import get_model_registry
-
-        registry = get_model_registry()
-        provider = registry.get_provider(self.LLM_PROVIDER)
-        smart = (provider or {}).get("defaults", {}).get("smart")
-        return [smart] if smart else []
-
-    @property
-    def OPENAI_TRANSLATION_MODEL(self) -> str:
+    def MODEL_FAST(self) -> str:
         if self.MODEL_ALIAS_FAST:
             return self.MODEL_ALIAS_FAST
-        from utils.model_registry import get_model_registry
+        return self._PROVIDER_DEFAULTS.get(self.LLM_PROVIDER, self._PROVIDER_DEFAULTS["openrouter"])[1]
 
-        registry = get_model_registry()
-        provider = registry.get_provider(self.LLM_PROVIDER)
-        return (provider or {}).get("defaults", {}).get("fast") or "gpt-4o-mini"
-
+    # Backward-compatible aliases (used by scripts and some services)
     @property
-    def OPENAI_HELPER_MODEL(self) -> str:
-        if self.MODEL_ALIAS_FAST:
-            return self.MODEL_ALIAS_FAST
-        from utils.model_registry import get_model_registry
-
-        registry = get_model_registry()
-        provider = registry.get_provider(self.LLM_PROVIDER)
-        return (provider or {}).get("defaults", {}).get("fast") or "gpt-4o-mini"
+    def OPENAI_MODEL(self) -> str: return self.MODEL_SMART
+    @property
+    def OPENAI_COMPREHENSION_MODELS(self) -> list[str]: return [self.MODEL_SMART]
+    @property
+    def OPENAI_SUMMARY_MODELS(self) -> list[str]: return [self.MODEL_SMART]
+    @property
+    def OPENAI_TRANSLATION_MODEL(self) -> str: return self.MODEL_FAST
+    @property
+    def OPENAI_HELPER_MODEL(self) -> str: return self.MODEL_FAST
 
     # --- LLM Generation Defaults ---
     DEFAULT_TEMPERATURE: float = 0.1  # Default for most tasks
@@ -154,7 +130,7 @@ class Settings:
 
         # If it's the Smart model, or explicitly an o1/gpt-5 variant
         if (
-            model_name == self.MODEL_ALIAS_SMART
+            model_name == self.MODEL_SMART
             or "gpt-5" in model_name
             or "o1-" in model_name
             or "gpt-4o" == model_name

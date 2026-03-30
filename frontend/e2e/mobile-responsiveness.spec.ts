@@ -30,15 +30,6 @@ test.describe('Mobile Responsiveness', () => {
       });
     });
 
-    // Mock API Providers to prevent loading errors
-    await page.route('**/api/models/providers', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ providers: [] })
-      });
-    });
-
     // Mock Chat Threads
     await page.route('**/api/chat/threads', async (route) => {
       await route.fulfill({

@@ -1,33 +1,17 @@
 from typing import Any, Dict, Optional
 
 from config import settings
-from utils.model_registry import get_model_registry
 from utils.openai_client import create_chat_model, ainvoke_structured_json
 
 
-INTENT_TO_TIER = {
-    "chat": "smart",
-    "comprehension": "smart",
-    "summary": "smart",              # FIX: was "fast", but OPENAI_SUMMARY_MODELS uses smart tier
-    "translation": "fast",
-    "guard": "fast",
-    "helper": "fast",
-    "transcript_optimize": "fast",   # summarizer sub-task: transcript optimization
-    "paragraph": "fast",             # summarizer sub-task: paragraph formatting
-    "json_repair": "fast",           # summarizer sub-task: JSON repair
-    "classifier": "fast",            # summarizer sub-task: content classification
-}
+FAST_INTENTS = frozenset({
+    "translation", "guard", "helper", "transcript_optimize",
+    "paragraph", "json_repair", "classifier",
+})
 
 
-def resolve_model_for_intent(intent: str, provider: Optional[str] = None) -> Optional[str]:
-    tier = INTENT_TO_TIER.get(intent, "smart")
-    registry = get_model_registry()
-    provider_name = provider or settings.LLM_PROVIDER
-    provider_cfg = registry.get_provider(provider_name)
-    if not provider_cfg:
-        return None
-    defaults = provider_cfg.get("defaults") or {}
-    return defaults.get(tier)
+def resolve_model_for_intent(intent: str, provider: Optional[str] = None) -> str:
+    return settings.MODEL_FAST if intent in FAST_INTENTS else settings.MODEL_SMART
 
 
 def create_chat_model_for_intent(
@@ -38,7 +22,7 @@ def create_chat_model_for_intent(
     max_tokens: Optional[int] = None,
     model_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Any:
-    resolved_model = model_name or resolve_model_for_intent(intent) or settings.MODEL_ALIAS_SMART
+    resolved_model = model_name or resolve_model_for_intent(intent)
     return create_chat_model(
         model_name=resolved_model,
         temperature=temperature,

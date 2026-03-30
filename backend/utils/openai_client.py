@@ -264,32 +264,11 @@ def create_chat_model(
         if not model_name.startswith("openrouter/"):
             model_name = f"openrouter/{model_name}"
 
-        # Inject OpenRouter-specific fallback/routing logic
-        from utils.model_registry import get_model_registry
-
-        registry = get_model_registry()
-        provider_config = registry.get_provider("openrouter")
-        if provider_config:
-            defaults = provider_config.get("defaults", {})
-            fallbacks = defaults.get("fallbacks", [])
-
-            if fallbacks:
-                # Construct models list: [current_model, *fallbacks]
-                # Ensure all fallbacks have 'openrouter/' prefix if needed
-                processed_fallbacks = []
-                for fb in fallbacks:
-                    if not fb.startswith("openrouter/"):
-                        processed_fallbacks.append(f"openrouter/{fb}")
-                    else:
-                        processed_fallbacks.append(fb)
-
-                full_model_list = [model_name] + processed_fallbacks
-
-                # Inject into extra_body for OpenRouter API
-                extra_body = kwargs.get("extra_body", {})
-                extra_body["models"] = full_model_list
-                extra_body["route"] = "fallback"
-                kwargs["extra_body"] = extra_body
+        # OpenRouter fallback routing
+        extra_body = kwargs.get("extra_body", {})
+        extra_body["models"] = [model_name, "openrouter/auto"]
+        extra_body["route"] = "fallback"
+        kwargs["extra_body"] = extra_body
 
     # Use our RateLimitAware wrapper
     return RateLimitAwareChatLiteLLM(

@@ -1,10 +1,6 @@
 """Extended tests for config.py — targeting uncovered branches."""
 
-import os
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from config import Settings
 
@@ -63,121 +59,68 @@ class TestGetTemperature:
 
 
 # ---------------------------------------------------------------------------
-# Settings.OPENAI_MODEL property — fallback to registry when alias is None
+# Settings.MODEL_SMART / MODEL_FAST — core model resolution
 # ---------------------------------------------------------------------------
 
-class TestOpenAIModelProperty:
-    def test_alias_set_returns_alias(self):
+class TestModelSmartFast:
+    def test_alias_overrides_provider_default(self):
         s = Settings()
-        s.MODEL_ALIAS_SMART = "my-smart-model"
-        assert s.OPENAI_MODEL == "my-smart-model"
+        s.MODEL_ALIAS_SMART = "my-custom-model"
+        assert s.MODEL_SMART == "my-custom-model"
 
-    def test_alias_none_uses_registry(self):
+    def test_no_alias_uses_provider_default(self):
         s = Settings()
         s.MODEL_ALIAS_SMART = None
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = {
-            "defaults": {"smart": "gpt-4o-registry"}
-        }
-        with patch("utils.model_registry.get_model_registry", return_value=mock_registry):
-            result = s.OPENAI_MODEL
-        # Either the mock or the real default fallback
-        assert isinstance(result, str)
-        assert len(result) > 0
+        s.LLM_PROVIDER = "openrouter"
+        assert s.MODEL_SMART == "google/gemini-3-pro-preview"
 
-    def test_alias_none_registry_missing_falls_back_to_default(self):
+    def test_fast_alias_overrides_default(self):
         s = Settings()
-        s.MODEL_ALIAS_SMART = None
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = None
-        with patch("utils.model_registry.get_model_registry", return_value=mock_registry):
-            result = s.OPENAI_MODEL
-        assert result == "gpt-4o"
+        s.MODEL_ALIAS_FAST = "my-fast-model"
+        assert s.MODEL_FAST == "my-fast-model"
 
-
-# ---------------------------------------------------------------------------
-# Settings.OPENAI_COMPREHENSION_MODELS property — empty list path
-# ---------------------------------------------------------------------------
-
-class TestOpenAIComprehensionModelsProperty:
-    def test_alias_set_returns_list_with_alias(self):
-        s = Settings()
-        s.MODEL_ALIAS_SMART = "smart-model"
-        assert s.OPENAI_COMPREHENSION_MODELS == ["smart-model"]
-
-    def test_alias_none_registry_returns_smart_list(self):
-        s = Settings()
-        s.MODEL_ALIAS_SMART = None
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = {
-            "defaults": {"smart": "gpt-4o-from-registry"}
-        }
-        with patch("utils.model_registry.get_model_registry", return_value=mock_registry):
-            result = s.OPENAI_COMPREHENSION_MODELS
-        assert result == ["gpt-4o-from-registry"]
-
-    def test_alias_none_registry_no_smart_returns_empty(self):
-        s = Settings()
-        s.MODEL_ALIAS_SMART = None
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = {"defaults": {}}
-        with patch("utils.model_registry.get_model_registry", return_value=mock_registry):
-            result = s.OPENAI_COMPREHENSION_MODELS
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# Settings.OPENAI_SUMMARY_MODELS property
-# ---------------------------------------------------------------------------
-
-class TestOpenAISummaryModelsProperty:
-    def test_alias_set_returns_list_with_alias(self):
-        # Covers line 106: `return [self.MODEL_ALIAS_SMART]`
-        s = Settings()
-        s.MODEL_ALIAS_SMART = "smart-summary-model"
-        assert s.OPENAI_SUMMARY_MODELS == ["smart-summary-model"]
-
-    def test_alias_none_registry_missing_smart_returns_empty(self):
-        s = Settings()
-        s.MODEL_ALIAS_SMART = None
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = {"defaults": {}}
-        with patch("utils.model_registry.get_model_registry", return_value=mock_registry):
-            result = s.OPENAI_SUMMARY_MODELS
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# Settings.OPENAI_TRANSLATION_MODEL and OPENAI_HELPER_MODEL — fallback path
-# ---------------------------------------------------------------------------
-
-class TestOpenAITranslationAndHelperModel:
-    def test_translation_alias_none_fallback_to_default(self):
+    def test_fast_no_alias_uses_provider_default(self):
         s = Settings()
         s.MODEL_ALIAS_FAST = None
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = None
-        with patch("utils.model_registry.get_model_registry", return_value=mock_registry):
-            result = s.OPENAI_TRANSLATION_MODEL
-        assert result == "gpt-4o-mini"
+        s.LLM_PROVIDER = "openai"
+        assert s.MODEL_FAST == "gpt-5-mini"
 
-    def test_helper_alias_none_fallback_to_default(self):
+    def test_unknown_provider_falls_back_to_openrouter(self):
         s = Settings()
-        s.MODEL_ALIAS_FAST = None
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = None
-        with patch("utils.model_registry.get_model_registry", return_value=mock_registry):
-            result = s.OPENAI_HELPER_MODEL
-        assert result == "gpt-4o-mini"
+        s.MODEL_ALIAS_SMART = None
+        s.LLM_PROVIDER = "unknown_provider"
+        assert s.MODEL_SMART == "google/gemini-3-pro-preview"
 
-    def test_translation_alias_set_returns_alias(self):
+
+# ---------------------------------------------------------------------------
+# Backward-compatible aliases
+# ---------------------------------------------------------------------------
+
+class TestBackwardCompatAliases:
+    def test_openai_model_returns_smart(self):
+        s = Settings()
+        assert s.OPENAI_MODEL == s.MODEL_SMART
+
+    def test_comprehension_models_returns_smart_list(self):
+        s = Settings()
+        assert s.OPENAI_COMPREHENSION_MODELS == [s.MODEL_SMART]
+
+    def test_summary_models_returns_smart_list(self):
+        s = Settings()
+        assert s.OPENAI_SUMMARY_MODELS == [s.MODEL_SMART]
+
+    def test_translation_model_returns_fast(self):
+        s = Settings()
+        assert s.OPENAI_TRANSLATION_MODEL == s.MODEL_FAST
+
+    def test_helper_model_returns_fast(self):
+        s = Settings()
+        assert s.OPENAI_HELPER_MODEL == s.MODEL_FAST
+
+    def test_alias_set_flows_through(self):
         s = Settings()
         s.MODEL_ALIAS_FAST = "fast-model"
         assert s.OPENAI_TRANSLATION_MODEL == "fast-model"
-
-    def test_helper_alias_set_returns_alias(self):
-        s = Settings()
-        s.MODEL_ALIAS_FAST = "fast-model"
         assert s.OPENAI_HELPER_MODEL == "fast-model"
 
 

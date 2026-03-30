@@ -320,6 +320,9 @@ function ChatPageContent() {
         // Remove from new threads set (in case it was added but now has messages)
         newThreadIdsRef.current.delete(threadId)
 
+        // Clear previous thread's messages before remount to prevent old content flash + scroll
+        setInitialMessages([])
+
         // Immediately update activeThreadId so UI responds right away
         setActiveThreadId(threadId)
 

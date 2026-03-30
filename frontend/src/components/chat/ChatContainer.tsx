@@ -290,6 +290,7 @@ export function ChatContainer({
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const isUserNearBottomRef = useRef(true)
+  const isInitializedRef = useRef(false)
 
   const handleScroll = () => {
     if (!scrollRef.current) return
@@ -302,14 +303,23 @@ export function ChatContainer({
   useEffect(() => {
     // Skip auto-scroll if showing Welcome Screen (no messages and no active task context)
     if (messages.length === 0 && !activeTaskId) return
+    if (!scrollRef.current || !isUserNearBottomRef.current) return
 
-    if (scrollRef.current && isUserNearBottomRef.current) {
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-        }
-      })
-    }
+    const el = scrollRef.current
+    const isFirstScroll = !isInitializedRef.current
+    if (isFirstScroll) isInitializedRef.current = true
+
+    requestAnimationFrame(() => {
+      if (!el) return
+      if (isFirstScroll) {
+        // Initial historical load: instant scroll to avoid multiple smooth-scroll animations
+        el.style.scrollBehavior = 'auto'
+        el.scrollTop = el.scrollHeight
+        requestAnimationFrame(() => { el.style.scrollBehavior = '' })
+      } else {
+        el.scrollTop = el.scrollHeight
+      }
+    })
   }, [messages, status, activeTaskId])
 
   // Handle pending landing page message

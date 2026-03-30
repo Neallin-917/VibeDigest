@@ -21,9 +21,9 @@ from prompts import (
 )
 from services.summarizer.models import SummaryResponseV4, ContentPlan
 from services.summarizer.config import get_llm
-from utils.text_utils import extract_first_json_object
 from utils.language_utils import normalize_lang_code
 from utils.trace_utils import build_trace_config
+from utils.llm_router import invoke_structured
 
 logger = logging.getLogger(__name__)
 
@@ -193,134 +193,9 @@ class SummaryEngine:
         messages: List[Any],
         config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Invoke LLM and parse response as JSON, with retry/repair for malformed outputs."""
-        raw = await llm.ainvoke(messages, config=config)
-        raw_text = self._extract_raw_text(raw)
+        """Invoke LLM and parse response as structured JSON.
 
-        try:
-            return self._parse_schema_json(raw_text, schema)
-        except Exception as first_error:
-            logger.warning(
-                "Initial structured parse failed for %s, retrying once: %s",
-                getattr(schema, "__name__", "schema"),
-                first_error,
-            )
-
-            retry_text = await self._retry_for_valid_json(
-                llm, schema, messages, raw_text, first_error, config
-            )
-            if retry_text is not None:
-                try:
-                    return self._parse_schema_json(retry_text, schema)
-                except Exception as retry_error:
-                    logger.warning(
-                        "Retry structured parse failed for %s, attempting repair: %s",
-                        getattr(schema, "__name__", "schema"),
-                        retry_error,
-                    )
-                    first_error = retry_error
-
-            if self.config.enable_json_repair:
-                repaired_text = await self._repair_json_to_schema(
-                    source_text=retry_text or raw_text,
-                    schema=schema,
-                    config=config,
-                )
-                return self._parse_schema_json(repaired_text, schema)
-
-            raise first_error
-
-    def _extract_raw_text(self, raw: Any) -> str:
-        raw_text = ""
-        if hasattr(raw, "content") and raw.content:
-            raw_text = raw.content
-        elif hasattr(raw, "additional_kwargs"):
-            kwargs = raw.additional_kwargs or {}
-            if "parsed" in kwargs and kwargs["parsed"]:
-                raw_text = json.dumps(kwargs["parsed"])
-            elif "tool_calls" in kwargs and kwargs["tool_calls"]:
-                first_call = kwargs["tool_calls"][0]
-                if isinstance(first_call, dict) and "function" in first_call:
-                    raw_text = json.dumps(first_call["function"].get("arguments", {}))
-
-        if not raw_text:
-            raw_text = str(raw)
-
-        logger.info(f"[_invoke_and_parse_json] raw_text ({len(raw_text)} chars): {raw_text[:500]}...")
-        return raw_text
-
-    def _parse_schema_json(self, raw_text: str, schema: Any) -> Dict[str, Any]:
-        json_text = extract_first_json_object(raw_text)
-        if not json_text:
-            raise ValueError(f"No JSON object found in response: {raw_text[:500]}")
-
-        logger.info(f"[_invoke_and_parse_json] json_text: {json_text[:300]}...")
-
-        try:
-            obj = json.loads(json_text)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON: {e}. Text: {json_text[:300]}")
-
-        if obj == {}:
-            raise ValueError(
-                f"LLM returned empty JSON object for {getattr(schema, '__name__', 'schema')}"
-            )
-
-        parsed = schema(**obj)
-        if hasattr(parsed, "model_dump"):
-            return parsed.model_dump()
-        return parsed.dict()
-
-    async def _retry_for_valid_json(
-        self,
-        llm: Any,
-        schema: Any,
-        messages: List[Any],
-        raw_text: str,
-        error: Exception,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
-        schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False)
-        retry_prompt = HumanMessage(
-            content=(
-                "Your previous response could not be parsed into the required JSON schema. "
-                "Return ONLY one valid JSON object, no markdown, no explanation.\n\n"
-                f"Schema JSON Schema:\n{schema_json}\n\n"
-                f"Validation error:\n{error}\n\n"
-                f"Previous response:\n{raw_text[:4000]}"
-            )
-        )
-        retry_raw = await llm.ainvoke(messages + [retry_prompt], config=config)
-        return self._extract_raw_text(retry_raw)
-
-    async def _repair_json_to_schema(
-        self,
-        source_text: str,
-        schema: Any,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False)
-        repair_llm = get_llm(
-            self.config.json_repair_model,
-            max_tokens=self.config.summary_single_max_output_tokens,
-        )
-        repair_messages = [
-            SystemMessage(
-                content=(
-                    "You are a strict JSON repair tool. "
-                    "Return ONLY one valid JSON object matching the provided JSON Schema. "
-                    "Do not use markdown or code fences. "
-                    "If the input is malformed or incomplete, salvage faithfully without inventing facts.\n\n"
-                    f"JSON Schema:\n{schema_json}"
-                )
-            ),
-            HumanMessage(content=f"Repair this into valid JSON:\n\n{source_text[:12000]}"),
-        ]
-        repair_raw = await repair_llm.ainvoke(repair_messages, config=config)
-        repaired_text = self._extract_raw_text(repair_raw)
-        logger.info(
-            "[_repair_json_to_schema] repaired_text (%s chars): %s...",
-            len(repaired_text),
-            repaired_text[:500],
-        )
-        return repaired_text
+        Uses the centralized invoke_structured utility which handles
+        JSON extraction and Pydantic validation in a single pass.
+        """
+        return await invoke_structured(llm, schema, messages, config=config)

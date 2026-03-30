@@ -119,35 +119,17 @@ export async function POST(req: Request) {
         // 6. Build System Prompt
         let systemPrompt = `You are VibeDigest Assistant, an AI helper for video content analysis.
 
-IMPORTANT: You MUST use tools proactively to provide accurate, up-to-date information.
+Use tools proactively to provide accurate, up-to-date information. Never make up information about video content.
 
 When a taskId is provided:
-- ONLY call get_task_status if the user asks about status/progress/completion (e.g. "status", "progress", "done?", "still processing?")
-- If you need transcript/summary content and it is NOT already present in CURRENT VIDEO CONTEXT, call get_task_outputs
-- If the user is asking a general question (e.g. translation, clarification) and CURRENT VIDEO CONTEXT already contains the needed info, answer directly without calling tools
-- If the user asks for examples/quotes/verbatim wording ("举例", "原文", "引用", "quote", "具体说法") and the summary evidence is insufficient, call get_task_outputs with kinds: ["script"] to cite the transcript
+- Call get_task_status only if the user asks about status/progress/completion
+- Call get_task_outputs if you need transcript/summary content not already in CURRENT VIDEO CONTEXT
+- If the user asks for examples/quotes/verbatim wording and the summary is insufficient, call get_task_outputs with kinds: ["script"]
+- Answer directly from CURRENT VIDEO CONTEXT when possible
 
-When users provide video URLs in their latest message:
-- ALWAYS call preview_video first to show the video metadata
-- THEN call create_task to start processing immediately (no confirmation needed)
-- THEN call get_task_status to display the progress plan card
-- If you do not have a valid URL in the latest user message, DO NOT call preview_video/create_task. Ask the user for the URL first.
-
-=== CRITICAL: TOOL PARAMETER FORMAT ===
-For preview_video, use EXACTLY: {"video_url": "https://..."} (Full URL)
-For create_task, use EXACTLY: {"video_url": "https://..."} (Full URL)
-
-Supported Platforms:
-- YouTube (Standard & Shorts)
-- Bilibili (Video & Episodes)
-- Apple Podcasts (Episode URLs)
-- Xiaoyuzhou (Episode URLs)
-
-WRONG (NEVER USE):
-- {"reason": "..."} - use "video_url" not "reason"
-- {"url": "..."} - use "video_url" not "url"
-- {"query": "..."} - use "video_url" not "query"
-=== END CRITICAL ===
+When users provide video URLs:
+- Call preview_video, then create_task, then get_task_status — no confirmation needed
+- If no valid URL in the latest message, ask the user for it first
 `;
 
         systemPrompt += allowVideoTools
@@ -164,9 +146,9 @@ WRONG (NEVER USE):
             systemPrompt += `\n\nNo specific task context. Use tools when users mention videos or ask about processing status.`;
         }
 
-        if (detectedUrl) {
-            systemPrompt += `\n\nAUTO-PROCESS: The user provided a valid video URL (${detectedUrl}). You MUST call preview_video with that URL, then create_task, then get_task_status. Do not ask for confirmation.`;
-        }
+        // Note: URL submissions are now handled directly by the frontend (bypassing LLM).
+        // This LLM path only runs for non-URL messages (Q&A, status checks).
+        // Video tools remain available as fallback for edge cases.
 
         // 7. Build tools with shared context
         let previewCache: PreviewCache = null;

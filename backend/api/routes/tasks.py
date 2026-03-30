@@ -1,18 +1,13 @@
 import logging
-import asyncio
 import os
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Body, Header
-from fastapi.responses import StreamingResponse
 
 from dependencies import get_current_user, get_db_client, get_video_processor
 from db_client import DBClient
 from services.video_processor import VideoProcessor
 from utils.url import normalize_video_url
 from services.background_tasks import run_pipeline, handle_retry_output
-from services.event_bus import event_bus
-from utils.sse import SSEStream
-from schemas.events import TaskProgressEvent, HeartbeatEvent
 from constants import TaskStatus
 
 router = APIRouter()
@@ -117,32 +112,6 @@ async def update_task_title(
     if new_title:
         db.update_task_status(task_id, video_title=new_title)
     return {"status": "success"}
-
-@router.get("/tasks/{task_id}/stream")
-async def stream_task_progress(
-    task_id: str,
-    user_id: str = Depends(get_current_user),
-    db: DBClient = Depends(get_db_client),
-):
-    """SSE endpoint for real-time task progress updates."""
-    task = db.get_task(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    async def event_generator():
-        stream = SSEStream(heartbeat_interval=15.0)
-        queue = await event_bus.subscribe(task_id)
-        try:
-            while True:
-                try:
-                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    yield stream.event(getattr(event, "event_type", "unknown"), event)
-                except asyncio.TimeoutError:
-                    yield stream.event("heartbeat", HeartbeatEvent())
-        finally:
-            await event_bus.unsubscribe(task_id, queue)
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.get("/tasks/{task_id}/status")
 async def get_task_status(

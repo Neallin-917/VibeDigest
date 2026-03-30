@@ -7,8 +7,9 @@ import { WelcomeScreen } from './WelcomeScreen'
 import { MessageRow } from './MessageRow'
 import { cn } from '@/lib/utils'
 import { checkHasRenderableAssistant, checkHasTaskStatusForActiveTask } from '@/lib/chat-perf-utils'
-import { useRef, useEffect, useMemo, useState } from 'react'
+import { useRef, useEffect, useMemo, useState, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import { extractAndNormalizeUrl } from '@/lib/url-utils'
 
 import { Loader2, XCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -135,10 +136,84 @@ export function ChatContainer({
     window.location.href = loginUrl
   }
 
-  /*
-   * wrapper for sending messages that matches the previous append signature if needed,
-   * but strictly we should use sendMessageToApi({ text })
+  // Track whether a direct URL submission is in progress
+  const [isDirectProcessing, setIsDirectProcessing] = useState(false)
+
+  /**
+   * Direct URL submission: bypass LLM tool calls entirely.
+   * Calls /api/process-video directly, then injects synthetic messages
+   * so the existing GetTaskStatusTool UI + Realtime subscription handles updates.
    */
+  const handleDirectUrlSubmission = useCallback(async (url: string, originalText: string) => {
+    setIsDirectProcessing(true)
+    try {
+      const res = await fetch('/api/process-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_url: url }),
+      })
+
+      if (!res.ok) {
+        // Fall back to LLM path on API error
+        sendMessageToApi({ text: originalText })
+        return
+      }
+
+      const data = await res.json()
+      const taskId = data.task_id
+
+      if (!taskId) {
+        sendMessageToApi({ text: originalText })
+        return
+      }
+
+      // Inject synthetic messages: user message + assistant with task status card
+      const userMsgId = `direct-user-${uuidv4()}`
+      const assistantMsgId = `direct-assistant-${uuidv4()}`
+      const toolCallId = `direct-status-${taskId}`
+
+      const userMsg: UIMessage = {
+        id: userMsgId,
+        role: 'user',
+        parts: [{ type: 'text', text: originalText }],
+      }
+
+      const assistantMsg: UIMessage = {
+        id: assistantMsgId,
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-get_task_status' as unknown as 'text',
+            toolCallId,
+            state: 'output-available',
+            input: { taskId },
+            output: { taskId, status: 'pending', progress: 0 },
+          } as unknown as UIMessage['parts'][number],
+        ],
+      }
+
+      setMessages(prev => [...prev, userMsg, assistantMsg])
+
+      // Update active task ref so RAG context is available for follow-up Q&A
+      activeTaskIdRef.current = taskId
+
+      // Auto-open the video detail panel
+      if (onOpenPanel) {
+        onOpenPanel(taskId)
+      }
+
+      // Notify parent that chat has started
+      if (onChatStarted) {
+        onChatStarted(effectiveThreadId)
+      }
+    } catch {
+      // Network error: fall back to LLM path
+      sendMessageToApi({ text: originalText })
+    } finally {
+      setIsDirectProcessing(false)
+    }
+  }, [sendMessageToApi, setMessages, onOpenPanel, onChatStarted, effectiveThreadId])
+
   const handleSendMessage = (content: string) => {
     const trimmed = content.trim()
     if (!trimmed) return
@@ -150,7 +225,14 @@ export function ChatContainer({
       return
     }
 
-    // AI SDK v6: sendMessage expects { text: string }
+    // Direct URL path: detect URL and bypass LLM entirely
+    const detectedUrl = extractAndNormalizeUrl(trimmed)
+    if (detectedUrl) {
+      handleDirectUrlSubmission(detectedUrl, trimmed)
+      return
+    }
+
+    // Non-URL messages: send through LLM for Q&A
     sendMessageToApi({ text: trimmed })
   }
 
@@ -168,7 +250,7 @@ export function ChatContainer({
     activeTaskIdRef.current = activeTaskId
   }, [activeTaskId])
 
-  const isLoading = status === 'streaming' || status === 'submitted'
+  const isLoading = status === 'streaming' || status === 'submitted' || isDirectProcessing
   const hasRenderableAssistant = useMemo(
     () => checkHasRenderableAssistant(messages),
     [messages]

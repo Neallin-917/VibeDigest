@@ -175,9 +175,7 @@ async def test_cleanup_marks_parent_task_error_when_state_has_errors():
 
     mock_db = MagicMock()
 
-    with patch('workflow._get_db_client', return_value=mock_db), \
-         patch('workflow.event_bus.publish_progress', new=AsyncMock()), \
-         patch('workflow.event_bus.publish_error', new=AsyncMock()):
+    with patch('workflow._get_db_client', return_value=mock_db):
         updates = await cleanup(state)
 
     assert updates == {}

@@ -27,16 +27,6 @@ from services.summarizer import (
 )
 from services.transcript_guard import TranscriptValidation
 
-# Export SSE event schemas
-from .events import (
-    TaskProgressEvent,
-    TaskOutputEvent,
-    TaskCompleteEvent,
-    TaskErrorEvent,
-    HeartbeatEvent,
-    SSEEvent,
-)
-
 # Export API response schemas
 from .api import (
     TaskCreateResponse,
@@ -62,13 +52,6 @@ __all__ = [
     "SummaryResponse",
     # Validation models
     "TranscriptValidation",
-    # SSE Event models
-    "TaskProgressEvent",
-    "TaskOutputEvent",
-    "TaskCompleteEvent",
-    "TaskErrorEvent",
-    "HeartbeatEvent",
-    "SSEEvent",
     # API Response models
     "TaskCreateResponse",
     "TaskStatusResponse",

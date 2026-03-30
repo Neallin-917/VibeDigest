@@ -28,12 +28,6 @@ export interface Thread {
 
 // Re-export hook types for convenience
 export type {
-    TaskProgressEvent,
-    TaskOutputEvent,
-    TaskCompleteEvent,
-    TaskErrorEvent,
-    HeartbeatEvent,
-    SSEEvent,
     TaskStatus,
     OutputKind,
 } from './generated';

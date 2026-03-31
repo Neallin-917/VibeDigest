@@ -130,20 +130,22 @@ function ChatPageContent() {
     }, [pathname, replace])
 
     // Fetch threads list (silently skipped for unauthenticated users)
-    const fetchThreads = useCallback(async () => {
+    const fetchThreads = useCallback(async (): Promise<Thread[]> => {
         try {
             const res = await fetch('/api/chat/threads')
             if (res.status === 401) {
                 setThreads([])
-                return
+                return []
             }
             if (res.ok) {
                 const data = await res.json()
                 setThreads(data)
+                return Array.isArray(data) ? data : []
             }
         } catch (error) {
             console.error('Failed to fetch threads', error)
         }
+        return []
     }, [])
 
     const fetchThreadMessages = useCallback(async (threadId: string): Promise<UIMessage[]> => {
@@ -300,7 +302,7 @@ function ChatPageContent() {
             if (!hasBootstrappedRef.current) {
                 setIsBootstrapping(true)
             }
-            await fetchThreads()
+            const fetchedThreads = await fetchThreads()
 
             if (queryTaskId) {
                 const resolvedThreadId = queryThreadId || await resolveOrCreateThreadForTask(queryTaskId)
@@ -330,6 +332,17 @@ function ChatPageContent() {
                 safeReplace(params)
             } else if (queryThreadId) {
                 if (cancelled) return
+
+                if (!fetchedThreads.some((thread) => thread.id === queryThreadId)) {
+                    newThreadIdsRef.current.add(queryThreadId)
+                    setActiveThreadId(queryThreadId)
+                    setActiveTaskId(null)
+                    setInitialMessages([])
+                    if (cancelled) return
+                    hasBootstrappedRef.current = true
+                    setIsBootstrapping(false)
+                    return
+                }
 
                 // Restore task association from the thread's persisted task_id
                 if (!newThreadIdsRef.current.has(queryThreadId)) {

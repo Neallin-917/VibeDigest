@@ -235,6 +235,28 @@ describe('ChatPageClient', () => {
     expect(replaceMock).not.toHaveBeenCalled()
   })
 
+  it('treats an unknown threadId in the URL as a fresh thread without reloading history', async () => {
+    currentSearchParams = new URLSearchParams('threadId=fresh-thread')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return jsonResponse([
+        { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
+      ])
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'fresh-thread')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', '')
+    })
+
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/chat/threads/fresh-thread/messages')
+    expect(replaceMock).not.toHaveBeenCalled()
+  })
+
   it('loads messages only once when selecting a thread from sidebar', async () => {
     // Start with no task/threadId — generates ephemeral thread
     currentSearchParams = new URLSearchParams()

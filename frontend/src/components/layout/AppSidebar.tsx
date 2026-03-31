@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { v4 as uuidv4 } from "uuid"
 import {
   Plus,
   Library,
@@ -55,7 +56,7 @@ export function AppSidebar({
     if (onNewChat) {
       onNewChat()
     } else {
-      router.push(`/${locale}/chat`)
+      router.push(`/${locale}/chat?threadId=${uuidv4()}`)
     }
   }
 

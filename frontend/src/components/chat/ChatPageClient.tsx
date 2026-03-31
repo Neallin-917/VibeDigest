@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo, Suspense, startTransition } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { ChatWorkspace } from "@/components/chat/ChatWorkspace"
 import { AppSidebar } from "@/components/layout/AppSidebar"
@@ -18,6 +18,14 @@ interface Thread {
     updated_at: string
     task_id?: string | null
 }
+
+interface ThreadPayload {
+    taskId: string | null
+    messages: UIMessage[]
+    fetchedAt: number
+}
+
+const THREAD_PREFETCH_LIMIT = 3
 
 function ChatPageContent() {
     const searchParams = useSearchParams()
@@ -54,11 +62,16 @@ function ChatPageContent() {
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
     const [activeTaskId, setActiveTaskId] = useState<string | null>(queryTaskId)
     const [initialMessages, setInitialMessages] = useState<UIMessage[]>([])
+    const [pendingThreadId, setPendingThreadId] = useState<string | null>(null)
+    const [isThreadSwitching, setIsThreadSwitching] = useState(false)
     const [taskSelectionNonce, setTaskSelectionNonce] = useState(0)
     const [isBootstrapping, setIsBootstrapping] = useState(true)
     // Track newly created thread IDs to skip loading
     const newThreadIdsRef = useRef<Set<string>>(new Set())
     const hasBootstrappedRef = useRef(false)
+    const threadSelectionRequestIdRef = useRef(0)
+    const threadPayloadCacheRef = useRef<Map<string, ThreadPayload>>(new Map())
+    const threadLoadPromisesRef = useRef<Map<string, Promise<ThreadPayload>>>(new Map())
     // Flag to prevent main useEffect from re-running when user-initiated navigation
     // changes URL params. This relies on React 18+ automatic batching: setState calls
     // within the same event handler are batched, so the useEffect won't fire between
@@ -68,8 +81,13 @@ function ChatPageContent() {
     // [Safety net] Navigation history for cycle detection — fallback defense-in-depth.
     // Primary protection is isUserNavigatingRef above; this catches unexpected edge cases.
     const navigationHistoryRef = useRef<Array<{ url: string; timestamp: number }>>([])
-    const resolvedActiveThreadId = queryThreadId || activeThreadId
-    const resolvedActiveTaskId = queryTaskId ?? activeTaskId
+    const resolvedActiveThreadId = activeThreadId ?? queryThreadId
+    const resolvedActiveTaskId = activeTaskId ?? queryTaskId
+    const selectedThreadId = pendingThreadId ?? resolvedActiveThreadId
+    const switchingThreadTitle = useMemo(
+        () => threads.find((thread) => thread.id === pendingThreadId)?.title ?? null,
+        [pendingThreadId, threads]
+    )
 
     useEffect(() => {
         latestSearchParamsRef.current = searchParamsString
@@ -128,25 +146,96 @@ function ChatPageContent() {
         }
     }, [])
 
-    const loadThreadMessages = useCallback(async (threadId: string) => {
+    const fetchThreadMessages = useCallback(async (threadId: string): Promise<UIMessage[]> => {
         try {
             const res = await fetch(`/api/chat/threads/${threadId}/messages`)
             if (res.status === 401) {
-                setInitialMessages([])
-                return
+                return []
             }
             if (res.ok) {
                 const dbMessages: DBMessage[] = await res.json()
-                const uiMessages = dbMessages.map(mapDBMessageToUIMessage)
-                setInitialMessages(uiMessages)
-                return
+                return dbMessages.map(mapDBMessageToUIMessage)
             }
-            setInitialMessages([])
+            return []
         } catch (error) {
             console.error('Failed to load thread messages', error)
-            setInitialMessages([])
+            return []
         }
     }, [])
+
+    const loadThreadMessages = useCallback(async (threadId: string) => {
+        const uiMessages = await fetchThreadMessages(threadId)
+        setInitialMessages(uiMessages)
+    }, [fetchThreadMessages])
+
+    const cacheThreadPayload = useCallback((threadId: string, payload: Omit<ThreadPayload, 'fetchedAt'>) => {
+        const cachedPayload: ThreadPayload = {
+            ...payload,
+            fetchedAt: Date.now(),
+        }
+        threadPayloadCacheRef.current.set(threadId, cachedPayload)
+        return cachedPayload
+    }, [])
+
+    const loadThreadPayload = useCallback(async (threadId: string): Promise<ThreadPayload> => {
+        const cachedPayload = threadPayloadCacheRef.current.get(threadId)
+        if (cachedPayload) {
+            return cachedPayload
+        }
+
+        const inFlightPayload = threadLoadPromisesRef.current.get(threadId)
+        if (inFlightPayload) {
+            return inFlightPayload
+        }
+
+        const loadPromise = (async () => {
+            const [taskId, messages] = await Promise.all([
+                fetchThreadTaskId(threadId),
+                fetchThreadMessages(threadId),
+            ])
+
+            return cacheThreadPayload(threadId, { taskId, messages })
+        })()
+
+        threadLoadPromisesRef.current.set(threadId, loadPromise)
+
+        try {
+            return await loadPromise
+        } finally {
+            if (threadLoadPromisesRef.current.get(threadId) === loadPromise) {
+                threadLoadPromisesRef.current.delete(threadId)
+            }
+        }
+    }, [cacheThreadPayload, fetchThreadMessages])
+
+    const commitThreadSelection = useCallback((threadId: string, payload: ThreadPayload) => {
+        startTransition(() => {
+            setActiveThreadId(threadId)
+            setActiveTaskId(payload.taskId)
+            setInitialMessages(payload.messages)
+            setPendingThreadId(null)
+            setIsThreadSwitching(false)
+        })
+
+        const params = getCurrentParams()
+        if (payload.taskId) {
+            params.set("task", payload.taskId)
+        } else {
+            params.delete("task")
+        }
+        params.set("threadId", threadId)
+        safeReplace(params)
+    }, [getCurrentParams, safeReplace])
+
+    const prefetchThread = useCallback((threadId: string) => {
+        if (!threadId) return
+        if (threadId === resolvedActiveThreadId) return
+        if (newThreadIdsRef.current.has(threadId)) return
+
+        void loadThreadPayload(threadId).catch((error) => {
+            console.error('Failed to prefetch thread payload', error)
+        })
+    }, [loadThreadPayload, resolvedActiveThreadId])
 
     const resolveOrCreateThreadForTask = useCallback(async (taskId: string) => {
         try {
@@ -217,12 +306,21 @@ function ChatPageContent() {
                 const resolvedThreadId = queryThreadId || await resolveOrCreateThreadForTask(queryTaskId)
                 if (cancelled) return
 
-                setActiveTaskId(queryTaskId)
-                setActiveThreadId(resolvedThreadId)
-
                 if (!newThreadIdsRef.current.has(resolvedThreadId)) {
-                    await loadThreadMessages(resolvedThreadId)
+                    const payload = await loadThreadPayload(resolvedThreadId)
+                    if (cancelled) return
+
+                    const cachedPayload = cacheThreadPayload(resolvedThreadId, {
+                        taskId: queryTaskId,
+                        messages: payload.messages,
+                    })
+
+                    setActiveThreadId(resolvedThreadId)
+                    setActiveTaskId(queryTaskId)
+                    setInitialMessages(cachedPayload.messages)
                 } else {
+                    setActiveThreadId(resolvedThreadId)
+                    setActiveTaskId(queryTaskId)
                     setInitialMessages([])
                 }
 
@@ -232,25 +330,26 @@ function ChatPageContent() {
                 safeReplace(params)
             } else if (queryThreadId) {
                 if (cancelled) return
-                setActiveThreadId(queryThreadId)
 
                 // Restore task association from the thread's persisted task_id
                 if (!newThreadIdsRef.current.has(queryThreadId)) {
-                    const restoredTaskId = await fetchThreadTaskId(queryThreadId)
+                    const payload = await loadThreadPayload(queryThreadId)
                     if (cancelled) return
 
-                    if (restoredTaskId) {
-                        setActiveTaskId(restoredTaskId)
+                    setActiveThreadId(queryThreadId)
+                    setActiveTaskId(payload.taskId)
+                    setInitialMessages(payload.messages)
+
+                    if (payload.taskId) {
                         const params = getCurrentParams()
-                        params.set("task", restoredTaskId)
+                        params.set("task", payload.taskId)
                         params.set("threadId", queryThreadId)
                         safeReplace(params)
                     } else {
                         setActiveTaskId(null)
                     }
-
-                    await loadThreadMessages(queryThreadId)
                 } else {
+                    setActiveThreadId(queryThreadId)
                     setActiveTaskId(null)
                     setInitialMessages([])
                 }
@@ -299,11 +398,14 @@ function ChatPageContent() {
 
         // Mark as new thread to skip loading
         newThreadIdsRef.current.add(newId)
+        threadSelectionRequestIdRef.current += 1
 
         // Update state first
         setActiveThreadId(newId)
         setActiveTaskId(null)
         setInitialMessages([])
+        setPendingThreadId(null)
+        setIsThreadSwitching(false)
 
         // Then update URL
         const params = getCurrentParams()
@@ -314,52 +416,53 @@ function ChatPageContent() {
 
     // Handle Thread Selection (from sidebar)
     const handleSelectThread = useCallback(async (threadId: string) => {
+        if (!threadId || threadId === resolvedActiveThreadId || threadId === pendingThreadId) {
+            return
+        }
+
+        const requestId = ++threadSelectionRequestIdRef.current
+
         // Prevent main useEffect from re-running due to URL param changes
         isUserNavigatingRef.current = true
 
         // Remove from new threads set (in case it was added but now has messages)
         newThreadIdsRef.current.delete(threadId)
 
-        // Clear previous thread's messages before remount to prevent old content flash + scroll
-        setInitialMessages([])
+        setPendingThreadId(threadId)
+        setIsThreadSwitching(true)
 
-        // Immediately update activeThreadId so UI responds right away
-        setActiveThreadId(threadId)
-
-        // Restore task association from the thread's persisted task_id
-        const restoredTaskId = await fetchThreadTaskId(threadId)
-        setActiveTaskId(restoredTaskId)
-
-        // Update URL with restored task (if any)
-        const params = getCurrentParams()
-        if (restoredTaskId) {
-            params.set("task", restoredTaskId)
-        } else {
-            params.delete("task")
+        const cachedPayload = threadPayloadCacheRef.current.get(threadId)
+        if (cachedPayload) {
+            commitThreadSelection(threadId, cachedPayload)
+            return
         }
-        params.set("threadId", threadId)
-        safeReplace(params)
 
-        // Load messages
         try {
-            const res = await fetch(`/api/chat/threads/${threadId}/messages`)
-            if (res.ok) {
-                const dbMessages: DBMessage[] = await res.json()
-                const uiMessages = dbMessages.map(mapDBMessageToUIMessage)
-                setInitialMessages(uiMessages)
-            } else {
-                setInitialMessages([])
+            const payload = await loadThreadPayload(threadId)
+
+            if (requestId !== threadSelectionRequestIdRef.current) {
+                return
             }
-        } catch (e) {
-            console.error("Failed to load thread messages", e)
-            setInitialMessages([])
+
+            commitThreadSelection(threadId, payload)
+        } catch (error) {
+            console.error('Failed to switch thread', error)
+            if (requestId !== threadSelectionRequestIdRef.current) {
+                return
+            }
+            isUserNavigatingRef.current = false
+            setPendingThreadId(null)
+            setIsThreadSwitching(false)
         }
-    }, [getCurrentParams, safeReplace])
+    }, [commitThreadSelection, loadThreadPayload, pendingThreadId, resolvedActiveThreadId])
 
     // Handle Task Selection (from Sidebar or Workspace)
     const handleSelectTask = useCallback(async (taskId: string | null) => {
         // Prevent main useEffect from re-running due to URL param changes
         isUserNavigatingRef.current = true
+        threadSelectionRequestIdRef.current += 1
+        setPendingThreadId(null)
+        setIsThreadSwitching(false)
 
         const params = getCurrentParams()
 
@@ -406,6 +509,7 @@ function ChatPageContent() {
     const handleChatStarted = useCallback((threadId: string) => {
         // Remove from new threads set since it now has messages
         newThreadIdsRef.current.delete(threadId)
+        threadPayloadCacheRef.current.delete(threadId)
 
         // Ensure URL is updated
         const params = getCurrentParams()
@@ -418,6 +522,35 @@ function ChatPageContent() {
         fetchThreads()
     }, [fetchThreads, getCurrentParams, safeReplace])
 
+    useEffect(() => {
+        if (threads.length === 0) return
+
+        const prefetchedThreadIds = threads
+            .filter((thread) => thread.id !== resolvedActiveThreadId)
+            .slice(0, THREAD_PREFETCH_LIMIT)
+            .map((thread) => thread.id)
+
+        if (prefetchedThreadIds.length === 0) return
+
+        const requestIdle = window.requestIdleCallback
+            ? window.requestIdleCallback.bind(window)
+            : ((callback: IdleRequestCallback) => window.setTimeout(
+                () => callback({ didTimeout: false, timeRemaining: () => 0 } as IdleDeadline),
+                120
+            ))
+        const cancelIdle = window.cancelIdleCallback
+            ? window.cancelIdleCallback.bind(window)
+            : window.clearTimeout.bind(window)
+
+        const idleHandle = requestIdle(() => {
+            prefetchedThreadIds.forEach((threadId) => prefetchThread(threadId))
+        })
+
+        return () => {
+            cancelIdle(idleHandle)
+        }
+    }, [prefetchThread, resolvedActiveThreadId, threads])
+
     return (
         <AppSidebarProvider defaultCollapsed={true}>
             <div className="h-screen w-full flex text-foreground overflow-hidden">
@@ -425,8 +558,10 @@ function ChatPageContent() {
                 <AppSidebar
                     threads={threads}
                     activeThreadId={resolvedActiveThreadId}
+                    selectedThreadId={selectedThreadId}
                     onNewChat={handleNewChat}
                     onSelectThread={handleSelectThread}
+                    onPrefetchThread={prefetchThread}
                 />
 
                 {/* Workspace */}
@@ -435,7 +570,10 @@ function ChatPageContent() {
                 ) : (
                     <ChatWorkspace
                         activeThreadId={resolvedActiveThreadId}
+                        selectedThreadId={selectedThreadId}
                         activeTaskId={resolvedActiveTaskId}
+                        isThreadSwitching={isThreadSwitching}
+                        switchingThreadTitle={switchingThreadTitle}
                         taskSelectionNonce={taskSelectionNonce}
                         initialMessages={initialMessages}
                         isAuthenticated={isAuthenticated ?? false}

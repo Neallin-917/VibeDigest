@@ -5,6 +5,8 @@ import { ChatPageClient } from '../ChatPageClient'
 let currentSearchParams = new URLSearchParams()
 const replaceMock = vi.fn()
 const pushMock = vi.fn()
+const fetchThreadTaskIdMock = vi.fn(async () => null)
+const idleCallbacks: IdleRequestCallback[] = []
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => ({
@@ -20,7 +22,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/lib/thread-utils', () => ({
-  fetchThreadTaskId: vi.fn(async () => null)
+  fetchThreadTaskId: (...args: unknown[]) => fetchThreadTaskIdMock(...args)
 }))
 
 vi.mock('@/components/layout/AppSidebarContext', () => ({
@@ -28,7 +30,14 @@ vi.mock('@/components/layout/AppSidebarContext', () => ({
 }))
 
 vi.mock('@/components/layout/AppSidebar', () => ({
-  AppSidebar: () => <div data-testid="sidebar" />
+  AppSidebar: (props: any) => (
+    <div
+      data-testid="sidebar"
+      data-selected-thread-id={props.selectedThreadId || props.activeThreadId || ''}
+    >
+      <button onClick={() => props.onPrefetchThread?.('thread-b')}>Prefetch Thread B</button>
+    </div>
+  )
 }))
 
 vi.mock('../ChatWorkspace', () => ({
@@ -37,6 +46,7 @@ vi.mock('../ChatWorkspace', () => ({
       data-testid="workspace"
       data-thread-id={props.activeThreadId || ''}
       data-task-id={props.activeTaskId || ''}
+      data-locked={props.isThreadSwitching ? 'true' : 'false'}
     >
       <button onClick={() => props.onSelectTask('task-b')}>Select Task B</button>
       <button onClick={() => props.onSelectThread?.('thread-b')}>Select Thread B</button>
@@ -53,9 +63,35 @@ function jsonResponse(body: unknown) {
   } as Response
 }
 
+function runIdleCallbacks() {
+  const callbacks = idleCallbacks.splice(0, idleCallbacks.length)
+  callbacks.forEach((callback) => {
+    callback({
+      didTimeout: false,
+      timeRemaining: () => 5,
+    } as IdleDeadline)
+  })
+}
+
 describe('ChatPageClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    fetchThreadTaskIdMock.mockReset()
+    fetchThreadTaskIdMock.mockResolvedValue(null)
+    idleCallbacks.length = 0
+    Object.defineProperty(window, 'requestIdleCallback', {
+      writable: true,
+      configurable: true,
+      value: vi.fn((callback: IdleRequestCallback) => {
+        idleCallbacks.push(callback)
+        return idleCallbacks.length
+      })
+    })
+    Object.defineProperty(window, 'cancelIdleCallback', {
+      writable: true,
+      configurable: true,
+      value: vi.fn()
+    })
     currentSearchParams = new URLSearchParams()
     replaceMock.mockImplementation((url: string) => {
       const [, query = ''] = url.split('?')
@@ -234,6 +270,124 @@ describe('ChatPageClient', () => {
     expect(messageFetches).toHaveLength(1)
   })
 
+  it('keeps the previous thread visible while an uncached thread is loading', async () => {
+    currentSearchParams = new URLSearchParams('threadId=thread-a')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return jsonResponse([
+        { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
+      ])
+      if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([
+        { id: 'm1', role: 'user', content: 'Thread A', created_at: '2026-02-06T00:00:00Z' },
+      ])
+      if (url === '/api/chat/threads/thread-b/messages') {
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        return jsonResponse([
+          { id: 'm2', role: 'user', content: 'Thread B', created_at: '2026-02-06T00:00:00Z' },
+        ])
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'false')
+    })
+
+    fireEvent.click(screen.getByText('Select Thread B'))
+
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'true')
+    expect(screen.getByTestId('sidebar')).toHaveAttribute('data-selected-thread-id', 'thread-b')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-b')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'false')
+    })
+  })
+
+  it('reuses prefetched thread payload on click without refetching messages', async () => {
+    currentSearchParams = new URLSearchParams('threadId=thread-a')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return jsonResponse([
+        { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
+      ])
+      if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
+      if (url === '/api/chat/threads/thread-b/messages') return jsonResponse([])
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+    })
+
+    fetchMock.mockClear()
+    fireEvent.click(screen.getByText('Prefetch Thread B'))
+
+    await waitFor(() => {
+      const prefetchedCalls = fetchMock.mock.calls.filter(
+        ([url]) => url.toString() === '/api/chat/threads/thread-b/messages'
+      )
+      expect(prefetchedCalls).toHaveLength(1)
+    })
+
+    fireEvent.click(screen.getByText('Select Thread B'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-b')
+    })
+
+    const threadBMessageFetches = fetchMock.mock.calls.filter(
+      ([url]) => url.toString() === '/api/chat/threads/thread-b/messages'
+    )
+    expect(threadBMessageFetches).toHaveLength(1)
+  })
+
+  it('prefetches the top recent threads during idle time', async () => {
+    currentSearchParams = new URLSearchParams('threadId=thread-a')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return jsonResponse([
+        { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-c', title: 'Thread C', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-d', title: 'Thread D', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-e', title: 'Thread E', updated_at: '2026-02-06T00:00:00Z' },
+      ])
+      if (url.startsWith('/api/chat/threads/') && url.endsWith('/messages')) return jsonResponse([])
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+    })
+
+    fetchMock.mockClear()
+    runIdleCallbacks()
+
+    await waitFor(() => {
+      const prefetchedThreadIds = fetchMock.mock.calls
+        .map(([url]) => url.toString())
+        .filter((url) => url.endsWith('/messages'))
+        .map((url) => url.match(/\/api\/chat\/threads\/(.+)\/messages$/)?.[1])
+        .filter(Boolean)
+
+      expect(prefetchedThreadIds).toEqual(['thread-b', 'thread-c', 'thread-d'])
+    })
+  })
+
   it('lands on last selected thread when rapidly switching', async () => {
     currentSearchParams = new URLSearchParams()
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -259,6 +413,50 @@ describe('ChatPageClient', () => {
     // Should end up on thread-c (the last one selected)
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-c')
+    })
+  })
+
+  it('ignores stale thread selection responses when switching rapidly', async () => {
+    currentSearchParams = new URLSearchParams('task=task-a&threadId=thread-a')
+
+    fetchThreadTaskIdMock.mockImplementation(async (threadId: string) => {
+      if (threadId === 'thread-b') {
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        return 'task-b'
+      }
+      return null
+    })
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return jsonResponse([
+        { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
+        { id: 'thread-c', title: 'Thread C', updated_at: '2026-02-06T00:00:00Z' },
+      ])
+      if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
+      if (url === '/api/chat/threads/thread-c/messages') return jsonResponse([])
+      if (url === '/api/chat/threads/thread-b/messages') {
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        return jsonResponse([])
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', 'task-a')
+    })
+
+    fireEvent.click(screen.getByText('Select Thread B'))
+    fireEvent.click(screen.getByText('Select Thread C'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-c')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', '')
     })
   })
 })

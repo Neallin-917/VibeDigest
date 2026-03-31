@@ -28,7 +28,9 @@ interface MobileMenuDrawerProps {
   onOpenLibrary: () => void
   threads?: Thread[]
   activeThreadId?: string | null
+  selectedThreadId?: string | null
   onSelectThread?: (threadId: string) => void
+  onPrefetchThread?: (threadId: string) => void
 }
 
 export function MobileMenuDrawer({ 
@@ -38,7 +40,9 @@ export function MobileMenuDrawer({
   onOpenLibrary,
   threads = [],
   activeThreadId,
-  onSelectThread
+  selectedThreadId,
+  onSelectThread,
+  onPrefetchThread
 }: MobileMenuDrawerProps) {
   const { t, locale } = useI18n()
   const pathname = usePathname()
@@ -47,7 +51,8 @@ export function MobileMenuDrawer({
   // Collapse state
   const [isChatsOpen, setIsChatsOpen] = useState(true)
 
-  const isNewChatActive = pathname?.endsWith('/chat') && !searchParams?.get('task') && !activeThreadId
+  const currentSelectedThreadId = selectedThreadId ?? activeThreadId
+  const isNewChatActive = pathname?.endsWith('/chat') && !searchParams?.get('task') && !currentSelectedThreadId
   const isCommunityActive = pathname?.includes('/explore')
   
   const handleNewChat = () => {
@@ -131,16 +136,18 @@ export function MobileMenuDrawer({
                     <button
                       key={thread.id}
                       onClick={() => onSelectThread?.(thread.id)}
+                      onPointerEnter={() => onPrefetchThread?.(thread.id)}
+                      onFocus={() => onPrefetchThread?.(thread.id)}
                       className={cn(
                         "w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-3",
-                        activeThreadId === thread.id
+                        currentSelectedThreadId === thread.id
                           ? "bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                           : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5"
                       )}
                     >
                       <MessageSquare className={cn(
                         "w-4 h-4 shrink-0", 
-                        activeThreadId === thread.id ? "text-emerald-500" : "text-slate-400"
+                        currentSelectedThreadId === thread.id ? "text-emerald-500" : "text-slate-400"
                       )} />
                       <span className="text-sm font-medium truncate">{thread.title || 'New Chat'}</span>
                     </button>

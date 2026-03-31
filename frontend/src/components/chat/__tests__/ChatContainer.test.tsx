@@ -31,9 +31,9 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
 }))
 
 vi.mock('../ChatInput', () => ({
-  ChatInput: ({ onSubmit, isLoading }: any) => (
+  ChatInput: ({ onSubmit, isLoading, disabled }: any) => (
     <div data-testid="chat-input">
-      <button onClick={() => onSubmit('test message')} disabled={isLoading}>Send</button>
+      <button onClick={() => onSubmit('test message')} disabled={isLoading || disabled}>Send</button>
     </div>
   )
 }))
@@ -357,5 +357,69 @@ describe('ChatContainer', () => {
       })
       expect(prepared?.body?.taskId).toBe('task-2')
     })
+  })
+
+  it('does not re-hydrate messages when initialMessages already match chat state', () => {
+    const initialMessages: UIMessage[] = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
+      { id: 'm2', role: 'assistant', parts: [{ type: 'text', text: 'Hi' }] },
+    ]
+
+    mockUseChat.mockReturnValue({
+      messages: initialMessages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(<ChatContainer initialMessages={initialMessages} />)
+
+    expect(mockSetMessages).not.toHaveBeenCalled()
+  })
+
+  it('hydrates messages when initialMessages change to a different thread history', () => {
+    const currentMessages: UIMessage[] = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Old' }] },
+    ]
+    const nextInitialMessages: UIMessage[] = [
+      { id: 'm9', role: 'user', parts: [{ type: 'text', text: 'New thread' }] },
+    ]
+
+    mockUseChat.mockReturnValue({
+      messages: currentMessages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(<ChatContainer initialMessages={nextInitialMessages} />)
+
+    expect(mockSetMessages).toHaveBeenCalledWith(nextInitialMessages)
+  })
+
+  it('locks the composer while thread switching is in progress', () => {
+    const messages: UIMessage[] = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] }
+    ]
+
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(<ChatContainer initialMessages={messages} isInteractionLocked={true} />)
+
+    expect(screen.getByText('Send')).toBeDisabled()
   })
 })

@@ -31,7 +31,10 @@ interface Thread {
 
 interface ChatWorkspaceProps {
   activeThreadId: string | null
+  selectedThreadId: string | null
   activeTaskId: string | null
+  isThreadSwitching?: boolean
+  switchingThreadTitle?: string | null
   taskSelectionNonce?: number
   initialMessages: UIMessage[]
   isAuthenticated?: boolean
@@ -47,7 +50,10 @@ interface ChatWorkspaceProps {
 
 export function ChatWorkspace({
   activeThreadId,
+  selectedThreadId,
   activeTaskId,
+  isThreadSwitching = false,
+  switchingThreadTitle = null,
   taskSelectionNonce = 0,
   initialMessages,
   isAuthenticated = false,
@@ -208,6 +214,7 @@ export function ChatWorkspace({
         }}
         threads={threads}
         activeThreadId={activeThreadId}
+        selectedThreadId={selectedThreadId}
         onSelectThread={(id) => {
           onSelectThread(id)
           setIsMobileMenuOpen(false)
@@ -215,7 +222,7 @@ export function ChatWorkspace({
       />
 
       {/* Main Layout: Chat + Details */}
-      <main className="flex-1 flex m-3 lg:m-4 overflow-hidden gap-0"> {/* gap-0 because handle adds spacing if needed */}
+      <main className="relative flex-1 flex m-3 lg:m-4 overflow-hidden gap-0"> {/* gap-0 because handle adds spacing if needed */}
 
         {/* Chat Area */}
         <div className={cn(
@@ -229,6 +236,7 @@ export function ChatWorkspace({
               initialMessages={initialMessages}
               activeTaskId={activeTaskId}
               isAuthenticated={isAuthenticated}
+              isInteractionLocked={isThreadSwitching}
               onOpenPanel={openPanelForTask}
               onSelectExample={onSelectExample || openPanelForTask}
               onChatStarted={onChatStarted}
@@ -269,6 +277,18 @@ export function ChatWorkspace({
             />
           )}
         </aside>
+
+        {isThreadSwitching && (
+          <div
+            aria-label={switchingThreadTitle ? `Opening ${switchingThreadTitle}` : 'Opening chat'}
+            className="absolute inset-0 z-30 flex items-center justify-center bg-white/32 dark:bg-black/24 backdrop-blur-[2px] transition-opacity duration-150"
+          >
+            <div className="pointer-events-none inline-flex items-center gap-2 rounded-full border border-white/60 dark:border-white/10 bg-white/82 dark:bg-zinc-900/82 px-3 py-1.5 text-sm text-slate-600 dark:text-zinc-300 shadow-sm">
+              <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-zinc-500" />
+              <span>Opening chat...</span>
+            </div>
+          </div>
+        )}
 
       </main>
 

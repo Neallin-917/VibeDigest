@@ -19,7 +19,11 @@ vi.mock('../TopHeader', () => ({
 }))
 
 vi.mock('../ChatContainer', () => ({
-  ChatContainer: () => <div data-testid="chat-container">ChatContainer</div>
+  ChatContainer: ({ isInteractionLocked }: any) => (
+    <div data-testid="chat-container" data-locked={isInteractionLocked ? 'true' : 'false'}>
+      ChatContainer
+    </div>
+  )
 }))
 
 vi.mock('../VideoDetailPanel', () => ({
@@ -65,7 +69,9 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock })
 describe('ChatWorkspace', () => {
   const defaultProps = {
     activeThreadId: null,
+    selectedThreadId: null,
     activeTaskId: null,
+    isThreadSwitching: false,
     initialMessages: [],
     onNewChat: vi.fn(),
     onSelectThread: vi.fn(),
@@ -84,6 +90,22 @@ describe('ChatWorkspace', () => {
     expect(screen.getByTestId('top-header')).toBeInTheDocument()
     expect(screen.getByTestId('chat-container')).toBeInTheDocument()
     expect(screen.queryByTestId('video-panel')).not.toBeInTheDocument()
+    expect(screen.queryByText('Opening chat...')).not.toBeInTheDocument()
+  })
+
+  it('shows minimal switching veil and locks chat interactions', () => {
+    render(
+      <ChatWorkspace
+        {...defaultProps}
+        activeThreadId="thread-a"
+        selectedThreadId="thread-b"
+        isThreadSwitching={true}
+        switchingThreadTitle="Thread B"
+      />
+    )
+
+    expect(screen.getByText('Opening chat...')).toBeInTheDocument()
+    expect(screen.getByTestId('chat-container')).toHaveAttribute('data-locked', 'true')
   })
 
   it('renders video panel when task is selected (desktop)', async () => {

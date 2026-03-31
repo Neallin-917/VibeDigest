@@ -22,6 +22,7 @@ interface ChatContainerProps {
   threadId?: string | null
   initialMessages?: UIMessage[]
   isAuthenticated?: boolean
+  isInteractionLocked?: boolean
   onOpenPanel?: (taskId: string) => void
   onSelectExample?: (taskId: string) => void
   onChatStarted?: (threadId: string) => void
@@ -55,11 +56,21 @@ function isAuthRequiredError(err: unknown) {
   return /unauthorized|auth session missing/i.test(combined)
 }
 
+function hasSameMessageIdentity(currentMessages: UIMessage[], nextMessages: UIMessage[]) {
+  if (currentMessages.length !== nextMessages.length) return false
+
+  return currentMessages.every((message, index) => {
+    const nextMessage = nextMessages[index]
+    return message.id === nextMessage?.id && message.role === nextMessage?.role
+  })
+}
+
 export function ChatContainer({
   activeTaskId,
   threadId,
   initialMessages = [],
   isAuthenticated = false,
+  isInteractionLocked = false,
   onOpenPanel,
   onSelectExample,
   onChatStarted
@@ -130,6 +141,12 @@ export function ChatContainer({
     stop
   } = chat
 
+  const messagesRef = useRef(messages)
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
   const requiresAuth = useMemo(() => isAuthRequiredError(error), [error])
 
   const handleLogin = () => {
@@ -148,6 +165,8 @@ export function ChatContainer({
   })
 
   const handleSendMessage = (content: string) => {
+    if (isInteractionLocked) return
+
     const trimmed = content.trim()
     if (!trimmed) return
 
@@ -171,12 +190,8 @@ export function ChatContainer({
 
   // Sync initialMessages when they change
   useEffect(() => {
-    // If initialMessages are provided (and valid), update the chat state.
-    if (initialMessages && initialMessages.length > 0) {
-      setMessages(initialMessages)
-    } else if (initialMessages && initialMessages.length === 0) {
-      setMessages([])
-    }
+    if (hasSameMessageIdentity(messagesRef.current, initialMessages)) return
+    setMessages(initialMessages)
   }, [initialMessages, setMessages])
 
   useEffect(() => {
@@ -367,6 +382,7 @@ export function ChatContainer({
           variant="floating"
           onSubmit={handleSubmit}
           isLoading={isLoading}
+          disabled={isInteractionLocked}
           onStop={status === 'streaming' ? stop : undefined}
         />
       )}

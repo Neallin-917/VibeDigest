@@ -41,6 +41,8 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
    1. Before implementing any solution, internally brainstorm at least two approaches.
    2. Compare your proposed solution against industry-standard best practices (e.g., Clean Code, SOLID, OWASP for security, or framework-specific idioms like React Server Components or Pythonic PEP 8).
    3. If there is a gap between your initial thought and the best practice, adopt the best practice and explicitly mention the "Industry Standard" reasoning in your final explanation.
+9. **Design Principle**: VibeDigest defaults to minimal design across the full product layer — visual style, interaction, copy, information architecture, loading states, and motion. Prefer fewer UI surfaces, fewer decisions, shorter copy, and calmer transitions. Avoid decorative complexity, skeleton screens, shimmer effects, heavy animation, multi-step transitional UI, and redundant status messaging unless a clear usability need justifies them.
+10. **Minimalism Heuristic**: When multiple valid UI solutions exist, prefer the one with the least visual noise, the fewest transient states, and the smallest cognitive load while preserving clarity and speed.
 
 ## Detailed Guidelines
 

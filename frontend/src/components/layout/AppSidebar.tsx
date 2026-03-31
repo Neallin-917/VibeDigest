@@ -23,7 +23,9 @@ interface AppSidebarProps {
   className?: string
   threads?: Thread[]
   activeThreadId?: string | null
+  selectedThreadId?: string | null
   onSelectThread?: (threadId: string) => void
+  onPrefetchThread?: (threadId: string) => void
 }
 
 export function AppSidebar({
@@ -31,7 +33,9 @@ export function AppSidebar({
   className,
   threads = [],
   activeThreadId,
-  onSelectThread
+  selectedThreadId,
+  onSelectThread,
+  onPrefetchThread
 }: AppSidebarProps) {
   const { isCollapsed, toggleSidebar } = useAppSidebar()
   const router = useRouter()
@@ -39,7 +43,8 @@ export function AppSidebar({
   const searchParams = useSearchParams()
   const { t, locale } = useI18n()
 
-  const isNewChatActive = pathname?.endsWith('/chat') && !searchParams?.get('task') && !activeThreadId
+  const currentSelectedThreadId = selectedThreadId ?? activeThreadId
+  const isNewChatActive = pathname?.endsWith('/chat') && !searchParams?.get('task') && !currentSelectedThreadId
   const isCommunityActive = pathname?.includes('/explore')
 
   // Local UI States
@@ -175,15 +180,17 @@ export function AppSidebar({
                     <button
                       key={thread.id}
                       onClick={() => onSelectThread?.(thread.id)}
+                      onPointerEnter={() => onPrefetchThread?.(thread.id)}
+                      onFocus={() => onPrefetchThread?.(thread.id)}
                       className={cn(
                         "w-full text-left px-3 py-2 rounded-xl transition-all flex items-center gap-3 cursor-pointer group",
                         "hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300",
-                        activeThreadId === thread.id && "bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        currentSelectedThreadId === thread.id && "bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                       )}
                     >
                       <MessageSquare className={cn(
                         "w-4 h-4 shrink-0",
-                        activeThreadId === thread.id ? "text-emerald-500" : "text-slate-400"
+                        currentSelectedThreadId === thread.id ? "text-emerald-500" : "text-slate-400"
                       )} />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm truncate">

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
+import { env } from '@/env'
 
 // Mock env before importing route
 vi.mock('@/env', () => ({
@@ -110,6 +111,13 @@ const originalFetch = global.fetch
 describe('POST /api/chat', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+
+        ;(env as any).OPENAI_MODEL = undefined
+        ;(env as any).LLM_PROVIDER = undefined
+        ;(env as any).OPENAI_BASE_URL = undefined
+        ;(env as any).OPENAI_API_KEY = undefined
+        ;(env as any).OPENROUTER_BASE_URL = undefined
+        ;(env as any).OPENROUTER_API_KEY = undefined
 
         mockFrom.mockImplementation((() => ({
             select: mockSelect,
@@ -393,40 +401,21 @@ describe('POST /api/chat', () => {
     })
 
     it('uses fast model for short follow-up with taskId', async () => {
-        const originalFetch = global.fetch
-        const fetchMock = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => ({
-                active_provider: 'custom',
-                providers: [
-                    {
-                        provider: 'custom',
-                        defaults: {
-                            smart: 'gemini-3-pro',
-                            fast: 'gemini-3-flash'
-                        }
-                    }
-                ]
+        ;(env as any).LLM_PROVIDER = 'custom'
+
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: { content: '它说领导力的时候有举例吗' },
+                threadId: 'thread-123',
+                taskId: 'task-123'
             })
         })
-        ;(global as any).fetch = fetchMock
-        try {
-            const req = new NextRequest('http://localhost/api/chat', {
-                method: 'POST',
-                body: JSON.stringify({
-                    message: { content: '它说领导力的时候有举例吗' },
-                    threadId: 'thread-123',
-                    taskId: 'task-123'
-                })
-            })
 
-            await POST(req)
+        await POST(req)
 
-            const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-            expect(callArgs?.model?.id).toBe('gemini-3-flash')
-        } finally {
-            ;(global as any).fetch = originalFetch
-        }
+        const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
+        expect(callArgs?.model?.id).toBe('gemini-3-flash')
     })
 
     it('returns 503 when createProviderClient throws Missing API Key', async () => {
@@ -493,42 +482,22 @@ describe('POST /api/chat', () => {
     })
 
     it('uses smart model for long follow-up with taskId', async () => {
-        const originalFetch = global.fetch
-        const fetchMock = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => ({
-                active_provider: 'custom',
-                providers: [
-                    {
-                        provider: 'custom',
-                        defaults: {
-                            smart: 'gemini-3-pro',
-                            fast: 'gemini-3-flash'
-                        }
-                    }
-                ]
+        ;(env as any).LLM_PROVIDER = 'custom'
+
+        const longMessage = 'a'.repeat(220)
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: { content: longMessage },
+                threadId: 'thread-123',
+                taskId: 'task-123'
             })
         })
-        ;(global as any).fetch = fetchMock
 
-        try {
-            const longMessage = 'a'.repeat(220)
-            const req = new NextRequest('http://localhost/api/chat', {
-                method: 'POST',
-                body: JSON.stringify({
-                    message: { content: longMessage },
-                    threadId: 'thread-123',
-                    taskId: 'task-123'
-                })
-            })
+        await POST(req)
 
-            await POST(req)
-
-            const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-            expect(callArgs?.model?.id).toBe('gemini-3-pro')
-        } finally {
-            ;(global as any).fetch = originalFetch
-        }
+        const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
+        expect(callArgs?.model?.id).toBe('gemini-3-pro')
     })
 
     it('handles persistence in onFinish callback', async () => {

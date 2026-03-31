@@ -18,10 +18,13 @@
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FRONTEND_URL` | `http://localhost:3000` | Frontend base URL |
-| `LLM_PROVIDER` | `openai` | LLM provider (`openai`, `custom`) |
+| `LLM_PROVIDER` | `openrouter` | Text LLM provider (`openrouter`, `openai`, `custom`) |
 | `OPENAI_BASE_URL` | (none) | Custom OpenAI-compatible endpoint |
-| `MODEL_ALIAS_SMART` | `gpt-4o` | Model for complex tasks |
-| `MODEL_ALIAS_FAST` | `gpt-4o-mini` | Model for simple tasks |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter endpoint override |
+| `MODEL_ALIAS_SMART` | `google/gemini-3-pro-preview` | Smart tier model override |
+| `MODEL_ALIAS_FAST` | `google/gemini-3-flash-preview` | Fast tier model override |
+| `OPENAI_AUDIO_BASE_URL` | (none) | Optional dedicated audio endpoint |
+| `OPENAI_AUDIO_API_KEY` | (none) | Optional dedicated audio API key |
 | `OPENAI_TRANSCRIPTION_MODEL` | `whisper-1` | ASR model |
 
 ### Payments
@@ -72,11 +75,14 @@ class Settings:
     SUPABASE_SERVICE_KEY: str
 
     # LLM Configuration
-    LLM_PROVIDER: str           # "openai" | "custom"
+    LLM_PROVIDER: str           # "openrouter" | "openai" | "custom"
     OPENAI_BASE_URL: Optional[str]
     OPENAI_API_KEY: Optional[str]
-    MODEL_ALIAS_SMART: str      # Complex tasks (gpt-4o)
-    MODEL_ALIAS_FAST: str       # Simple tasks (gpt-4o-mini)
+    OPENROUTER_BASE_URL: Optional[str]
+    OPENAI_AUDIO_BASE_URL: Optional[str]
+    OPENAI_AUDIO_API_KEY: Optional[str]
+    MODEL_ALIAS_SMART: str      # Smart tier override
+    MODEL_ALIAS_FAST: str       # Fast tier override
 
     # Temperature Routing
     DEFAULT_TEMPERATURE: float = 0.1
@@ -99,14 +105,12 @@ class Settings:
 ┌─────────────────────────────────────────────────────────────┐
 │                    LLM_PROVIDER                             │
 │                                                             │
-│  ┌─────────────────┐         ┌─────────────────┐           │
-│  │ openai          │         │ custom          │           │
-│  │                 │         │                 │           │
-│  │ Smart: gpt-4o   │         │ Smart: gemini-  │           │
-│  │ Fast:  gpt-4o-  │         │        3-pro    │           │
-│  │        mini     │         │ Fast:  gemini-  │           │
-│  │                 │         │        3-flash  │           │
-│  └─────────────────┘         └─────────────────┘           │
+│  openrouter (default): smart=google/gemini-3-pro-preview   │
+│                         fast=google/gemini-3-flash-preview  │
+│  openai:                smart=gpt-5                         │
+│                         fast=gpt-5-mini                     │
+│  custom:                smart=gemini-3-pro                 │
+│                         fast=gemini-3-flash                │
 └─────────────────────────────────────────────────────────────┘
 
 Usage Mapping:
@@ -115,12 +119,19 @@ Usage Mapping:
 ├────────────────────┼────────────────────┤
 │ Chat               │ MODEL_ALIAS_SMART  │
 │ Comprehension      │ MODEL_ALIAS_SMART  │
-│ Summarization      │ MODEL_ALIAS_FAST   │
+│ Summarization      │ MODEL_ALIAS_SMART  │
 │ Translation        │ MODEL_ALIAS_FAST   │
 │ Helper Tasks       │ MODEL_ALIAS_FAST   │
+│ Classification     │ MODEL_ALIAS_FAST   │
+│ Transcript Cleanup │ MODEL_ALIAS_FAST   │
 │ Transcription      │ whisper-1          │
 └────────────────────┴────────────────────┘
 ```
+
+Runtime SSOT:
+- Backend text model resolution lives in `config.settings`, `utils.llm_router`, and `utils.openai_client`.
+- Frontend chat model resolution lives in `frontend/src/app/api/chat/route.ts` plus `frontend/src/lib/llm-config.ts`.
+- Direct video URL submission bypasses the chat LLM path and goes straight to task creation; only chat Q&A and follow-up messages use text models.
 
 ---
 

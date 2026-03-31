@@ -27,7 +27,7 @@ Describes **WHO** and **HOW** the action was performed. Use this for high-cardin
 *   `user_id`: Tracks usage patterns per user.
 *   `target_language`: e.g., "zh", "en".
 *   `video_duration`: Length of the input video.
-*   `model`: e.g., "gpt-4o", "gpt-4o-mini".
+*   `model`: e.g., "google/gemini-3-pro-preview", "gpt-5-mini".
 *   `chunk_index`: For multi-chunk processing.
 
 ### 3. Tags (State/Environment)

@@ -27,10 +27,6 @@ async def run_benchmark(model_override: str = None, name_suffix: str = ""):
     if model_override:
         settings.MODEL_ALIAS_SMART = model_override
         settings.MODEL_ALIAS_FAST = model_override
-        settings.OPENAI_MODEL = model_override
-        settings.OPENAI_HELPER_MODEL = model_override
-        settings.OPENAI_COMPREHENSION_MODELS = [model_override]
-        settings.OPENAI_SUMMARY_MODELS = [model_override]
         
         if hasattr(summarizer, "config"):
             summarizer.config.summary_models = [model_override]

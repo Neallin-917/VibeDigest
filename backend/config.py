@@ -64,9 +64,10 @@ class Settings:
     COGNITION_DELAY: float = float(os.getenv("COGNITION_DELAY") or "0.0")
 
     # LLM Configuration
-    LLM_PROVIDER: str = (os.getenv("LLM_PROVIDER") or "openai").lower()
+    LLM_PROVIDER: str = (os.getenv("LLM_PROVIDER") or "openrouter").lower()
     OPENAI_BASE_URL: Optional[str] = os.getenv("OPENAI_BASE_URL")
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+    OPENROUTER_BASE_URL: Optional[str] = os.getenv("OPENROUTER_BASE_URL")
 
     # Audio Configuration (Transcription)
     # Allows separating transcription provider (e.g. Official OpenAI) from generation provider (e.g. Local LLM)
@@ -83,21 +84,28 @@ class Settings:
         "custom": ("gemini-3-pro", "gemini-3-flash"),
     }
 
+    def _get_provider_defaults(self) -> tuple[str, str]:
+        defaults = self._PROVIDER_DEFAULTS.get(self.LLM_PROVIDER)
+        if defaults is None:
+            raise ValueError(
+                "Unsupported provider: "
+                f"'{self.LLM_PROVIDER}'. Expected one of: {', '.join(self._PROVIDER_DEFAULTS)}."
+            )
+        return defaults
+
     @property
     def MODEL_SMART(self) -> str:
         if self.MODEL_ALIAS_SMART:
             return self.MODEL_ALIAS_SMART
-        return self._PROVIDER_DEFAULTS.get(self.LLM_PROVIDER, self._PROVIDER_DEFAULTS["openrouter"])[0]
+        return self._get_provider_defaults()[0]
 
     @property
     def MODEL_FAST(self) -> str:
         if self.MODEL_ALIAS_FAST:
             return self.MODEL_ALIAS_FAST
-        return self._PROVIDER_DEFAULTS.get(self.LLM_PROVIDER, self._PROVIDER_DEFAULTS["openrouter"])[1]
+        return self._get_provider_defaults()[1]
 
-    # Backward-compatible aliases (used by scripts and some services)
-    @property
-    def OPENAI_MODEL(self) -> str: return self.MODEL_SMART
+    # Internal aliases still used by existing services
     @property
     def OPENAI_COMPREHENSION_MODELS(self) -> list[str]: return [self.MODEL_SMART]
     @property

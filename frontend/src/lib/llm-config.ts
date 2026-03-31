@@ -35,32 +35,50 @@ export type ProviderConfig = {
     fetch?: typeof fetch;
 }
 
-export function getProviderConfig(providerName: string): ProviderConfig {
-    // Default to OpenAI/Custom env vars
-    let baseURL = env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-    let apiKey = env.OPENAI_API_KEY || '';
+const SUPPORTED_PROVIDERS = ['openrouter', 'openai', 'custom'] as const;
 
-    // Override for OpenRouter
-    if (providerName === 'openrouter') {
-        baseURL = env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
-        apiKey = env.OPENROUTER_API_KEY || '';
+function ensureSupportedProvider(providerName: string): asserts providerName is typeof SUPPORTED_PROVIDERS[number] {
+    if (!SUPPORTED_PROVIDERS.includes(providerName as typeof SUPPORTED_PROVIDERS[number])) {
+        throw new Error(
+            `Unsupported provider: '${providerName}'. Expected one of: ${SUPPORTED_PROVIDERS.join(', ')}.`
+        );
     }
+}
+
+export function getProviderConfig(providerName: string): ProviderConfig {
+    ensureSupportedProvider(providerName);
+
+    const providerConfig = providerName === 'openrouter'
+        ? {
+            baseURL: env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+            apiKey: env.OPENROUTER_API_KEY || '',
+            requiredKeyEnv: 'OPENROUTER_API_KEY',
+        }
+        : {
+            baseURL: env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+            apiKey: env.OPENAI_API_KEY || '',
+            requiredKeyEnv: 'OPENAI_API_KEY',
+        };
 
     // Fail Fast: Validate base URL format
     try {
-        new URL(baseURL);
+        new URL(providerConfig.baseURL);
     } catch {
-        throw new Error(`Invalid base URL for provider '${providerName}': '${baseURL}'. Must be a valid URL.`);
+        throw new Error(
+            `Invalid base URL for provider '${providerName}': '${providerConfig.baseURL}'. Must be a valid URL.`
+        );
     }
 
     // Fail Fast: Validate API Key
-    if (!apiKey) {
-        throw new Error(`Missing API Key for provider: '${providerName}'. Please check environment variables (OPENAI_API_KEY or OPENROUTER_API_KEY).`);
+    if (!providerConfig.apiKey) {
+        throw new Error(
+            `Missing API Key for provider: '${providerName}'. Set ${providerConfig.requiredKeyEnv} in the environment.`
+        );
     }
 
     return {
-        baseURL,
-        apiKey,
+        baseURL: providerConfig.baseURL,
+        apiKey: providerConfig.apiKey,
         fetch: AI_SDK_DEBUG ? debugFetch : undefined
     };
 }

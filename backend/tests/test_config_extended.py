@@ -1,7 +1,10 @@
 """Extended tests for config.py — targeting uncovered branches."""
 
+import importlib
+import os
 from unittest.mock import patch
 
+import config as config_module
 from config import Settings
 
 
@@ -63,6 +66,19 @@ class TestGetTemperature:
 # ---------------------------------------------------------------------------
 
 class TestModelSmartFast:
+    def test_default_provider_is_openrouter(self):
+        original = os.environ.get("LLM_PROVIDER")
+        try:
+            os.environ["LLM_PROVIDER"] = ""
+            reloaded = importlib.reload(config_module)
+            assert reloaded.settings.LLM_PROVIDER == "openrouter"
+        finally:
+            if original is None:
+                os.environ.pop("LLM_PROVIDER", None)
+            else:
+                os.environ["LLM_PROVIDER"] = original
+            importlib.reload(config_module)
+
     def test_alias_overrides_provider_default(self):
         s = Settings()
         s.MODEL_ALIAS_SMART = "my-custom-model"
@@ -85,11 +101,16 @@ class TestModelSmartFast:
         s.LLM_PROVIDER = "openai"
         assert s.MODEL_FAST == "gpt-5-mini"
 
-    def test_unknown_provider_falls_back_to_openrouter(self):
+    def test_unknown_provider_raises(self):
         s = Settings()
         s.MODEL_ALIAS_SMART = None
         s.LLM_PROVIDER = "unknown_provider"
-        assert s.MODEL_SMART == "google/gemini-3-pro-preview"
+        try:
+            _ = s.MODEL_SMART
+        except ValueError as exc:
+            assert "Unsupported provider" in str(exc)
+        else:
+            raise AssertionError("Expected unsupported provider to raise ValueError")
 
 
 # ---------------------------------------------------------------------------
@@ -97,10 +118,6 @@ class TestModelSmartFast:
 # ---------------------------------------------------------------------------
 
 class TestBackwardCompatAliases:
-    def test_openai_model_returns_smart(self):
-        s = Settings()
-        assert s.OPENAI_MODEL == s.MODEL_SMART
-
     def test_comprehension_models_returns_smart_list(self):
         s = Settings()
         assert s.OPENAI_COMPREHENSION_MODELS == [s.MODEL_SMART]

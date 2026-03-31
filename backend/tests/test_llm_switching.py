@@ -1,5 +1,6 @@
 import os
 from unittest.mock import patch, ANY
+import pytest
 from config import settings
 from utils.openai_client import create_chat_model
 
@@ -9,7 +10,7 @@ class TestLLMSwitching:
     def test_provider_switching(self, mock_rate_limit_llm):
         """Verify factory ALWAYS uses RateLimitAwareChatLiteLLM regardless of provider"""
 
-        # Case 1: Default (OpenAI) - Now uses LiteLLM unified
+        # Case 1: OpenAI
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
              patch.object(settings, "LLM_PROVIDER", "openai"):
             create_chat_model("gpt-4o")
@@ -17,9 +18,9 @@ class TestLLMSwitching:
 
         mock_rate_limit_llm.reset_mock()
 
-        # Case 2: Custom Provider (e.g. Ollama)
+        # Case 2: Custom OpenAI-compatible provider
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "ollama"):
+             patch.object(settings, "LLM_PROVIDER", "custom"):
             create_chat_model("gpt-4o")
             mock_rate_limit_llm.assert_called()
 
@@ -66,3 +67,10 @@ class TestLLMSwitching:
             extra_body = kwargs.get("extra_body", {})
             assert extra_body["models"] == ["openrouter/google/gemini-pro", "openrouter/auto"]
             assert extra_body["route"] == "fallback"
+
+    def test_unsupported_provider_raises(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
+             patch.object(settings, "LLM_PROVIDER", "ollama"), \
+             patch.object(settings, "MOCK_MODE", False):
+            with pytest.raises(ValueError, match="Unsupported provider"):
+                create_chat_model("llama3")

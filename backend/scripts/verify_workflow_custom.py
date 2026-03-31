@@ -48,12 +48,6 @@ async def main():
     settings.OPENAI_API_KEY = args.key
     settings.MODEL_ALIAS_SMART = args.model
     settings.MODEL_ALIAS_FAST = args.model
-    # Also update the functional mappings that were already initialized
-    settings.OPENAI_MODEL = args.model
-    settings.OPENAI_COMPREHENSION_MODELS = [args.model]
-    settings.OPENAI_SUMMARY_MODELS = [args.model]
-    settings.OPENAI_TRANSLATION_MODEL = args.model
-    settings.OPENAI_HELPER_MODEL = args.model
 
     # 2. Pre-flight Check: LLM
     if not args.skip_llm_check:

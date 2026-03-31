@@ -57,10 +57,17 @@ cp frontend/.env frontend/.env.local
 
 | Variable | Description |
 |----------|-------------|
-| `OPENAI_API_KEY` | Required for LLM functionality |
+| `OPENAI_API_KEY` | Required for OpenAI text/audio provider paths |
+| `OPENROUTER_API_KEY` | Required when `LLM_PROVIDER=openrouter` |
+| `OPENAI_BASE_URL` | Optional OpenAI-compatible endpoint for `openai`/`custom` text calls |
+| `OPENROUTER_BASE_URL` | Optional OpenRouter endpoint override |
 | `SUPABASE_URL` | Database endpoint |
 | `SUPABASE_SERVICE_KEY` | Backend service role key (keep secret!) |
-| `LLM_PROVIDER` | `openai` (default) or `custom` |
+| `LLM_PROVIDER` | `openrouter` (default), `openai`, or `custom` |
+| `MODEL_ALIAS_SMART` | Optional override for the smart text model tier |
+| `MODEL_ALIAS_FAST` | Optional override for the fast text model tier |
+| `OPENAI_AUDIO_API_KEY` | Optional dedicated audio/transcription key |
+| `OPENAI_AUDIO_BASE_URL` | Optional dedicated audio/transcription endpoint |
 | `SENTRY_DSN` | Error tracking DSN |
 | `LANGFUSE_PUBLIC_KEY` | LLM observability |
 

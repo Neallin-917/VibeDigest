@@ -89,7 +89,9 @@ describe('getProviderConfig', () => {
         // @ts-expect-error - writing to read-only property for test mocking
         vi.mocked(env).OPENROUTER_API_KEY = 'sk-or-mock'; // Should be ignored
 
-        expect(() => getProviderConfig('openai')).toThrow(/Missing API Key for provider: 'openai'/);
+        expect(() => getProviderConfig('openai')).toThrow(
+            "Missing API Key for provider: 'openai'. Set OPENAI_API_KEY in the environment."
+        );
     });
 
     it('throws error when OPENROUTER_API_KEY is missing for OpenRouter provider', () => {
@@ -98,7 +100,9 @@ describe('getProviderConfig', () => {
         // @ts-expect-error - writing to read-only property for test mocking
         vi.mocked(env).OPENAI_API_KEY = 'sk-openai-mock'; // Should be ignored
 
-        expect(() => getProviderConfig('openrouter')).toThrow(/Missing API Key for provider: 'openrouter'/);
+        expect(() => getProviderConfig('openrouter')).toThrow(
+            "Missing API Key for provider: 'openrouter'. Set OPENROUTER_API_KEY in the environment."
+        );
     });
 
     it('throws on invalid baseURL format', () => {
@@ -108,5 +112,11 @@ describe('getProviderConfig', () => {
         vi.mocked(env).OPENAI_API_KEY = 'sk-openai-mock';
 
         expect(() => getProviderConfig('custom')).toThrow(/Invalid base URL for provider 'custom'/);
+    });
+
+    it('throws on unsupported provider names', () => {
+        expect(() => getProviderConfig('anthropic')).toThrow(
+            "Unsupported provider: 'anthropic'. Expected one of: openrouter, openai, custom."
+        );
     });
 });

@@ -3,6 +3,7 @@ import logging
 import re
 import asyncio
 from typing import Optional, Any, List, AsyncIterator
+from urllib.parse import urlparse
 
 from config import settings
 from langchain_community.chat_models import ChatLiteLLM
@@ -26,6 +27,27 @@ _PLACEHOLDER_KEY_PATTERNS: tuple[str, ...] = (
     "placeholder",
 )
 
+_SUPPORTED_TEXT_PROVIDERS: tuple[str, ...] = ("openrouter", "openai", "custom")
+
+
+def _ensure_supported_provider(provider: str) -> None:
+    if provider not in _SUPPORTED_TEXT_PROVIDERS:
+        raise ValueError(
+            f"Unsupported provider: '{provider}'. "
+            f"Expected one of: {', '.join(_SUPPORTED_TEXT_PROVIDERS)}."
+        )
+
+
+def _validate_base_url(provider: str, base_url: Optional[str]) -> None:
+    if not base_url:
+        return
+
+    parsed = urlparse(base_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(
+            f"Invalid base URL for provider '{provider}': '{base_url}'. Must be a valid URL."
+        )
+
 
 def _resolve_api_key(provider: str) -> Optional[str]:
     """
@@ -38,15 +60,19 @@ def _resolve_api_key(provider: str) -> Optional[str]:
         - Logs a WARNING when a placeholder key is detected (soft warning so
           CI mock tests are not broken).
     """
+    _ensure_supported_provider(provider)
+
     if provider == "openrouter":
-        key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        key = os.getenv("OPENROUTER_API_KEY")
+        required_env = "OPENROUTER_API_KEY"
     else:
         key = os.getenv("OPENAI_API_KEY")
+        required_env = "OPENAI_API_KEY"
 
     if not key:
         raise ValueError(
             f"No API key configured for provider '{provider}'. "
-            "Set OPENAI_API_KEY (or OPENROUTER_API_KEY for OpenRouter) in the environment."
+            f"Set {required_env} in the environment."
         )
 
     lower_key = key.lower()
@@ -57,6 +83,13 @@ def _resolve_api_key(provider: str) -> Optional[str]:
         )
 
     return key
+
+
+def _validate_text_provider_config(provider: str) -> None:
+    _ensure_supported_provider(provider)
+    base_url = settings.OPENROUTER_BASE_URL if provider == "openrouter" else settings.OPENAI_BASE_URL
+    _validate_base_url(provider, base_url)
+    _resolve_api_key(provider)
 
 
 def _is_rate_limit_error(exc: Exception) -> bool:
@@ -175,6 +208,7 @@ def get_openai_client(base_url: Optional[str] = None) -> Any:
         return None
 
     final_base_url = base_url or os.getenv("OPENAI_BASE_URL")
+    _validate_base_url("openai", final_base_url)
 
     if final_base_url:
         return OpenAI(api_key=api_key, base_url=final_base_url)
@@ -189,6 +223,7 @@ def get_async_openai_client(base_url: Optional[str] = None) -> Any:
         return None
 
     final_base_url = base_url or os.getenv("OPENAI_BASE_URL")
+    _validate_base_url("openai", final_base_url)
 
     if final_base_url:
         return AsyncOpenAI(api_key=api_key, base_url=final_base_url)
@@ -224,6 +259,8 @@ def get_async_audio_client(base_url: Optional[str] = None) -> Any:
         # No specific Audio config -> Fallback to global OPENAI_BASE_URL (Legacy behavior)
         final_base_url = os.getenv("OPENAI_BASE_URL")
 
+    _validate_base_url("audio", final_base_url)
+
     if final_base_url:
         return AsyncOpenAI(api_key=api_key, base_url=final_base_url)
     return AsyncOpenAI(api_key=api_key)
@@ -243,7 +280,7 @@ def create_chat_model(
     # (fail-fast) rather than at first LLM call mid-pipeline.
     # Skip validation in MOCK_MODE to keep CI tests hermetic.
     if not settings.MOCK_MODE:
-        _resolve_api_key(settings.LLM_PROVIDER)
+        _validate_text_provider_config(settings.LLM_PROVIDER)
 
     # Resolve temperature if not provided
     if temperature is None:
@@ -263,6 +300,9 @@ def create_chat_model(
         # LiteLLM native OpenRouter support: prefix model with "openrouter/"
         if not model_name.startswith("openrouter/"):
             model_name = f"openrouter/{model_name}"
+
+        if settings.OPENROUTER_BASE_URL:
+            kwargs.setdefault("api_base", settings.OPENROUTER_BASE_URL)
 
         # OpenRouter fallback routing
         extra_body = kwargs.get("extra_body", {})

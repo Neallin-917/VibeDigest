@@ -10,7 +10,8 @@ export const env = createEnv({
     BACKEND_API_URL: z.string().url().optional(),
     
     // LLM Configuration
-    OPENAI_MODEL: z.string().optional(),
+    MODEL_ALIAS_SMART: z.string().optional(),
+    MODEL_ALIAS_FAST: z.string().optional(),
     LLM_PROVIDER: z.string().optional(),
     OPENAI_BASE_URL: z.string().url().optional(),
     OPENAI_API_KEY: z.string().optional(),
@@ -48,7 +49,8 @@ export const env = createEnv({
     AI_SDK_DEBUG: process.env.AI_SDK_DEBUG,
     BACKEND_API_URL: process.env.BACKEND_API_URL,
     
-    OPENAI_MODEL: process.env.OPENAI_MODEL,
+    MODEL_ALIAS_SMART: process.env.MODEL_ALIAS_SMART,
+    MODEL_ALIAS_FAST: process.env.MODEL_ALIAS_FAST,
     LLM_PROVIDER: process.env.LLM_PROVIDER,
     OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,

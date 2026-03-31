@@ -8,7 +8,8 @@ vi.mock('@/env', () => ({
     env: {
         AI_SDK_DEBUG: '0',
         BACKEND_API_URL: 'http://localhost:8000',
-        OPENAI_MODEL: undefined,
+        MODEL_ALIAS_SMART: undefined,
+        MODEL_ALIAS_FAST: undefined,
         LLM_PROVIDER: undefined,
         OPENAI_BASE_URL: undefined,
         OPENAI_API_KEY: undefined,
@@ -141,7 +142,7 @@ describe('Lazy Thread Creation', () => {
 
         ;(global as any).fetch = vi.fn().mockResolvedValue({
             ok: true,
-            json: async () => ({ active_provider: 'openai' })
+            json: async () => ({ active_provider: 'openrouter' })
         })
 
         mockStreamText.mockReturnValue({

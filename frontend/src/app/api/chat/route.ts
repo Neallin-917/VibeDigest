@@ -18,7 +18,15 @@ const PROVIDER_DEFAULTS: Record<string, Record<ModelTier, string>> = {
 
 function resolveModel(tier: ModelTier): ResolvedModel {
     const provider = env.LLM_PROVIDER || 'openrouter';
-    const model = env.OPENAI_MODEL || PROVIDER_DEFAULTS[provider]?.[tier] || PROVIDER_DEFAULTS.openrouter[tier];
+    const providerDefaults = PROVIDER_DEFAULTS[provider];
+    if (!providerDefaults) {
+        throw new Error(
+            `Unsupported provider: '${provider}'. Expected one of: ${Object.keys(PROVIDER_DEFAULTS).join(', ')}.`
+        );
+    }
+    const model = tier === 'smart'
+        ? env.MODEL_ALIAS_SMART || providerDefaults.smart
+        : env.MODEL_ALIAS_FAST || providerDefaults.fast;
     return { model, provider };
 }
 
@@ -202,6 +210,8 @@ When users provide video URLs:
         const errorMessage = getErrorMessage(error);
         const isAuthErr =
             errorMessage.includes('Missing API Key') ||
+            errorMessage.includes('Unsupported provider') ||
+            errorMessage.includes('Invalid base URL') ||
             errorMessage.includes('401') ||
             errorMessage.includes('invalid_api_key');
 

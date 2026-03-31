@@ -89,15 +89,16 @@ class SummarizerConfig:
         from config import settings
         from utils.llm_router import resolve_model_for_intent
 
-        # Resolve API key based on active provider so that OpenRouter works without OPENAI_API_KEY.
+        # Mirror the runtime provider contract used by utils.openai_client.
         if settings.LLM_PROVIDER == "openrouter":
-            self.api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+            self.api_key = os.getenv("OPENROUTER_API_KEY")
+            self.base_url = os.getenv("OPENROUTER_BASE_URL")
         else:
             self.api_key = os.getenv("OPENAI_API_KEY")
-        self.base_url = os.getenv("OPENAI_BASE_URL")
+            self.base_url = os.getenv("OPENAI_BASE_URL")
 
         if self.api_key:
-            logger.info("Summarizer initialized with OpenAI capabilities (LangChain)")
+            logger.info("Summarizer initialized with configured text LLM provider")
         else:
             logger.warning(
                 "API key missing for provider %s, Summarizer will not function correctly",

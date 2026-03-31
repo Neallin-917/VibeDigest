@@ -32,7 +32,7 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 
 1. **Python**: Always use `uv` (never raw `pip`)
 2. **Dependencies**: Add to ROOT `requirements.txt` only (not `backend/`)
-3. **Models**: Never hardcode LLM model names — use `ModelRegistry`
+3. **Models**: Never hardcode LLM model names — use `settings.MODEL_SMART` / `settings.MODEL_FAST` and `utils.llm_router.resolve_model_for_intent`
 4. **Components**: Use CVA for variants, check `src/components/ui/` first
 5. **Tests**: Never call paid APIs in CI (mock everything)
 6. **Thinking Process**: Conduct all internal reasoning, tool calls, and architecture planning in English for maximum logical consistency.

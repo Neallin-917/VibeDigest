@@ -8,7 +8,8 @@ vi.mock('@/env', () => ({
     env: {
         AI_SDK_DEBUG: '0',
         BACKEND_API_URL: 'http://localhost:8000',
-        OPENAI_MODEL: undefined,
+        MODEL_ALIAS_SMART: undefined,
+        MODEL_ALIAS_FAST: undefined,
         LLM_PROVIDER: undefined,
         OPENAI_BASE_URL: undefined,
         OPENAI_API_KEY: undefined,
@@ -112,7 +113,8 @@ describe('POST /api/chat', () => {
     beforeEach(() => {
         vi.clearAllMocks()
 
-        ;(env as any).OPENAI_MODEL = undefined
+        ;(env as any).MODEL_ALIAS_SMART = undefined
+        ;(env as any).MODEL_ALIAS_FAST = undefined
         ;(env as any).LLM_PROVIDER = undefined
         ;(env as any).OPENAI_BASE_URL = undefined
         ;(env as any).OPENAI_API_KEY = undefined
@@ -226,6 +228,7 @@ describe('POST /api/chat', () => {
         // Verify system prompt contains default instruction
         const callArgs = mockStreamText.mock.calls[0][0]
         expect(callArgs.system).toContain('You are VibeDigest Assistant')
+        expect(callArgs.model.id).toBe('google/gemini-3-pro-preview')
     })
 
     it('injects RAG context when taskId is provided', async () => {
@@ -418,11 +421,46 @@ describe('POST /api/chat', () => {
         expect(callArgs?.model?.id).toBe('gemini-3-flash')
     })
 
+    it('uses default openrouter fast model for short follow-up when provider is unset', async () => {
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: { content: '它有提到价格吗' },
+                threadId: 'thread-123',
+                taskId: 'task-123'
+            })
+        })
+
+        await POST(req)
+
+        const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
+        expect(callArgs?.model?.id).toBe('google/gemini-3-flash-preview')
+    })
+
     it('returns 503 when createProviderClient throws Missing API Key', async () => {
         const { createProviderClient } = await import('@/lib/llm-config')
         vi.mocked(createProviderClient).mockImplementationOnce(() => {
-            throw new Error("Missing API Key for provider: 'custom'. Please check environment variables (OPENAI_API_KEY or OPENROUTER_API_KEY).")
+            throw new Error("Missing API Key for provider: 'custom'. Set OPENAI_API_KEY in the environment.")
         })
+
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: { content: 'Hello' },
+                threadId: 'thread-123'
+            })
+        })
+
+        const res = await POST(req)
+
+        expect(res.status).toBe(503)
+        const body = await res.json()
+        expect(body.error).toBe('Service Configuration Error')
+        expect(body.details).toContain('credentials are missing or invalid')
+    })
+
+    it('returns 503 when LLM provider is unsupported', async () => {
+        ;(env as any).LLM_PROVIDER = 'anthropic'
 
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',

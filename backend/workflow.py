@@ -222,9 +222,10 @@ async def check_cache(state: VideoProcessingState) -> Dict:
 
 
 async def _ingest_supadata(video_url: str, task_id: str) -> Optional[Dict]:
+    client = _get_supadata_client()
     try:
         _get_db_client().update_task_status(task_id, status=TaskStatus.PROCESSING, progress=15)
-        md, raw, lang = await _get_supadata_client().get_transcript_async(video_url)
+        md, raw, lang = await client.get_transcript_async(video_url)
         if md and raw:
             logger.info("Strategy 1 (Supadata): Success")
             return {
@@ -235,6 +236,11 @@ async def _ingest_supadata(video_url: str, task_id: str) -> Optional[Dict]:
             }
     except Exception as e:
         logger.info(f"Strategy 1 (Supadata) skipped/failed: {e}")
+        return {"error": f"Supadata failed: {e}"}
+
+    if client.last_error:
+        return {"error": f"Supadata failed: {client.last_error}"}
+
     return None
 
 
@@ -254,7 +260,9 @@ async def _ingest_vtt(video_url: str, task_id: str) -> Optional[Dict]:
             }
     except Exception as e:
         logger.warning(f"Strategy 2 (Direct VTT) failed: {e}")
-    return None
+        return {"error": f"Direct VTT failed: {e}"}
+
+    return {"error": "Direct VTT failed: no captions available"}
 
 
 async def _ingest_whisper(state: VideoProcessingState) -> Optional[Dict]:
@@ -339,6 +347,7 @@ async def ingest(state: VideoProcessingState) -> Dict:
     user_id = state["user_id"]
     video_url = state["video_url"]
     is_youtube = state["is_youtube"]
+    strategy_errors: List[str] = []
 
     # --- Step 1: Initialize DB Outputs ---
     required_outputs = [
@@ -381,19 +390,23 @@ async def ingest(state: VideoProcessingState) -> Dict:
     # Strategy 1: Supadata
     if not result and is_youtube:
         result = await _ingest_supadata(video_url, task_id)
+        if result and "error" in result:
+            strategy_errors = [*strategy_errors, str(result["error"])]
+            result = None
 
     # Strategy 2: VTT
     if not result and is_youtube:
         result = await _ingest_vtt(video_url, task_id)
+        if result and "error" in result:
+            strategy_errors = [*strategy_errors, str(result["error"])]
+            result = None
 
     # Strategy 3: Whisper
     if not result:
         result = await _ingest_whisper(state)
-        # Check for error in whisper result
         if result and "error" in result:
-            err_list_w: List[str] = updates.get("errors", []) # type: ignore
-            err_list_w.append(str(result["error"]))
-            updates["ingest_error"] = str(result["error"])
+            whisper_error = f"Whisper failed: {result['error']}"
+            strategy_errors = [*strategy_errors, whisper_error]
             result = None
 
     # Merge results
@@ -437,15 +450,11 @@ async def ingest(state: VideoProcessingState) -> Dict:
             progress=100,
         )
     else:
-        if not updates["errors"]:
-            # Type hint helps mypy understand this is a list of strings
-            err_list: List[str] = updates.get("errors", []) # type: ignore
-            err_list.append("All ingest strategies failed.")
+        error_messages = strategy_errors or ["All ingest strategies failed."]
+        updates["errors"] = [*error_messages]
+        updates["ingest_error"] = error_messages[0]
 
-        # Safe access to error message
-        err_msg = ""
-        if isinstance(updates.get("errors"), list) and updates["errors"]:
-             err_msg = str(updates["errors"][0])
+        err_msg = " | ".join(error_messages)
 
         _get_db_client().update_task_status(
             task_id, status=TaskStatus.ERROR, error=err_msg

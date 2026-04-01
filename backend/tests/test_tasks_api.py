@@ -4,6 +4,7 @@ import os
 from main import app
 from dependencies import get_current_user, get_db_client, get_video_processor
 from httpx import AsyncClient, ASGITransport
+from api.routes.tasks import get_or_create_task_for_request
 
 @pytest.mark.asyncio
 async def test_preview_video(api_client, mock_video_processor):
@@ -23,6 +24,8 @@ async def test_preview_video_invalid_url(api_client, mock_video_processor):
 async def test_process_video_success(api_client, mock_db_client):
     """Successful task creation: task created and pipeline queued."""
     mock_db_client.create_task.return_value = {"id": "task_123"}
+    mock_db_client.find_latest_inflight_task.return_value = None
+    mock_db_client.find_latest_task_with_valid_script_for_user.return_value = None
 
     with patch("api.routes.tasks.run_pipeline"), \
          patch("dependencies.increment_guest_usage"):
@@ -30,6 +33,76 @@ async def test_process_video_success(api_client, mock_db_client):
         assert response.status_code == 200
         assert response.json() == {"task_id": "task_123", "message": "Task started"}
         mock_db_client.create_task.assert_called_once()
+
+
+def test_get_or_create_task_for_request_reuses_inflight():
+    mock_db = MagicMock()
+    mock_db.find_latest_inflight_task.return_value = {"id": "task_inflight"}
+    mock_db.find_latest_task_with_valid_script_for_user.return_value = None
+
+    task, resolution = get_or_create_task_for_request(
+        db=mock_db,
+        user_id="u1",
+        video_url="https://youtube.com/watch?v=abc",
+    )
+
+    assert task["id"] == "task_inflight"
+    assert resolution == "reused_inflight"
+    mock_db.create_task.assert_not_called()
+
+
+def test_get_or_create_task_for_request_reuses_completed():
+    mock_db = MagicMock()
+    mock_db.find_latest_inflight_task.return_value = None
+    mock_db.find_latest_task_with_valid_script_for_user.return_value = {"id": "task_completed"}
+
+    task, resolution = get_or_create_task_for_request(
+        db=mock_db,
+        user_id="u1",
+        video_url="https://youtube.com/watch?v=abc",
+    )
+
+    assert task["id"] == "task_completed"
+    assert resolution == "reused_completed"
+    mock_db.create_task.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_video_reuses_inflight_task(api_client, mock_db_client):
+    mock_db_client.find_latest_inflight_task.return_value = {"id": "task_inflight"}
+    mock_db_client.find_latest_task_with_valid_script_for_user.return_value = None
+
+    with patch("api.routes.tasks.run_pipeline") as mock_pipeline, \
+         patch("dependencies.increment_guest_usage") as mock_increment_guest_usage:
+        response = await api_client.post(
+            "/api/process-video",
+            data={"video_url": "https://youtube.com/watch?v=123"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task_inflight", "message": "Task already in progress"}
+    mock_db_client.create_task.assert_not_called()
+    mock_pipeline.assert_not_called()
+    mock_increment_guest_usage.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_video_reuses_completed_task(api_client, mock_db_client):
+    mock_db_client.find_latest_inflight_task.return_value = None
+    mock_db_client.find_latest_task_with_valid_script_for_user.return_value = {"id": "task_completed"}
+
+    with patch("api.routes.tasks.run_pipeline") as mock_pipeline, \
+         patch("dependencies.increment_guest_usage") as mock_increment_guest_usage:
+        response = await api_client.post(
+            "/api/process-video",
+            data={"video_url": "https://youtube.com/watch?v=123"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task_completed", "message": "Task already processed"}
+    mock_db_client.create_task.assert_not_called()
+    mock_pipeline.assert_not_called()
+    mock_increment_guest_usage.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_process_video_quota_exceeded(mock_db_client, mock_video_processor, mock_coinbase_client):
@@ -141,6 +214,8 @@ async def test_authenticated_user_can_create_task(mock_db_client, mock_video_pro
     mock_db_client.is_auth_configured.return_value = True
     mock_db_client.validate_token.return_value = user_id
     mock_db_client.create_task.return_value = {"id": "task_real_auth"}
+    mock_db_client.find_latest_inflight_task.return_value = None
+    mock_db_client.find_latest_task_with_valid_script_for_user.return_value = None
     mock_db_client.check_and_consume_quota.return_value = True
 
     saved_overrides = dict(app.dependency_overrides)

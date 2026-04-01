@@ -136,6 +136,25 @@ class DBClient:
         )
         return rows[0] if rows else None
 
+    def find_latest_inflight_task(
+        self, user_id: str, video_url: str
+    ) -> Optional[Dict[str, Any]]:
+        """Find the newest pending/processing task for the same user and URL."""
+        query = """
+            SELECT *
+            FROM tasks
+            WHERE user_id = :user_id
+              AND video_url = :video_url
+              AND status IN ('pending', 'processing')
+            ORDER BY created_at DESC
+            LIMIT 1
+        """
+        rows = self._execute_query(
+            query,
+            {"user_id": user_id, "video_url": video_url},
+        )
+        return rows[0] if rows else None
+
     def create_task_output(
         self, task_id: str, user_id: str, kind: str, locale: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
@@ -363,6 +382,31 @@ class DBClient:
             LIMIT 1
         """
         rows = self._execute_query(query, {"video_url": video_url})
+        return rows[0] if rows else None
+
+    def find_latest_task_with_valid_script_for_user(
+        self, user_id: str, video_url: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Find the newest completed-script task for the same user and URL.
+        This is suitable for request-time reuse without cross-user leakage.
+        """
+        query = """
+            SELECT t.*
+            FROM tasks t
+            JOIN task_outputs o ON o.task_id = t.id
+            WHERE t.user_id = :user_id
+              AND t.video_url = :video_url
+              AND o.kind = 'script'
+              AND o.status = 'completed'
+              AND length(o.content) > 0
+            ORDER BY t.created_at DESC
+            LIMIT 1
+        """
+        rows = self._execute_query(
+            query,
+            {"user_id": user_id, "video_url": video_url},
+        )
         return rows[0] if rows else None
 
     def create_completed_task_output(

@@ -23,6 +23,7 @@ class SupadataClient:
         api_key: Optional[str] = None,
         api_keys: Optional[List[str]] = None,
     ):
+        self.last_error: Optional[str] = None
         keys = self._resolve_keys(api_key=api_key, api_keys=api_keys)
         if keys:
             self.rotator: Optional[ApiKeyRotator] = ApiKeyRotator(keys)
@@ -100,7 +101,9 @@ class SupadataClient:
         self, video_url: str
     ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """Async version to fetch transcript."""
+        self.last_error = None
         if not self.rotator:
+            self.last_error = "Supadata API key not configured"
             logger.warning("Supadata API key not configured. Skipping.")
             return None, None, None
 
@@ -114,6 +117,7 @@ class SupadataClient:
                 try:
                     current_key = self.rotator.get_key()
                 except RuntimeError:
+                    self.last_error = "Supadata API rate-limited (429)"
                     logger.warning("All Supadata API keys are rate-limited.")
                     return None, None, None
 
@@ -124,6 +128,7 @@ class SupadataClient:
                     )
 
                     if resp.status_code == 429:
+                        self.last_error = "Supadata API rate-limited (429)"
                         logger.warning(
                             "Supadata API key rate-limited (429). Rotating key."
                         )
@@ -131,6 +136,7 @@ class SupadataClient:
                         continue
 
                     if resp.status_code not in (200, 201, 202):
+                        self.last_error = f"Supadata API error {resp.status_code}"
                         logger.warning(
                             f"Supadata API error {resp.status_code}: {resp.text}"
                         )
@@ -145,10 +151,13 @@ class SupadataClient:
                         logger.info(f"Supadata returned Job ID {job_id}, polling...")
                         data = await self._poll_job(client, job_id)
                         if not data:
+                            if not self.last_error:
+                                self.last_error = f"Supadata transcript job {job_id} did not complete"
                             return None, None, None
 
                     content = data.get("content")
                     if not content or not isinstance(content, list):
+                        self.last_error = "Supadata returned no transcript segments"
                         logger.warning(
                             "Supadata returned invalid content format (expected list of segments)."
                         )
@@ -265,6 +274,7 @@ class SupadataClient:
                         "Adaptive Learning Framework" in markdown_text
                         or "ALF" in markdown_text
                     ):
+                        self.last_error = "Supadata returned placeholder transcript content"
                         logger.warning(
                             "Supadata returned generic demo/mock content (Adaptive Learning Framework). Treating as failure to force fallback."
                         )
@@ -283,10 +293,12 @@ class SupadataClient:
                     return markdown_text, raw_json, detected_lang
 
                 except Exception as e:
+                    self.last_error = str(e)
                     logger.error(f"Supadata request failed: {e}")
                     return None, None, None
 
             # All attempts exhausted (all keys returned 429)
+            self.last_error = "Supadata API rate-limited (429)"
             logger.warning("All Supadata API keys exhausted after retries.")
             return None, None, None
 
@@ -303,6 +315,7 @@ class SupadataClient:
                 await asyncio.sleep(2)  # Wait 2s
                 resp = await client.get(url, headers=self._get_headers())
                 if resp.status_code != 200:
+                    self.last_error = f"Supadata polling error {resp.status_code}"
                     logger.warning(f"Poll check {i} failed: {resp.status_code}")
                     continue
 
@@ -310,8 +323,10 @@ class SupadataClient:
                 status = data.get("status")
 
                 if status == "completed":
+                    self.last_error = None
                     return data
                 elif status == "failed":
+                    self.last_error = str(data.get("error") or "Supadata transcript job failed")
                     logger.error(f"Supadata job {job_id} failed: {data.get('error')}")
                     return None
                 else:
@@ -322,8 +337,10 @@ class SupadataClient:
 
                 # Continue polling
             except Exception as e:
+                self.last_error = str(e)
                 logger.warning(f"Polling error: {e}")
 
+        self.last_error = f"Supadata job {job_id} timed out"
         logger.warning(
             f"Supadata job {job_id} timed out after {max_retries * 2} seconds."
         )

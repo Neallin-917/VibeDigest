@@ -92,6 +92,69 @@ async def test_ingest_failure_handling():
         assert len(error_calls) >= 1
         assert "Whisper Failed" in error_calls[0].kwargs.get('error', '')
 
+
+@pytest.mark.asyncio
+async def test_ingest_youtube_failure_surfaces_supadata_root_cause():
+    state = cast(VideoProcessingState, {
+        "task_id": "test-task-youtube-failure",
+        "user_id": "test-user",
+        "video_url": "https://www.youtube.com/watch?v=test",
+        "audio_path": None,
+        "errors": [],
+        "cache_hit": False,
+        "is_youtube": True,
+        "transcript_text": None,
+        "video_title": "",
+        "thumbnail_url": "",
+        "author": "",
+        "duration": 0,
+        "direct_audio_url": None,
+        "transcript_raw": None,
+        "transcript_lang": "en",
+        "classification_result": None,
+        "final_summary_json": None,
+        "comprehension_brief_json": None,
+        "transcript_source": None,
+        "ingest_error": None,
+    })
+
+    mock_db = MagicMock()
+    mock_vp = AsyncMock()
+    mock_supa = MagicMock()
+    mock_transcriber = AsyncMock()
+
+    mock_supa.last_error = "Supadata API rate-limited (429)"
+    mock_supa.get_transcript_async = AsyncMock(return_value=(None, None, None))
+
+    with patch('workflow._get_db_client', return_value=mock_db), \
+         patch('workflow._get_video_processor', return_value=mock_vp), \
+         patch('workflow._get_supadata_client', return_value=mock_supa), \
+         patch('workflow._get_transcriber', return_value=mock_transcriber):
+
+        mock_vp.extract_info_only = AsyncMock(return_value={
+            "title": "Test Video",
+            "thumbnail": "http://thumb",
+            "duration": 100,
+        })
+        mock_vp.extract_captions = AsyncMock(return_value=None)
+        mock_vp.download_and_convert = AsyncMock(side_effect=Exception("HTTP Error 403: Forbidden"))
+
+        updates = await ingest(state)
+
+    assert updates["ingest_error"] == "Supadata failed: Supadata API rate-limited (429)"
+    assert "Supadata failed: Supadata API rate-limited (429)" in updates["errors"]
+    assert "Direct VTT failed: no captions available" in updates["errors"]
+    assert any("Whisper failed: HTTP Error 403: Forbidden" in err for err in updates["errors"])
+
+    error_calls = [
+        c for c in mock_db.update_task_status.call_args_list
+        if c.kwargs.get('status') == TaskStatus.ERROR
+    ]
+    assert len(error_calls) >= 1
+    surfaced_error = error_calls[-1].kwargs.get('error', '')
+    assert "Supadata failed: Supadata API rate-limited (429)" in surfaced_error
+    assert "Whisper failed: HTTP Error 403: Forbidden" in surfaced_error
+
 @pytest.mark.asyncio
 async def test_cognition_failure_handling():
     """

@@ -46,6 +46,40 @@ def test_create_task(db_client_instance, mock_session):
     mock_session.execute.assert_called()
     mock_session.commit.assert_called()
 
+
+def test_find_latest_inflight_task(db_client_instance, mock_session):
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    row = MagicMock()
+    row._mapping = {"id": "task_inflight", "status": "processing"}
+    mock_result.__iter__.return_value = iter([row])
+    mock_session.execute.return_value = mock_result
+
+    result = db_client_instance.find_latest_inflight_task("u1", "https://youtube.com/watch?v=abc")
+
+    assert result["id"] == "task_inflight"
+    args, _ = mock_session.execute.call_args
+    assert "status IN ('pending', 'processing')" in args[0].text
+
+
+def test_find_latest_task_with_valid_script_for_user(db_client_instance, mock_session):
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    row = MagicMock()
+    row._mapping = {"id": "task_cached", "status": "completed"}
+    mock_result.__iter__.return_value = iter([row])
+    mock_session.execute.return_value = mock_result
+
+    result = db_client_instance.find_latest_task_with_valid_script_for_user(
+        "u1",
+        "https://youtube.com/watch?v=abc",
+    )
+
+    assert result["id"] == "task_cached"
+    args, _ = mock_session.execute.call_args
+    assert "t.user_id = :user_id" in args[0].text
+    assert "o.kind = 'script'" in args[0].text
+
 def test_get_task(db_client_instance, mock_session):
     mock_result = MagicMock()
     mock_result.returns_rows = True

@@ -1,18 +1,44 @@
 import { getToolName, isToolUIPart } from 'ai'
-import { GetTaskStatusTool, GetTaskOutputsTool, UnknownTool } from './tools'
+import {
+  CreateTaskTool,
+  GetTaskOutputsTool,
+  GetTaskStatusTool,
+  PreviewVideoTool,
+  UnknownTool,
+} from './tools'
 import type { ChatUIMessagePart } from '@/lib/chat-ui'
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
+export function shouldRenderToolPart(part: ChatUIMessagePart) {
+  if (!isToolUIPart(part)) {
+    return false
+  }
+
+  const toolName = getToolName(part)
+  const errorText = 'errorText' in part ? part.errorText : undefined
+  const output = 'output' in part ? part.output : undefined
+  const hasError =
+    Boolean(errorText) ||
+    (typeof output === 'object' &&
+      output !== null &&
+      'error' in output &&
+      typeof (output as { error?: unknown }).error === 'string')
+
+  switch (toolName) {
+    case 'create_task':
+    case 'get_task_status':
+      return hasError
+    default:
+      return true
+  }
+}
 
 // Helper function to render tool parts using AI SDK v6 standard UIMessage types
 export function renderToolPart(
   part: ChatUIMessagePart,
   index: number,
-  onOpenPanel?: (taskId: string) => void,
-  options?: { hasGetTaskStatus?: boolean }
+  onOpenPanel?: (taskId: string) => void
 ) {
-  if (!isToolUIPart(part)) {
+  if (!isToolUIPart(part) || !shouldRenderToolPart(part)) {
     return null
   }
 
@@ -43,31 +69,47 @@ export function renderToolPart(
             error?: string
           } | undefined}
           errorText={errorText}
-          onViewClick={onOpenPanel}
         />
       )
 
     case 'create_task':
-      if (options?.hasGetTaskStatus) return null
-      if (!isRecord(result) || typeof result.taskId !== 'string') return null
       return (
-        <GetTaskStatusTool
+        <CreateTaskTool
           key={resolvedToolCallId}
           toolCallId={resolvedToolCallId}
-          state="output-available"
-          output={{
-            taskId: result.taskId,
-            status: 'pending',
-            progress: 0,
-            video_url: typeof result.videoUrl === 'string' ? result.videoUrl : undefined
-          }}
+          state={state}
+          input={args as { video_url?: string; videoUrl?: string; url?: string } | undefined}
+          output={result as {
+            taskId?: string
+            status?: string
+            message?: string
+            videoUrl?: string
+            error?: string
+            details?: string | Record<string, unknown>
+          } | undefined}
           errorText={errorText}
           onViewClick={onOpenPanel}
         />
       )
 
     case 'preview_video':
-      return null
+      return (
+        <PreviewVideoTool
+          key={resolvedToolCallId}
+          toolCallId={resolvedToolCallId}
+          state={state}
+          input={args as { video_url?: string; videoUrl?: string; url?: string } | undefined}
+          output={result as {
+            title?: string
+            thumbnail?: string
+            duration?: string
+            channel?: string
+            error?: string
+            details?: string | Record<string, unknown>
+          } | undefined}
+          errorText={errorText}
+        />
+      )
 
     case 'get_task_outputs':
       return (

@@ -36,6 +36,8 @@ const {
     mockValidateUIMessages,
     mockGetSession,
     mockGenerateText,
+    mockCreateUIMessageStream,
+    mockCreateUIMessageStreamResponse,
 } = vi.hoisted(() => {
     return {
         mockGetUser: vi.fn(),
@@ -53,6 +55,8 @@ const {
         mockConvertToModelMessages: vi.fn(),
         mockValidateUIMessages: vi.fn(),
         mockGenerateText: vi.fn(),
+        mockCreateUIMessageStream: vi.fn(),
+        mockCreateUIMessageStreamResponse: vi.fn(),
     }
 })
 
@@ -82,6 +86,8 @@ vi.mock('ai', async (importOriginal) => {
         convertToModelMessages: mockConvertToModelMessages,
         validateUIMessages: mockValidateUIMessages,
         generateText: mockGenerateText,
+        createUIMessageStream: mockCreateUIMessageStream,
+        createUIMessageStreamResponse: mockCreateUIMessageStreamResponse,
     }
 })
 
@@ -112,6 +118,10 @@ function createTextMessage(
         role,
         parts: [{ type: 'text', text }],
     }
+}
+
+function getLastUIStreamOptions() {
+    return mockCreateUIMessageStream.mock.calls.at(-1)?.[0]
 }
 
 describe('Lazy Thread Creation', () => {
@@ -167,9 +177,19 @@ describe('Lazy Thread Creation', () => {
             json: async () => ({ active_provider: 'openrouter' })
         })
 
+        mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
+            void execute({
+                writer: {
+                    write: vi.fn(),
+                    merge: vi.fn(),
+                    onError: vi.fn(),
+                },
+            })
+            return { options }
+        })
+        mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
         mockStreamText.mockReturnValue({
-            consumeStream: vi.fn(),
-            toUIMessageStreamResponse: vi.fn().mockReturnValue(new Response('mock stream'))
+            toUIMessageStream: vi.fn().mockReturnValue(new ReadableStream()),
         })
         mockConvertToModelMessages.mockResolvedValue([])
         mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
@@ -274,11 +294,9 @@ describe('Lazy Thread Creation', () => {
 
         await POST(req)
 
-        // Capture the stream response options
-        const streamTextResult = mockStreamText.mock.results[0].value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        const uiStreamOptions = getLastUIStreamOptions()
 
-        expect(toUIMessageCall).toHaveProperty('onFinish')
+        expect(uiStreamOptions).toHaveProperty('onFinish')
 
         // Execute onFinish manually
         const finalMessages = [
@@ -295,7 +313,7 @@ describe('Lazy Thread Creation', () => {
         // Reset insert mock to clear any previous calls (though there shouldn't be any based on previous test)
         mockInsert.mockClear()
 
-        await toUIMessageCall.onFinish({ messages: finalMessages })
+        await uiStreamOptions.onFinish({ messages: finalMessages })
 
         // ASSERTION: Now we EXPECT the thread insert to happen
         expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({

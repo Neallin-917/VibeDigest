@@ -124,7 +124,7 @@ test-local-integration-smoke:
 	export PYTHONPATH=$$PYTHONPATH:$(PWD)/backend; \
 	EVENTLET_NO_GREENDNS=yes uv run python backend/scripts/llm/verify_config.py --connect; \
 	export PYTHONPATH=$$PYTHONPATH:$(PWD)/backend; \
-	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini backend/tests/test_integration.py::test_process_video_endpoint_real_db --no-cov -v
+	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/test_integration.py::test_process_video_endpoint_real_db --no-cov -v
 
 test-integration:
 	@echo "Running integration tests (OpenRouter real API)..."

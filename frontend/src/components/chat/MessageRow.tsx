@@ -4,10 +4,11 @@ import React, { memo } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getToolName, isToolUIPart } from 'ai'
+import { isDataUIPart, isToolUIPart } from 'ai'
 import { cn } from '@/lib/utils'
 import { partsAreEqual } from '@/lib/chat-perf-utils'
-import { renderToolPart } from './renderToolPart'
+import { renderToolPart, shouldRenderToolPart } from './renderToolPart'
+import { renderDataParts } from './renderDataParts'
 import type { ChatUIMessage } from '@/lib/chat-ui'
 
 interface MessageRowProps {
@@ -15,6 +16,7 @@ interface MessageRowProps {
   isStreaming: boolean
   enableMotion: boolean
   onOpenPanel?: (taskId: string) => void
+  liveTaskIds?: Set<string>
 }
 
 const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
@@ -77,7 +79,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
   )
 }, (prev, next) => prev.text === next.text)
 
-function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }: MessageRowProps) {
+function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel, liveTaskIds }: MessageRowProps) {
   if (message.role === 'system') return null
 
   if (message.role === 'assistant') {
@@ -85,30 +87,14 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }
       const typedPart = part as {
         type?: string
         text?: string
-        output?: { taskId?: string }
       }
       if (typedPart.type === 'text') return Boolean(typedPart.text?.trim())
-      if (isToolUIPart(part)) {
-        const toolName = getToolName(part)
-        if (toolName === 'preview_video') return false
-        if (toolName === 'create_task' && !typedPart.output?.taskId) return false
-        return true
-      }
+      if (isToolUIPart(part)) return shouldRenderToolPart(part)
+      if (isDataUIPart(part)) return true
       return false
     })
     if (!hasRenderableParts) return null
   }
-
-  const toolParts = (message.parts || []).filter(
-    part => isToolUIPart(part)
-  )
-  const hasGetTaskStatus = toolParts.some((p) => {
-    return getToolName(p) === 'get_task_status'
-  })
-  const hasGetTaskOutputs = toolParts.some((p) => {
-    return getToolName(p) === 'get_task_outputs'
-  })
-  const suppressAssistantText = message.role === 'assistant' && hasGetTaskStatus && !hasGetTaskOutputs
 
   const Wrapper: React.ElementType = enableMotion ? motion.div : 'div'
   const wrapperProps = enableMotion
@@ -143,7 +129,6 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }
             {message.parts && message.parts.length > 0
               ? message.parts.map((part, index) => {
                   if (part.type === 'text') {
-                    if (suppressAssistantText) return null
                     return (
                       <div
                         key={index}
@@ -157,7 +142,7 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }
                   if (isToolUIPart(part)) {
                     return (
                       <div key={index} className="w-full min-w-0 max-w-full">
-                        {renderToolPart(part, index, onOpenPanel, { hasGetTaskStatus })}
+                        {renderToolPart(part, index, onOpenPanel)}
                       </div>
                     )
                   }
@@ -165,6 +150,7 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }
                   return null
                 })
               : null}
+            {message.parts && message.parts.length > 0 ? renderDataParts(message.parts, liveTaskIds, onOpenPanel) : null}
           </div>
         </div>
       </div>
@@ -176,6 +162,7 @@ export const MessageRow = memo(MessageRowComponent, (prev, next) => {
   if (prev.enableMotion !== next.enableMotion) return false
   if (prev.isStreaming !== next.isStreaming) return false
   if (prev.onOpenPanel !== next.onOpenPanel) return false
+  if (prev.liveTaskIds !== next.liveTaskIds) return false
 
   // If streaming, always re-render to show updates
   if (next.isStreaming) return false

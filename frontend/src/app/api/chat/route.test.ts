@@ -41,6 +41,8 @@ const {
     mockGetSession,
     mockGenerateText,
     mockUpsert,
+    mockCreateUIMessageStream,
+    mockCreateUIMessageStreamResponse,
 } = vi.hoisted(() => {
     return {
         // Supabase mocks
@@ -62,6 +64,8 @@ const {
         mockConvertToModelMessages: vi.fn(),
         mockValidateUIMessages: vi.fn(),
         mockGenerateText: vi.fn(),
+        mockCreateUIMessageStream: vi.fn(),
+        mockCreateUIMessageStreamResponse: vi.fn(),
     }
 })
 
@@ -94,6 +98,8 @@ vi.mock('ai', async (importOriginal) => {
         convertToModelMessages: mockConvertToModelMessages,
         validateUIMessages: mockValidateUIMessages,
         generateText: mockGenerateText,
+        createUIMessageStream: mockCreateUIMessageStream,
+        createUIMessageStreamResponse: mockCreateUIMessageStreamResponse,
     }
 })
 
@@ -126,6 +132,10 @@ function createTextMessage(
         role,
         parts: [{ type: 'text', text }],
     }
+}
+
+function getLastUIStreamOptions() {
+    return mockCreateUIMessageStream.mock.calls.at(-1)?.[0]
 }
 
 // --- Tests ---
@@ -190,6 +200,17 @@ describe('POST /api/chat', () => {
         mockInsert.mockResolvedValue({ error: null })
         mockUpsert.mockResolvedValue({ error: null })
         mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
+        mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
+            void execute({
+                writer: {
+                    write: vi.fn(),
+                    merge: vi.fn(),
+                    onError: vi.fn(),
+                },
+            })
+            return { options }
+        })
+        mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
 
         ;(global as any).fetch = vi.fn().mockResolvedValue({
             ok: true,
@@ -209,8 +230,7 @@ describe('POST /api/chat', () => {
 
         // Default: Mock streamText response
         mockStreamText.mockReturnValue({
-            consumeStream: vi.fn(),
-            toUIMessageStreamResponse: vi.fn().mockReturnValue(new Response('mock stream'))
+            toUIMessageStream: vi.fn().mockReturnValue(new ReadableStream()),
         })
 
         mockConvertToModelMessages.mockResolvedValue([])
@@ -359,9 +379,8 @@ describe('POST /api/chat', () => {
             expect.objectContaining({ role: 'user' }),
         ])
 
-        const streamTextResult = mockStreamText.mock.results.at(-1)?.value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
-        expect(toUIMessageCall.originalMessages[1].parts[0]).toEqual(
+        const uiStreamOptions = getLastUIStreamOptions()
+        expect(uiStreamOptions.originalMessages[1].parts[0]).toEqual(
             expect.objectContaining({
                 type: 'tool-create_task',
                 toolCallId: 'tc-1',
@@ -369,10 +388,7 @@ describe('POST /api/chat', () => {
         )
     })
 
-    it('deletes invalid historical messages instead of trying to coerce them', async () => {
-        const deleteInMock = vi.fn().mockResolvedValue({ error: null })
-        mockDelete.mockReturnValue({ in: deleteInMock })
-
+    it('filters invalid historical messages instead of trying to coerce them', async () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
@@ -404,7 +420,6 @@ describe('POST /api/chat', () => {
                             }),
                         }),
                     }),
-                    delete: mockDelete,
                 }
             }
 
@@ -413,7 +428,6 @@ describe('POST /api/chat', () => {
                 insert: mockInsert,
                 update: mockUpdate,
                 upsert: mockUpsert,
-                delete: mockDelete,
             }
         }) as any)
 
@@ -427,7 +441,6 @@ describe('POST /api/chat', () => {
 
         await POST(req)
 
-        expect(deleteInMock).toHaveBeenCalledWith('id', ['legacy-1'])
         expect(mockValidateUIMessages).toHaveBeenCalledWith(
             expect.objectContaining({
                 messages: [expect.objectContaining({ id: expect.any(String), role: 'user' })],
@@ -545,11 +558,9 @@ describe('POST /api/chat', () => {
 
         await POST(req)
 
-        // Capture stream result and call onFinish
-        const streamTextResult = mockStreamText.mock.results.at(-1)?.value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        const uiStreamOptions = getLastUIStreamOptions()
         
-        await toUIMessageCall.onFinish({ 
+        await uiStreamOptions.onFinish({ 
             messages: [createTextMessage('New Thread', 'user', 'msg-1')] 
         })
 
@@ -599,11 +610,9 @@ describe('POST /api/chat', () => {
 
         await POST(req)
 
-        // Capture stream result and call onFinish
-        const streamTextResult = mockStreamText.mock.results.at(-1)?.value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        const uiStreamOptions = getLastUIStreamOptions()
         
-        await toUIMessageCall.onFinish({ 
+        await uiStreamOptions.onFinish({ 
             messages: [createTextMessage('Bind this thread', 'user', 'msg-1')] 
         })
 
@@ -745,11 +754,9 @@ describe('POST /api/chat', () => {
 
         await POST(req)
 
-        // Capture the toUIMessageStreamResponse options
-        const streamTextResult = mockStreamText.mock.results[0].value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        const uiStreamOptions = getLastUIStreamOptions()
 
-        expect(toUIMessageCall).toHaveProperty('onFinish')
+        expect(uiStreamOptions).toHaveProperty('onFinish')
 
         // Execute onFinish manually
         const finalMessages = [
@@ -769,7 +776,7 @@ describe('POST /api/chat', () => {
         // Mock checking if message exists (return null so it inserts)
         mockSingle.mockResolvedValue({ data: null })
 
-        await toUIMessageCall.onFinish({ messages: finalMessages })
+        await uiStreamOptions.onFinish({ messages: finalMessages })
 
         // Should try to insert messages
         // We expect at least one insert call for the chat_messages table
@@ -792,8 +799,7 @@ describe('POST /api/chat', () => {
 
         await POST(req)
 
-        const streamTextResult = mockStreamText.mock.results.at(-1)?.value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        const uiStreamOptions = getLastUIStreamOptions()
 
         mockInsert.mockClear()
         mockUpdate.mockClear()
@@ -813,7 +819,7 @@ describe('POST /api/chat', () => {
             }
         ]
 
-        await toUIMessageCall.onFinish({ messages: finalMessages })
+        await uiStreamOptions.onFinish({ messages: finalMessages })
 
         expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
             updated_at: expect.any(String),
@@ -863,12 +869,23 @@ describe('Chat Title Generation Logic', () => {
         mockInsert.mockResolvedValue({ error: null })
         mockUpsert.mockResolvedValue({ error: null })
         mockUpdate.mockReturnValue({ eq: vi.fn().mockResolvedValue({}) })
+        mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
+            void execute({
+                writer: {
+                    write: vi.fn(),
+                    merge: vi.fn(),
+                    onError: vi.fn(),
+                },
+            })
+            return { options }
+        })
+        mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
         mockStreamText.mockReturnValue({
-            consumeStream: vi.fn(),
-            toUIMessageStreamResponse: vi.fn().mockReturnValue(new Response('mock stream'))
+            toUIMessageStream: vi.fn().mockReturnValue(new ReadableStream()),
         })
         mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
         mockConvertToModelMessages.mockResolvedValue([])
+        mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
 
         ;(global as any).fetch = vi.fn().mockResolvedValue({
             ok: true,
@@ -955,8 +972,7 @@ describe('Chat Title Generation Logic', () => {
 
         await POST(req)
 
-        const streamTextResult = mockStreamText.mock.results.at(-1)?.value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        const uiStreamOptions = getLastUIStreamOptions()
 
         const finalMessages = [
             { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Analyze this video' }] },
@@ -977,7 +993,7 @@ describe('Chat Title Generation Logic', () => {
             { id: 'msg-5', role: 'assistant', parts: [{ type: 'text', text: 'It is processing.' }] }
         ]
 
-        await toUIMessageCall.onFinish({ messages: finalMessages })
+        await uiStreamOptions.onFinish({ messages: finalMessages })
 
         expect(mockGenerateText).toHaveBeenCalled()
         const genCallArgs = mockGenerateText.mock.calls[0][0]
@@ -1013,15 +1029,14 @@ describe('Chat Title Generation Logic', () => {
 
         await POST(req)
 
-        const streamTextResult = mockStreamText.mock.results.at(-1)?.value
-        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        const uiStreamOptions = getLastUIStreamOptions()
 
         const finalMessages = [
             { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
             { id: 'msg-2', role: 'assistant', parts: [{ type: 'text', text: 'Hi' }] }
         ]
 
-        await toUIMessageCall.onFinish({ messages: finalMessages })
+        await uiStreamOptions.onFinish({ messages: finalMessages })
 
         expect(mockGenerateText).not.toHaveBeenCalled()
     })

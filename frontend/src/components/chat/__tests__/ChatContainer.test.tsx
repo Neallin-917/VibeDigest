@@ -229,10 +229,10 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer />)
     
-    expect(screen.getByTestId('tool-get-task-status')).toBeInTheDocument()
     expect(screen.getByTestId('tool-get-task-outputs')).toBeInTheDocument()
-    expect(screen.getAllByTestId('tool-get-task-status')).toHaveLength(1) 
     expect(screen.getByTestId('tool-unknown')).toBeInTheDocument()
+    expect(screen.queryByTestId('tool-get-task-status')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tool-create-task')).not.toBeInTheDocument()
   })
 
   it('triggers onOpenPanel when create_task completes', async () => {
@@ -278,13 +278,42 @@ describe('ChatContainer', () => {
     expect(localStorage.getItem('vibedigest_pending_message')).toBeNull()
   })
 
-  it('injects a typed task status tool message for direct URL submissions', async () => {
+  it('hydrates direct URL submissions from server-provided data parts', async () => {
     localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=test123')
     const originalFetch = global.fetch
     try {
+      const serverMessages: ChatUIMessage[] = [
+        {
+          id: 'direct-user-1',
+          role: 'user',
+          parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=test123' }],
+        },
+        {
+          id: 'direct-assistant-1',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'data-task-status',
+              id: 'task-status-task-123',
+              data: { taskId: 'task-123', status: 'pending', progress: 0 },
+            } as any,
+            {
+              type: 'data-task-progress',
+              id: 'task-progress-task-123',
+              data: { taskId: 'task-123' },
+            } as any,
+            {
+              type: 'data-task-plan',
+              id: 'task-plan-task-123',
+              data: { taskId: 'task-123' },
+            } as any,
+          ],
+        },
+      ]
+
       ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ task_id: 'task-123' }),
+        json: async () => ({ task_id: 'task-123', messages: serverMessages }),
       } as Response)
 
       render(<ChatContainer isAuthenticated={true} />)
@@ -297,23 +326,7 @@ describe('ChatContainer', () => {
       expect(typeof updater).toBe('function')
 
       const nextMessages = updater([]) as ChatUIMessage[]
-      expect(nextMessages).toHaveLength(2)
-      expect(nextMessages[0]).toEqual(expect.objectContaining({
-        role: 'user',
-        parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=test123' }],
-      }))
-      expect(nextMessages[1]).toEqual(expect.objectContaining({
-        role: 'assistant',
-        parts: [
-          expect.objectContaining({
-            type: 'tool-get_task_status',
-            toolCallId: 'direct-status-task-123',
-            state: 'output-available',
-            input: { taskId: 'task-123' },
-            output: { taskId: 'task-123', status: 'pending', progress: 0 },
-          }),
-        ],
-      }))
+      expect(nextMessages).toEqual(serverMessages)
       expect(mockSendMessage).not.toHaveBeenCalled()
     } finally {
       global.fetch = originalFetch

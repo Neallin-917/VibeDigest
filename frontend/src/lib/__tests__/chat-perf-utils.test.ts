@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   checkHasRenderableAssistant,
-  checkHasTaskStatusForActiveTask,
   partsAreEqual,
 } from '../chat-perf-utils'
 import type { ChatUIMessage } from '@/lib/chat-ui'
@@ -37,16 +36,16 @@ describe('checkHasRenderableAssistant', () => {
     expect(checkHasRenderableAssistant(messages)).toBe(false)
   })
 
-  it('returns false when only preview_video tool parts', () => {
+  it('returns true when assistant only contains preview_video tool parts', () => {
     const messages: ChatUIMessage[] = [
       msg('assistant', [
         { type: 'tool-preview_video', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
       ]),
     ]
-    expect(checkHasRenderableAssistant(messages)).toBe(false)
+    expect(checkHasRenderableAssistant(messages)).toBe(true)
   })
 
-  it('returns false when create_task has no taskId output', () => {
+  it('returns false when create_task is only a hidden success-state tool', () => {
     const messages: ChatUIMessage[] = [
       msg('assistant', [
         { type: 'tool-create_task', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
@@ -55,7 +54,7 @@ describe('checkHasRenderableAssistant', () => {
     expect(checkHasRenderableAssistant(messages)).toBe(false)
   })
 
-  it('returns true when create_task has taskId in output', () => {
+  it('returns false when create_task has taskId in output', () => {
     const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
@@ -67,10 +66,10 @@ describe('checkHasRenderableAssistant', () => {
         } as any,
       ]),
     ]
-    expect(checkHasRenderableAssistant(messages)).toBe(true)
+    expect(checkHasRenderableAssistant(messages)).toBe(false)
   })
 
-  it('returns true for get_task_status tool', () => {
+  it('returns false for hidden get_task_status success tool', () => {
     const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
@@ -79,6 +78,21 @@ describe('checkHasRenderableAssistant', () => {
           state: 'result',
           args: {},
           output: { taskId: 't1' },
+        } as any,
+      ]),
+    ]
+    expect(checkHasRenderableAssistant(messages)).toBe(false)
+  })
+
+  it('returns true for create_task error tool', () => {
+    const messages: ChatUIMessage[] = [
+      msg('assistant', [
+        {
+          type: 'tool-create_task',
+          toolCallId: 'tc1',
+          state: 'output-error',
+          args: {},
+          output: { error: 'Creation failed' },
         } as any,
       ]),
     ]
@@ -92,101 +106,26 @@ describe('checkHasRenderableAssistant', () => {
     expect(checkHasRenderableAssistant(messages)).toBe(false)
   })
 
-  it('returns true for dynamic-tool type with renderable toolName', () => {
+  it('returns true for dynamic-tool type with non-hidden toolName', () => {
     const messages: ChatUIMessage[] = [
       msg('assistant', [
-        { type: 'dynamic-tool', toolName: 'get_task_status', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
+        { type: 'dynamic-tool', toolName: 'custom_tool', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
       ]),
     ]
     expect(checkHasRenderableAssistant(messages)).toBe(true)
   })
-})
 
-// ---------------------------------------------------------------------------
-// checkHasTaskStatusForActiveTask
-// ---------------------------------------------------------------------------
-describe('checkHasTaskStatusForActiveTask', () => {
-  it('returns false when activeTaskId is null', () => {
+  it('returns true for persistent task data parts', () => {
     const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
-          type: 'tool-get_task_status',
-          toolCallId: 'tc1',
-          state: 'result',
-          args: {},
-          output: { taskId: 'task-1' },
+          type: 'data-task-status',
+          id: 'task-status-task-1',
+          data: { taskId: 'task-1', status: 'processing', progress: 20 },
         } as any,
       ]),
     ]
-    expect(checkHasTaskStatusForActiveTask(messages, null)).toBe(false)
-  })
-
-  it('returns false when no matching task in messages', () => {
-    const messages: ChatUIMessage[] = [
-      msg('user', [{ type: 'text', text: 'hello' }]),
-    ]
-    expect(checkHasTaskStatusForActiveTask(messages, 'task-1')).toBe(false)
-  })
-
-  it('returns true when get_task_status matches activeTaskId', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        {
-          type: 'tool-get_task_status',
-          toolCallId: 'tc1',
-          state: 'result',
-          input: { taskId: 'task-1' },
-          output: { taskId: 'task-1' },
-        } as any,
-      ]),
-    ]
-    expect(checkHasTaskStatusForActiveTask(messages, 'task-1')).toBe(true)
-  })
-
-  it('returns true when create_task output matches activeTaskId', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        {
-          type: 'tool-create_task',
-          toolCallId: 'tc1',
-          state: 'result',
-          args: {},
-          output: { taskId: 'task-1' },
-        } as any,
-      ]),
-    ]
-    expect(checkHasTaskStatusForActiveTask(messages, 'task-1')).toBe(true)
-  })
-
-  it('returns false when task IDs do not match', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        {
-          type: 'tool-get_task_status',
-          toolCallId: 'tc1',
-          state: 'result',
-          input: { taskId: 'task-2' },
-          output: { taskId: 'task-2' },
-        } as any,
-      ]),
-    ]
-    expect(checkHasTaskStatusForActiveTask(messages, 'task-1')).toBe(false)
-  })
-
-  it('returns true when dynamic-tool get_task_status matches', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        {
-          type: 'dynamic-tool',
-          toolName: 'get_task_status',
-          toolCallId: 'tc1',
-          state: 'result',
-          input: { taskId: 'task-1' },
-          output: { taskId: 'task-1' },
-        } as any,
-      ]),
-    ]
-    expect(checkHasTaskStatusForActiveTask(messages, 'task-1')).toBe(true)
+    expect(checkHasRenderableAssistant(messages)).toBe(true)
   })
 })
 

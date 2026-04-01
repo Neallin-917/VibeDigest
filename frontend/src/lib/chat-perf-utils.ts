@@ -7,24 +7,38 @@ interface ToolPart {
   type: string
   text?: string
   toolName?: string
-  output?: { taskId?: string }
-  input?: { taskId?: string }
+  errorText?: string
+  output?: unknown
 }
 
-/**
- * Resolves the canonical tool name from a message part's `type` field.
- * Handles both `tool-<name>` and `dynamic-tool` conventions.
- */
-function resolveToolName(part: ToolPart): string {
-  if (part.type === 'dynamic-tool') return part.toolName ?? ''
-  if (part.type.startsWith('tool-')) return part.type.replace('tool-', '')
-  return ''
+function shouldCountToolPart(part: ToolPart) {
+  const toolName =
+    part.type === 'dynamic-tool'
+      ? part.toolName ?? ''
+      : part.type.startsWith('tool-')
+        ? part.type.replace('tool-', '')
+        : ''
+
+  const output = part.output
+  const hasError =
+    Boolean(part.errorText) ||
+    (typeof output === 'object' &&
+      output !== null &&
+      'error' in output &&
+      typeof (output as { error?: unknown }).error === 'string')
+
+  switch (toolName) {
+    case 'create_task':
+    case 'get_task_status':
+      return hasError
+    default:
+      return true
+  }
 }
 
 /**
  * Returns `true` when at least one assistant message contains a part that
- * should be rendered in the chat (non-empty text, or a tool other than
- * preview_video / incomplete create_task).
+ * should be rendered in the chat (non-empty text, tool parts, or data parts).
  *
  * Extracted from ChatContainer `useMemo` for testability and reuse.
  */
@@ -34,12 +48,8 @@ export function checkHasRenderableAssistant(messages: ChatUIMessage[]): boolean 
     return (m.parts || []).some((part: unknown) => {
       const p = part as ToolPart
       if (p.type === 'text') return Boolean(p.text?.trim())
-      if (p.type?.startsWith('tool-') || p.type === 'dynamic-tool') {
-        const toolName = resolveToolName(p)
-        if (toolName === 'preview_video') return false
-        if (toolName === 'create_task' && !p.output?.taskId) return false
-        return true
-      }
+      if (p.type?.startsWith('tool-') || p.type === 'dynamic-tool') return shouldCountToolPart(p)
+      if (p.type?.startsWith('data-')) return true
       return false
     })
   })
@@ -51,7 +61,7 @@ export function checkHasRenderableAssistant(messages: ChatUIMessage[]): boolean 
  * - Same reference → true (fast path)
  * - Different length → false
  * - Text parts: compare `.text` by value (string identity)
- * - Tool / other parts: compare by reference (tools don't mutate in place)
+ * - Tool / data / other parts: compare by reference (parts don't mutate in place)
  *
  * This replaces `JSON.stringify` deep-equal which is O(n*size) with
  * an O(n) loop that avoids serialization entirely.
@@ -69,34 +79,9 @@ export function partsAreEqual(
     if (prev.type === 'text' && next.type === 'text') {
       if (prev.text !== next.text) return false
     } else {
-      // Tool parts: compare by reference (tool output won't mutate in place)
+      // Non-text parts: compare by reference (tool/data output won't mutate in place)
       if (prev !== next) return false
     }
   }
   return true
-}
-
-/**
- * Returns `true` when any message contains a `get_task_status` or
- * `create_task` tool part whose taskId matches the given activeTaskId.
- *
- * Extracted from ChatContainer `useMemo` for testability and reuse.
- */
-export function checkHasTaskStatusForActiveTask(
-  messages: ChatUIMessage[],
-  activeTaskId: string | null
-): boolean {
-  if (!activeTaskId) return false
-  return messages.some((message) => {
-    return (message.parts || []).some((part: unknown) => {
-      const p = part as ToolPart
-      const toolName = resolveToolName(p)
-      const taskId = p.output?.taskId || p.input?.taskId
-      if (!taskId) return false
-      return (
-        (toolName === 'get_task_status' || toolName === 'create_task') &&
-        taskId === activeTaskId
-      )
-    })
-  })
 }

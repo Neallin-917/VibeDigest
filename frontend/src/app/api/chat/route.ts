@@ -1,4 +1,12 @@
-import { streamText, convertToModelMessages, createIdGenerator, stepCountIs, validateUIMessages } from 'ai';
+import {
+    createIdGenerator,
+    createUIMessageStream,
+    createUIMessageStreamResponse,
+    streamText,
+    convertToModelMessages,
+    stepCountIs,
+    validateUIMessages,
+} from 'ai';
 import { createProviderClient } from '@/lib/llm-config';
 import { getProviderModelDefaults, resolveProvider, resolveProviderModel } from '@/lib/llm-model-registry';
 import { env } from '@/env';
@@ -8,7 +16,14 @@ import { verifyAuth, isAuthError } from './auth';
 import { buildRagContext } from './rag';
 import { buildAllTools, buildTools } from './tools';
 import { createOnFinishHandler } from './persistence';
-import { type ChatUIMessage, isStrictStoredMessageRow, toStoredChatUIMessage } from '@/lib/chat-ui';
+import {
+    chatDataSchemas,
+    messageMetadataSchema,
+    type ChatUIMessage,
+    isStrictStoredMessageRow,
+    toStoredChatUIMessage,
+} from '@/lib/chat-ui';
+import { writeTaskDataParts } from './task-data-parts';
 
 const SHORT_QUERY_CHAR_LIMIT = 200;
 
@@ -69,25 +84,6 @@ export async function POST(req: Request) {
 
             if (dbMessages && dbMessages.length > 0) {
                 const persistedMessages = dbMessages as ChatMessageRow[];
-                const invalidMessageIds = persistedMessages
-                    .filter((msg) => !isStrictStoredMessageRow(msg))
-                    .map((msg) => msg.id);
-
-                if (invalidMessageIds.length > 0) {
-                    const { error: deleteError } = await supabase
-                        .from('chat_messages')
-                        .delete()
-                        .in('id', invalidMessageIds);
-
-                    if (deleteError) {
-                        console.error('[API/Chat] Failed to delete invalid historical messages:', deleteError);
-                    } else {
-                        console.warn(
-                            `[API/Chat] Deleted ${invalidMessageIds.length} invalid historical messages from ${threadId}`
-                        );
-                    }
-                }
-
                 messages = persistedMessages
                     .filter(isStrictStoredMessageRow)
                     .map((msg) => toStoredChatUIMessage(msg));
@@ -100,6 +96,9 @@ export async function POST(req: Request) {
         } else {
             console.warn('[API/Chat] No new message received in request body');
         }
+
+        // Normalize: ensure every message has metadata (AI SDK validates it as object, not undefined)
+        messages = messages.map(m => ({ ...m, metadata: m.metadata ?? {} }));
 
         // 3. Build RAG Context
         const context = await buildRagContext(taskId, supabase);
@@ -171,36 +170,93 @@ When users provide video URLs:
         // 8. Validate UI messages and convert to model messages
         const validatedMessages = await validateUIMessages<ChatUIMessage>({
             messages,
+            metadataSchema: messageMetadataSchema,
+            dataSchemas: chatDataSchemas,
             tools: allTools,
         });
         const coreMessages = await convertToModelMessages(validatedMessages);
 
-        // 9. Stream response
-        const result = streamText({
-            model: openai.chat(modelName),
-            system: systemPrompt,
-            messages: coreMessages,
-            stopWhen: stepCountIs(5),
-            tools,
+        const onFinish = createOnFinishHandler({
+            threadId,
+            threadTitle,
+            requestTaskId,
+            user,
+            supabase,
+            messages: validatedMessages,
+            openai,
+            modelName,
         });
 
-        result.consumeStream();
+        // 9. Stream response and emit task data parts for UI cards
+        const stream = createUIMessageStream<ChatUIMessage>({
+            originalMessages: validatedMessages,
+            generateId: createIdGenerator({ prefix: 'msg', size: 16 }),
+            onFinish,
+            execute: ({ writer }) => {
+                const result = streamText({
+                    model: openai.chat(modelName),
+                    system: systemPrompt,
+                    messages: coreMessages,
+                    stopWhen: stepCountIs(5),
+                    tools,
+                    onStepFinish: ({ toolResults }) => {
+                        toolResults.forEach((toolResult) => {
+                            if (!('toolName' in toolResult) || !('output' in toolResult)) return;
+
+                            if (toolResult.toolName === 'create_task') {
+                                const output = toolResult.output as {
+                                    taskId?: string;
+                                    videoUrl?: string;
+                                };
+                                if (typeof output.taskId === 'string') {
+                                    writeTaskDataParts(writer, {
+                                        taskId: output.taskId,
+                                        status: 'pending',
+                                        progress: 0,
+                                        video_url: output.videoUrl,
+                                    });
+                                }
+                            }
+
+                            if (toolResult.toolName === 'get_task_status') {
+                                const output = toolResult.output as {
+                                    taskId?: string;
+                                    status?: 'pending' | 'processing' | 'completed' | 'failed';
+                                    progress?: number;
+                                    video_title?: string;
+                                    thumbnail_url?: string;
+                                    video_url?: string;
+                                    error_message?: string;
+                                };
+
+                                if (
+                                    typeof output.taskId === 'string' &&
+                                    (output.status === 'pending' ||
+                                        output.status === 'processing' ||
+                                        output.status === 'completed' ||
+                                        output.status === 'failed')
+                                ) {
+                                    writeTaskDataParts(writer, {
+                                        taskId: output.taskId,
+                                        status: output.status,
+                                        progress: output.progress,
+                                        video_title: output.video_title,
+                                        thumbnail_url: output.thumbnail_url,
+                                        video_url: output.video_url,
+                                        error_message: output.error_message,
+                                    });
+                                }
+                            }
+                        });
+                    },
+                });
+
+                writer.merge(result.toUIMessageStream());
+            },
+        });
 
         // 10. Return response with persistence hook
-        return result.toUIMessageStreamResponse({
-            originalMessages: validatedMessages,
-            generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
-            onFinish: createOnFinishHandler({
-                threadId,
-                threadTitle,
-                requestTaskId,
-                user,
-                supabase,
-                messages: validatedMessages,
-                openai,
-                modelName,
-            }),
-        });
+        return createUIMessageStreamResponse({ stream });
     } catch (error: unknown) {
         console.error('[API/Chat] Fatal Error:', error);
 

@@ -37,25 +37,5 @@ export async function getThreadMessagesResponse({
         return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
 
-    const validMessages = (messages ?? []).filter(isStrictStoredMessageRow);
-    const invalidMessageIds = (messages ?? [])
-        .filter((message) => !isStrictStoredMessageRow(message))
-        .map((message) => String(message.id));
-
-    if (invalidMessageIds.length > 0) {
-        const { error: deleteError } = await supabase
-            .from('chat_messages')
-            .delete()
-            .in('id', invalidMessageIds);
-
-        if (deleteError) {
-            console.error('[API/Chat] Failed to delete invalid historical thread messages:', deleteError);
-        } else {
-            console.warn(
-                `[API/Chat] Deleted ${invalidMessageIds.length} invalid historical thread messages from ${threadId}`
-            );
-        }
-    }
-
-    return NextResponse.json(validMessages);
+    return NextResponse.json((messages ?? []).filter(isStrictStoredMessageRow));
 }

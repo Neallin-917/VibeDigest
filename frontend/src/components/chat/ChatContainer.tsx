@@ -1,12 +1,13 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
+import { DefaultChatTransport, isDataUIPart } from 'ai'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
 import { MessageRow } from './MessageRow'
+import { TaskDataGroup } from './TaskDataGroup'
 import { cn } from '@/lib/utils'
-import { checkHasRenderableAssistant, checkHasTaskStatusForActiveTask } from '@/lib/chat-perf-utils'
+import { checkHasRenderableAssistant } from '@/lib/chat-perf-utils'
 import { useRef, useEffect, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { extractAndNormalizeUrl } from '@/lib/url-utils'
@@ -16,7 +17,7 @@ import { useDirectUrlSubmission } from './useDirectUrlSubmission'
 import { Loader2, XCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useI18n } from '@/components/i18n/I18nProvider'
-import { createTaskStatusMessage, type ChatUIMessage } from '@/lib/chat-ui'
+import { chatDataSchemas, type ChatUIMessage } from '@/lib/chat-ui'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -26,7 +27,7 @@ interface ChatContainerProps {
   isInteractionLocked?: boolean
   onOpenPanel?: (taskId: string) => void
   onSelectExample?: (taskId: string) => void
-  onChatStarted?: (threadId: string) => void
+  onChatStarted?: (threadId: string, taskId?: string) => void
 }
 
 function isAuthRequiredError(err: unknown) {
@@ -117,6 +118,7 @@ export function ChatContainer({
     // However, to avoid flashing empty state, passing it here is better if accepted.
     // Since TS complained about 'initialMessages' not existing in options, we try 'messages' (if ChatInit is mixed in).
     messages: initialMessages,
+    dataPartSchemas: chatDataSchemas as never,
 
     // Error handling
     onError: (err: Error | unknown) => {
@@ -159,7 +161,6 @@ export function ChatContainer({
   const { isDirectProcessing, handleDirectUrlSubmission } = useDirectUrlSubmission({
     sendMessageToApi,
     setMessages,
-    onOpenPanel,
     onChatStarted,
     effectiveThreadId,
     activeTaskIdRef,
@@ -204,27 +205,42 @@ export function ChatContainer({
     () => checkHasRenderableAssistant(messages),
     [messages]
   )
-  const hasTaskStatusForActiveTask = useMemo(
-    () => checkHasTaskStatusForActiveTask(messages, activeTaskId ?? null),
-    [messages, activeTaskId]
-  )
-  const forcedTaskStatusMessage = useMemo<ChatUIMessage | null>(() => {
-    if (!activeTaskId || hasTaskStatusForActiveTask) return null
-    return createTaskStatusMessage({
-      messageId: `task-status-${activeTaskId}`,
-      toolCallId: `task-status-${activeTaskId}`,
-      taskId: activeTaskId,
-    })
-  }, [activeTaskId, hasTaskStatusForActiveTask])
   const lastMessage = messages[messages.length - 1]
   const streamingMessage =
     status === 'streaming' && lastMessage?.role === 'assistant' ? lastMessage : null
   const historyMessages = streamingMessage ? messages.slice(0, -1) : messages
-  const renderMessages = forcedTaskStatusMessage
-    ? [forcedTaskStatusMessage, ...historyMessages]
-    : historyMessages
+  const renderMessages = historyMessages
+  const liveTaskIdsByMessage = useMemo(() => {
+    const latestTaskMessageIds = new Map<string, string>()
+
+    renderMessages.forEach(message => {
+      message.parts?.forEach(part => {
+        if (!isDataUIPart(part)) return
+        if (!('data' in part) || typeof part.data !== 'object' || part.data === null) return
+
+        const taskId =
+          'taskId' in part.data && typeof part.data.taskId === 'string'
+            ? part.data.taskId
+            : null
+
+        if (taskId) {
+          latestTaskMessageIds.set(taskId, message.id)
+        }
+      })
+    })
+
+    const result = new Map<string, Set<string>>()
+    latestTaskMessageIds.forEach((messageId, taskId) => {
+      const taskIds = result.get(messageId) ?? new Set<string>()
+      taskIds.add(taskId)
+      result.set(messageId, taskIds)
+    })
+
+    return result
+  }, [renderMessages])
 
   const { scrollRef, handleScroll } = useChatScroll({ messages, status, activeTaskId })
+  const showStandaloneTaskGroup = Boolean(activeTaskId && renderMessages.length === 0 && !streamingMessage)
 
   // Handle pending landing page message
   useEffect(() => {
@@ -298,6 +314,19 @@ export function ChatContainer({
           />
         ) : (
           <div className="max-w-3xl mx-auto w-full space-y-8">
+            {showStandaloneTaskGroup ? (
+              <TaskDataGroup
+                taskStatus={{
+                  taskId: activeTaskId!,
+                  status: 'pending',
+                  progress: 0,
+                }}
+                showProgress
+                showPlan
+                live
+                onOpenPanel={onOpenPanel}
+              />
+            ) : null}
             {/* Performance: No AnimatePresence wrapper — only the newest message gets motion */}
             {renderMessages.map((m, index) => (
               <MessageRow
@@ -306,6 +335,7 @@ export function ChatContainer({
                 isStreaming={false}
                 enableMotion={index === renderMessages.length - 1}
                 onOpenPanel={onOpenPanel}
+                liveTaskIds={liveTaskIdsByMessage.get(m.id)}
               />
             ))}
 
@@ -316,6 +346,7 @@ export function ChatContainer({
                 isStreaming
                 enableMotion={false}
                 onOpenPanel={onOpenPanel}
+                liveTaskIds={new Set<string>()}
               />
             ) : null}
 

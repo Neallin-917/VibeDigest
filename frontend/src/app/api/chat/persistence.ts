@@ -18,6 +18,82 @@ type PersistenceParams = {
     modelName: string;
 };
 
+type UpsertChatStateParams = {
+    threadId: string;
+    user: { id: string; email?: string };
+    supabase: ToolContext['supabase'];
+    messages: ChatUIMessage[];
+    taskIdToBind?: string | null;
+    threadTitle?: string | undefined;
+};
+
+export async function upsertChatState({
+    threadId,
+    user,
+    supabase,
+    messages,
+    taskIdToBind,
+    threadTitle,
+}: UpsertChatStateParams) {
+    const { data: existingThread } = await supabase
+        .from('chat_threads')
+        .select('id')
+        .eq('id', threadId)
+        .single();
+
+    if (!existingThread) {
+        const threadInsertPayload: Record<string, unknown> = {
+            id: threadId,
+            user_id: user.id,
+            title: threadTitle || 'New Chat',
+            updated_at: new Date().toISOString(),
+        };
+        if (taskIdToBind) {
+            threadInsertPayload.task_id = taskIdToBind;
+        }
+
+        const { error: createError } = await supabase
+            .from('chat_threads')
+            .insert(threadInsertPayload);
+        if (createError) {
+            throw createError;
+        }
+    }
+
+    const messagesToUpsert = messages.map((msg) => ({
+        id: msg.id,
+        thread_id: threadId,
+        role: msg.role,
+        content: msg.parts,
+        metadata: msg.metadata ?? {},
+        created_at: getMessageCreatedAtIso(msg),
+    }));
+
+    const { error: upsertError } = await supabase
+        .from('chat_messages')
+        .upsert(messagesToUpsert, { onConflict: 'id', ignoreDuplicates: true });
+
+    if (upsertError) {
+        throw upsertError;
+    }
+
+    const threadUpdatePayload: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+    };
+    if (taskIdToBind) {
+        threadUpdatePayload.task_id = taskIdToBind;
+    }
+
+    const { error: threadUpdateError } = await supabase
+        .from('chat_threads')
+        .update(threadUpdatePayload)
+        .eq('id', threadId);
+
+    if (threadUpdateError) {
+        throw threadUpdateError;
+    }
+}
+
 /**
  * Creates the onFinish callback for stream response persistence.
  * Handles thread lazy creation, message upsert, task binding, and title generation.
@@ -44,62 +120,14 @@ export function createOnFinishHandler(params: PersistenceParams) {
             // 1. Determine Task ID binding first (from tool outputs or request)
             const createdTaskId = extractTaskIdFromCreateTaskMessages(finalMessages);
             const taskIdToBind = createdTaskId || requestTaskId;
-
-            // 2. Check if thread exists (Lazy Creation check)
-            const { data: existingThread } = await supabase
-                .from('chat_threads')
-                .select('id')
-                .eq('id', threadId)
-                .single();
-
-            if (!existingThread) {
-                const threadInsertPayload: Record<string, unknown> = {
-                    id: threadId,
-                    user_id: user.id,
-                    title: 'New Chat',
-                    updated_at: new Date().toISOString(),
-                };
-                if (taskIdToBind) {
-                    threadInsertPayload.task_id = taskIdToBind;
-                }
-
-                const { error: createError } = await supabase
-                    .from('chat_threads')
-                    .insert(threadInsertPayload);
-                if (createError) {
-                    console.error('[API/Chat] Lazy thread creation failed:', createError);
-                    return;
-                }
-            }
-
-            // Batch upsert: single DB round-trip instead of N+1 SELECT+INSERT
-            const messagesToUpsert = finalMessages.map((msg) => ({
-                id: msg.id,
-                thread_id: threadId,
-                role: msg.role,
-                content: msg.parts,
-                created_at: getMessageCreatedAtIso(msg),
-            }));
-
-            const { error: upsertError } = await supabase
-                .from('chat_messages')
-                .upsert(messagesToUpsert, { onConflict: 'id', ignoreDuplicates: true });
-
-            if (upsertError) {
-                console.error('[API/Chat] Batch message upsert failed:', upsertError);
-            }
-
-            const threadUpdatePayload: Record<string, unknown> = {
-                updated_at: new Date().toISOString(),
-            };
-            if (taskIdToBind) {
-                threadUpdatePayload.task_id = taskIdToBind;
-            }
-
-            await supabase
-                .from('chat_threads')
-                .update(threadUpdatePayload)
-                .eq('id', threadId);
+            await upsertChatState({
+                threadId,
+                user,
+                supabase,
+                messages: finalMessages,
+                taskIdToBind,
+                threadTitle,
+            });
 
             // Title Generation
             const isNewChat = !threadTitle || threadTitle === 'New Chat';

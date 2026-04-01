@@ -1,34 +1,36 @@
 import { useState, useCallback } from 'react'
-import { v4 as uuidv4 } from 'uuid'
-import { createTaskStatusMessage, createUserTextMessage, type ChatUIMessage } from '@/lib/chat-ui'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
 export function useDirectUrlSubmission(deps: {
   sendMessageToApi: (params: { text: string }) => void
   setMessages: React.Dispatch<React.SetStateAction<ChatUIMessage[]>>
-  onOpenPanel?: (taskId: string) => void
-  onChatStarted?: (threadId: string) => void
+  onChatStarted?: (threadId: string, taskId?: string) => void
   effectiveThreadId: string
   activeTaskIdRef: React.RefObject<string | null | undefined>
 }): {
   isDirectProcessing: boolean
   handleDirectUrlSubmission: (url: string, originalText: string) => Promise<void>
 } {
-  const { sendMessageToApi, setMessages, onOpenPanel, onChatStarted, effectiveThreadId, activeTaskIdRef } = deps
+  const { sendMessageToApi, setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef } = deps
 
   const [isDirectProcessing, setIsDirectProcessing] = useState(false)
 
   /**
    * Direct URL submission: bypass LLM tool calls entirely.
-   * Calls /api/process-video directly, then injects synthetic messages
-   * so the existing GetTaskStatusTool UI + Realtime subscription handles updates.
+   * Calls a dedicated server route that creates the task, persists the chat,
+   * and returns assistant messages that already use data parts.
    */
   const handleDirectUrlSubmission = useCallback(async (url: string, originalText: string) => {
     setIsDirectProcessing(true)
     try {
-      const res = await fetch('/api/process-video', {
+      const res = await fetch('/api/chat/direct-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_url: url }),
+        body: JSON.stringify({
+          videoUrl: url,
+          originalText,
+          threadId: effectiveThreadId,
+        }),
       })
 
       if (!res.ok) {
@@ -39,37 +41,21 @@ export function useDirectUrlSubmission(deps: {
 
       const data = await res.json()
       const taskId = data.task_id
+      const messages = Array.isArray(data.messages) ? (data.messages as ChatUIMessage[]) : null
 
-      if (!taskId) {
+      if (!taskId || !messages) {
         sendMessageToApi({ text: originalText })
         return
       }
 
-      // Inject synthetic messages: user message + assistant with task status card
-      const userMsgId = `direct-user-${uuidv4()}`
-      const assistantMsgId = `direct-assistant-${uuidv4()}`
-      const toolCallId = `direct-status-${taskId}`
-
-      const userMsg = createUserTextMessage(userMsgId, originalText)
-      const assistantMsg = createTaskStatusMessage({
-        messageId: assistantMsgId,
-        toolCallId,
-        taskId,
-      })
-
-      setMessages(prev => [...prev, userMsg, assistantMsg])
+      setMessages(prev => [...prev, ...messages])
 
       // Update active task ref so RAG context is available for follow-up Q&A
       activeTaskIdRef.current = taskId
 
-      // Auto-open the video detail panel
-      if (onOpenPanel) {
-        onOpenPanel(taskId)
-      }
-
-      // Notify parent that chat has started
+      // Notify parent: persist thread + activate task (opens panel via activeTaskId)
       if (onChatStarted) {
-        onChatStarted(effectiveThreadId)
+        onChatStarted(effectiveThreadId, taskId)
       }
     } catch {
       // Network error: fall back to LLM path
@@ -77,7 +63,7 @@ export function useDirectUrlSubmission(deps: {
     } finally {
       setIsDirectProcessing(false)
     }
-  }, [sendMessageToApi, setMessages, onOpenPanel, onChatStarted, effectiveThreadId, activeTaskIdRef])
+  }, [sendMessageToApi, setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef])
 
   return { isDirectProcessing, handleDirectUrlSubmission }
 }

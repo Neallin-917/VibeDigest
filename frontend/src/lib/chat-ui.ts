@@ -1,20 +1,56 @@
+import { z } from 'zod'
 import type { InferUITools, UIMessage } from 'ai'
-import type { TaskStatusOutput } from '@/components/chat/tools/types'
 import type { ChatToolSet } from '@/app/api/chat/tools'
 
-export type ChatMessageMetadata = {
-  createdAt?: string | Date
+export const messageMetadataSchema = z.object({
+  createdAt: z.union([z.string(), z.date()]).optional(),
+})
+
+export type ChatMessageMetadata = z.infer<typeof messageMetadataSchema>
+
+export const taskLifecycleStatusSchema = z.enum(['pending', 'processing', 'completed', 'failed'])
+export type TaskLifecycleStatus = z.infer<typeof taskLifecycleStatusSchema>
+
+export const taskStatusDataSchema = z.object({
+  taskId: z.string(),
+  status: taskLifecycleStatusSchema,
+  progress: z.number().min(0).max(100).optional(),
+  videoTitle: z.string().optional(),
+  thumbnailUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
+  errorMessage: z.string().optional(),
+})
+
+export const taskProgressDataSchema = z.object({
+  taskId: z.string(),
+})
+
+export const taskPlanDataSchema = z.object({
+  taskId: z.string(),
+})
+
+export const chatDataSchemas = {
+  'task-status': taskStatusDataSchema,
+  'task-progress': taskProgressDataSchema,
+  'task-plan': taskPlanDataSchema,
+} as const
+
+export type ChatUIDataParts = {
+  'task-status': z.infer<typeof taskStatusDataSchema>
+  'task-progress': z.infer<typeof taskProgressDataSchema>
+  'task-plan': z.infer<typeof taskPlanDataSchema>
 }
 
 export type ChatUITools = InferUITools<ChatToolSet>
 
-export type ChatUIMessage = UIMessage<ChatMessageMetadata, never, ChatUITools>
+export type ChatUIMessage = UIMessage<ChatMessageMetadata, ChatUIDataParts, ChatUITools>
 export type ChatUIMessagePart = ChatUIMessage['parts'][number]
 export type StoredChatMessageRow = {
   id: string
   role: unknown
   content: unknown
   created_at: string
+  metadata?: unknown
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -42,40 +78,60 @@ export function createUserTextMessage(id: string, text: string): ChatUIMessage {
     id,
     role: 'user',
     parts: [createTextPart(text)],
+    metadata: { createdAt: new Date().toISOString() },
   }
 }
 
-export function createTaskStatusMessage(params: {
+export function createTaskDataParts(params: {
   messageId: string
-  toolCallId: string
   taskId: string
-  status?: TaskStatusOutput['status']
+  status?: TaskLifecycleStatus
   progress?: number
+  videoTitle?: string
+  thumbnailUrl?: string
+  videoUrl?: string
+  errorMessage?: string
 }): ChatUIMessage {
-  const { messageId, toolCallId, taskId, status = 'pending', progress = 0 } = params
+  const {
+    messageId,
+    taskId,
+    status = 'pending',
+    progress = 0,
+    videoTitle,
+    thumbnailUrl,
+    videoUrl,
+    errorMessage,
+  } = params
 
   return {
     id: messageId,
     role: 'assistant',
     parts: [
       {
-        type: 'tool-get_task_status',
-        toolCallId,
-        state: 'output-available',
-        input: { taskId },
-        output: {
+        type: 'data-task-status',
+        id: `task-status-${taskId}`,
+        data: {
           taskId,
           status,
           progress,
-          video_title: undefined,
-          thumbnail_url: undefined,
-          video_url: undefined,
-          error_message: undefined,
-          created_at: undefined,
-          updated_at: undefined,
+          videoTitle,
+          thumbnailUrl,
+          videoUrl,
+          errorMessage,
         },
       },
+      {
+        type: 'data-task-progress',
+        id: `task-progress-${taskId}`,
+        data: { taskId },
+      },
+      {
+        type: 'data-task-plan',
+        id: `task-plan-${taskId}`,
+        data: { taskId },
+      },
     ],
+    metadata: { createdAt: new Date().toISOString() },
   }
 }
 
@@ -96,6 +152,8 @@ export function toStoredChatUIMessage(row: StoredChatMessageRow): ChatUIMessage 
     id: row.id,
     role: row.role,
     parts: row.content,
-    metadata: { createdAt: row.created_at },
+    metadata: isRecord(row.metadata)
+      ? { ...row.metadata, createdAt: row.created_at }
+      : { createdAt: row.created_at },
   }
 }

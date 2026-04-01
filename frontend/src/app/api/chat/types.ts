@@ -18,6 +18,7 @@ export type ChatMessageRow = {
     role: ChatUIMessage['role'];
     content: unknown;
     created_at: string;
+    metadata?: unknown;
 };
 
 export type TextPart = {

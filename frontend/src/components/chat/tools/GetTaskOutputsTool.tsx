@@ -1,10 +1,11 @@
 'use client'
 
 import {
-  CheckCircle,
-  AlertCircle,
-  FileText,
-} from 'lucide-react'
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolOutput,
+} from '@/components/ai-elements/tool'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import type { GetTaskOutputsToolProps } from './types'
 
@@ -12,48 +13,40 @@ export function GetTaskOutputsTool({
   state,
   input,
   output,
-  errorText
+  errorText,
 }: GetTaskOutputsToolProps) {
   const { t } = useI18n()
 
-  switch (state) {
-    case 'input-streaming':
-    case 'input-available':
-      return (
-        <div className="flex items-center gap-2 my-2 text-sm text-slate-500 dark:text-slate-400">
-          <FileText className="w-4 h-4 animate-pulse text-blue-500" />
-          <span>{t("chat.tools.outputs.retrieving")}{input?.kinds ? ` (${input.kinds.join(', ')})` : ''}...</span>
-        </div>
-      )
-
-    case 'output-available':
-      if (output?.error) {
-        return (
-          <div className="flex items-center gap-2 my-2 text-sm text-red-500">
-            <AlertCircle className="w-4 h-4" />
-            <span>{output.error}</span>
-          </div>
-        )
-      }
-
-      return (
-        <div className="my-2 text-sm text-emerald-600 dark:text-emerald-400">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4" />
-            <span>{t("chat.tools.outputs.retrieved", { count: output?.count || 0 })}</span>
-          </div>
-        </div>
-      )
-
-    case 'output-error':
-      return (
-        <div className="flex items-center gap-2 my-2 text-sm text-red-500">
-          <AlertCircle className="w-4 h-4" />
-          <span>{t("chat.tools.outputs.errorOutputs")}: {errorText || t("chat.tools.status.unknownError")}</span>
-        </div>
-      )
-
-    default:
-      return null
-  }
+  return (
+    <Tool
+      defaultOpen={state === 'output-available' || state === 'output-error'}
+      className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
+    >
+      <ToolHeader
+        type="tool-get_task_outputs"
+        state={state}
+        title="Retrieved results"
+        className="text-zinc-100"
+      />
+      <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
+        <ToolOutput
+          output={
+            output ? (
+              <div className="space-y-2 text-sm">
+                <div>{t('chat.tools.outputs.retrieved', { count: output.count || 0 })}</div>
+                {output.outputs?.length ? (
+                  <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-400">
+                    {output.outputs.map(item => (
+                      <li key={`${item.kind}-${item.status}`}>{item.kind}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : undefined
+          }
+          errorText={errorText ?? output?.error}
+        />
+      </ToolContent>
+    </Tool>
+  )
 }

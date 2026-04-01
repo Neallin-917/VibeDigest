@@ -109,6 +109,13 @@ logs/security/
 # Python Testing & Linting Caches
 .pytest_cache/
 .ruff_cache/
+backend/.langgraph_api/
+backend/logs/
+backend/downloads/
+backend/temp/
+frontend/.next-test/
+frontend/playwright-report/
+frontend/test-results/
 # next-agents-md
 .next-docs/
 

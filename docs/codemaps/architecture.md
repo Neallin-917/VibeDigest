@@ -1,6 +1,7 @@
 # VibeDigest Architecture Codemap
 
-> Freshness: 2026-02-06
+> Last Verified: 2026-04-01
+> Scope: implementation structure and system shape only
 
 
 ## System Overview
@@ -11,7 +12,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                      CLIENT LAYER                               │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │              Next.js 14 (App Router)                     │   │
+│  │              Next.js 16 (App Router)                     │   │
 │  │  ┌──────────┐  ┌──────────┐  ┌────────────────────────┐ │   │
 │  │  │ Pages    │  │ API      │  │ Supabase Realtime      │ │   │
 │  │  │ /[lang]/ │  │ Routes   │  │ (WebSocket Subscriber) │ │   │
@@ -93,7 +94,7 @@ User                Frontend              Backend                 Supabase
 │   ├── workflow.py       # LangGraph state machine
 │   ├── tests/            # Pytest test suite
 │   └── scripts/          # Utility scripts
-├── frontend/             # Next.js 14 (TypeScript)
+├── frontend/             # Next.js 16 (TypeScript)
 │   └── src/
 │       ├── app/          # App Router pages + API routes
 │       ├── components/   # React component library
@@ -124,5 +125,5 @@ User                Frontend              Backend                 Supabase
 | **Auth** | Supabase Auth (Email + Google OAuth) |
 | **Observability** | Langfuse (LLM tracing) + Sentry (Errors) |
 | **Payments** | Creem (Card) + Coinbase Commerce (Crypto) |
-| **i18n** | 10 locales, RTL support (Arabic) |
+| **i18n** | 3 UI locales (`en`, `zh`, `ja`) |
 | **Rate Limiting** | Semaphore (4 concurrent) + Quota system |

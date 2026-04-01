@@ -1,130 +1,78 @@
 # Contributor Guide
 
-Welcome to the VibeDigest project! This guide covers the development workflow, environment setup, and testing procedures.
+This file owns the development workflow. It does not duplicate product setup, deployment, or architecture details.
 
-## Development Workflow
+## Development Baseline
 
-We follow a strict development workflow to ensure quality and stability.
+- Frontend: Node.js 20+, npm, Next.js 16
+- Backend: Python 3.10+, `uv`
+- Dependency policy:
+  - Runtime Python dependencies live in root `requirements.txt`
+  - Backend-only dev/test additions live in `backend/requirements-dev.txt`
+  - `backend/requirements.core.txt` exists only for Docker layer caching and is not an authoring target
+- Primary local orchestration happens through `Makefile`
 
-### 1. Git Workflow
-- **Branching**: Create feature branches from `main` (e.g., `feat/user-auth`, `fix/login-bug`).
-- **Commits**: Use conventional commits format:
-  ```text
-  <type>: <description>
+## Standard Workflow
 
-  <optional body>
-  ```
-  Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
-- **Pull Requests**:
-  - Use `git diff [base-branch]...HEAD` to review all changes.
-  - Draft a comprehensive summary.
-  - Include a test plan.
+1. Create a branch from `main`
+2. Make a focused change
+3. Run the relevant checks
+4. Review your diff
+5. Open a PR with a clear summary and test plan
 
-### 2. Coding Standards
-- **Immutability**: Always create new objects; never mutate state.
-- **File Organization**: Prefer many small files (200-400 lines) over few large ones.
-- **Error Handling**: Comprehensive `try/catch` blocks with user-friendly messages.
-- **Input Validation**: Use `zod` for all data crossing boundaries.
+## Branches and Commits
 
-## Environment Setup
+- Branch naming examples:
+  - `feat/chat-thread-retry`
+  - `fix/frontend-locale-redirect`
+  - `docs/repo-standards`
+- Commit format:
 
-### 1. Prerequisites
-- Node.js (v20+)
-- Python (3.10+)
-- Docker & Docker Compose
-- Supabase CLI (optional, for local DB)
-
-### 2. Configuration
-We use a **shared config + local secrets** pattern:
-
-- `.env.production` — Shared configuration (committed to Git)
-- `.env.local` — Secrets/API keys (never committed)
-
-```bash
-# 1. Clone will get .env.production automatically (from Git) if available
-
-# 2. Create local secrets file (root - for backend/docker)
-cp .env.example .env.local
-# Fill in: OPENROUTER_API_KEY or OPENAI_BASE_URL + OPENAI_API_KEY, SUPABASE_SERVICE_KEY, DATABASE_URL, etc.
-
-# 3. Create local secrets file (frontend)
-# Note: Check frontend/.env for reference of required keys
-cp frontend/.env frontend/.env.local
-# Fill in: TEST_USER_PASSWORD, etc.
+```text
+<type>: <description>
 ```
 
-**Key Environment Variables:**
+Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | Required when `OPENAI_BASE_URL` is set for a custom OpenAI-compatible endpoint |
-| `OPENROUTER_API_KEY` | Required when `OPENAI_BASE_URL` is not set and the app falls back to OpenRouter |
-| `OPENAI_BASE_URL` | When set, switches text LLM routing to that OpenAI-compatible endpoint |
-| `SUPABASE_URL` | Database endpoint |
-| `SUPABASE_SERVICE_KEY` | Backend service role key (keep secret!) |
-| `MODEL_ALIAS_SMART` | Optional override for the smart text model tier |
-| `MODEL_ALIAS_FAST` | Optional override for the fast text model tier |
-| `SENTRY_DSN` | Error tracking DSN |
-| `LANGFUSE_PUBLIC_KEY` | LLM observability |
+## Commands
 
-### 3. Installation
-Use the Makefile to install dependencies for both frontend and backend:
+| Command | Purpose |
+| --- | --- |
+| `make install` | Install backend and frontend dependencies |
+| `make test-unit` | Backend unit test suite |
+| `make test-backend` | Backend unit tests plus local smoke if prerequisites exist |
+| `make test-frontend` | Frontend unit tests in run mode |
+| `cd frontend && npm run build` | Frontend production build |
+| `make lint` | Frontend lint plus backend lint placeholder |
+| `make clean` | Remove generated local artifacts |
 
-```bash
-make install
-```
+## Test Policy
 
-## Available Scripts
+- Repo-wide enforced coverage gate:
+  - Backend: `65%` minimum through `backend/pytest.ini`
+- Engineering target:
+  - New or materially changed code should reach `80%+` coverage in its touched area
+- Default execution split:
+  - Backend unit tests: mocked, safe for local and CI
+  - Backend integration tests: opt-in, may require DB/provider setup
+  - Frontend unit tests: Vitest
+  - Frontend E2E tests: Playwright, separate from default unit flow
 
-We use `make` to orchestrate tasks across the monorepo.
+### Required checks before merge
 
-### Root Commands (Makefile)
+- Backend-only change:
+  - `make test-backend`
+- Frontend-only change:
+  - `make test-frontend`
+  - `cd frontend && npm run build`
+- Cross-boundary change:
+  - `cd frontend && npm run build`
+  - `make test-backend`
 
-| Command | Description |
-|---------|-------------|
-| `make install` | Install both backend (pip) and frontend (npm) dependencies |
-| `make start-dev` | Start backend in Docker with hot-reload |
-| `make start-frontend` | Start the Next.js frontend development server |
-| `make start-prod` | Start backend in Docker (Production mode, immutable image) |
-| `make stop` | Stop all running Docker containers |
-| `make restart-dev` | Restart backend Docker container (Dev mode) |
-| `make deploy` | Build and deploy production images |
-| `make verify` | Run connection tests for LLM and Workflow |
-| `make clean` | Clean up temporary files (`__pycache__`, etc.) |
+## PR Checklist
 
-### Frontend Commands (`frontend/package.json`)
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build production application |
-| `npm run lint` | Run ESLint |
-| `npm run test` | Run unit tests (Vitest) |
-| `npm run test:cov` | Run tests with coverage report |
-
-## Testing Procedures
-
-We require **80% test coverage** for all new features.
-
-### Running Tests
-```bash
-# Run all tests (Frontend + Backend)
-make test
-
-# Run only backend tests (Pytest)
-make test-backend
-
-# Run only frontend tests (Vitest)
-make test-frontend
-```
-
-### Test Types
-1. **Unit Tests**: Individual functions/components.
-2. **Integration Tests**: API endpoints and database interactions.
-3. **Verification**: Use `make verify` to test actual LLM connectivity.
-4. **Local smoke**: `make test-backend` now attempts one real `/api/process-video` smoke against the active provider and skips cleanly if DB/provider prerequisites are missing.
-
-### Troubleshooting
-- If build fails, analyze the error log.
-- Use `make clean` to remove stale artifacts.
-- Ensure Docker is running for integration tests.
+- Scope is focused and diff is reviewable
+- Commands run are listed in the PR
+- Any changed facts are updated in their owning document
+- Generated files, caches, logs, and build artifacts are not committed
+- If public behavior changed, docs were updated in the correct owning file

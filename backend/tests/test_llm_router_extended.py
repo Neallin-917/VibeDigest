@@ -33,14 +33,6 @@ class TestResolveModelForIntent:
             from utils.llm_router import resolve_model_for_intent
             assert resolve_model_for_intent("nonexistent") == "gpt-5"
 
-    def test_provider_param_is_ignored(self):
-        """provider param is kept for backward compat but has no effect."""
-        mock_settings = SimpleNamespace(MODEL_SMART="gpt-5", MODEL_FAST="gpt-5-mini")
-        with patch("utils.llm_router.settings", mock_settings):
-            from utils.llm_router import resolve_model_for_intent
-            assert resolve_model_for_intent("chat", provider="anthropic") == "gpt-5"
-
-
 class TestCreateChatModelForIntent:
     def test_creates_model_with_resolved_intent(self):
         mock_model = MagicMock()

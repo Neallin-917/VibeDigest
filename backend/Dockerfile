@@ -26,6 +26,9 @@ RUN mkdir -p temp downloads
 # Copy source code (required for production mode without volume mounts)
 COPY backend/ .
 
+# Shared config (llm-provider-defaults.json lives at repo root for frontend/backend SSOT)
+COPY config/llm-provider-defaults.json ./llm-provider-defaults.json
+
 # Command
 # Note: This is overriden by docker-compose for dev mode, but good default for prod.
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

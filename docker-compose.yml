@@ -11,6 +11,8 @@ services:
     volumes:
       # Sync source code instantly. Editing 'backend' folder updates container.
       - ./backend:/app
+      # Shared config (SSOT for model defaults, used by both frontend and backend)
+      - ./config/llm-provider-defaults.json:/app/llm-provider-defaults.json:ro
       # Persist downloads and temp if needed (or keep ephemeral)
       - ./temp:/app/temp
       - ./downloads:/app/downloads
@@ -41,6 +43,7 @@ services:
       - redis
     volumes:
       - ./backend:/deps/backend
+      - ./config/llm-provider-defaults.json:/deps/backend/llm-provider-defaults.json:ro
     environment:
       - LANGGRAPH_CONTAINER_PORT=8000
       - LANGGRAPH_API_URL=http://localhost:${LANGGRAPH_PORT}

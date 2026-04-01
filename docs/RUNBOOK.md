@@ -1,104 +1,121 @@
-# Runbook: VibeDigest Operations
+# VibeDigest Runbook
 
-This document outlines the procedures for deploying, monitoring, and maintaining the VibeDigest application.
+This file owns deployment, monitoring, rollback, and incident handling. Setup and contributor workflow live elsewhere.
 
-## Deployment Procedures
+## Deployment
 
-### Production Deployment
-The application is containerized using Docker.
+### Local production-style backend
 
-1. **Build & Start**:
-   ```bash
-   make deploy
-   ```
-   This command executes `release-prod` (builds image) followed by `start-prod` (runs container).
+```bash
+make release-prod
+make start-prod
+```
 
-2. **Verify Deployment**:
-   After deployment, verify the services are running:
-   ```bash
-   docker ps
-   # Check logs
-   docker logs vibedigest-backend-1
-   ```
+### Verify deployment
 
-3. **Database Migrations**:
-   Ensure Supabase migrations are applied (currently managed via Supabase CLI or dashboard).
-   For historical chat message cleanup, see [docs/migration/chat_messages_parts_migration.md](./migration/chat_messages_parts_migration.md).
+```bash
+docker ps
+docker logs <container_id>
+```
 
-### Rollback Strategy
-If a deployment fails or introduces critical bugs:
+If the deployment touches the frontend surface, also run:
 
-1. **Stop Current Containers**:
-   ```bash
-   make stop
-   ```
-2. **Revert to Previous Image**:
-   Modify `docker-compose.prod.yml` to point to the previous working tag or rebuild from the previous git commit.
-3. **Restart**:
-   ```bash
-   make start-prod
-   ```
+```bash
+cd frontend && npm run build
+```
 
-## Monitoring and Observability
+## Database and Migrations
 
-The system uses several tools for observability. Ensure these environment variables are set.
+- Supabase schema changes live under `supabase/migrations/`
+- Historical SQL artifacts also exist under `backend/sql/`
+- Apply schema changes through the agreed Supabase workflow before promoting a release
 
-### Error Tracking (Sentry)
-- **Frontend**: Reports client-side errors.
-- **Backend**: Reports API and worker exceptions.
-- **Check**: Log into Sentry dashboard to view active issues.
-- **Config**: `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`.
+## Monitoring
 
-### LLM Observability (Langfuse / LangSmith)
-- Traces LLM calls, costs, and latency.
-- **Config**:
-  - `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`
+### Error tracking
+
+- Frontend and backend errors are reported to Sentry
+- Required configuration:
+  - `SENTRY_DSN`
+  - `NEXT_PUBLIC_SENTRY_DSN`
+
+### LLM observability
+
+- Langfuse / LangSmith are used for model tracing
+- Relevant configuration:
+  - `LANGFUSE_PUBLIC_KEY`
+  - `LANGFUSE_SECRET_KEY`
   - `LANGCHAIN_TRACING_V2=true`
 
-### Logging
-- **Level**: Configured via `LOG_LEVEL` (default: `INFO`).
-- **Access**:
-  ```bash
-  docker logs -f <container_id>
-  ```
+### Logs
 
-## Common Issues & Fixes
+- Container logs:
 
-### 1. LLM Connection Failures
-**Symptoms**: Summarization fails, timeout errors.
-**Fix**:
-1. Run verification script:
-   ```bash
-   make verify
-   ```
-2. Check `OPENAI_API_KEY` validity.
-3. Verify `OPENAI_BASE_URL` if using a proxy.
+```bash
+docker logs -f <container_id>
+```
 
-### 2. Docker Container Crashes
-**Symptoms**: API unreachable, container status `Exited`.
-**Fix**:
-- Check memory usage.
-- Review logs for unhandled exceptions during startup.
-- Ensure `SUPABASE_SERVICE_KEY` is present.
+- Local non-production logs are generated artifacts and should not be committed
 
-### 3. Frontend Build Errors
-**Symptoms**: `npm run build` fails.
-**Fix**:
-- Run type checking locally: `tsc --noEmit`.
-- Check for environment variable mismatches between local and build env.
+## Rollback
 
-## Maintenance Tasks
+1. Stop the current deployment:
 
-### Cleaning Up
-Remove temporary files and build artifacts:
+```bash
+make stop
+```
+
+2. Revert the image or git revision used by `docker-compose.prod.yml`
+3. Start the previous known-good version:
+
+```bash
+make start-prod
+```
+
+## Incident Triage
+
+### LLM/provider failures
+
+Symptoms:
+- summarization failures
+- connection timeouts
+- provider mismatch errors
+
+Checks:
+
+```bash
+make verify
+```
+
+Then verify:
+- `OPENAI_BASE_URL` and `OPENAI_API_KEY` when using a custom OpenAI-compatible endpoint
+- `OPENROUTER_API_KEY` when using OpenRouter
+- provider routing behavior matches `AGENTS.md`
+
+### Backend container crashes
+
+Checks:
+- inspect container logs
+- confirm Supabase credentials are set
+- confirm FFmpeg is available in the image
+
+### Frontend build failures
+
+Checks:
+
+```bash
+cd frontend && npm run build
+```
+
+Then inspect:
+- missing environment variables
+- route or metadata errors
+- type errors in App Router code
+
+## Cleanup
+
+Generated local artifacts can be removed with:
+
 ```bash
 make clean
 ```
-
-### Database Backups
-(Managed via Supabase Platform)
-- Ensure Point-in-Time Recovery (PITR) is enabled in Supabase settings.
-
-## Support
-
-For critical incidents, contact the engineering lead or refer to the internal escalation policy.

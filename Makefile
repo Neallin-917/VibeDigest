@@ -36,7 +36,7 @@ install: install-backend install-frontend
 
 install-backend:
 	@echo "Installing backend dependencies..."
-	uv pip install -r requirements.txt
+	uv pip install -r requirements.txt -r backend/requirements-dev.txt
 
 install-frontend:
 	@echo "Installing frontend dependencies..."
@@ -132,7 +132,7 @@ test-integration:
 
 test-frontend:
 	@echo "Running frontend tests..."
-	cd frontend && npm run test
+	cd frontend && npm run test -- --run
 
 verify:
 	@echo "Verifying LLM connection..."
@@ -152,9 +152,15 @@ clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null; true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null; true
 	find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null; true
+	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null; true
+	find . -type d -name ".next" -prune -exec rm -rf {} + 2>/dev/null \; ; true
+	find . -type d -name ".next-test" -prune -exec rm -rf {} + 2>/dev/null \; ; true
+	find . -type d -name "coverage" -prune -exec rm -rf {} + 2>/dev/null \; ; true
+	find . -type d -name "playwright-report" -prune -exec rm -rf {} + 2>/dev/null \; ; true
+	find . -type d -name "test-results" -prune -exec rm -rf {} + 2>/dev/null \; ; true
 	find . -name ".coverage" -delete 2>/dev/null; true
 	find . -name "coverage.json" -not -path "*/node_modules/*" -delete 2>/dev/null; true
-	rm -rf backend/temp/* backend/downloads/*
+	rm -rf backend/temp/* backend/downloads/* backend/logs/* reports/* downloads/* temp/*
 	@echo "Clean complete."
 
 # --- Performance Monitoring ---

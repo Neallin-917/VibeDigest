@@ -37,7 +37,7 @@ def check_dependencies():
         for package in missing_packages:
             print(f"   - {package}")
         print("\n请运行以下命令安装依赖:")
-        print("source venv/bin/activate && pip install -r requirements.txt")
+        print("uv pip install -r requirements.txt -r backend/requirements-dev.txt")
         return False
     
     print("✅ 所有依赖已安装")

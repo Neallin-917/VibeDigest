@@ -1,10 +1,8 @@
 import { z } from 'zod';
 import { tool } from 'ai';
-import { env } from '@/env';
+import { BACKEND_API_URL } from '@/lib/backend-url';
 import { extractUrl } from '../utils';
 import type { ToolContext } from '../types';
-
-const API_BASE_URL = env.BACKEND_API_URL || 'http://127.0.0.1:8000';
 
 export const taskStatusSchema = z.object({
     taskId: z.string().describe('The ID of the task to check'),
@@ -76,7 +74,7 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
             if (ctx.user?.id && ctx.accessToken) {
                 try {
                     console.warn(`[API/Chat] Task ${taskId} not found in DB, trying Backend API fallback...`);
-                    const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/status`, {
+                    const response = await fetch(`${BACKEND_API_URL}/api/tasks/${taskId}/status`, {
                         headers: {
                             Authorization: `Bearer ${ctx.accessToken}`,
                         },

@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { env } from "@/env";
-
-const API_BASE_URL = env.BACKEND_API_URL || "http://127.0.0.1:8000";
+import { BACKEND_API_URL } from "@/lib/backend-url";
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -36,7 +34,7 @@ export async function POST(req: Request) {
     formData.append("video_url", body.video_url);
     if (body.language) formData.append("language", body.language);
 
-    const res = await fetch(`${API_BASE_URL}/api/process-video`, {
+    const res = await fetch(`${BACKEND_API_URL}/api/process-video`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,

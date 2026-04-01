@@ -1,6 +1,7 @@
 # Backend Codemap
 
-> Freshness: 2025-01-23T22:30:00Z
+> Last Verified: 2026-04-01
+> Scope: backend implementation map, not setup instructions
 
 ## Technology Stack
 
@@ -116,7 +117,7 @@ main.py (FastAPI App)
 |------|------|---------|-------------|
 | `main.py` | 32KB | FastAPI app, routes, background tasks | `app`, `run_pipeline` |
 | `workflow.py` | 20KB | LangGraph state machine | `app` (compiled graph) |
-| `summarizer.py` | 61KB | LLM summarization, classification | `Summarizer` |
+| `summarizer.py` | legacy facade | LLM summarization entrypoint | module exports |
 | `transcriber.py` | 23KB | Whisper transcription | `Transcriber` |
 | `video_processor.py` | 33KB | yt-dlp download, caption extraction | `VideoProcessor` |
 | `db_client.py` | 24KB | Supabase CRUD operations | `DBClient` |
@@ -158,7 +159,7 @@ async def run_pipeline(...):
         await workflow_app.ainvoke(initial_state)
 ```
 
-## Test Coverage
+## Test Layout
 
 ```
 backend/tests/

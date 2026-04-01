@@ -3,8 +3,8 @@ import { env } from "@/env";
 export const API_BASE_URL =
     env.NEXT_PUBLIC_API_URL ||
     (typeof window !== "undefined"
-        ? `${window.location.protocol}//${window.location.hostname}:8000`
-        : "http://localhost:8000")
+        ? `${window.location.protocol}//${window.location.hostname}:16081`
+        : "http://localhost:16081")
 
 export class ApiClient {
     private static async request(endpoint: string, options: RequestInit = {}) {

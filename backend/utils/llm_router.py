@@ -10,7 +10,7 @@ FAST_INTENTS = frozenset({
 })
 
 
-def resolve_model_for_intent(intent: str, provider: Optional[str] = None) -> str:
+def resolve_model_for_intent(intent: str) -> str:
     return settings.MODEL_FAST if intent in FAST_INTENTS else settings.MODEL_SMART
 
 

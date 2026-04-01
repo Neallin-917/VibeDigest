@@ -1,144 +1,82 @@
 # Testing Guide
 
-> **Status**: Active ✅
-> **Architecture**: Dual Layer (Vitest + Playwright)
+> Last Verified: 2026-04-01
 
-This document outlines the testing strategy, philosophy, and execution guide for the project.
+This file owns testing strategy, prerequisites, and coverage policy.
 
-## 🚀 Quick Start
+## Test Layers
+
+| Layer | Tool | Default status |
+| --- | --- | --- |
+| Backend unit | Pytest | Default local + CI |
+| Backend integration | Pytest | Opt-in |
+| Frontend unit | Vitest | Default local + CI |
+| Frontend E2E | Playwright | Separate from default unit flow |
+
+## Coverage Policy
+
+- Hard gate enforced by repo configuration:
+  - Backend global coverage must stay at or above `65%`
+- Engineering target:
+  - New or materially changed code should reach `80%+` coverage in the touched area
+
+This distinction is intentional: the repo gate protects baseline health, while the engineering target drives new work toward a stronger standard.
+
+## Commands
+
+### Backend
 
 ```bash
-# Run Unit Tests (Components, Hooks, API)
-npm run test           # Watch mode
-npm run test:cov       # Coverage report
-
-# Run E2E Tests (User Flows)
-npx playwright test e2e/smoke.spec.ts  # Smoke test
-npx playwright test e2e/chat.spec.ts   # Chat flow
+make test-unit
+make test-backend
+make test-integration
 ```
 
----
+Notes:
+- `make test-unit` is mocked and safe by default
+- `make test-backend` includes a local smoke path and skips cleanly when DB/provider prerequisites are missing
+- `make test-integration` is opt-in and uses real provider/database prerequisites
 
-## 📐 Strategy & Philosophy
+### Frontend
 
-### 技术选型
+```bash
+make test-frontend
+cd frontend && npm run test:cov
+cd frontend && npx playwright test
+```
 
-| 决策项 | 选择 | 理由 |
-|--------|------|------|
-| **Auth Mock** | Playwright `storageState` | Session 有效期长；CI 用 GitHub Secret；设置简单 |
-| **Backend API Mock** | MSW/page.route() (日常) + Staging (验收) | 避免 LLM/Whisper 成本；日常快速反馈 |
-| **YouTubePlayer 测试** | Unit + Integration (不测真实 iframe) | iframe 不稳定；验证回调和组件协作即可 |
-| **Chat API 测试** | AI SDK Mock (E2E) + Unit (Vitest) | 验证流式响应 (StreamText), 工具调用, 鉴权逻辑 |
-| **路由架构** | Chat First | 主要测试集中在 `/chat`，Dashboard 相关测试已弃用 |
+## Prerequisites
 
-### 测试架构 (Dual Layer)
+### Backend integration prerequisites
 
-*   **Unit/Integration (Vitest)**: 关注组件逻辑、Hook 状态、API 路由 (`src/**/*.test.ts/tsx`)。
-*   **E2E (Playwright)**: 关注真实用户旅程、跨页面交互 (`e2e/**/*.spec.ts`)。
+- reachable test database
+- provider credentials matching the active routing mode
+- environment loaded from `.env.local` or shell
 
----
+Routing rules:
+- `OPENAI_BASE_URL` present -> custom provider mode
+- `OPENAI_BASE_URL` absent -> OpenRouter mode
 
-## 📊 优先级定义
+### Frontend E2E prerequisites
 
-| 优先级 | 定义 | 业务依据 |
-|--------|------|----------|
-| **P0** | 核心转化/核心使用路径 | 影响付费转化、核心功能不可用、数据丢失 |
-| **P1** | 重要但可降级 | 影响用户体验但有 workaround |
-| **P2** | 体验增强 | 锦上添花，失败不影响核心流程 |
+- installed Playwright browsers
+- frontend test env configured
+- mock or test auth state depending on the scenario
 
----
+## Default Review Expectations
 
-## Journey 1: Chat-First 核心交互 (P0)
+- Backend-only changes:
+  - `make test-backend`
+- Frontend-only changes:
+  - `make test-frontend`
+  - `cd frontend && npm run build`
+- Cross-boundary changes:
+  - `make test-backend`
+  - `cd frontend && npm run build`
 
-> **业务目标**: 用户通过对话界面提交视频，获取摘要并进行后续问答。
-> **失败成本**: 核心产品价值失效。
+## Related Files
 
-### 1.1 [P0] 提交 URL 并触发分析
-| Given | 已登录用户，在 `/chat` 欢迎界面 |
-|-------|----------------------------------------|
-| When | 在输入框粘贴 YouTube URL 并发送 |
-| Then | 消息列表显示用户 URL → 显示 "Thinking..." → 显示 **VideoCardMessage** (Processing) |
-| 层级 | **E2E** (Mock Backend API) |
-| 状态 | ✅ 已覆盖 (`e2e/chat.spec.ts`) |
-
-### 1.2 [P0] 视频卡片交互 (Context Panel)
-| Given | 聊天流中已显示 VideoCardMessage |
-|-------|-----------------|
-| When | 点击卡片上的 "View" 按钮或区域 |
-| Then | 右侧 **Context Panel** 滑出，加载 VideoPlayer 和 Summary |
-| 层级 | **E2E** |
-| 状态 | ✅ 已覆盖 (`e2e/chat.spec.ts`) |
-
-### 1.3 [P1] 历史记录访问 (Sidebar)
-| Given | 用户有历史任务 |
-|-------|----------------|
-| When | 点击 Sidebar 中的 "Tasks" 列表项 |
-| Then | 路由更新 `?task={id}` → Context Panel 打开对应任务 |
-| 层级 | **E2E** / **Integration** |
-| 状态 | ⏳ 待完善 |
-
----
-
-## Journey 2: 任务详情与播放 (Context Panel)
-
-> **业务目标**: 在侧边栏中消费内容，点击时间戳跳转。
-
-### 2.1 [P0] 时间戳点击 → 视频跳转
-| Given | Context Panel 中摘要包含时间戳 |
-|-------|-------------------------------------|
-| When | 点击时间戳徽章 |
-| Then | VideoPlayer 调用 `seekTo(seconds)` |
-| 层级 | **Unit/Integration** (`VideoDetailPanel`, `VideoPlayer`) |
-| 状态 | ✅ 已覆盖 |
-
-### 2.2 [P1] 摘要复制
-| Given | 摘要已渲染 |
-|-------|-----------|
-| When | 点击 "复制" |
-| Then | 内容写入剪贴板 |
-| 层级 | **Unit** |
-| 状态 | ✅ 已覆盖 |
-
----
-
-## Journey 3: 游客获客与转化 (Acquisition)
-
-> **业务目标**: 游客在着陆页尝试功能，被引导注册。
-
-### 3.1 [P0] 落地页尝试 → 登录引导
-| Given | 游客在 `/` (Landing Page) |
-|-------|-------------|
-| When | 输入 URL 并点击 "Generate" |
-| Then | 跳转 `/login` (保留意图) |
-| 层级 | **E2E**: `task-creation.spec.ts` |
-| 状态 | ✅ 已覆盖 |
-
-### 3.2 [P0] 受保护路由重定向
-| Given | 游客 (未登录) |
-|-------|---------------|
-| When | 访问 `/chat` 或 `/history` |
-| Then | 重定向 `/login` |
-| 层级 | **E2E** |
-| 状态 | ✅ 已覆盖 |
-
----
-
-## Journey 4: 认证流程
-
-### 4.1 [P0] 登录成功跳转 Chat
-| Given | 用户在 `/login` |
-|-------|-----------------|
-| When | 登录成功 |
-| Then | 跳转 `/chat` (不再是 `/dashboard`) |
-| 层级 | **E2E** |
-| 状态 | ✅ 已覆盖 |
-
----
-
-## 🔗 相关文档
-
-## 🔗 Related Docs
-
-- [Test Scenarios & Coverage](./scenarios.md) - Detailed journey mapping coverage
-- [e2e/chat.spec.ts](../../frontend/e2e/chat.spec.ts) - Core Chat Flow
-- [e2e/task-creation.spec.ts](../../frontend/e2e/task-creation.spec.ts) - Acquisition Flow
+- `backend/pytest.ini`
+- `frontend/vitest.config.ts`
+- `frontend/playwright.config.ts`
+- `frontend/e2e/README.md`

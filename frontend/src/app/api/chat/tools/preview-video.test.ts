@@ -1,11 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock @/env before importing the module under test
-vi.mock('@/env', () => ({
-    env: {
-        BACKEND_API_URL: 'http://test-backend:8000',
-        NEXT_PUBLIC_E2E_MOCK: undefined,
-    },
+// Mock @/lib/backend-url before importing the module under test
+vi.mock('@/lib/backend-url', () => ({
+    BACKEND_API_URL: 'http://test-backend:8000',
 }));
 
 import { createPreviewVideoTool } from './preview-video';

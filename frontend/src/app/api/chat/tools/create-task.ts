@@ -1,10 +1,8 @@
 import { z } from 'zod';
 import { tool } from 'ai';
-import { env } from '@/env';
+import { BACKEND_API_URL } from '@/lib/backend-url';
 import { extractUrl, findLastUrlInMessages } from '../utils';
 import type { ToolContext } from '../types';
-
-const API_BASE_URL = env.BACKEND_API_URL || 'http://127.0.0.1:16081';
 
 export const createTaskSchema = z.object({
     video_url: z
@@ -77,7 +75,7 @@ export function createCreateTaskTool(ctx: ToolContext) {
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/process-video`, {
+                const response = await fetch(`${BACKEND_API_URL}/api/process-video`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',

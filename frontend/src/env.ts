@@ -7,7 +7,7 @@ export const env = createEnv({
     ANALYZE: z.string().optional(),
     NEXT_DIST_DIR: z.string().optional(),
     AI_SDK_DEBUG: z.string().optional(),
-    BACKEND_API_URL: z.string().url().optional(),
+    BACKEND_API_URL: z.string().url(),
     
     // LLM Configuration
     MODEL_ALIAS_SMART: z.string().optional(),

@@ -3,9 +3,27 @@
 import importlib
 import os
 from unittest.mock import patch
+import pytest
 
 import config as config_module
-from config import Settings
+from config import Settings, _load_provider_defaults
+
+
+# ---------------------------------------------------------------------------
+# _load_provider_defaults — file resolution
+# ---------------------------------------------------------------------------
+
+class TestLoadProviderDefaults:
+    def test_missing_file_raises_with_checked_paths(self):
+        with patch("config.Path.exists", return_value=False):
+            with pytest.raises(FileNotFoundError, match="LLM provider defaults not found"):
+                _load_provider_defaults()
+
+    def test_successful_load_returns_dict(self):
+        result = _load_provider_defaults()
+        assert "openrouter" in result
+        assert "smart" in result["openrouter"]
+        assert "fast" in result["openrouter"]
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +84,28 @@ class TestGetTemperature:
 # ---------------------------------------------------------------------------
 
 class TestModelSmartFast:
+    def test_openrouter_runtime_contract_uses_shared_defaults(self):
+        s = Settings()
+        s.OPENAI_BASE_URL = None
+        s.MODEL_ALIAS_SMART = None
+        s.MODEL_ALIAS_FAST = None
+        s.LLM_PROVIDER = None
+
+        assert s.LLM_PROVIDER == "openrouter"
+        assert s.MODEL_SMART == "google/gemini-3-pro-preview"
+        assert s.MODEL_FAST == "google/gemini-3-flash-preview"
+
+    def test_custom_runtime_contract_uses_shared_defaults(self):
+        s = Settings()
+        s.OPENAI_BASE_URL = "http://localhost:8317/v1"
+        s.MODEL_ALIAS_SMART = None
+        s.MODEL_ALIAS_FAST = None
+        s.LLM_PROVIDER = None
+
+        assert s.LLM_PROVIDER == "custom"
+        assert s.MODEL_SMART == "gemini-3-pro-preview"
+        assert s.MODEL_FAST == "gemini-3-flash-preview"
+
     def test_default_provider_is_openrouter_when_no_custom_base_url(self):
         original = os.environ.get("OPENAI_BASE_URL")
         try:

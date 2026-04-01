@@ -5,7 +5,7 @@ Workspace Dev Launcher (V3) - 无文件污染的 Next.js 启动器
 功能：
 1. 读取 .workspace.json 作为单一事实来源
 2. 通过 Git 语义校验工作区身份
-3. 检查端口冲突（冲突时报错退出，不自动更换）
+3. 检查端口冲突（冲突时自动向上扫描可用端口）
 4. 内存级环境变量注入（不修改 .env 文件）
 """
 
@@ -32,12 +32,20 @@ def get_git_root() -> Path | None:
 
 
 def load_workspace_config(git_root: Path) -> dict:
-    """加载 .workspace.json 配置"""
+    """加载 .workspace.json 配置，不存在时自动生成默认配置"""
     config_path = git_root / ".workspace.json"
     if not config_path.exists():
-        print(f"❌ 错误：未找到 {config_path}")
-        print("   请确保项目根目录包含 .workspace.json 文件")
-        sys.exit(1)
+        print(f"⚠️  未找到 {config_path}，自动生成默认配置...")
+        default_config = {
+            "workspace_id": "main",
+            "type": "main",
+            "frontend_port": 3000,
+            "backend_url": "http://localhost:16081",
+        }
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(default_config, f, indent=2, ensure_ascii=False)
+        print(f"✅ 已创建默认配置: {config_path}")
+        return default_config
 
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -78,6 +86,16 @@ def check_port_available(port: int) -> tuple[bool, str | None]:
         return False, "未知进程"
 
 
+def find_available_port(start_port: int, max_attempts: int = 20) -> int:
+    """从 start_port 开始向上扫描，返回第一个可用端口"""
+    for offset in range(max_attempts):
+        port = start_port + offset
+        available, _ = check_port_available(port)
+        if available:
+            return port
+    raise RuntimeError(f"在 {start_port}-{start_port + max_attempts - 1} 范围内未找到可用端口")
+
+
 def main():
     print("🚀 Workspace Dev Launcher (V3)")
     print("=" * 50)
@@ -101,14 +119,12 @@ def main():
     print(f"🌐 前端端口: {frontend_port}")
     print(f"📡 后端 API: {backend_url}")
 
-    # 3. 端口检查
+    # 3. 端口检查（自动寻找可用端口）
     available, process_info = check_port_available(frontend_port)
     if not available:
-        print(f"\n❌ 端口 {frontend_port} 已被占用: {process_info}")
-        print("⚠️  严禁自动更换端口！请手动处理端口冲突：")
-        print(f"   - 终止占用进程: kill $(lsof -t -i:{frontend_port})")
-        print("   - 或修改 .workspace.json 中的 frontend_port")
-        sys.exit(1)
+        print(f"⚠️  端口 {frontend_port} 已被占用: {process_info}")
+        frontend_port = find_available_port(frontend_port + 1)
+        print(f"🔄 自动切换到端口 {frontend_port}")
 
     print(f"✅ 端口 {frontend_port} 可用")
 
@@ -118,11 +134,35 @@ def main():
     env["NEXT_PUBLIC_API_URL"] = backend_url
     env["WORKSPACE_ID"] = workspace_id
 
+    # 4b. Load root-level .env and .env.local into the child process env.
+    # Next.js Turbopack workers don't inherit vars loaded by loadEnvConfig()
+    # in next.config.ts, so we must inject them before spawning `next dev`.
+    for env_file in [git_root / ".env", git_root / ".env.local"]:
+        if env_file.exists():
+            with open(env_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        key, _, value = line.partition("=")
+                        key = key.strip()
+                        value = value.strip()
+                        # Don't override vars already set in the shell
+                        if key not in env:
+                            env[key] = value
+
     # 5. 启动 Next.js
     frontend_dir = git_root / "frontend"
     if not frontend_dir.exists():
         print(f"❌ 错误：未找到 frontend 目录: {frontend_dir}")
         sys.exit(1)
+
+    # 清理残留的 dev lock 文件
+    lock_file = frontend_dir / ".next" / "dev" / "lock"
+    if lock_file.exists():
+        lock_file.unlink()
+        print("🧹 已清理残留的 .next/dev/lock")
 
     print("\n" + "=" * 50)
     print(f"🎯 启动 Next.js (端口 {frontend_port})...")

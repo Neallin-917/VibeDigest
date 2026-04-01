@@ -1,6 +1,7 @@
 # Data Models Codemap
 
-> Freshness: 2025-01-23T22:30:00Z
+> Last Verified: 2026-04-01
+> Scope: database schema and data model mapping
 
 ## Database Schema (Supabase/PostgreSQL)
 

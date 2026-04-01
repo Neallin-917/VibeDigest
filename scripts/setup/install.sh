@@ -14,17 +14,17 @@ if [[ -z "$python_version" ]]; then
 fi
 echo "✅ Python版本: $python_version"
 
-# 检查pip
-if ! command -v pip3 &> /dev/null; then
-    echo "❌ 未找到pip3，请先安装pip"
+# 检查uv
+if ! command -v uv &> /dev/null; then
+    echo "❌ 未找到 uv，请先安装 uv"
     exit 1
 fi
-echo "✅ pip已安装"
+echo "✅ uv 已安装"
 
 # 安装Python依赖
 echo ""
 echo "安装Python依赖..."
-pip3 install -r requirements.txt
+uv pip install -r requirements.txt -r backend/requirements-dev.txt
 
 if [ $? -eq 0 ]; then
     echo "✅ Python依赖安装完成"
@@ -66,23 +66,23 @@ fi
 # 创建必要的目录
 echo ""
 echo "创建必要的目录..."
-mkdir -p temp static
+mkdir -p backend/temp backend/downloads backend/logs
 echo "✅ 目录创建完成"
 
 # 设置权限
-chmod +x start.py
+chmod +x scripts/start.py
 
 echo ""
 echo "🎉 安装完成!"
 echo ""
 echo "使用方法:"
-echo "  1. (可选) 配置OpenAI API密钥以启用智能摘要功能"
-echo "     export OPENAI_API_KEY=your_api_key_here"
+echo "  1. 配置 .env.local 和 frontend/.env.local"
 echo ""
 echo "  2. 启动服务:"
-echo "     python3 start.py"
+echo "     make start-backend"
+echo "     make start-frontend"
 echo ""
-echo "  3. 打开浏览器访问: http://localhost:16080"
+echo "  3. 打开浏览器访问: http://localhost:3000"
 echo ""
 echo "支持的视频平台:"
 echo "  - YouTube"

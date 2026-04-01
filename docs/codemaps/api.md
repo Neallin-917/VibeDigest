@@ -1,11 +1,12 @@
 # API Codemap
 
-> Freshness: 2025-01-23T22:30:00Z
+> Last Verified: 2026-04-01
+> Scope: API surface and request/response mapping
 
 ## Base URL
 
 - **Production**: `https://api.vibedigest.io`
-- **Local**: `http://localhost:16080`
+- **Local**: `http://localhost:16081`
 
 ## Authentication
 

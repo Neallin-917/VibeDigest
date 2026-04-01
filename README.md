@@ -1,180 +1,100 @@
 # VibeDigest
-🔗 [vibedigest.io](https://vibedigest.io)
 
+[vibedigest.io](https://vibedigest.io)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](backend)
-[![Next.js](https://img.shields.io/badge/next.js-14+-black.svg)](frontend)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](backend)
+[![Next.js](https://img.shields.io/badge/next.js-16-black.svg)](frontend)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](docker-compose.yml)
 
-<p align="center">
-  <img src="docs/screenshots/landing-dark.png" alt="VibeDigest Landing Page" width="100%">
-</p>
+VibeDigest is a full-stack tool for downloading videos, transcribing audio, and generating AI-powered condensed knowledge. The product uses a control-plane/data-plane split: HTTP starts work, Supabase Realtime carries task state, and the frontend does not poll for progress.
 
-[中文版](./README.zh-CN.md)
-
-**VibeDigest** is a modern, full-stack application designed to **download videos**, **transcribe audio**, and **generate AI-powered summaries**. Engineered for performance and aesthetics, it utilizes the power of OpenAI/LangChain and the speed of Next.js for a premium user experience.
-
-Now featuring a **Chat-First Architecture** (v3.4) that puts conversation at the center of your learning workflow.
-
----
-
-## ✨ Key Features
-
-- **Chat-First Experience**: Interact with video content through a conversational interface. Ask questions, get summaries, and explore details naturally.
-- **Universal Video Support**: Robust downloading via `yt-dlp` for YouTube, Bilibili, and podcast platforms (Xiaoyuzhou).
-- **Smart Transcription**: Automatic audio extraction and intelligent chunking using OpenAI Whisper.
-- **Supadata Integration**: Accelerated YouTube transcript fetching (optional) for near-instant results.
-- **Interactive Timeline**: Clickable transcript blocks synchronized with video playback.
-- **Seekable Playback**: Click-to-seek support for YouTube, Bilibili, and audio sources.
-- **Live Dashboard**: Real-time task progress updates via **Supabase Realtime**.
-- **Modern UI/UX**: Dark-mode-first design with glassmorphism, powered by TailwindCSS v4 and Framer Motion.
-- **Secure Auth**: Integrated email and Google login support via Supabase Auth (Web2 only).
-- **Internationalization**: Full i18n support for English, Chinese, and Japanese.
-
-## 🖥 Preview
-
-<p align="center">
-  <img src="docs/screenshots/chat-dark.png" alt="VibeDigest Chat Interface" width="100%">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/demo-case-dark.png" alt="VibeDigest Demo Case Detail" width="100%">
-</p>
-
-## 🚀 Getting Started
-
-Follow these steps to set up the project locally.
+## Quick Start
 
 ### Prerequisites
 
-- **Node.js** (v20+)
-- **Python** (3.10+)
-- **Docker & Docker Compose**
-- **Make** (standard on macOS/Linux)
+- Node.js 20+
+- Python 3.10+
+- `uv`
+- Docker and Docker Compose
+- `make`
 
-### Installation
+### Setup
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/yourusername/VibeDigest.git
-    cd VibeDigest
-    ```
-
-2.  **Configure Environment**:
-    Create the local environment files.
-    ```bash
-    cp .env.example .env.local
-    cp frontend/.env.production frontend/.env.local
-    ```
-    > **Note**: You will need to fill in `OPENAI_API_KEY`, `SUPABASE_URL`, etc., in `.env.local`.
-
-3.  **Install Dependencies**:
-    ```bash
-    make install
-    ```
-
-### Running the App
-
-Start the development services:
-
-1.  **Start Backend** (Dockerized):
-    ```bash
-    make start-dev
-    ```
-
-2.  **Start Frontend** (Local):
-    ```bash
-    make start-frontend
-    ```
-
-Visit `http://localhost:3000` to see the app running.
-
-## 🛠 Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| **Frontend** | Next.js 14, TypeScript, TailwindCSS v4, Framer Motion |
-| **Backend** | Python 3.10+, FastAPI, LangGraph, LangChain |
-| **Database** | PostgreSQL, Supabase (Realtime, Auth) |
-| **AI/ML** | OpenAI API (Whisper, GPT-4), yt-dlp, pydub |
-| **DevOps** | Docker, Make, uv (Python package manager) |
-
-## 📖 Architecture Overview
-
-The system operates on a **Control Plane vs. Data Plane** model:
-
--   **Control**: The frontend sends commands (like "Process Video") to the backend via HTTP.
--   **Data**: The backend updates the database. The frontend **never** waits for the HTTP response for status; it subscribes to the database changes. this ensures the UI is always in sync with the true state of the task.
-
-For detailed architecture docs, see [AGENTS.md](AGENTS.md).
-
-## ⚡️ Performance & Caching Strategy
-
-To provide instant results and save computation resources, VibeDigest implements an advanced deduplication and "Smart Resume" mechanism:
-
-1.  **Supadata Acceleration (Optional)**:
-    *   For YouTube videos, the system can fetch transcripts directly via Supadata API (if configured), bypassing the expensive download/transcribe cycle.
-
-2.  **URL Normalization**:
-    *   Automatically strips noisy tracking parameters (e.g., `utm_source`) to ensure cache hits.
-    *   Treats `youtu.be/xyz` and `youtube.com/watch?v=xyz` as the same resource.
-
-3.  **Task Deduplication (Cache Hit)**:
-    *   Checks if the video has been processed by **any** user.
-    *   **Instant Results**: If found, instantly "clones" existing scripts, summaries, and audio to the current user without re-processing.
-
-4.  **Smart Resume**:
-    *   If you request a processed video but want a **different language** summary (e.g., have English, want Chinese):
-        *   Skips expensive [Download] and [Transcription] steps.
-        *   Only executes the lightweight [Translation/Summarization] step.
-    *   Reduces processing time from minutes to seconds.
-
-## 🌍 i18n (UI Languages)
-
-- **Supported locales**: `en`, `zh`, `ja`
-- **Persistence**: stored in `localStorage` key `vd.locale`
-- **Configuration**: See `frontend/src/lib/i18n.ts`.
-
-
-## 📚 Additional Resources
-
-- **[Contribution Guide](CONTRIBUTING.md)**: Detailed workflow, coding standards, and testing procedures.
-- **[Changelog](CHANGELOG.md)**: Version history and release notes.
-- **[Security Policy](SECURITY.md)**: Vulnerability reporting and supported versions.
-- **[Runbook](docs/RUNBOOK.md)**: Production deployment and monitoring.
-
-## 🧱 Database Migrations (Supabase)
-
-- **Pricing Schema**: `backend/sql/01_pricing_schema.sql`
-- **Payment Orders (Creem + Coinbase)**: `backend/sql/02_payment_orders.sql`
-- **Stripe to Creem Migration**: `backend/sql/03_stripe_to_creem_migration.sql`
-
-## 🧪 Running Tests
-
-### Full Suite (Recommended)
 ```bash
-make test
+cp .env.example .env.local
+cp frontend/.env frontend/.env.local
+make install
 ```
 
-### Backend Tests (Pytest)
-Run `pytest` with mocked external services (safe & free).
+Fill `.env.local` with either:
+
+- `OPENROUTER_API_KEY`, or
+- `OPENAI_BASE_URL` plus `OPENAI_API_KEY`
+
+Also set your Supabase credentials before running the backend.
+
+### Run
+
 ```bash
-# Run from project root
-export PYTHONPATH=backend
-pytest -c backend/pytest.ini backend
+make start-backend
+make start-frontend
 ```
 
-### Frontend Tests (Vitest)
-Run component integration tests.
+Or run the backend in Docker:
+
 ```bash
-cd frontend
-npm test
+make start-dev
+make start-frontend
 ```
 
-## 📄 License
+Frontend defaults to [http://localhost:3000](http://localhost:3000). Backend defaults to `http://localhost:16081`.
 
-This project is licensed under the terms found in the [LICENSE](LICENSE) file.
+## Architecture
 
----
-*For architecture details and contribution guidelines, developers should refer to [AGENTS.md](AGENTS.md).*
+```text
+Frontend (Next.js App Router)
+  -> POST /api/process-video
+  -> Backend (FastAPI + LangGraph)
+  -> Supabase task records
+  -> Supabase Realtime updates back to the frontend
+```
+
+The implementation details live in the codemaps under `docs/codemaps/`.
+
+## Core Commands
+
+| Command | Purpose |
+| --- | --- |
+| `make install` | Install backend and frontend dependencies |
+| `make start-backend` | Run FastAPI locally |
+| `make start-frontend` | Run Next.js locally |
+| `make test-backend` | Backend unit tests plus local smoke when prerequisites exist |
+| `make test-frontend` | Frontend unit tests |
+| `cd frontend && npm run build` | Production build check |
+| `make clean` | Remove generated local artifacts |
+
+## Documentation Map
+
+The repo uses explicit document ownership so facts are maintained in one place.
+
+| Fact or workflow | Source of truth |
+| --- | --- |
+| AI/project rules, document ownership, validation rules | [AGENTS.md](./AGENTS.md) |
+| Local setup and primary commands | [README.md](./README.md) |
+| Development workflow and PR expectations | [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| Deployment, monitoring, rollback | [docs/RUNBOOK.md](./docs/RUNBOOK.md) |
+| Architecture and directory mappings | [docs/codemaps/architecture.md](./docs/codemaps/architecture.md) |
+| Testing strategy, prerequisites, coverage policy | [docs/testing/README.md](./docs/testing/README.md) |
+
+## Additional Docs
+
+- [Chinese README](./README.zh-CN.md)
+- [Contributor Guide](./CONTRIBUTING.md)
+- [Runbook](./docs/RUNBOOK.md)
+- [Security Policy](./SECURITY.md)
+- [Changelog](./CHANGELOG.md)
+
+## License
+
+Licensed under the terms in [LICENSE](./LICENSE).

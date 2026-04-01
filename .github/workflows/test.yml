@@ -26,19 +26,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v4
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        cache: 'pip'
+    - name: Restore uv cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('requirements.txt', 'backend/requirements-dev.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r backend/requirements-dev.txt
-        echo "=== Debug Dependencies ==="
-        pip list
-        python -c "import sqlalchemy; print(f'SQLAlchemy version: {sqlalchemy.__version__}')"
+        uv pip install --system -r requirements.txt -r backend/requirements-dev.txt
 
     - name: Run Linting
       run: |
@@ -60,7 +63,7 @@ jobs:
         TEST_DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
-        pytest -c backend/pytest.ini backend -m "not integration and not slow"
+        uv run pytest -c backend/pytest.ini backend -m "not integration and not slow"
 
   backend-integration:
     name: Backend Integration Tests (OpenRouter)
@@ -68,16 +71,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v4
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        cache: 'pip'
+    - name: Restore uv cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('requirements.txt', 'backend/requirements-dev.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r backend/requirements-dev.txt
+        uv pip install --system -r requirements.txt -r backend/requirements-dev.txt
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -90,7 +99,7 @@ jobs:
         MODEL_ALIAS_FAST: openai/gpt-4o-mini
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
-        pytest -c backend/pytest.ini backend/tests/ -m integration --no-cov -v
+        uv run pytest -c backend/pytest.ini backend/tests/ -m integration --no-cov -v
 
   frontend-test:
     runs-on: ubuntu-latest
@@ -106,11 +115,11 @@ jobs:
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     - name: Install dependencies
-      run: npm install
+      run: npm ci
     - name: Run Build Check
       run: npm run build
     - name: Run tests
-      run: npm test
+      run: npm run test -- --run
 
   frontend-e2e:
     runs-on: ubuntu-latest
@@ -126,7 +135,7 @@ jobs:
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     - name: Install dependencies
-      run: npm install
+      run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
     - name: Run E2E tests

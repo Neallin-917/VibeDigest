@@ -1,6 +1,7 @@
 # Frontend Codemap
 
-> Freshness: 2026-02-06
+> Last Verified: 2026-04-01
+> Scope: frontend implementation map, not onboarding
 
 ## System Overview
 
@@ -10,7 +11,7 @@
 
 | Layer | Technology |
 |-------|------------|
-| **Framework** | Next.js 14 (App Router) |
+| **Framework** | Next.js 16 (App Router) |
 | **Language** | TypeScript |
 | **Styling** | TailwindCSS, Framer Motion |
 | **Components** | shadcn/ui |
@@ -54,7 +55,7 @@ app/
 ├── sitemap.ts                    # SEO sitemap.xml
 │
 ├── api/                          # API Routes
-│   ├── process-video/route.ts    # → Backend proxy
+│   ├── process-video/route.ts    # Backend proxy
 │   ├── chat/route.ts             # AI chat (streaming)
 │   ├── chat/threads/             # Chat thread management
 │   ├── threads/                  # Thread CRUD
@@ -86,7 +87,7 @@ app/
 
 ## Component Library
 
-### UI Primitives (shadcn/ui) - 24 components
+### UI Primitives
 
 ```
 components/ui/
@@ -112,7 +113,7 @@ components/ui/
 | `landing/` | Marketing Pages | `HeroSection`, `FeaturesSection`, `PricingSection` |
 | `layout/` | App Shell | `MainShell`, `Sidebar`, `MobileNav`, `FeedbackDialog` |
 | `auth/` | Authentication | `LoginForm`, `GoogleOneTap` |
-| `settings/`| User Preferences | `UsageCard` |
+| `settings/` | User Preferences | `UsageCard` |
 
 ## State Management
 
@@ -134,7 +135,7 @@ components/ui/
 │  └─────────────┘     └─────────────┘                       │
 └─────────────────────────────────────────────────────────────┘
 
-Key Patterns:
+Key patterns:
 - Server Components for initial data fetch
 - Client Components for interactivity
 - Supabase Realtime for live updates (tasks)
@@ -145,11 +146,11 @@ Key Patterns:
 
 | Property | Value |
 |----------|-------|
-| **Locales** | en, zh, es, ar, fr, ru, pt, hi, ja, ko |
+| **Locales** | en, zh, ja |
 | **Default** | en |
-| **RTL** | Arabic (ar) auto-sets `dir="rtl"` |
+| **RTL** | none |
 | **Storage** | `localStorage` key `vd.locale` |
-| **File Size** | 141KB (lib/i18n.ts) |
+| **Source** | `frontend/src/lib/i18n.ts` |
 
 ### Translation Structure
 
@@ -163,7 +164,7 @@ const translations = {
     settings: { ... },
   },
   zh: { ... },
-  // ... other locales
+  ja: { ... },
 }
 ```
 
@@ -189,7 +190,7 @@ export const api = {
 |------|------|--------|
 | Unit | Vitest | `vitest.config.ts` |
 | E2E | Playwright | `playwright.config.ts` |
-| Coverage | c8 | `frontend/coverage/` |
+| Coverage | Vitest V8 coverage | `frontend/coverage/` |
 
 ### Test Files
 

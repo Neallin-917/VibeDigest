@@ -12,10 +12,26 @@ configure_logging()
 
 
 def _load_provider_defaults() -> Dict[str, Dict[str, str]]:
-    registry_path = Path(__file__).resolve().parent.parent / "config" / "llm-provider-defaults.json"
+    candidates = [
+        Path(__file__).resolve().parent / "llm-provider-defaults.json",
+        Path(__file__).resolve().parent.parent / "config" / "llm-provider-defaults.json",
+    ]
+
+    registry_path = next((c for c in candidates if c.exists()), None)
+    if registry_path is None:
+        raise FileNotFoundError(
+            f"LLM provider defaults not found. Checked: {', '.join(str(c) for c in candidates)}"
+        )
 
     with registry_path.open("r", encoding="utf-8") as registry_file:
-        raw_defaults = json.load(registry_file)
+        try:
+            raw_defaults = json.load(registry_file)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Failed to parse LLM provider defaults at '{registry_path}': {exc}"
+            ) from exc
+
+    logging.debug("Loaded LLM provider defaults from: %s", registry_path)
 
     required_tiers = {"smart", "fast"}
     for provider_name, tier_defaults in raw_defaults.items():
@@ -24,6 +40,12 @@ def _load_provider_defaults() -> Dict[str, Dict[str, str]]:
             raise ValueError(
                 f"Provider defaults for '{provider_name}' are missing tiers: {', '.join(sorted(missing_tiers))}."
             )
+        for tier in required_tiers:
+            val = tier_defaults.get(tier)
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError(
+                    f"Provider defaults for '{provider_name}' tier '{tier}' must be a non-empty string."
+                )
 
     return raw_defaults
 
@@ -195,6 +217,36 @@ class Settings:
         # Log strategy on init to confirm loading
         logging.info(f"Config Loaded. SUMMARY_STRATEGY='{self.SUMMARY_STRATEGY}'")
         self._fix_docker_host_for_local_dev()
+        self._validate_required_env()
+
+    def _validate_required_env(self):
+        """Fail-fast: crash on startup if critical env vars are missing."""
+        if self.MOCK_MODE:
+            return
+
+        missing = []
+
+        if not os.environ.get("DATABASE_URL"):
+            missing.append("DATABASE_URL")
+
+        if not self.SUPABASE_URL:
+            missing.append("SUPABASE_URL")
+        if not self.SUPABASE_SERVICE_KEY:
+            missing.append("SUPABASE_SERVICE_KEY")
+
+        dev_bypass = parse_bool_env("DEV_AUTH_BYPASS", False)
+        if not dev_bypass and not self.SUPABASE_JWT_SECRET:
+            missing.append("SUPABASE_JWT_SECRET")
+
+        has_llm_key = bool(self.OPENAI_API_KEY or os.getenv("OPENROUTER_API_KEY"))
+        if not has_llm_key:
+            missing.append("OPENAI_API_KEY or OPENROUTER_API_KEY")
+
+        if missing:
+            raise RuntimeError(
+                f"Missing required environment variables: {', '.join(missing)}. "
+                f"Copy .env.local.example to .env.local and fill in the values."
+            )
 
     def _fix_docker_host_for_local_dev(self):
         """

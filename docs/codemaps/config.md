@@ -1,6 +1,7 @@
 # Configuration Codemap
 
-> Freshness: 2026-04-01T13:05:00+08:00
+> Last Verified: 2026-04-01
+> Scope: runtime configuration and provider-routing rules
 
 ## Environment Variables
 
@@ -186,7 +187,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 # Backend
-NEXT_PUBLIC_API_URL=http://localhost:16080
+NEXT_PUBLIC_API_URL=http://localhost:16081
 
 # Sentry (optional)
 NEXT_PUBLIC_SENTRY_DSN=https://...

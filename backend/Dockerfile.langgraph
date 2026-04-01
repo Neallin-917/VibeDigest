@@ -10,5 +10,6 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 WORKDIR /deps/backend
+COPY config/llm-provider-defaults.json ./llm-provider-defaults.json
 COPY backend/langgraph.json .
 COPY backend/langgraph.json /langgraph.json

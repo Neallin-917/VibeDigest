@@ -28,14 +28,7 @@ app = FastAPI(title="VibeDigest API (v2)", version="2.0.0")
 
 @app.on_event("startup")
 async def startup_event():
-    # Fail-fast: require SUPABASE_JWT_SECRET in production
-    dev_bypass = os.getenv("DEV_AUTH_BYPASS", "").strip().lower() in {"1", "true", "yes"}
-    if not settings.MOCK_MODE and not dev_bypass and not settings.SUPABASE_JWT_SECRET:
-        raise RuntimeError(
-            "SUPABASE_JWT_SECRET is required when MOCK_MODE and DEV_AUTH_BYPASS are disabled. "
-            "Set it to your Supabase project's JWT secret (Settings → API → JWT Secret)."
-        )
-
+    # Required env vars are validated in config.py Settings._validate_required_env()
     logger.info(">>> VibeDigest Backend Starting <<<")
     logger.info(f"LLM Provider:  {settings.LLM_PROVIDER}")
     logger.info(f"Smart Model:   {settings.MODEL_SMART} (Temp: {settings.REASONING_TEMPERATURE})")

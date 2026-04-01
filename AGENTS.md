@@ -12,15 +12,28 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 2. **Explain before changing** — When diagnosing issues, provide explanation FIRST. Only edit code when explicitly asked or after confirming diagnosis.
 3. **Cross-boundary validation** — After any refactor touching both frontend and backend, run: `cd frontend && npm run build` AND `make test-backend`
 
+## Documentation Ownership (SSOT)
+
+Use one owner per fact. Refer to the owning file instead of copying facts into multiple docs.
+
+| Fact | Owner |
+| --- | --- |
+| AI rules, repo guardrails, validation rules | `AGENTS.md` |
+| Local setup and core commands | `README.md` |
+| Development workflow and PR expectations | `CONTRIBUTING.md` |
+| Deployment, rollback, monitoring | `docs/RUNBOOK.md` |
+| Architecture and directory mapping | `docs/codemaps/*.md` |
+| Testing strategy and coverage policy | `docs/testing/README.md` |
+
 ## Quick Reference
 
 | Command                | Purpose                  |
 | ---------------------- | ------------------------ |
-| `npm run dev`          | Start frontend (Next.js) |
-| `npm run lint`         | Lint frontend            |
-| `uv run main.py`       | Start backend (FastAPI)  |
-| `uv run pytest`        | Run backend tests        |
-| `docker-compose up -d` | Start full stack         |
+| `make start-frontend`  | Start frontend (Next.js) |
+| `make start-backend`   | Start backend (FastAPI)  |
+| `make test-frontend`   | Run frontend unit tests  |
+| `make test-backend`    | Run backend tests        |
+| `make start-dev`       | Start backend in Docker  |
 
 ## Architecture (TL;DR)
 
@@ -31,7 +44,7 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 ## Critical Rules
 
 1. **Python**: Always use `uv` (never raw `pip`)
-2. **Dependencies**: Add to ROOT `requirements.txt` only (not `backend/`)
+2. **Dependencies**: Runtime Python deps go in ROOT `requirements.txt`; backend-only dev/test deps go in `backend/requirements-dev.txt`; do not add authoring deps to `backend/requirements.core.txt`
 3. **Models**: Never hardcode LLM model names — use `settings.MODEL_SMART` / `settings.MODEL_FAST` and `utils.llm_router.resolve_model_for_intent`
 4. **Text provider routing**: `OPENAI_BASE_URL` present means `custom`; otherwise the app defaults to `openrouter`
 5. **Model defaults SSOT**: provider default model names live only in `config/llm-provider-defaults.json`
@@ -45,6 +58,12 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
    3. If there is a gap between your initial thought and the best practice, adopt the best practice and explicitly mention the "Industry Standard" reasoning in your final explanation.
 11. **Design Principle**: VibeDigest defaults to minimal design across the full product layer — visual style, interaction, copy, information architecture, loading states, and motion. Prefer fewer UI surfaces, fewer decisions, shorter copy, and calmer transitions. Avoid decorative complexity, skeleton screens, shimmer effects, heavy animation, multi-step transitional UI, and redundant status messaging unless a clear usability need justifies them.
 12. **Minimalism Heuristic**: When multiple valid UI solutions exist, prefer the one with the least visual noise, the fewest transient states, and the smallest cognitive load while preserving clarity and speed.
+
+## Coverage Policy
+
+- Repo enforcement: backend global coverage gate is `65%`
+- Engineering target: new or materially changed code should reach `80%+` coverage in the touched area
+- If docs, CI, and local config disagree, fix the docs or config so they match before declaring success
 
 ## Detailed Guidelines
 

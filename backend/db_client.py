@@ -51,11 +51,19 @@ class DBClient:
 
         if self.db_url:
             try:
+                connect_args: dict = {}
+                if "pg8000" in self.db_url:
+                    import ssl as _ssl
+                    _ctx = _ssl.create_default_context()
+                    _ctx.check_hostname = False
+                    _ctx.verify_mode = _ssl.CERT_NONE
+                    connect_args["ssl_context"] = _ctx
+
                 self.engine = create_engine(
-                    self.db_url, pool_pre_ping=True, pool_size=10, max_overflow=20
+                    self.db_url, connect_args=connect_args,
+                    pool_pre_ping=True, pool_size=10, max_overflow=20,
                 )
                 self.Session = scoped_session(sessionmaker(bind=self.engine))
-                # Log host only — avoid leaking credentials
                 from urllib.parse import urlparse as _urlparse
                 _parsed = _urlparse(self.db_url)
                 logger.info(f"SQLAlchemy engine initialized for: {_parsed.hostname}:{_parsed.port}")

@@ -377,8 +377,9 @@ class DBClient:
             WHERE t.video_url = :video_url 
               AND o.kind = 'script' 
               AND o.status = 'completed'
-              AND length(o.content) > 0
-            ORDER BY t.created_at DESC 
+              AND o.content IS NOT NULL
+              AND o.content != 'null'::jsonb
+            ORDER BY t.created_at DESC
             LIMIT 1
         """
         rows = self._execute_query(query, {"video_url": video_url})
@@ -399,7 +400,8 @@ class DBClient:
               AND t.video_url = :video_url
               AND o.kind = 'script'
               AND o.status = 'completed'
-              AND length(o.content) > 0
+              AND o.content IS NOT NULL
+              AND o.content != 'null'::jsonb
             ORDER BY t.created_at DESC
             LIMIT 1
         """

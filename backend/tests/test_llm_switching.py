@@ -10,25 +10,26 @@ class TestLLMSwitching:
     def test_provider_switching(self, mock_rate_limit_llm):
         """Verify factory ALWAYS uses RateLimitAwareChatLiteLLM regardless of provider"""
 
-        # Case 1: OpenAI
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "openai"):
+             patch.object(settings, "OPENAI_BASE_URL", "http://localhost:8317/v1"), \
+             patch.object(settings, "_llm_provider_override", None):
             create_chat_model("gpt-4o")
             mock_rate_limit_llm.assert_called()
 
         mock_rate_limit_llm.reset_mock()
 
-        # Case 2: Custom OpenAI-compatible provider
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "custom"):
-            create_chat_model("gpt-4o")
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=False), \
+             patch.object(settings, "OPENAI_BASE_URL", None), \
+             patch.object(settings, "_llm_provider_override", None):
+            create_chat_model("google/gemini-pro")
             mock_rate_limit_llm.assert_called()
 
     @patch("utils.openai_client.RateLimitAwareChatLiteLLM")
     def test_model_alias_mapping(self, mock_rate_limit_llm):
         """Verify aliases are passed correctly"""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "custom"):
+             patch.object(settings, "OPENAI_BASE_URL", "http://localhost:8317/v1"), \
+             patch.object(settings, "_llm_provider_override", None):
             aliased_model = "ollama/llama3"
             create_chat_model(aliased_model)
 
@@ -38,7 +39,8 @@ class TestLLMSwitching:
     def test_openrouter_prefix_injection(self, mock_rate_limit_llm):
         """Verify model name gets openrouter/ prefix when provider is openrouter"""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "openrouter"):
+             patch.object(settings, "OPENAI_BASE_URL", None), \
+             patch.object(settings, "_llm_provider_override", None):
             create_chat_model("openai/gpt-5.2")
 
             call_kwargs = mock_rate_limit_llm.call_args
@@ -49,7 +51,8 @@ class TestLLMSwitching:
     def test_openrouter_no_double_prefix(self, mock_rate_limit_llm):
         """Verify already-prefixed model is not double-prefixed"""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "openrouter"):
+             patch.object(settings, "OPENAI_BASE_URL", None), \
+             patch.object(settings, "_llm_provider_override", None):
             create_chat_model("openrouter/openai/gpt-5.2")
 
             call_kwargs = mock_rate_limit_llm.call_args
@@ -60,7 +63,8 @@ class TestLLMSwitching:
     def test_openrouter_fallback_injection(self, mock_rate_limit_llm):
         """Verify OpenRouter fallback routing is injected."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "openrouter"):
+             patch.object(settings, "OPENAI_BASE_URL", None), \
+             patch.object(settings, "_llm_provider_override", None):
             create_chat_model("google/gemini-pro")
 
             _, kwargs = mock_rate_limit_llm.call_args
@@ -70,7 +74,7 @@ class TestLLMSwitching:
 
     def test_unsupported_provider_raises(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
-             patch.object(settings, "LLM_PROVIDER", "ollama"), \
+             patch.object(settings, "_llm_provider_override", "ollama"), \
              patch.object(settings, "MOCK_MODE", False):
             with pytest.raises(ValueError, match="Unsupported provider"):
                 create_chat_model("llama3")

@@ -227,8 +227,7 @@ Submit user feedback (allows anonymous).
 | `/api/process-video` | POST | Proxy to backend |
 | `/api/chat` | POST | AI chat (streaming) |
 | `/api/chat/threads` | GET/POST | Thread management |
-| `/api/chat/threads/[id]/messages` | GET/POST | Message management |
+| `/api/chat/threads/[id]/messages` | GET | Message retrieval and invalid-history cleanup |
 | `/api/threads` | GET/POST | Thread CRUD |
 | `/api/threads/[id]` | GET/PATCH/DELETE | Single thread |
-| `/api/threads/[id]/messages` | GET/POST | Thread messages |
 | `/api/image-proxy` | GET | Image proxy for CORS |

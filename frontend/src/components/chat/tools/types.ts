@@ -6,7 +6,14 @@
 // Core Types
 // ============================================================================
 
-export type ToolState = 'input-streaming' | 'input-available' | 'output-available' | 'output-error'
+export type ToolState =
+  | 'input-streaming'
+  | 'input-available'
+  | 'output-available'
+  | 'output-error'
+  | 'approval-requested'
+  | 'approval-responded'
+  | 'output-denied'
 
 export interface BaseToolPartProps<I = unknown, O = unknown> {
   toolCallId: string

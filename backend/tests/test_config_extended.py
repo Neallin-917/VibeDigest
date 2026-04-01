@@ -66,18 +66,24 @@ class TestGetTemperature:
 # ---------------------------------------------------------------------------
 
 class TestModelSmartFast:
-    def test_default_provider_is_openrouter(self):
-        original = os.environ.get("LLM_PROVIDER")
+    def test_default_provider_is_openrouter_when_no_custom_base_url(self):
+        original = os.environ.get("OPENAI_BASE_URL")
         try:
-            os.environ["LLM_PROVIDER"] = ""
+            os.environ.pop("OPENAI_BASE_URL", None)
             reloaded = importlib.reload(config_module)
             assert reloaded.settings.LLM_PROVIDER == "openrouter"
         finally:
             if original is None:
-                os.environ.pop("LLM_PROVIDER", None)
+                os.environ.pop("OPENAI_BASE_URL", None)
             else:
-                os.environ["LLM_PROVIDER"] = original
+                os.environ["OPENAI_BASE_URL"] = original
             importlib.reload(config_module)
+
+    def test_provider_resolves_to_custom_when_base_url_is_present(self):
+        s = Settings()
+        s.OPENAI_BASE_URL = "http://localhost:8317/v1"
+        s.LLM_PROVIDER = None
+        assert s.LLM_PROVIDER == "custom"
 
     def test_alias_overrides_provider_default(self):
         s = Settings()
@@ -87,7 +93,8 @@ class TestModelSmartFast:
     def test_no_alias_uses_provider_default(self):
         s = Settings()
         s.MODEL_ALIAS_SMART = None
-        s.LLM_PROVIDER = "openrouter"
+        s.OPENAI_BASE_URL = None
+        s.LLM_PROVIDER = None
         assert s.MODEL_SMART == "google/gemini-3-pro-preview"
 
     def test_fast_alias_overrides_default(self):
@@ -98,17 +105,25 @@ class TestModelSmartFast:
     def test_fast_no_alias_uses_provider_default(self):
         s = Settings()
         s.MODEL_ALIAS_FAST = None
-        s.LLM_PROVIDER = "openai"
-        assert s.MODEL_FAST == "gpt-5-mini"
+        s.OPENAI_BASE_URL = None
+        s.LLM_PROVIDER = None
+        assert s.MODEL_FAST == "google/gemini-3-flash-preview"
 
-    def test_unknown_provider_raises(self):
+    def test_custom_provider_defaults_come_from_shared_registry(self):
         s = Settings()
         s.MODEL_ALIAS_SMART = None
-        s.LLM_PROVIDER = "unknown_provider"
+        s.MODEL_ALIAS_FAST = None
+        s.OPENAI_BASE_URL = "http://localhost:8317/v1"
+        s.LLM_PROVIDER = None
+        assert s.MODEL_SMART == "gemini-3-pro-preview"
+        assert s.MODEL_FAST == "gemini-3-flash-preview"
+
+    def test_unknown_provider_override_raises(self):
+        s = Settings()
         try:
-            _ = s.MODEL_SMART
+            s.LLM_PROVIDER = "unknown_provider"
         except ValueError as exc:
-            assert "Unsupported provider" in str(exc)
+            assert "Unsupported provider override" in str(exc)
         else:
             raise AssertionError("Expected unsupported provider to raise ValueError")
 

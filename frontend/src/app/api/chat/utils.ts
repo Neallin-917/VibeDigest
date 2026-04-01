@@ -1,5 +1,5 @@
-import type { UIMessage } from 'ai';
 import { extractAndNormalizeUrl } from '@/lib/url-utils';
+import type { ChatUIMessage, ChatMessageMetadata } from '@/lib/chat-ui';
 import type { TextPart } from './types';
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -14,13 +14,8 @@ export function isTextPart(part: unknown): part is TextPart {
     );
 }
 
-export function getLegacyContent(message: UIMessage): string {
-    const content = (message as { content?: unknown }).content;
-    return typeof content === 'string' ? content : '';
-}
-
-export function getMessageCreatedAtIso(message: UIMessage): string {
-    const metadata = (message as { metadata?: { createdAt?: unknown } }).metadata;
+export function getMessageCreatedAtIso(message: ChatUIMessage): string {
+    const metadata = message.metadata as ChatMessageMetadata | undefined;
     const createdAt = metadata?.createdAt;
     if (createdAt instanceof Date) return createdAt.toISOString();
     if (typeof createdAt === 'string') {
@@ -42,7 +37,7 @@ export function getErrorStack(error: unknown): string | undefined {
 }
 
 /** Helper to extract text from UIMessage (AI SDK v6 Best Practice) */
-export function getTextFromUIMessage(message: UIMessage): string {
+export function getTextFromUIMessage(message: ChatUIMessage): string {
     return (message.parts || [])
         .filter((part) => part.type === 'text')
         .map((part) => part.text)
@@ -54,7 +49,7 @@ export function extractUrl(text: string): string | null {
 }
 
 /** Find the most recent URL in the conversation history */
-export function findLastUrlInMessages(messages: UIMessage[]): string | null {
+export function findLastUrlInMessages(messages: ChatUIMessage[]): string | null {
     for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i];
         if (msg.role === 'user') {
@@ -65,11 +60,6 @@ export function findLastUrlInMessages(messages: UIMessage[]): string | null {
                         if (url) return url;
                     }
                 }
-            }
-            const legacyContent = getLegacyContent(msg);
-            if (legacyContent) {
-                const url = extractUrl(legacyContent);
-                if (url) return url;
             }
         }
     }
@@ -82,7 +72,7 @@ export function isUsableTaskId(taskId: string | null | undefined): taskId is str
     return typeof taskId === 'string' && taskId.length > 0 && taskId !== INVALID_TASK_ID;
 }
 
-export function extractTaskIdFromCreateTaskMessages(messages: UIMessage[]): string | null {
+export function extractTaskIdFromCreateTaskMessages(messages: ChatUIMessage[]): string | null {
     for (let i = messages.length - 1; i >= 0; i--) {
         const message = messages[i];
         if (!Array.isArray(message.parts)) continue;

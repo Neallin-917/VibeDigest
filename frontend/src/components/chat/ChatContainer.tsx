@@ -1,7 +1,7 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport, UIMessage } from 'ai'
+import { DefaultChatTransport } from 'ai'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
 import { MessageRow } from './MessageRow'
@@ -16,11 +16,12 @@ import { useDirectUrlSubmission } from './useDirectUrlSubmission'
 import { Loader2, XCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useI18n } from '@/components/i18n/I18nProvider'
+import { createTaskStatusMessage, type ChatUIMessage } from '@/lib/chat-ui'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
   threadId?: string | null
-  initialMessages?: UIMessage[]
+  initialMessages?: ChatUIMessage[]
   isAuthenticated?: boolean
   isInteractionLocked?: boolean
   onOpenPanel?: (taskId: string) => void
@@ -56,7 +57,7 @@ function isAuthRequiredError(err: unknown) {
   return /unauthorized|auth session missing/i.test(combined)
 }
 
-function hasSameMessageIdentity(currentMessages: UIMessage[], nextMessages: UIMessage[]) {
+function hasSameMessageIdentity(currentMessages: ChatUIMessage[], nextMessages: ChatUIMessage[]) {
   if (currentMessages.length !== nextMessages.length) return false
 
   return currentMessages.every((message, index) => {
@@ -86,7 +87,7 @@ export function ChatContainer({
   const effectiveThreadId = threadId || sessionId
 
   // 1. Setup useChat with AI SDK v6 Best Practices
-  const chat = useChat({
+  const chat = useChat<ChatUIMessage>({
     // IMPORTANT: Use DefaultChatTransport for full v6 compatibility
     transport: new DefaultChatTransport({
       api: '/api/chat',
@@ -207,26 +208,13 @@ export function ChatContainer({
     () => checkHasTaskStatusForActiveTask(messages, activeTaskId ?? null),
     [messages, activeTaskId]
   )
-  const forcedTaskStatusMessage = useMemo<UIMessage | null>(() => {
+  const forcedTaskStatusMessage = useMemo<ChatUIMessage | null>(() => {
     if (!activeTaskId || hasTaskStatusForActiveTask) return null
-    const toolCallId = `task-status-${activeTaskId}`
-    return {
-      id: toolCallId,
-      role: 'assistant',
-      parts: [
-        {
-          type: 'tool-get_task_status',
-          toolCallId,
-          state: 'output-available',
-          input: { taskId: activeTaskId },
-          output: {
-            taskId: activeTaskId,
-            status: 'pending',
-            progress: 0
-          }
-        }
-      ]
-    }
+    return createTaskStatusMessage({
+      messageId: `task-status-${activeTaskId}`,
+      toolCallId: `task-status-${activeTaskId}`,
+      taskId: activeTaskId,
+    })
   }, [activeTaskId, hasTaskStatusForActiveTask])
   const lastMessage = messages[messages.length - 1]
   const streamingMessage =

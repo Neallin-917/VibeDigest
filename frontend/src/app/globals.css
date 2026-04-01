@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@source "../../node_modules/@assistant-ui/react";
-@source "../../node_modules/@assistant-ui/react-markdown";
 
 @custom-variant dark (&:is(.dark *));
 @plugin "tailwindcss-animate";

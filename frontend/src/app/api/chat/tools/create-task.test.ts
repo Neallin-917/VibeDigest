@@ -10,7 +10,7 @@ vi.mock('@/env', () => ({
 
 import { createCreateTaskTool } from './create-task';
 import type { ToolContext } from '../types';
-import type { UIMessage } from 'ai';
+import type { ChatUIMessage } from '@/lib/chat-ui';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -185,7 +185,7 @@ describe('createCreateTaskTool', () => {
     // --- URL Fallback from Message History ---
 
     it('falls back to URL from message history when args URL is invalid', async () => {
-        const messages: UIMessage[] = [
+        const messages: ChatUIMessage[] = [
             {
                 id: 'msg-1',
                 role: 'user',

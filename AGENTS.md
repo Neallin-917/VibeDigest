@@ -33,31 +33,33 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 1. **Python**: Always use `uv` (never raw `pip`)
 2. **Dependencies**: Add to ROOT `requirements.txt` only (not `backend/`)
 3. **Models**: Never hardcode LLM model names — use `settings.MODEL_SMART` / `settings.MODEL_FAST` and `utils.llm_router.resolve_model_for_intent`
-4. **Components**: Use CVA for variants, check `src/components/ui/` first
-5. **Tests**: Never call paid APIs in CI (mock everything)
-6. **Thinking Process**: Conduct all internal reasoning, tool calls, and architecture planning in English for maximum logical consistency.
-7. **Language Alignment**: Strictly provide the final explanation and summary in Chinese.
-8. **Best Practice Alignment**:
+4. **Text provider routing**: `OPENAI_BASE_URL` present means `custom`; otherwise the app defaults to `openrouter`
+5. **Model defaults SSOT**: provider default model names live only in `config/llm-provider-defaults.json`
+6. **Components**: Use CVA for variants, check `src/components/ui/` first
+7. **Tests**: Never call paid APIs in CI (mock everything)
+8. **Thinking Process**: Conduct all internal reasoning, tool calls, and architecture planning in English for maximum logical consistency.
+9. **Language Alignment**: Strictly provide the final explanation and summary in Chinese.
+10. **Best Practice Alignment**:
    1. Before implementing any solution, internally brainstorm at least two approaches.
    2. Compare your proposed solution against industry-standard best practices (e.g., Clean Code, SOLID, OWASP for security, or framework-specific idioms like React Server Components or Pythonic PEP 8).
    3. If there is a gap between your initial thought and the best practice, adopt the best practice and explicitly mention the "Industry Standard" reasoning in your final explanation.
-9. **Design Principle**: VibeDigest defaults to minimal design across the full product layer — visual style, interaction, copy, information architecture, loading states, and motion. Prefer fewer UI surfaces, fewer decisions, shorter copy, and calmer transitions. Avoid decorative complexity, skeleton screens, shimmer effects, heavy animation, multi-step transitional UI, and redundant status messaging unless a clear usability need justifies them.
-10. **Minimalism Heuristic**: When multiple valid UI solutions exist, prefer the one with the least visual noise, the fewest transient states, and the smallest cognitive load while preserving clarity and speed.
+11. **Design Principle**: VibeDigest defaults to minimal design across the full product layer — visual style, interaction, copy, information architecture, loading states, and motion. Prefer fewer UI surfaces, fewer decisions, shorter copy, and calmer transitions. Avoid decorative complexity, skeleton screens, shimmer effects, heavy animation, multi-step transitional UI, and redundant status messaging unless a clear usability need justifies them.
+12. **Minimalism Heuristic**: When multiple valid UI solutions exist, prefer the one with the least visual noise, the fewest transient states, and the smallest cognitive load while preserving clarity and speed.
 
 ## Detailed Guidelines
 
-| Topic        | Guide                                              |
-| ------------ | -------------------------------------------------- |
-| Architecture | [.claude/architecture.md](.claude/architecture.md) |
-| Frontend     | [.claude/frontend.md](.claude/frontend.md)         |
-| Backend      | [.claude/backend.md](.claude/backend.md)           |
-| Database     | [.claude/database.md](.claude/database.md)         |
-| Deployment   | [.claude/deployment.md](.claude/deployment.md)     |
-| Testing      | [.claude/testing.md](.claude/testing.md)           |
-| Release      | [.claude/release.md](.claude/release.md)           |
-| Secrets      | [.claude/secrets.md](.claude/secrets.md)           |
-| Commands     | [.claude/commands.md](.claude/commands.md)         |
-| Git          | [.claude/git.md](.claude/git.md)                   |
+| Topic        | Guide                                      |
+| ------------ | ------------------------------------------ |
+| Architecture | [docs/codemaps/architecture.md](docs/codemaps/architecture.md) |
+| Frontend     | [docs/codemaps/frontend.md](docs/codemaps/frontend.md) |
+| Backend      | [docs/codemaps/backend.md](docs/codemaps/backend.md) |
+| Database     | [docs/codemaps/data.md](docs/codemaps/data.md) |
+| Deployment   | [docs/RUNBOOK.md](docs/RUNBOOK.md)         |
+| Testing      | [docs/testing/README.md](docs/testing/README.md) |
+| Release      | [CHANGELOG.md](CHANGELOG.md)               |
+| Secrets      | [SECURITY.md](SECURITY.md)                 |
+| Commands     | [CONTRIBUTING.md](CONTRIBUTING.md)         |
+| Git          | [CONTRIBUTING.md](CONTRIBUTING.md)         |
 
 ## Version History
 

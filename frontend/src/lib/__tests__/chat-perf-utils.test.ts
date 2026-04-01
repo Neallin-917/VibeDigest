@@ -4,14 +4,14 @@ import {
   checkHasTaskStatusForActiveTask,
   partsAreEqual,
 } from '../chat-perf-utils'
-import type { UIMessage } from 'ai'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
-// Helper to build a UIMessage quickly
+// Helper to build a ChatUIMessage quickly
 function msg(
-  role: UIMessage['role'],
-  parts: UIMessage['parts'],
+  role: ChatUIMessage['role'],
+  parts: ChatUIMessage['parts'],
   id = 'msg-1'
-): UIMessage {
+): ChatUIMessage {
   return { id, role, parts }
 }
 
@@ -20,7 +20,7 @@ function msg(
 // ---------------------------------------------------------------------------
 describe('checkHasRenderableAssistant', () => {
   it('returns true when assistant message has text content', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [{ type: 'text', text: 'Hello world' }]),
     ]
     expect(checkHasRenderableAssistant(messages)).toBe(true)
@@ -31,14 +31,14 @@ describe('checkHasRenderableAssistant', () => {
   })
 
   it('returns false when only user messages exist', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('user', [{ type: 'text', text: 'Hi' }]),
     ]
     expect(checkHasRenderableAssistant(messages)).toBe(false)
   })
 
   it('returns false when only preview_video tool parts', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         { type: 'tool-preview_video', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
       ]),
@@ -47,7 +47,7 @@ describe('checkHasRenderableAssistant', () => {
   })
 
   it('returns false when create_task has no taskId output', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         { type: 'tool-create_task', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
       ]),
@@ -56,7 +56,7 @@ describe('checkHasRenderableAssistant', () => {
   })
 
   it('returns true when create_task has taskId in output', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
           type: 'tool-create_task',
@@ -71,7 +71,7 @@ describe('checkHasRenderableAssistant', () => {
   })
 
   it('returns true for get_task_status tool', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
           type: 'tool-get_task_status',
@@ -86,14 +86,14 @@ describe('checkHasRenderableAssistant', () => {
   })
 
   it('returns false when assistant text is only whitespace', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [{ type: 'text', text: '   ' }]),
     ]
     expect(checkHasRenderableAssistant(messages)).toBe(false)
   })
 
   it('returns true for dynamic-tool type with renderable toolName', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         { type: 'dynamic-tool', toolName: 'get_task_status', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
       ]),
@@ -107,7 +107,7 @@ describe('checkHasRenderableAssistant', () => {
 // ---------------------------------------------------------------------------
 describe('checkHasTaskStatusForActiveTask', () => {
   it('returns false when activeTaskId is null', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
           type: 'tool-get_task_status',
@@ -122,14 +122,14 @@ describe('checkHasTaskStatusForActiveTask', () => {
   })
 
   it('returns false when no matching task in messages', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('user', [{ type: 'text', text: 'hello' }]),
     ]
     expect(checkHasTaskStatusForActiveTask(messages, 'task-1')).toBe(false)
   })
 
   it('returns true when get_task_status matches activeTaskId', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
           type: 'tool-get_task_status',
@@ -144,7 +144,7 @@ describe('checkHasTaskStatusForActiveTask', () => {
   })
 
   it('returns true when create_task output matches activeTaskId', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
           type: 'tool-create_task',
@@ -159,7 +159,7 @@ describe('checkHasTaskStatusForActiveTask', () => {
   })
 
   it('returns false when task IDs do not match', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
           type: 'tool-get_task_status',
@@ -174,7 +174,7 @@ describe('checkHasTaskStatusForActiveTask', () => {
   })
 
   it('returns true when dynamic-tool get_task_status matches', () => {
-    const messages: UIMessage[] = [
+    const messages: ChatUIMessage[] = [
       msg('assistant', [
         {
           type: 'dynamic-tool',
@@ -195,13 +195,13 @@ describe('checkHasTaskStatusForActiveTask', () => {
 // ---------------------------------------------------------------------------
 describe('partsAreEqual', () => {
   it('returns true for identical parts arrays (same reference)', () => {
-    const parts: UIMessage['parts'] = [{ type: 'text', text: 'hello' }]
+    const parts: ChatUIMessage['parts'] = [{ type: 'text', text: 'hello' }]
     expect(partsAreEqual(parts, parts)).toBe(true)
   })
 
   it('returns false when parts count differs', () => {
-    const prev: UIMessage['parts'] = [{ type: 'text', text: 'a' }]
-    const next: UIMessage['parts'] = [
+    const prev: ChatUIMessage['parts'] = [{ type: 'text', text: 'a' }]
+    const next: ChatUIMessage['parts'] = [
       { type: 'text', text: 'a' },
       { type: 'text', text: 'b' },
     ]
@@ -209,20 +209,20 @@ describe('partsAreEqual', () => {
   })
 
   it('returns false when text content changes', () => {
-    const prev: UIMessage['parts'] = [{ type: 'text', text: 'hello' }]
-    const next: UIMessage['parts'] = [{ type: 'text', text: 'world' }]
+    const prev: ChatUIMessage['parts'] = [{ type: 'text', text: 'hello' }]
+    const next: ChatUIMessage['parts'] = [{ type: 'text', text: 'world' }]
     expect(partsAreEqual(prev, next)).toBe(false)
   })
 
   it('returns true when text content is identical (different refs)', () => {
-    const prev: UIMessage['parts'] = [{ type: 'text', text: 'hello' }]
-    const next: UIMessage['parts'] = [{ type: 'text', text: 'hello' }]
+    const prev: ChatUIMessage['parts'] = [{ type: 'text', text: 'hello' }]
+    const next: ChatUIMessage['parts'] = [{ type: 'text', text: 'hello' }]
     expect(partsAreEqual(prev, next)).toBe(true)
   })
 
   it('returns false when part type changes', () => {
-    const prev: UIMessage['parts'] = [{ type: 'text', text: 'x' }]
-    const next: UIMessage['parts'] = [
+    const prev: ChatUIMessage['parts'] = [{ type: 'text', text: 'x' }]
+    const next: ChatUIMessage['parts'] = [
       { type: 'tool-create_task', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
     ]
     expect(partsAreEqual(prev, next)).toBe(false)
@@ -236,16 +236,16 @@ describe('partsAreEqual', () => {
       args: {},
       output: { taskId: 't1' },
     } as any
-    const prev: UIMessage['parts'] = [toolPart]
-    const next: UIMessage['parts'] = [toolPart]
+    const prev: ChatUIMessage['parts'] = [toolPart]
+    const next: ChatUIMessage['parts'] = [toolPart]
     expect(partsAreEqual(prev, next)).toBe(true)
   })
 
   it('returns false when tool parts differ by reference', () => {
-    const prev: UIMessage['parts'] = [
+    const prev: ChatUIMessage['parts'] = [
       { type: 'tool-get_task_status', toolCallId: 'tc1', state: 'result', args: {}, output: { taskId: 't1' } } as any,
     ]
-    const next: UIMessage['parts'] = [
+    const next: ChatUIMessage['parts'] = [
       { type: 'tool-get_task_status', toolCallId: 'tc1', state: 'result', args: {}, output: { taskId: 't1' } } as any,
     ]
     // Different object references => false (by design for O(1) comparison)

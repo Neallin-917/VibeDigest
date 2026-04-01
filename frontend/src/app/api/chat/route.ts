@@ -1,32 +1,24 @@
-import { streamText, convertToModelMessages, UIMessage, createIdGenerator, stepCountIs } from 'ai';
+import { streamText, convertToModelMessages, createIdGenerator, stepCountIs, validateUIMessages } from 'ai';
 import { createProviderClient } from '@/lib/llm-config';
+import { getProviderModelDefaults, resolveProvider, resolveProviderModel } from '@/lib/llm-model-registry';
 import { env } from '@/env';
 import type { RequestPayload, ChatMessageRow, ModelTier, ResolvedModel, PreviewCache, ToolContext } from './types';
-import { isTextPart, getLegacyContent, getTextFromUIMessage, extractUrl, isUsableTaskId, getErrorMessage, getErrorStack } from './utils';
+import { getTextFromUIMessage, extractUrl, isUsableTaskId, getErrorMessage, getErrorStack } from './utils';
 import { verifyAuth, isAuthError } from './auth';
 import { buildRagContext } from './rag';
-import { buildTools } from './tools';
+import { buildAllTools, buildTools } from './tools';
 import { createOnFinishHandler } from './persistence';
+import { type ChatUIMessage, isStrictStoredMessageRow, toStoredChatUIMessage } from '@/lib/chat-ui';
 
 const SHORT_QUERY_CHAR_LIMIT = 200;
 
-const PROVIDER_DEFAULTS: Record<string, Record<ModelTier, string>> = {
-    openrouter: { smart: 'google/gemini-3-pro-preview', fast: 'google/gemini-3-flash-preview' },
-    openai: { smart: 'gpt-5', fast: 'gpt-5-mini' },
-    custom: { smart: 'gemini-3-pro', fast: 'gemini-3-flash' },
-};
-
 function resolveModel(tier: ModelTier): ResolvedModel {
-    const provider = env.LLM_PROVIDER || 'openrouter';
-    const providerDefaults = PROVIDER_DEFAULTS[provider];
-    if (!providerDefaults) {
-        throw new Error(
-            `Unsupported provider: '${provider}'. Expected one of: ${Object.keys(PROVIDER_DEFAULTS).join(', ')}.`
-        );
-    }
-    const model = tier === 'smart'
-        ? env.MODEL_ALIAS_SMART || providerDefaults.smart
-        : env.MODEL_ALIAS_FAST || providerDefaults.fast;
+    const provider = resolveProvider(env.OPENAI_BASE_URL);
+    getProviderModelDefaults(provider);
+    const model = resolveProviderModel(provider, tier, {
+        smart: env.MODEL_ALIAS_SMART,
+        fast: env.MODEL_ALIAS_FAST,
+    });
     return { model, provider };
 }
 
@@ -51,7 +43,7 @@ export async function POST(req: Request) {
         const { supabase, user, accessToken } = authResult;
 
         // 2. Load Conversation History
-        let messages: UIMessage[] = [];
+        let messages: ChatUIMessage[] = [];
         let threadTitle: string | undefined;
 
         if (threadId) {
@@ -76,25 +68,34 @@ export async function POST(req: Request) {
             if (msgError) console.error('[API/Chat] Message fetch failed:', msgError);
 
             if (dbMessages && dbMessages.length > 0) {
-                messages = (dbMessages as ChatMessageRow[]).map((msg) => {
-                    const parts = Array.isArray(msg.content)
-                        ? msg.content
-                        : [{ type: 'text', text: JSON.stringify(msg.content) }];
-                    return {
-                        id: msg.id,
-                        role: msg.role,
-                        parts: parts as UIMessage['parts'],
-                        metadata: { createdAt: new Date(msg.created_at) },
-                    } as UIMessage;
-                });
+                const persistedMessages = dbMessages as ChatMessageRow[];
+                const invalidMessageIds = persistedMessages
+                    .filter((msg) => !isStrictStoredMessageRow(msg))
+                    .map((msg) => msg.id);
+
+                if (invalidMessageIds.length > 0) {
+                    const { error: deleteError } = await supabase
+                        .from('chat_messages')
+                        .delete()
+                        .in('id', invalidMessageIds);
+
+                    if (deleteError) {
+                        console.error('[API/Chat] Failed to delete invalid historical messages:', deleteError);
+                    } else {
+                        console.warn(
+                            `[API/Chat] Deleted ${invalidMessageIds.length} invalid historical messages from ${threadId}`
+                        );
+                    }
+                }
+
+                messages = persistedMessages
+                    .filter(isStrictStoredMessageRow)
+                    .map((msg) => toStoredChatUIMessage(msg));
             }
         }
 
         // Append the new incoming message
         if (message) {
-            if (!message.parts && typeof message.content === 'string') {
-                message.parts = [{ type: 'text', text: message.content }];
-            }
             messages.push(message);
         } else {
             console.warn('[API/Chat] No new message received in request body');
@@ -104,9 +105,7 @@ export async function POST(req: Request) {
         const context = await buildRagContext(taskId, supabase);
 
         // 4. Determine model tier
-        const messageText = message
-            ? getTextFromUIMessage(message) || getLegacyContent(message)
-            : '';
+        const messageText = message ? getTextFromUIMessage(message) : '';
         const detectedUrl = extractUrl(messageText || '');
         const allowVideoTools = Boolean(detectedUrl);
         const isShortFollowup = Boolean(
@@ -166,17 +165,15 @@ When users provide video URLs:
             },
             threadId,
         };
-        const tools = buildTools(toolContext, allowVideoTools);
+        const allTools = buildAllTools(toolContext);
+        const tools = buildTools(allTools, allowVideoTools);
 
-        // 8. Prepare model messages
-        const messagesForModel = messages
-            .map((msg) => {
-                const textParts = (msg.parts || []).filter((part) => isTextPart(part));
-                if (!textParts.length) return null;
-                return { ...msg, parts: textParts } as UIMessage;
-            })
-            .filter((msg): msg is UIMessage => Boolean(msg));
-        const coreMessages = await convertToModelMessages(messagesForModel);
+        // 8. Validate UI messages and convert to model messages
+        const validatedMessages = await validateUIMessages<ChatUIMessage>({
+            messages,
+            tools: allTools,
+        });
+        const coreMessages = await convertToModelMessages(validatedMessages);
 
         // 9. Stream response
         const result = streamText({
@@ -184,14 +181,14 @@ When users provide video URLs:
             system: systemPrompt,
             messages: coreMessages,
             stopWhen: stepCountIs(5),
-            tools: tools as Parameters<typeof streamText>[0]['tools'],
+            tools,
         });
 
         result.consumeStream();
 
         // 10. Return response with persistence hook
         return result.toUIMessageStreamResponse({
-            originalMessages: messages,
+            originalMessages: validatedMessages,
             generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
             onFinish: createOnFinishHandler({
                 threadId,
@@ -199,7 +196,7 @@ When users provide video URLs:
                 requestTaskId,
                 user,
                 supabase,
-                messages,
+                messages: validatedMessages,
                 openai,
                 modelName,
             }),

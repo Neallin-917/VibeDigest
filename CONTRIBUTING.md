@@ -45,23 +45,23 @@ We use a **shared config + local secrets** pattern:
 
 # 2. Create local secrets file (root - for backend/docker)
 cp .env.example .env.local
-# Fill in: OPENROUTER_API_KEY, SUPABASE_SERVICE_KEY, DATABASE_URL, etc.
+# Fill in: OPENROUTER_API_KEY or OPENAI_BASE_URL + OPENAI_API_KEY, SUPABASE_SERVICE_KEY, DATABASE_URL, etc.
 
 # 3. Create local secrets file (frontend)
 # Note: Check frontend/.env for reference of required keys
 cp frontend/.env frontend/.env.local
-# Fill in: OPENROUTER_API_KEY, TEST_USER_PASSWORD, etc.
+# Fill in: TEST_USER_PASSWORD, etc.
 ```
 
 **Key Environment Variables:**
 
 | Variable | Description |
 |----------|-------------|
-| `OPENAI_API_KEY` | Required for `LLM_PROVIDER=openai` or `LLM_PROVIDER=custom` |
-| `OPENROUTER_API_KEY` | Required for `LLM_PROVIDER=openrouter` |
+| `OPENAI_API_KEY` | Required when `OPENAI_BASE_URL` is set for a custom OpenAI-compatible endpoint |
+| `OPENROUTER_API_KEY` | Required when `OPENAI_BASE_URL` is not set and the app falls back to OpenRouter |
+| `OPENAI_BASE_URL` | When set, switches text LLM routing to that OpenAI-compatible endpoint |
 | `SUPABASE_URL` | Database endpoint |
 | `SUPABASE_SERVICE_KEY` | Backend service role key (keep secret!) |
-| `LLM_PROVIDER` | `openrouter` (default), `openai`, or `custom` |
 | `MODEL_ALIAS_SMART` | Optional override for the smart text model tier |
 | `MODEL_ALIAS_FAST` | Optional override for the fast text model tier |
 | `SENTRY_DSN` | Error tracking DSN |
@@ -122,6 +122,7 @@ make test-frontend
 1. **Unit Tests**: Individual functions/components.
 2. **Integration Tests**: API endpoints and database interactions.
 3. **Verification**: Use `make verify` to test actual LLM connectivity.
+4. **Local smoke**: `make test-backend` now attempts one real `/api/process-video` smoke against the active provider and skips cleanly if DB/provider prerequisites are missing.
 
 ### Troubleshooting
 - If build fails, analyze the error log.

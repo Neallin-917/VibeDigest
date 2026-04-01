@@ -1,6 +1,6 @@
-import type { UIMessage } from 'ai';
 import { generateText } from 'ai';
 import type { ToolContext } from './types';
+import type { ChatUIMessage } from '@/lib/chat-ui';
 import {
     getTextFromUIMessage,
     getMessageCreatedAtIso,
@@ -13,7 +13,7 @@ type PersistenceParams = {
     requestTaskId: string | null;
     user: { id: string; email?: string };
     supabase: ToolContext['supabase'];
-    messages: UIMessage[];
+    messages: ChatUIMessage[];
     openai: ReturnType<typeof import('@/lib/llm-config').createProviderClient>;
     modelName: string;
 };
@@ -34,7 +34,7 @@ export function createOnFinishHandler(params: PersistenceParams) {
         modelName,
     } = params;
 
-    return async ({ messages: finalMessages }: { messages: UIMessage[] }) => {
+    return async ({ messages: finalMessages }: { messages: ChatUIMessage[] }) => {
         try {
             if (!threadId) {
                 console.warn('[API/Chat] No threadId in onFinish, skipping persistence.');

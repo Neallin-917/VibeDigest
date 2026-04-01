@@ -1,8 +1,8 @@
 import { useRef, useEffect, useLayoutEffect } from 'react'
-import { UIMessage } from 'ai'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
 export function useChatScroll(deps: {
-  messages: UIMessage[]
+  messages: ChatUIMessage[]
   status: string
   activeTaskId?: string | null
 }): {

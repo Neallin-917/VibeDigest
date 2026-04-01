@@ -1,46 +1,28 @@
+import { getToolName, isToolUIPart } from 'ai'
 import { GetTaskStatusTool, GetTaskOutputsTool, UnknownTool } from './tools'
-
-type RenderableToolPart = {
-  type?: string
-  toolCallId?: string
-  id?: string
-  state?: 'input-streaming' | 'input-available' | 'output-available' | 'output-error'
-  input?: unknown
-  output?: unknown
-  errorText?: string
-  toolName?: string
-}
+import type { ChatUIMessagePart } from '@/lib/chat-ui'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
 // Helper function to render tool parts using AI SDK v6 standard UIMessage types
 export function renderToolPart(
-  part: unknown,
+  part: ChatUIMessagePart,
   index: number,
   onOpenPanel?: (taskId: string) => void,
   options?: { hasGetTaskStatus?: boolean }
 ) {
-  if (!isRecord(part)) return null
-  const toolPart = part as RenderableToolPart
-
-  if (!toolPart.type?.startsWith('tool-') && toolPart.type !== 'dynamic-tool') {
+  if (!isToolUIPart(part)) {
     return null
   }
 
-  const toolCallId = toolPart.toolCallId || toolPart.id
+  const toolCallId = part.toolCallId
   const resolvedToolCallId = toolCallId ?? `tool-${index}`
-  const state = toolPart.state ?? 'input-available'
-  const args = toolPart.input
-  const result = toolPart.output
-  const errorText = toolPart.errorText
-
-  let toolName = ''
-  if (toolPart.type === 'dynamic-tool') {
-    toolName = toolPart.toolName || ''
-  } else {
-    toolName = toolPart.type.replace('tool-', '')
-  }
+  const state = part.state ?? 'input-available'
+  const args = part.input
+  const result = 'output' in part ? part.output : undefined
+  const errorText = 'errorText' in part ? part.errorText : undefined
+  const toolName = getToolName(part)
 
   switch (toolName) {
     case 'get_task_status':

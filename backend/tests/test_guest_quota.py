@@ -6,6 +6,8 @@ import uuid
 import asyncio
 import dependencies as deps
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(autouse=True)
 def isolate_guest_quota():

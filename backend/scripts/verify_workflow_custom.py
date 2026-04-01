@@ -26,7 +26,7 @@ logger = logging.getLogger("verify_custom_live")
 async def main():
     parser = argparse.ArgumentParser(description="完善的真实 Live Test - 使用自定义 LLM Provider 验证全链路")
     parser.add_argument("--url", default="http://127.0.0.1:8045/v1", help="Custom LLM Base URL")
-    parser.add_argument("--key", default="sk-f1b15d7740df413bab703f490e2faf04", help="Custom LLM API Key")
+    parser.add_argument("--key", default=os.getenv("OPENAI_API_KEY", ""), help="Custom LLM API Key")
     parser.add_argument("--model", default="gpt-5", help="Model name to use for BOTH tiers in this test")
     parser.add_argument("--video", default="https://www.youtube.com/watch?v=jNQXAC9IVRw", help="YouTube video URL (default: Me at the zoo)")
     parser.add_argument("--skip-llm-check", action="store_true", help="Skip the initial LLM connection check")
@@ -43,11 +43,15 @@ async def main():
     print(f"   Base URL:  {args.url}")
     print(f"   Model:     {args.model}")
     
-    settings.LLM_PROVIDER = "custom"
     settings.OPENAI_BASE_URL = args.url
     settings.OPENAI_API_KEY = args.key
+    settings.LLM_PROVIDER = None
     settings.MODEL_ALIAS_SMART = args.model
     settings.MODEL_ALIAS_FAST = args.model
+
+    if not settings.OPENAI_API_KEY:
+        print("   ❌ 缺少 Custom LLM API Key。请通过 --key 或 OPENAI_API_KEY 提供。")
+        return
 
     # 2. Pre-flight Check: LLM
     if not args.skip_llm_check:

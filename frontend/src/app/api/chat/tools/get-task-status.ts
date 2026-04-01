@@ -16,7 +16,7 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
         inputSchema: taskStatusSchema,
         execute: async ({ taskId }: z.infer<typeof taskStatusSchema>) => {
             // 1. Try Direct Database Access (Fastest)
-            const { data, error } = await ctx.supabase
+            const { data } = await ctx.supabase
                 .from('tasks')
                 .select('*')
                 .eq('id', taskId)

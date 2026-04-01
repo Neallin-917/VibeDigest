@@ -1,4 +1,4 @@
-"""Integration smoke test: verifies OpenRouter API is reachable and returns valid responses.
+"""Integration smoke test: verifies OpenRouter is reachable when custom routing is disabled.
 
 This test calls the REAL OpenRouter API. It is auto-marked as ``integration``
 by conftest.py (files inside tests/integration/ get the mark automatically),
@@ -6,12 +6,12 @@ so it is excluded from the default ``make test-backend`` run.
 
 Requirements:
     OPENROUTER_API_KEY  - set in .env.local or as shell env var
-    LLM_PROVIDER=openrouter  - set by ``make test-integration`` automatically
+    OPENAI_BASE_URL unset - ``make test-integration`` clears it automatically
 
 Run:
     make test-integration
     # or manually:
-    LLM_PROVIDER=openrouter uv run pytest backend/tests/integration/test_llm_pipeline.py -v -s
+    OPENAI_BASE_URL= uv run pytest backend/tests/integration/test_llm_pipeline.py -v -s
 """
 import os
 import sys
@@ -33,12 +33,12 @@ def require_openrouter_key():
 
 
 def test_openrouter_provider_is_active():
-    """Verify LLM_PROVIDER resolves to 'openrouter' when running integration suite."""
+    """Verify provider resolves to openrouter when OPENAI_BASE_URL is absent."""
     from config import settings
 
     assert settings.LLM_PROVIDER == "openrouter", (
-        f"Expected LLM_PROVIDER=openrouter, got {settings.LLM_PROVIDER!r}. "
-        "Run via: make test-integration  or  LLM_PROVIDER=openrouter uv run pytest ..."
+        f"Expected provider=openrouter, got {settings.LLM_PROVIDER!r}. "
+        "Run via: make test-integration or unset OPENAI_BASE_URL before running this test."
     )
 
 

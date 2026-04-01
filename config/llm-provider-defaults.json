@@ -1,0 +1,10 @@
+{
+  "openrouter": {
+    "smart": "google/gemini-3-pro-preview",
+    "fast": "google/gemini-3-flash-preview"
+  },
+  "custom": {
+    "smart": "gemini-3-pro-preview",
+    "fast": "gemini-3-flash-preview"
+  }
+}

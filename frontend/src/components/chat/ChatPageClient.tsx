@@ -6,11 +6,11 @@ import { ChatWorkspace } from "@/components/chat/ChatWorkspace"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { AppSidebarProvider } from "@/components/layout/AppSidebarContext"
 import { mapDBMessageToUIMessage, DBMessage } from "@/lib/chat-utils"
-import type { UIMessage } from "ai"
 import { v4 as uuidv4 } from 'uuid'
 import { createClient } from "@/lib/supabase"
 import { fetchThreadTaskId } from "@/lib/thread-utils"
 import { env } from "@/env"
+import type { ChatUIMessage } from "@/lib/chat-ui"
 
 interface Thread {
     id: string
@@ -21,7 +21,7 @@ interface Thread {
 
 interface ThreadPayload {
     taskId: string | null
-    messages: UIMessage[]
+    messages: ChatUIMessage[]
     fetchedAt: number
 }
 
@@ -61,7 +61,7 @@ function ChatPageContent() {
     const [threads, setThreads] = useState<Thread[]>([])
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
     const [activeTaskId, setActiveTaskId] = useState<string | null>(queryTaskId)
-    const [initialMessages, setInitialMessages] = useState<UIMessage[]>([])
+    const [initialMessages, setInitialMessages] = useState<ChatUIMessage[]>([])
     const [pendingThreadId, setPendingThreadId] = useState<string | null>(null)
     const [isThreadSwitching, setIsThreadSwitching] = useState(false)
     const [taskSelectionNonce, setTaskSelectionNonce] = useState(0)
@@ -148,7 +148,7 @@ function ChatPageContent() {
         return []
     }, [])
 
-    const fetchThreadMessages = useCallback(async (threadId: string): Promise<UIMessage[]> => {
+    const fetchThreadMessages = useCallback(async (threadId: string): Promise<ChatUIMessage[]> => {
         try {
             const res = await fetch(`/api/chat/threads/${threadId}/messages`)
             if (res.status === 401) {
@@ -164,11 +164,6 @@ function ChatPageContent() {
             return []
         }
     }, [])
-
-    const loadThreadMessages = useCallback(async (threadId: string) => {
-        const uiMessages = await fetchThreadMessages(threadId)
-        setInitialMessages(uiMessages)
-    }, [fetchThreadMessages])
 
     const cacheThreadPayload = useCallback((threadId: string, payload: Omit<ThreadPayload, 'fetchedAt'>) => {
         const cachedPayload: ThreadPayload = {
@@ -209,6 +204,11 @@ function ChatPageContent() {
             }
         }
     }, [cacheThreadPayload, fetchThreadMessages])
+
+    const loadThreadMessages = useCallback(async (threadId: string) => {
+        const payload = await loadThreadPayload(threadId)
+        setInitialMessages(payload.messages)
+    }, [loadThreadPayload])
 
     const commitThreadSelection = useCallback((threadId: string, payload: ThreadPayload) => {
         startTransition(() => {
@@ -392,8 +392,9 @@ function ChatPageContent() {
             cancelled = true
         }
     }, [
+        cacheThreadPayload,
         fetchThreads,
-        loadThreadMessages,
+        loadThreadPayload,
         pathname,
         queryTaskId,
         queryThreadId,

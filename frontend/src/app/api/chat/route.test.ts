@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
 import { env } from '@/env'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
 // Mock env before importing route
 vi.mock('@/env', () => ({
@@ -10,7 +11,6 @@ vi.mock('@/env', () => ({
         BACKEND_API_URL: 'http://localhost:8000',
         MODEL_ALIAS_SMART: undefined,
         MODEL_ALIAS_FAST: undefined,
-        LLM_PROVIDER: undefined,
         OPENAI_BASE_URL: undefined,
         OPENAI_API_KEY: undefined,
         OPENROUTER_BASE_URL: undefined,
@@ -31,11 +31,13 @@ const {
     mockUpdate,
     mockEq,
     mockIn,
+    mockDelete,
     mockSingle,
     mockOrder,
     mockFrom,
     mockStreamText,
     mockConvertToModelMessages,
+    mockValidateUIMessages,
     mockGetSession,
     mockGenerateText,
     mockUpsert,
@@ -50,6 +52,7 @@ const {
         mockUpsert: vi.fn(),
         mockEq: vi.fn(),
         mockIn: vi.fn(),
+        mockDelete: vi.fn(),
         mockSingle: vi.fn(),
         mockOrder: vi.fn(),
         mockFrom: vi.fn(),
@@ -57,6 +60,7 @@ const {
         // AI SDK mocks
         mockStreamText: vi.fn(),
         mockConvertToModelMessages: vi.fn(),
+        mockValidateUIMessages: vi.fn(),
         mockGenerateText: vi.fn(),
     }
 })
@@ -67,6 +71,7 @@ mockFrom.mockImplementation((() => ({
     insert: mockInsert,
     update: mockUpdate,
     upsert: mockUpsert,
+    delete: mockDelete,
 })) as any)
 
 // Default successful responses (Moved to beforeEach)
@@ -87,6 +92,7 @@ vi.mock('ai', async (importOriginal) => {
         ...(actual as any),
         streamText: mockStreamText,
         convertToModelMessages: mockConvertToModelMessages,
+        validateUIMessages: mockValidateUIMessages,
         generateText: mockGenerateText,
     }
 })
@@ -106,16 +112,33 @@ vi.mock('@/lib/llm-config', () => ({
 }))
 
 const originalFetch = global.fetch
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+let consoleLogSpy: ReturnType<typeof vi.spyOn>
+
+function createTextMessage(
+    text: string,
+    role: ChatUIMessage['role'] = 'user',
+    id = `${role}-${Math.random().toString(36).slice(2, 10)}`
+): ChatUIMessage {
+    return {
+        id,
+        role,
+        parts: [{ type: 'text', text }],
+    }
+}
 
 // --- Tests ---
 
 describe('POST /api/chat', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         ;(env as any).MODEL_ALIAS_SMART = undefined
         ;(env as any).MODEL_ALIAS_FAST = undefined
-        ;(env as any).LLM_PROVIDER = undefined
         ;(env as any).OPENAI_BASE_URL = undefined
         ;(env as any).OPENAI_API_KEY = undefined
         ;(env as any).OPENROUTER_BASE_URL = undefined
@@ -126,6 +149,7 @@ describe('POST /api/chat', () => {
             insert: mockInsert,
             update: mockUpdate,
             upsert: mockUpsert,
+            delete: mockDelete,
         })) as any)
 
         // Default Auth: User is logged in
@@ -156,12 +180,16 @@ describe('POST /api/chat', () => {
             return { single: mockSingle, order: mockOrder };
         })
         mockIn.mockResolvedValue({ data: [], error: null })
+        mockDelete.mockReturnValue({
+            in: vi.fn().mockResolvedValue({ error: null })
+        })
 
         // Default successful responses
         mockSingle.mockResolvedValue({ data: null, error: null })
         mockOrder.mockResolvedValue({ data: [], error: null })
         mockInsert.mockResolvedValue({ error: null })
         mockUpsert.mockResolvedValue({ error: null })
+        mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
 
         ;(global as any).fetch = vi.fn().mockResolvedValue({
             ok: true,
@@ -171,8 +199,8 @@ describe('POST /api/chat', () => {
                     {
                         provider: 'custom',
                         defaults: {
-                            smart: 'gemini-3-pro',
-                            fast: 'gemini-3-flash'
+                            smart: 'gemini-3-pro-preview',
+                            fast: 'gemini-3-flash-preview'
                         }
                     }
                 ]
@@ -186,9 +214,13 @@ describe('POST /api/chat', () => {
         })
 
         mockConvertToModelMessages.mockResolvedValue([])
+        mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
     })
 
     afterEach(() => {
+        consoleErrorSpy.mockRestore()
+        consoleWarnSpy.mockRestore()
+        consoleLogSpy.mockRestore()
         ;(global as any).fetch = originalFetch
     })
 
@@ -199,7 +231,7 @@ describe('POST /api/chat', () => {
 
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
-            body: JSON.stringify({ message: { content: 'hello' } })
+            body: JSON.stringify({ message: createTextMessage('hello') })
         })
 
         const res = await POST(req)
@@ -215,7 +247,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Hello AI' },
+                message: createTextMessage('Hello AI'),
                 threadId: 'thread-123'
             })
         })
@@ -229,6 +261,184 @@ describe('POST /api/chat', () => {
         const callArgs = mockStreamText.mock.calls[0][0]
         expect(callArgs.system).toContain('You are VibeDigest Assistant')
         expect(callArgs.model.id).toBe('google/gemini-3-pro-preview')
+    })
+
+    it('validates persisted tool messages before converting them for the model', async () => {
+        const persistedMessages = [
+            {
+                id: 'msg-1',
+                role: 'user',
+                content: [{ type: 'text', text: 'Analyze this video' }],
+                created_at: '2024-01-01T00:00:00Z',
+            },
+            {
+                id: 'msg-2',
+                role: 'assistant',
+                content: [
+                    {
+                        type: 'tool-create_task',
+                        toolCallId: 'tc-1',
+                        state: 'output-available',
+                        input: { video_url: 'https://example.com/video' },
+                        output: { taskId: 'task-1' },
+                    },
+                ],
+                created_at: '2024-01-01T00:00:01Z',
+            },
+        ]
+
+        mockFrom.mockImplementation(((table: string) => {
+            if (table === 'chat_threads') {
+                return {
+                    select: vi.fn().mockReturnValue({
+                        eq: vi.fn().mockReturnValue({
+                            single: vi.fn().mockResolvedValue({
+                                data: { id: 'thread-123', title: 'New Chat' },
+                                error: null,
+                            }),
+                        }),
+                    }),
+                }
+            }
+
+            if (table === 'chat_messages') {
+                return {
+                    select: vi.fn().mockReturnValue({
+                        eq: vi.fn().mockReturnValue({
+                            order: vi.fn().mockResolvedValue({
+                                data: persistedMessages,
+                                error: null,
+                            }),
+                        }),
+                    }),
+                }
+            }
+
+            return {
+                select: mockSelect,
+                insert: mockInsert,
+                update: mockUpdate,
+                upsert: mockUpsert,
+            }
+        }) as any)
+
+        mockValidateUIMessages.mockImplementationOnce(async ({ messages, tools }) => {
+            expect(tools).toEqual(expect.objectContaining({
+                get_task_status: expect.any(Object),
+                get_task_outputs: expect.any(Object),
+                create_task: expect.any(Object),
+                preview_video: expect.any(Object),
+            }))
+
+            return messages
+        })
+
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: createTextMessage('How is the progress?'),
+                threadId: 'thread-123',
+            }),
+        })
+
+        await POST(req)
+
+        expect(mockValidateUIMessages).toHaveBeenCalledTimes(1)
+        expect(mockConvertToModelMessages).toHaveBeenCalledWith([
+            expect.objectContaining({ id: 'msg-1', role: 'user' }),
+            expect.objectContaining({
+                id: 'msg-2',
+                role: 'assistant',
+                parts: [
+                    expect.objectContaining({
+                        type: 'tool-create_task',
+                        toolCallId: 'tc-1',
+                    }),
+                ],
+            }),
+            expect.objectContaining({ role: 'user' }),
+        ])
+
+        const streamTextResult = mockStreamText.mock.results.at(-1)?.value
+        const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
+        expect(toUIMessageCall.originalMessages[1].parts[0]).toEqual(
+            expect.objectContaining({
+                type: 'tool-create_task',
+                toolCallId: 'tc-1',
+            })
+        )
+    })
+
+    it('deletes invalid historical messages instead of trying to coerce them', async () => {
+        const deleteInMock = vi.fn().mockResolvedValue({ error: null })
+        mockDelete.mockReturnValue({ in: deleteInMock })
+
+        mockFrom.mockImplementation(((table: string) => {
+            if (table === 'chat_threads') {
+                return {
+                    select: vi.fn().mockReturnValue({
+                        eq: vi.fn().mockReturnValue({
+                            single: vi.fn().mockResolvedValue({
+                                data: { id: 'thread-123', title: 'New Chat' },
+                                error: null,
+                            }),
+                        }),
+                    }),
+                }
+            }
+
+            if (table === 'chat_messages') {
+                return {
+                    select: vi.fn().mockReturnValue({
+                        eq: vi.fn().mockReturnValue({
+                            order: vi.fn().mockResolvedValue({
+                                data: [
+                                    {
+                                        id: 'legacy-1',
+                                        role: 'assistant',
+                                        content: 'old plain text payload',
+                                        created_at: '2024-01-01T00:00:00Z',
+                                    },
+                                ],
+                                error: null,
+                            }),
+                        }),
+                    }),
+                    delete: mockDelete,
+                }
+            }
+
+            return {
+                select: mockSelect,
+                insert: mockInsert,
+                update: mockUpdate,
+                upsert: mockUpsert,
+                delete: mockDelete,
+            }
+        }) as any)
+
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: createTextMessage('fresh message'),
+                threadId: 'thread-123',
+            }),
+        })
+
+        await POST(req)
+
+        expect(deleteInMock).toHaveBeenCalledWith('id', ['legacy-1'])
+        expect(mockValidateUIMessages).toHaveBeenCalledWith(
+            expect.objectContaining({
+                messages: [expect.objectContaining({ id: expect.any(String), role: 'user' })],
+            })
+        )
+        expect(mockConvertToModelMessages).toHaveBeenCalledWith([
+            expect.objectContaining({
+                role: 'user',
+                parts: [{ type: 'text', text: 'fresh message' }],
+            }),
+        ])
     })
 
     it('injects RAG context when taskId is provided', async () => {
@@ -282,7 +492,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'What is the video about?' },
+                message: createTextMessage('What is the video about?'),
                 threadId: 'thread-123',
                 taskId: taskId
             })
@@ -306,7 +516,8 @@ describe('POST /api/chat', () => {
                             single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
                         })
                     }),
-                    insert: mockInsert
+                    insert: mockInsert,
+                    update: mockUpdate,
                 }
             }
             if (table === 'chat_messages') {
@@ -327,7 +538,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'New Thread' },
+                message: createTextMessage('New Thread'),
                 threadId: 'new-thread-id'
             })
         })
@@ -339,7 +550,7 @@ describe('POST /api/chat', () => {
         const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
         
         await toUIMessageCall.onFinish({ 
-            messages: [{ id: 'msg-1', role: 'user', content: 'New Thread' }] 
+            messages: [createTextMessage('New Thread', 'user', 'msg-1')] 
         })
 
         expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
@@ -358,7 +569,8 @@ describe('POST /api/chat', () => {
                             single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
                         })
                     }),
-                    insert: mockInsert
+                    insert: mockInsert,
+                    update: mockUpdate,
                 }
             }
             if (table === 'chat_messages') {
@@ -379,7 +591,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Bind this thread' },
+                message: createTextMessage('Bind this thread'),
                 threadId: 'new-thread-id',
                 taskId: 'task-abc'
             })
@@ -392,7 +604,7 @@ describe('POST /api/chat', () => {
         const toUIMessageCall = streamTextResult.toUIMessageStreamResponse.mock.calls[0][0]
         
         await toUIMessageCall.onFinish({ 
-            messages: [{ id: 'msg-1', role: 'user', content: 'Bind this thread' }] 
+            messages: [createTextMessage('Bind this thread', 'user', 'msg-1')] 
         })
 
         expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
@@ -404,12 +616,12 @@ describe('POST /api/chat', () => {
     })
 
     it('uses fast model for short follow-up with taskId', async () => {
-        ;(env as any).LLM_PROVIDER = 'custom'
+        ;(env as any).OPENAI_BASE_URL = 'http://localhost:8317/v1'
 
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: '它说领导力的时候有举例吗' },
+                message: createTextMessage('它说领导力的时候有举例吗'),
                 threadId: 'thread-123',
                 taskId: 'task-123'
             })
@@ -418,14 +630,14 @@ describe('POST /api/chat', () => {
         await POST(req)
 
         const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('gemini-3-flash')
+        expect(callArgs?.model?.id).toBe('gemini-3-flash-preview')
     })
 
     it('uses default openrouter fast model for short follow-up when provider is unset', async () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: '它有提到价格吗' },
+                message: createTextMessage('它有提到价格吗'),
                 threadId: 'thread-123',
                 taskId: 'task-123'
             })
@@ -446,26 +658,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Hello' },
-                threadId: 'thread-123'
-            })
-        })
-
-        const res = await POST(req)
-
-        expect(res.status).toBe(503)
-        const body = await res.json()
-        expect(body.error).toBe('Service Configuration Error')
-        expect(body.details).toContain('credentials are missing or invalid')
-    })
-
-    it('returns 503 when LLM provider is unsupported', async () => {
-        ;(env as any).LLM_PROVIDER = 'anthropic'
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: { content: 'Hello' },
+                message: createTextMessage('Hello'),
                 threadId: 'thread-123'
             })
         })
@@ -486,7 +679,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Hello' },
+                message: createTextMessage('Hello'),
                 threadId: 'thread-123'
             })
         })
@@ -507,7 +700,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Hello' },
+                message: createTextMessage('Hello'),
                 threadId: 'thread-123'
             })
         })
@@ -520,13 +713,13 @@ describe('POST /api/chat', () => {
     })
 
     it('uses smart model for long follow-up with taskId', async () => {
-        ;(env as any).LLM_PROVIDER = 'custom'
+        ;(env as any).OPENAI_BASE_URL = 'http://localhost:8317/v1'
 
         const longMessage = 'a'.repeat(220)
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: longMessage },
+                message: createTextMessage(longMessage),
                 threadId: 'thread-123',
                 taskId: 'task-123'
             })
@@ -535,7 +728,7 @@ describe('POST /api/chat', () => {
         await POST(req)
 
         const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('gemini-3-pro')
+        expect(callArgs?.model?.id).toBe('gemini-3-pro-preview')
     })
 
     it('handles persistence in onFinish callback', async () => {
@@ -545,7 +738,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Hello' },
+                message: createTextMessage('Hello'),
                 threadId: 'thread-123'
             })
         })
@@ -560,8 +753,14 @@ describe('POST /api/chat', () => {
 
         // Execute onFinish manually
         const finalMessages = [
-            { id: 'msg-1', role: 'user', content: 'Hello', createdAt: new Date() },
-            { id: 'msg-2', role: 'assistant', content: 'Hi there', createdAt: new Date() }
+            {
+                ...createTextMessage('Hello', 'user', 'msg-1'),
+                metadata: { createdAt: new Date() },
+            },
+            {
+                ...createTextMessage('Hi there', 'assistant', 'msg-2'),
+                metadata: { createdAt: new Date() },
+            }
         ]
 
         // Reset mocks to track insertions
@@ -586,7 +785,7 @@ describe('POST /api/chat', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'create task for this video' },
+                message: createTextMessage('create task for this video'),
                 threadId: 'thread-123'
             })
         })
@@ -627,6 +826,9 @@ describe('Chat Title Generation Logic', () => {
     // Re-setup mocks for this suite since it relies on specific behaviors
     beforeEach(() => {
         vi.clearAllMocks()
+        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         // ... (We rely on global mocks but need to reset them) ...
         mockFrom.mockImplementation((() => ({
             select: mockSelect,
@@ -676,13 +878,20 @@ describe('Chat Title Generation Logic', () => {
                     {
                         provider: 'custom',
                         defaults: {
-                            smart: 'gemini-3-pro',
-                            fast: 'gemini-3-flash'
+                            smart: 'gemini-3-pro-preview',
+                            fast: 'gemini-3-flash-preview'
                         }
                     }
                 ]
             })
         })
+    })
+
+    afterEach(() => {
+        consoleErrorSpy.mockRestore()
+        consoleWarnSpy.mockRestore()
+        consoleLogSpy.mockRestore()
+        ;(global as any).fetch = originalFetch
     })
 
     it('SHOULD generate title if current title is "New Chat" even if messages length > 1 (Lazy Initialization)', async () => {
@@ -709,7 +918,20 @@ describe('Chat Title Generation Logic', () => {
                             order: vi.fn().mockResolvedValue({
                                 data: [
                                     { id: 'msg-1', role: 'user', content: [{ type: 'text', text: 'Analyze this video' }], created_at: '2024-01-01T00:00:00Z' },
-                                    { id: 'msg-2', role: 'assistant', content: [{ type: 'tool-call', toolName: 'create_task' }], created_at: '2024-01-01T00:00:01Z' }
+                                    {
+                                        id: 'msg-2',
+                                        role: 'assistant',
+                                        content: [
+                                            {
+                                                type: 'tool-create_task',
+                                                toolCallId: 'tc-1',
+                                                state: 'output-available',
+                                                input: { video_url: 'https://example.com/video' },
+                                                output: { taskId: 'task-existing' }
+                                            }
+                                        ],
+                                        created_at: '2024-01-01T00:00:01Z'
+                                    }
                                 ],
                                 error: null
                             }),
@@ -726,7 +948,7 @@ describe('Chat Title Generation Logic', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'How is the progress?' },
+                message: createTextMessage('How is the progress?'),
                 threadId: threadId
             })
         })
@@ -738,8 +960,19 @@ describe('Chat Title Generation Logic', () => {
 
         const finalMessages = [
             { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Analyze this video' }] },
-            { id: 'msg-2', role: 'assistant', parts: [{ type: 'tool-call', toolName: 'create_task' }] },
-            { id: 'msg-3', role: 'tool', parts: [{ type: 'tool-result', result: 'Task started' }] },
+            {
+                id: 'msg-2',
+                role: 'assistant',
+                parts: [
+                    {
+                        type: 'tool-create_task',
+                        toolCallId: 'tc-1',
+                        state: 'output-available',
+                        input: { video_url: 'https://example.com/video' },
+                        output: { taskId: 'task-existing' }
+                    }
+                ]
+            },
             { id: 'msg-4', role: 'user', parts: [{ type: 'text', text: 'How is the progress?' }] },
             { id: 'msg-5', role: 'assistant', parts: [{ type: 'text', text: 'It is processing.' }] }
         ]
@@ -775,7 +1008,7 @@ describe('Chat Title Generation Logic', () => {
 
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
-            body: JSON.stringify({ message: { content: 'More info' }, threadId })
+            body: JSON.stringify({ message: createTextMessage('More info'), threadId })
         })
 
         await POST(req)

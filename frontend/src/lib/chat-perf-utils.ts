@@ -1,4 +1,4 @@
-import type { UIMessage } from 'ai'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
 /**
  * Part shape used for type-safe checks without importing internal AI SDK types.
@@ -28,7 +28,7 @@ function resolveToolName(part: ToolPart): string {
  *
  * Extracted from ChatContainer `useMemo` for testability and reuse.
  */
-export function checkHasRenderableAssistant(messages: UIMessage[]): boolean {
+export function checkHasRenderableAssistant(messages: ChatUIMessage[]): boolean {
   return messages.some((m) => {
     if (m.role !== 'assistant') return false
     return (m.parts || []).some((part: unknown) => {
@@ -46,7 +46,7 @@ export function checkHasRenderableAssistant(messages: UIMessage[]): boolean {
 }
 
 /**
- * Efficient shallow comparison of two `UIMessage['parts']` arrays.
+ * Efficient shallow comparison of two `ChatUIMessage['parts']` arrays.
  *
  * - Same reference → true (fast path)
  * - Different length → false
@@ -57,8 +57,8 @@ export function checkHasRenderableAssistant(messages: UIMessage[]): boolean {
  * an O(n) loop that avoids serialization entirely.
  */
 export function partsAreEqual(
-  prevParts: UIMessage['parts'],
-  nextParts: UIMessage['parts']
+  prevParts: ChatUIMessage['parts'],
+  nextParts: ChatUIMessage['parts']
 ): boolean {
   if (prevParts === nextParts) return true
   if (prevParts.length !== nextParts.length) return false
@@ -83,7 +83,7 @@ export function partsAreEqual(
  * Extracted from ChatContainer `useMemo` for testability and reuse.
  */
 export function checkHasTaskStatusForActiveTask(
-  messages: UIMessage[],
+  messages: ChatUIMessage[],
   activeTaskId: string | null
 ): boolean {
   if (!activeTaskId) return false

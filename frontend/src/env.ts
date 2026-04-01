@@ -12,7 +12,6 @@ export const env = createEnv({
     // LLM Configuration
     MODEL_ALIAS_SMART: z.string().optional(),
     MODEL_ALIAS_FAST: z.string().optional(),
-    LLM_PROVIDER: z.string().optional(),
     OPENAI_BASE_URL: z.string().url().optional(),
     OPENAI_API_KEY: z.string().optional(),
     OPENROUTER_BASE_URL: z.string().url().optional(),
@@ -51,7 +50,6 @@ export const env = createEnv({
     
     MODEL_ALIAS_SMART: process.env.MODEL_ALIAS_SMART,
     MODEL_ALIAS_FAST: process.env.MODEL_ALIAS_FAST,
-    LLM_PROVIDER: process.env.LLM_PROVIDER,
     OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,

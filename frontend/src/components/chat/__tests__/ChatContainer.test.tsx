@@ -1,13 +1,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ChatContainer } from '../ChatContainer'
-import type { UIMessage } from 'ai'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
 const mockUseChat = vi.fn()
 const mockSendMessage = vi.fn()
 const mockSetMessages = vi.fn()
 const mockRegenerate = vi.fn()
 const mockStop = vi.fn()
+
+function createTextMessage(
+  text: string,
+  role: ChatUIMessage['role'] = 'user',
+  id = `${role}-${Math.random().toString(36).slice(2, 10)}`
+): ChatUIMessage {
+  return {
+    id,
+    role,
+    parts: [{ type: 'text', text }],
+  }
+}
 
 vi.mock('@ai-sdk/react', () => ({
   useChat: (options: any) => {
@@ -82,9 +94,7 @@ describe('ChatContainer', () => {
   })
 
   it('renders ChatInput and Messages when there are messages', () => {
-    const messages: UIMessage[] = [
-      { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] }
-    ]
+    const messages: ChatUIMessage[] = [createTextMessage('Hello', 'user', '1')]
     mockUseChat.mockReturnValue({
       messages,
       setMessages: mockSetMessages,
@@ -100,9 +110,7 @@ describe('ChatContainer', () => {
   })
 
   it('sends message via ChatInput when authenticated', async () => {
-    const messages: UIMessage[] = [
-      { id: '1', role: 'user', parts: [{ type: 'text', text: 'Prev' }] }
-    ]
+    const messages: ChatUIMessage[] = [createTextMessage('Prev', 'user', '1')]
     mockUseChat.mockReturnValue({
         messages,
         setMessages: mockSetMessages,
@@ -116,9 +124,7 @@ describe('ChatContainer', () => {
   })
 
   it('redirects to login when unauthenticated user sends a message', () => {
-    const messages: UIMessage[] = [
-      { id: '1', role: 'user', parts: [{ type: 'text', text: 'Prev' }] }
-    ]
+    const messages: ChatUIMessage[] = [createTextMessage('Prev', 'user', '1')]
     mockUseChat.mockReturnValue({
         messages,
         setMessages: mockSetMessages,
@@ -155,9 +161,7 @@ describe('ChatContainer', () => {
   })
 
   it('renders pending/loading state', () => {
-    const messages: UIMessage[] = [
-        { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hi' }] }
-    ]
+    const messages: ChatUIMessage[] = [createTextMessage('Hi', 'user', '1')]
     mockUseChat.mockReturnValue({
         messages,
         setMessages: mockSetMessages,
@@ -171,9 +175,7 @@ describe('ChatContainer', () => {
 
   it('handles auth error', () => {
     const authError = { status: 401 }
-    const messages: UIMessage[] = [
-        { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hi' }] }
-    ]
+    const messages: ChatUIMessage[] = [createTextMessage('Hi', 'user', '1')]
     mockUseChat.mockReturnValue({
         messages,
         setMessages: mockSetMessages,
@@ -188,9 +190,7 @@ describe('ChatContainer', () => {
 
   it('handles generic error', () => {
     const genericError = new Error('Random error')
-    const messages: UIMessage[] = [
-        { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hi' }] }
-    ]
+    const messages: ChatUIMessage[] = [createTextMessage('Hi', 'user', '1')]
     mockUseChat.mockReturnValue({
         messages,
         setMessages: mockSetMessages,
@@ -212,10 +212,10 @@ describe('ChatContainer', () => {
             id: '2',
             role: 'assistant',
             parts: [
-                { type: 'tool-get_task_status', toolCallId: '1', state: 'result', args: {}, output: {} },
-                { type: 'tool-get_task_outputs', toolCallId: '2', state: 'result', args: {}, output: {} },
-                { type: 'tool-create_task', toolCallId: '3', state: 'result', args: {}, output: { taskId: 't1', videoUrl: 'url' } },
-                { type: 'tool-foo', toolCallId: '4', state: 'result', args: {}, output: {} },
+                { type: 'tool-get_task_status', toolCallId: '1', state: 'output-available', input: {}, output: {} },
+                { type: 'tool-get_task_outputs', toolCallId: '2', state: 'output-available', input: {}, output: {} },
+                { type: 'tool-create_task', toolCallId: '3', state: 'output-available', input: {}, output: { taskId: 't1', videoUrl: 'url' } },
+                { type: 'tool-foo', toolCallId: '4', state: 'output-available', input: {}, output: {} },
             ]
         }
     ]
@@ -245,8 +245,8 @@ describe('ChatContainer', () => {
                 { 
                     type: 'tool-create_task', 
                     toolCallId: '3', 
-                    state: 'result', 
-                    args: {}, 
+                    state: 'output-available', 
+                    input: {}, 
                     output: { taskId: 'new-task-id', videoUrl: 'url' } 
                 }
             ]
@@ -278,16 +278,56 @@ describe('ChatContainer', () => {
     expect(localStorage.getItem('vibedigest_pending_message')).toBeNull()
   })
 
+  it('injects a typed task status tool message for direct URL submissions', async () => {
+    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=test123')
+    const originalFetch = global.fetch
+    try {
+      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ task_id: 'task-123' }),
+      } as Response)
+
+      render(<ChatContainer isAuthenticated={true} />)
+
+      await waitFor(() => {
+        expect(mockSetMessages).toHaveBeenCalledTimes(1)
+      })
+
+      const updater = mockSetMessages.mock.calls[0][0]
+      expect(typeof updater).toBe('function')
+
+      const nextMessages = updater([]) as ChatUIMessage[]
+      expect(nextMessages).toHaveLength(2)
+      expect(nextMessages[0]).toEqual(expect.objectContaining({
+        role: 'user',
+        parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=test123' }],
+      }))
+      expect(nextMessages[1]).toEqual(expect.objectContaining({
+        role: 'assistant',
+        parts: [
+          expect.objectContaining({
+            type: 'tool-get_task_status',
+            toolCallId: 'direct-status-task-123',
+            state: 'output-available',
+            input: { taskId: 'task-123' },
+            output: { taskId: 'task-123', status: 'pending', progress: 0 },
+          }),
+        ],
+      }))
+      expect(mockSendMessage).not.toHaveBeenCalled()
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+
   // -----------------------------------------------------------------------
   // Cycle 3: AnimatePresence removal — message rendering performance tests
   // -----------------------------------------------------------------------
   describe('message rendering performance', () => {
     it('renders all history messages without AnimatePresence wrapper', () => {
-      const messages: UIMessage[] = Array.from({ length: 5 }, (_, i) => ({
-        id: `msg-${i}`,
-        role: 'user' as const,
-        parts: [{ type: 'text' as const, text: `Message ${i}` }],
-      }))
+      const messages: ChatUIMessage[] = Array.from({ length: 5 }, (_, i) =>
+        createTextMessage(`Message ${i}`, 'user', `msg-${i}`)
+      )
       mockUseChat.mockReturnValue({
         messages,
         setMessages: mockSetMessages,
@@ -307,10 +347,10 @@ describe('ChatContainer', () => {
     })
 
     it('renders streaming message separately from history', () => {
-      const historyMessages: UIMessage[] = [
-        { id: 'h1', role: 'user', parts: [{ type: 'text', text: 'User says hi' }] },
-        { id: 'h2', role: 'assistant', parts: [{ type: 'text', text: 'Assistant replies' }] },
-        { id: 's1', role: 'assistant', parts: [{ type: 'text', text: 'Streaming...' }] },
+      const historyMessages: ChatUIMessage[] = [
+        createTextMessage('User says hi', 'user', 'h1'),
+        createTextMessage('Assistant replies', 'assistant', 'h2'),
+        createTextMessage('Streaming...', 'assistant', 's1'),
       ]
       mockUseChat.mockReturnValue({
         messages: historyMessages,
@@ -352,7 +392,7 @@ describe('ChatContainer', () => {
     await waitFor(() => {
       const prepared = prepare({
         messages: [
-          { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hello' }] } as UIMessage
+          createTextMessage('hello', 'user', 'm1')
         ]
       })
       expect(prepared?.body?.taskId).toBe('task-2')
@@ -360,9 +400,9 @@ describe('ChatContainer', () => {
   })
 
   it('does not re-hydrate messages when initialMessages already match chat state', () => {
-    const initialMessages: UIMessage[] = [
-      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
-      { id: 'm2', role: 'assistant', parts: [{ type: 'text', text: 'Hi' }] },
+    const initialMessages: ChatUIMessage[] = [
+      createTextMessage('Hello', 'user', 'm1'),
+      createTextMessage('Hi', 'assistant', 'm2'),
     ]
 
     mockUseChat.mockReturnValue({
@@ -381,11 +421,11 @@ describe('ChatContainer', () => {
   })
 
   it('hydrates messages when initialMessages change to a different thread history', () => {
-    const currentMessages: UIMessage[] = [
-      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Old' }] },
+    const currentMessages: ChatUIMessage[] = [
+      createTextMessage('Old', 'user', 'm1'),
     ]
-    const nextInitialMessages: UIMessage[] = [
-      { id: 'm9', role: 'user', parts: [{ type: 'text', text: 'New thread' }] },
+    const nextInitialMessages: ChatUIMessage[] = [
+      createTextMessage('New thread', 'user', 'm9'),
     ]
 
     mockUseChat.mockReturnValue({
@@ -404,9 +444,7 @@ describe('ChatContainer', () => {
   })
 
   it('locks the composer while thread switching is in progress', () => {
-    const messages: UIMessage[] = [
-      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] }
-    ]
+    const messages: ChatUIMessage[] = [createTextMessage('Hello', 'user', 'm1')]
 
     mockUseChat.mockReturnValue({
       messages,

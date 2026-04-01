@@ -101,6 +101,28 @@ export $(cat .env.local | xargs) && python3 backend/scripts/query_demo.py
 
 ## 常见问题排除 (Troubleshooting)
 
+### 0. 先跑连接诊断脚本
+
+仓库内已经提供了一个更明确的连接诊断：
+
+```bash
+uv run backend/scripts/db/check_connection.py
+```
+
+它会分别检查：
+
+- `SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_KEY`
+- `DATABASE_URL`
+
+并直接指出是：
+
+- 项目 ref 不一致
+- `SUPABASE_SERVICE_KEY` 失效
+- `DATABASE_URL` 失效
+- 或者整套配置都过期
+
 ### 1. `ImportError: cannot import name 'create_client' from 'supabase'`
 
 **现象**: 运行 Python 脚本时报错，找不到 `create_client`。
@@ -128,3 +150,24 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 - 检查 Supabase Dashboard 确认项目状态是 Active。
 - 尝试使用 `ping` 或 `telnet` 测试端口连通性。
 - 确认密码是否包含特殊字符（需要 URL 编码）。
+
+### 3. `Unregistered API key`
+
+如果诊断脚本显示：
+
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` 正常
+- `SUPABASE_SERVICE_KEY` 返回 `Unregistered API key`
+- `DATABASE_URL` 同时也连不上
+
+通常说明 `.env.local` 中的管理员凭证已经过期，但项目本身没换。
+
+处理方式：
+
+1. 打开 Supabase Dashboard。
+2. 到 `Settings -> API` 重新复制 `service_role` / Secret key。
+3. 到 `Settings -> Database -> Connection string -> URI` 重新复制 `DATABASE_URL`。
+4. 更新仓库根目录 `.env.local` 后再次运行：
+
+```bash
+uv run backend/scripts/db/check_connection.py
+```

@@ -9,7 +9,6 @@ vi.mock('@/env', () => ({
         OPENROUTER_API_KEY: undefined,
         OPENAI_BASE_URL: undefined,
         OPENAI_API_KEY: undefined,
-        LLM_PROVIDER: undefined,
         AI_SDK_DEBUG: '0',
     }
 }));
@@ -21,7 +20,6 @@ describe('getProviderConfig', () => {
         vi.mocked(env).OPENROUTER_API_KEY = undefined;
         vi.mocked(env).OPENAI_BASE_URL = undefined;
         vi.mocked(env).OPENAI_API_KEY = undefined;
-        vi.mocked(env).LLM_PROVIDER = undefined;
     });
 
     it('returns OpenRouter config when provider is openrouter', () => {
@@ -41,19 +39,7 @@ describe('getProviderConfig', () => {
         expect(config.apiKey).toBe('sk-or-mock');
     });
 
-    it('returns OpenAI config when provider is openai', () => {
-        // @ts-expect-error - writing to read-only property for test mocking
-        vi.mocked(env).OPENAI_BASE_URL = 'https://api.openai.com/v1';
-        // @ts-expect-error - writing to read-only property for test mocking
-        vi.mocked(env).OPENAI_API_KEY = 'sk-openai-mock';
-
-        const config = getProviderConfig('openai');
-
-        expect(config.baseURL).toBe('https://api.openai.com/v1');
-        expect(config.apiKey).toBe('sk-openai-mock');
-    });
-
-    it('returns OpenAI config when provider is custom', () => {
+    it('returns custom endpoint config when provider is custom', () => {
         // @ts-expect-error - writing to read-only property for test mocking
         vi.mocked(env).OPENAI_BASE_URL = 'http://localhost:1234/v1';
         // @ts-expect-error - writing to read-only property for test mocking
@@ -74,23 +60,14 @@ describe('getProviderConfig', () => {
         expect(config.baseURL).toBe('https://openrouter.ai/api/v1');
     });
 
-    it('defaults to OpenAI public URL if OPENAI_BASE_URL is missing', () => {
-        // @ts-expect-error - writing to read-only property for test mocking
-        vi.mocked(env).OPENAI_BASE_URL = undefined;
-        // @ts-expect-error - writing to read-only property for test mocking
-        vi.mocked(env).OPENAI_API_KEY = 'sk-openai-mock';
-        const config = getProviderConfig('openai');
-        expect(config.baseURL).toBe('https://api.openai.com/v1');
-    });
-
-    it('throws error when OPENAI_API_KEY is missing for OpenAI provider', () => {
+    it('throws error when OPENAI_API_KEY is missing for custom provider', () => {
         // @ts-expect-error - writing to read-only property for test mocking
         vi.mocked(env).OPENAI_API_KEY = undefined;
         // @ts-expect-error - writing to read-only property for test mocking
         vi.mocked(env).OPENROUTER_API_KEY = 'sk-or-mock'; // Should be ignored
 
-        expect(() => getProviderConfig('openai')).toThrow(
-            "Missing API Key for provider: 'openai'. Set OPENAI_API_KEY in the environment."
+        expect(() => getProviderConfig('custom')).toThrow(
+            "Missing API Key for provider: 'custom'. Set OPENAI_API_KEY in the environment."
         );
     });
 
@@ -114,9 +91,4 @@ describe('getProviderConfig', () => {
         expect(() => getProviderConfig('custom')).toThrow(/Invalid base URL for provider 'custom'/);
     });
 
-    it('throws on unsupported provider names', () => {
-        expect(() => getProviderConfig('anthropic')).toThrow(
-            "Unsupported provider: 'anthropic'. Expected one of: openrouter, openai, custom."
-        );
-    });
 });

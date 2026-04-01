@@ -4,13 +4,14 @@ import React, { memo } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { UIMessage } from 'ai'
+import { getToolName, isToolUIPart } from 'ai'
 import { cn } from '@/lib/utils'
 import { partsAreEqual } from '@/lib/chat-perf-utils'
 import { renderToolPart } from './renderToolPart'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
 interface MessageRowProps {
-  message: UIMessage
+  message: ChatUIMessage
   isStreaming: boolean
   enableMotion: boolean
   onOpenPanel?: (taskId: string) => void
@@ -84,15 +85,11 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }
       const typedPart = part as {
         type?: string
         text?: string
-        toolName?: string
         output?: { taskId?: string }
       }
       if (typedPart.type === 'text') return Boolean(typedPart.text?.trim())
-      if (typedPart.type?.startsWith('tool-') || typedPart.type === 'dynamic-tool') {
-        const toolName =
-          typedPart.type === 'dynamic-tool'
-            ? typedPart.toolName
-            : typedPart.type.replace('tool-', '')
+      if (isToolUIPart(part)) {
+        const toolName = getToolName(part)
         if (toolName === 'preview_video') return false
         if (toolName === 'create_task' && !typedPart.output?.taskId) return false
         return true
@@ -103,15 +100,13 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }
   }
 
   const toolParts = (message.parts || []).filter(
-    (p) => p.type?.startsWith('tool-') || p.type === 'dynamic-tool'
+    part => isToolUIPart(part)
   )
   const hasGetTaskStatus = toolParts.some((p) => {
-    const name = p.type === 'dynamic-tool' ? p.toolName : p.type.replace('tool-', '')
-    return name === 'get_task_status'
+    return getToolName(p) === 'get_task_status'
   })
   const hasGetTaskOutputs = toolParts.some((p) => {
-    const name = p.type === 'dynamic-tool' ? p.toolName : p.type.replace('tool-', '')
-    return name === 'get_task_outputs'
+    return getToolName(p) === 'get_task_outputs'
   })
   const suppressAssistantText = message.role === 'assistant' && hasGetTaskStatus && !hasGetTaskOutputs
 
@@ -159,7 +154,7 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel }
                     )
                   }
 
-                  if (part.type.startsWith('tool-') || part.type === 'dynamic-tool') {
+                  if (isToolUIPart(part)) {
                     return (
                       <div key={index} className="w-full min-w-0 max-w-full">
                         {renderToolPart(part, index, onOpenPanel, { hasGetTaskStatus })}

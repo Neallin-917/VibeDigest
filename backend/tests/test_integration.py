@@ -6,6 +6,8 @@ from main import app
 from dependencies import get_current_user, get_db_client
 import dependencies as deps
 
+pytestmark = pytest.mark.integration
+
 # --- Authentication Mock ---
 # Bypass Supabase token validation logic in main.py,
 # but we MUST ensure this user exists in our Test DB (auth.users)

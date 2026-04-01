@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
-import { UIMessage } from 'ai'
 import { v4 as uuidv4 } from 'uuid'
+import { createTaskStatusMessage, createUserTextMessage, type ChatUIMessage } from '@/lib/chat-ui'
 
 export function useDirectUrlSubmission(deps: {
   sendMessageToApi: (params: { text: string }) => void
-  setMessages: React.Dispatch<React.SetStateAction<UIMessage[]>>
+  setMessages: React.Dispatch<React.SetStateAction<ChatUIMessage[]>>
   onOpenPanel?: (taskId: string) => void
   onChatStarted?: (threadId: string) => void
   effectiveThreadId: string
@@ -50,30 +50,12 @@ export function useDirectUrlSubmission(deps: {
       const assistantMsgId = `direct-assistant-${uuidv4()}`
       const toolCallId = `direct-status-${taskId}`
 
-      const userMsg: UIMessage = {
-        id: userMsgId,
-        role: 'user',
-        parts: [{ type: 'text', text: originalText }],
-      }
-
-      // The `type: 'tool-get_task_status'` hack is required because the UIMessage
-      // parts type system only allows literal string types like 'text'. We need to
-      // inject a synthetic tool output part so the existing GetTaskStatusTool UI
-      // component picks it up and renders the task status card. Casting through
-      // `unknown` bypasses the type narrowing at the cost of type safety here.
-      const assistantMsg: UIMessage = {
-        id: assistantMsgId,
-        role: 'assistant',
-        parts: [
-          {
-            type: 'tool-get_task_status' as unknown as 'text',
-            toolCallId,
-            state: 'output-available',
-            input: { taskId },
-            output: { taskId, status: 'pending', progress: 0 },
-          } as unknown as UIMessage['parts'][number],
-        ],
-      }
+      const userMsg = createUserTextMessage(userMsgId, originalText)
+      const assistantMsg = createTaskStatusMessage({
+        messageId: assistantMsgId,
+        toolCallId,
+        taskId,
+      })
 
       setMessages(prev => [...prev, userMsg, assistantMsg])
 

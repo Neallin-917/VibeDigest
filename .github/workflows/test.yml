@@ -85,7 +85,6 @@ jobs:
     - name: Run integration tests
       env:
         OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        LLM_PROVIDER: openrouter
         # Use proven models for CI; YAML defaults may list aspirational future models.
         MODEL_ALIAS_SMART: openai/gpt-4o-mini
         MODEL_ALIAS_FAST: openai/gpt-4o-mini

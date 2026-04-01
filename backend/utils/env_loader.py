@@ -13,7 +13,7 @@ def load_env():
 
     Shell environment variables always win — dotenv files never override
     values already set in the process environment. This allows Makefile
-    targets (e.g. LLM_PROVIDER=openrouter make test-integration) to
+    targets (e.g. OPENAI_BASE_URL= make test-integration) to
     control behaviour without touching .env.local.
     """
     # Find project root (parent of backend/)

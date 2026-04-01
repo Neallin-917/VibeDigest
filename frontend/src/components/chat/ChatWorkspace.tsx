@@ -20,8 +20,8 @@ const VideoDetailPanel = dynamic(
 import { MobileMenuDrawer } from "./MobileMenuDrawer"
 import { TopHeader } from "./TopHeader"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
-import type { UIMessage } from "ai"
 import { useI18n } from "@/components/i18n/I18nProvider"
+import type { ChatUIMessage } from "@/lib/chat-ui"
 
 interface Thread {
   id: string
@@ -36,7 +36,7 @@ interface ChatWorkspaceProps {
   isThreadSwitching?: boolean
   switchingThreadTitle?: string | null
   taskSelectionNonce?: number
-  initialMessages: UIMessage[]
+  initialMessages: ChatUIMessage[]
   isAuthenticated?: boolean
   onNewChat: () => void
   onSelectThread: (threadId: string) => void

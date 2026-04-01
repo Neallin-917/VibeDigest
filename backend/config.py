@@ -1,12 +1,31 @@
 import os
+import json
 import logging
 from typing import Dict, Optional
+from pathlib import Path
 from pydantic import BaseModel
 
 from utils.logging import configure_logging
 from utils.env_utils import parse_bool_env
 
 configure_logging()
+
+
+def _load_provider_defaults() -> Dict[str, Dict[str, str]]:
+    registry_path = Path(__file__).resolve().parent.parent / "config" / "llm-provider-defaults.json"
+
+    with registry_path.open("r", encoding="utf-8") as registry_file:
+        raw_defaults = json.load(registry_file)
+
+    required_tiers = {"smart", "fast"}
+    for provider_name, tier_defaults in raw_defaults.items():
+        missing_tiers = required_tiers.difference(tier_defaults)
+        if missing_tiers:
+            raise ValueError(
+                f"Provider defaults for '{provider_name}' are missing tiers: {', '.join(sorted(missing_tiers))}."
+            )
+
+    return raw_defaults
 
 
 class PriceConfig(BaseModel):
@@ -64,10 +83,10 @@ class Settings:
     COGNITION_DELAY: float = float(os.getenv("COGNITION_DELAY") or "0.0")
 
     # LLM Configuration
-    LLM_PROVIDER: str = (os.getenv("LLM_PROVIDER") or "openrouter").lower()
     OPENAI_BASE_URL: Optional[str] = os.getenv("OPENAI_BASE_URL")
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     OPENROUTER_BASE_URL: Optional[str] = os.getenv("OPENROUTER_BASE_URL")
+    _llm_provider_override: Optional[str] = None
 
     # Audio Configuration (Transcription)
     # Allows separating transcription provider (e.g. Official OpenAI) from generation provider (e.g. Local LLM)
@@ -78,13 +97,28 @@ class Settings:
     MODEL_ALIAS_FAST: Optional[str] = os.getenv("MODEL_ALIAS_FAST")
 
     # Provider → (smart, fast) defaults — single source of truth for model names
-    _PROVIDER_DEFAULTS: Dict[str, tuple] = {
-        "openrouter": ("google/gemini-3-pro-preview", "google/gemini-3-flash-preview"),
-        "openai": ("gpt-5", "gpt-5-mini"),
-        "custom": ("gemini-3-pro", "gemini-3-flash"),
-    }
+    _PROVIDER_DEFAULTS: Dict[str, Dict[str, str]] = _load_provider_defaults()
 
-    def _get_provider_defaults(self) -> tuple[str, str]:
+    @property
+    def LLM_PROVIDER(self) -> str:
+        if self._llm_provider_override:
+            return self._llm_provider_override
+        return "custom" if self.OPENAI_BASE_URL else "openrouter"
+
+    @LLM_PROVIDER.setter
+    def LLM_PROVIDER(self, value: Optional[str]) -> None:
+        normalized = (value or "").strip().lower()
+        if not normalized:
+            self._llm_provider_override = None
+            return
+
+        if normalized not in self._PROVIDER_DEFAULTS:
+            raise ValueError(
+                f"Unsupported provider override: '{normalized}'. Expected one of: {', '.join(self._PROVIDER_DEFAULTS)}."
+            )
+        self._llm_provider_override = normalized
+
+    def _get_provider_defaults(self) -> Dict[str, str]:
         defaults = self._PROVIDER_DEFAULTS.get(self.LLM_PROVIDER)
         if defaults is None:
             raise ValueError(
@@ -97,13 +131,13 @@ class Settings:
     def MODEL_SMART(self) -> str:
         if self.MODEL_ALIAS_SMART:
             return self.MODEL_ALIAS_SMART
-        return self._get_provider_defaults()[0]
+        return self._get_provider_defaults()["smart"]
 
     @property
     def MODEL_FAST(self) -> str:
         if self.MODEL_ALIAS_FAST:
             return self.MODEL_ALIAS_FAST
-        return self._get_provider_defaults()[1]
+        return self._get_provider_defaults()["fast"]
 
     # Internal aliases still used by existing services
     @property

@@ -1,5 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { env } from '@/env';
+import { resolveProvider, type SupportedProvider } from './llm-model-registry';
 
 // Define debug fetch once
 const AI_SDK_DEBUG = env.AI_SDK_DEBUG === '1';
@@ -35,19 +36,11 @@ export type ProviderConfig = {
     fetch?: typeof fetch;
 }
 
-const SUPPORTED_PROVIDERS = ['openrouter', 'openai', 'custom'] as const;
-
-function ensureSupportedProvider(providerName: string): asserts providerName is typeof SUPPORTED_PROVIDERS[number] {
-    if (!SUPPORTED_PROVIDERS.includes(providerName as typeof SUPPORTED_PROVIDERS[number])) {
-        throw new Error(
-            `Unsupported provider: '${providerName}'. Expected one of: ${SUPPORTED_PROVIDERS.join(', ')}.`
-        );
-    }
+function isSupportedProvider(providerName: string): providerName is SupportedProvider {
+    return providerName === 'openrouter' || providerName === 'custom';
 }
 
-export function getProviderConfig(providerName: string): ProviderConfig {
-    ensureSupportedProvider(providerName);
-
+export function getProviderConfig(providerName: SupportedProvider): ProviderConfig {
     const providerConfig = providerName === 'openrouter'
         ? {
             baseURL: env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
@@ -84,6 +77,8 @@ export function getProviderConfig(providerName: string): ProviderConfig {
 }
 
 export function createProviderClient(providerName: string) {
-    const config = getProviderConfig(providerName);
+    const resolvedProvider = resolveProvider(env.OPENAI_BASE_URL);
+    const activeProvider = isSupportedProvider(providerName) ? providerName : resolvedProvider;
+    const config = getProviderConfig(activeProvider);
     return createOpenAI(config);
 }

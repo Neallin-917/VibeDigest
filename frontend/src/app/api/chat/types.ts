@@ -1,4 +1,4 @@
-import type { UIMessage } from 'ai';
+import type { ChatUIMessage } from '@/lib/chat-ui';
 
 export type ModelTier = 'smart' | 'fast';
 
@@ -8,14 +8,14 @@ export type ResolvedModel = {
 };
 
 export type RequestPayload = {
-    message?: UIMessage & { content?: string };
+    message?: ChatUIMessage;
     threadId?: string;
     taskId?: string;
 };
 
 export type ChatMessageRow = {
     id: string;
-    role: UIMessage['role'];
+    role: ChatUIMessage['role'];
     content: unknown;
     created_at: string;
 };
@@ -36,7 +36,7 @@ export type ToolContext = {
     supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>;
     user: { id: string; email?: string } | null;
     accessToken: string | undefined;
-    messages: UIMessage[];
+    messages: ChatUIMessage[];
     previewCache: PreviewCache;
     setPreviewCache: (cache: PreviewCache) => void;
     threadId: string | undefined;

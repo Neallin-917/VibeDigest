@@ -23,6 +23,7 @@ The application is containerized using Docker.
 
 3. **Database Migrations**:
    Ensure Supabase migrations are applied (currently managed via Supabase CLI or dashboard).
+   For historical chat message cleanup, see [docs/migration/chat_messages_parts_migration.md](./migration/chat_messages_parts_migration.md).
 
 ### Rollback Strategy
 If a deployment fails or introduces critical bugs:

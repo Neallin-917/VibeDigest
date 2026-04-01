@@ -27,7 +27,7 @@ _PLACEHOLDER_KEY_PATTERNS: tuple[str, ...] = (
     "placeholder",
 )
 
-_SUPPORTED_TEXT_PROVIDERS: tuple[str, ...] = ("openrouter", "openai", "custom")
+_SUPPORTED_TEXT_PROVIDERS: tuple[str, ...] = ("openrouter", "custom")
 
 
 def _ensure_supported_provider(provider: str) -> None:

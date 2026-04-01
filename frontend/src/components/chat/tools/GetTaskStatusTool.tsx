@@ -28,20 +28,16 @@ export function GetTaskStatusTool({
   const [recovered, setRecovered] = useState(false)
   const supabase = useMemo(() => createClient(), [])
 
-  /** Fetch the task from Supabase and update liveTask state.
-   *  Returns the status string (or null on failure) so callers can
-   *  decide whether to stop polling. */
-  const fetchTask = useCallback(async (taskId: string, isActive: { current: boolean }) => {
+  /** Fetch the latest task snapshot from Supabase. */
+  const fetchTask = useCallback(async (taskId: string) => {
     const { data } = await supabase
       .from('tasks')
       .select('id,status,progress,video_title,thumbnail_url,video_url,error_message,updated_at')
       .eq('id', taskId)
       .single()
 
-    if (data && isActive.current) {
-      const mapped = mapRowToTask(data as Record<string, unknown>, taskId)
-      setLiveTask(mapped)
-      return mapped.status
+    if (data) {
+      return mapRowToTask(data as Record<string, unknown>, taskId)
     }
     return null
   }, [supabase])
@@ -54,8 +50,9 @@ export function GetTaskStatusTool({
     const isActive = { current: true }
 
     const timer = setTimeout(async () => {
-      const status = await fetchTask(output.taskId, isActive)
-      if (status && isActive.current) {
+      const nextTask = await fetchTask(output.taskId)
+      if (nextTask && isActive.current) {
+        setLiveTask(nextTask)
         setRecovered(true)
       }
     }, 1_000)
@@ -74,8 +71,14 @@ export function GetTaskStatusTool({
 
     const isActive = { current: true }
 
-    // Initial fetch
-    fetchTask(taskId, isActive)
+    const loadInitialTask = async () => {
+      const nextTask = await fetchTask(taskId)
+      if (nextTask && isActive.current) {
+        setLiveTask(nextTask)
+      }
+    }
+
+    void loadInitialTask()
 
     // Realtime subscription (single source of truth for live updates)
     const channel = supabase

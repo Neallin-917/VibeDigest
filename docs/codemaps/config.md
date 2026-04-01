@@ -1,6 +1,6 @@
 # Configuration Codemap
 
-> Freshness: 2025-01-23T22:30:00Z
+> Freshness: 2026-04-01T13:05:00+08:00
 
 ## Environment Variables
 
@@ -11,18 +11,24 @@
 | `SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
 | `SUPABASE_KEY` | Supabase anon key | `eyJ...` |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key | `eyJ...` |
-| `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
+| `OPENROUTER_API_KEY` | Required when `OPENAI_BASE_URL` is unset and text LLM traffic uses OpenRouter | `sk-or-...` |
+
+### Required For Custom Text Routing
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `OPENAI_BASE_URL` | Enables `custom` text routing when present | `http://localhost:8317/v1` |
+| `OPENAI_API_KEY` | Required when `OPENAI_BASE_URL` is set | `sk-...` |
 
 ### Optional (Features)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FRONTEND_URL` | `http://localhost:3000` | Frontend base URL |
-| `LLM_PROVIDER` | `openrouter` | Text LLM provider (`openrouter`, `openai`, `custom`) |
-| `OPENAI_BASE_URL` | (none) | Custom OpenAI-compatible endpoint |
+| `OPENAI_BASE_URL` | (none) | When set, routes text LLM calls to a custom OpenAI-compatible endpoint |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter endpoint override |
-| `MODEL_ALIAS_SMART` | `google/gemini-3-pro-preview` | Smart tier model override |
-| `MODEL_ALIAS_FAST` | `google/gemini-3-flash-preview` | Fast tier model override |
+| `MODEL_ALIAS_SMART` | provider default | Smart tier model override |
+| `MODEL_ALIAS_FAST` | provider default | Fast tier model override |
 | `OPENAI_AUDIO_BASE_URL` | (none) | Optional dedicated audio endpoint |
 | `OPENAI_AUDIO_API_KEY` | (none) | Optional dedicated audio API key |
 | `OPENAI_TRANSCRIPTION_MODEL` | `whisper-1` | ASR model |
@@ -75,7 +81,7 @@ class Settings:
     SUPABASE_SERVICE_KEY: str
 
     # LLM Configuration
-    LLM_PROVIDER: str           # "openrouter" | "openai" | "custom"
+    LLM_PROVIDER: str           # computed: "custom" if OPENAI_BASE_URL else "openrouter"
     OPENAI_BASE_URL: Optional[str]
     OPENAI_API_KEY: Optional[str]
     OPENROUTER_BASE_URL: Optional[str]
@@ -103,14 +109,15 @@ class Settings:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    LLM_PROVIDER                             │
+│                Text Provider Resolution                     │
 │                                                             │
-│  openrouter (default): smart=google/gemini-3-pro-preview   │
-│                         fast=google/gemini-3-flash-preview  │
-│  openai:                smart=gpt-5                         │
-│                         fast=gpt-5-mini                     │
-│  custom:                smart=gemini-3-pro                 │
-│                         fast=gemini-3-flash                │
+│  OPENAI_BASE_URL set   -> custom                            │
+│  OPENAI_BASE_URL unset -> openrouter                        │
+│                                                             │
+│  openrouter defaults: smart=google/gemini-3-pro-preview    │
+│                       fast=google/gemini-3-flash-preview    │
+│  custom defaults:     smart=gemini-3-pro-preview           │
+│                       fast=gemini-3-flash-preview           │
 └─────────────────────────────────────────────────────────────┘
 
 Usage Mapping:
@@ -129,9 +136,16 @@ Usage Mapping:
 ```
 
 Runtime SSOT:
-- Backend text model resolution lives in `config.settings`, `utils.llm_router`, and `utils.openai_client`.
-- Frontend chat model resolution lives in `frontend/src/app/api/chat/route.ts` plus `frontend/src/lib/llm-config.ts`.
+- Provider-selection SSOT is the runtime rule: `OPENAI_BASE_URL` present => `custom`, otherwise `openrouter`.
+- Provider default model-name SSOT is `/config/llm-provider-defaults.json`.
+- Backend and frontend only consume those rules via `config.settings`, `utils.llm_router`, `utils.openai_client`, `frontend/src/lib/llm-model-registry.ts`, and `frontend/src/lib/llm-config.ts`.
 - Direct video URL submission bypasses the chat LLM path and goes straight to task creation; only chat Q&A and follow-up messages use text models.
+
+Shared provider defaults and routing:
+- Provider default model IDs are defined once in `/config/llm-provider-defaults.json` and consumed by both backend and frontend.
+- Provider selection is also shared: when `OPENAI_BASE_URL` exists the app uses `custom`, otherwise it uses `openrouter`.
+- For `custom` providers, prefer setting `MODEL_ALIAS_SMART` and `MODEL_ALIAS_FAST` per environment because local proxies often expose slightly different model IDs than production providers.
+- For OpenAI-compatible endpoints, set `OPENAI_BASE_URL` to the API root including `/v1` (for example `http://localhost:8317/v1`) unless the proxy explicitly documents a different base path.
 
 ---
 
@@ -183,7 +197,11 @@ NEXT_PUBLIC_ENABLE_CHAT=true
 
 **`.env.local`** (secrets, NOT committed):
 ```bash
-OPENAI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-...
+OPENAI_BASE_URL=http://localhost:8317/v1  # optional; enables custom routing when present
+OPENAI_API_KEY=sk-...                     # required only if OPENAI_BASE_URL is set
+MODEL_ALIAS_SMART=claude-sonnet-4-6
+MODEL_ALIAS_FAST=claude-haiku-4-5-20251001
 TEST_USER_PASSWORD=...
 ```
 

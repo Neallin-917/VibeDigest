@@ -3,9 +3,6 @@ import sys
 import argparse
 import logging
 
-# 强制不加载现有环境配置，避免干扰
-os.environ["LLM_PROVIDER"] = "custom"
-
 # 添加路径以确保能引用到项目依赖
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -16,7 +13,7 @@ except ImportError:
     sys.exit(1)
 
 def main():
-    parser = argparse.ArgumentParser(description="快速测试本地 LLM 连接 (不读取 .env)")
+    parser = argparse.ArgumentParser(description="快速测试 OpenAI-compatible 本地 LLM 连接 (不读取 .env)")
     parser.add_argument("--url", default="http://localhost:11434/v1", help="本地 API Base URL (默认: Ollama)")
     parser.add_argument("--model", required=True, help="要测试的模型名称 (如 qwen2.5:7b)")
     parser.add_argument("--key", default="sk-dummy", help="API Key (如果有)")

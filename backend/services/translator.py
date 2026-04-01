@@ -16,11 +16,13 @@ class Translator:
 
     def __init__(self):
         self.language_map = LANGUAGE_MAP
-        # Initialize LLM client
-        # We rely on OPENAI_API_KEY env var being set or LLM_PROVIDER configuration
-        api_key = os.getenv("OPENAI_API_KEY")
+        provider_key = (
+            os.getenv("OPENAI_API_KEY")
+            if settings.LLM_PROVIDER == "custom"
+            else os.getenv("OPENROUTER_API_KEY")
+        )
 
-        if api_key or settings.LLM_PROVIDER != 'openai':
+        if provider_key:
              logger.info("Translator initialized via create_chat_model")
              from utils.llm_router import create_chat_model
 

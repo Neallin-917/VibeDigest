@@ -1,7 +1,7 @@
 .PHONY: all install start test lint clean help
 .PHONY: install-backend install-frontend
 .PHONY: start-backend start-frontend start-dev start-prod
-.PHONY: test-backend test-frontend
+.PHONY: test-backend test-frontend test-local-integration-smoke
 .PHONY: stop restart-dev rebuild-dev restart-prod deploy
 .PHONY: perf perf-frontend perf-check perf-update-baseline
 
@@ -109,15 +109,26 @@ restart-prod:
 # --- Testing ---
 test: test-backend test-frontend
 
-test-backend: test-unit
+test-backend: test-unit test-local-integration-smoke
 
 test-unit:
 	@echo "Running unit tests (mocked, fast)..."
-	uv run pytest backend/tests/ -m "not integration and not slow"
+	EVENTLET_NO_GREENDNS=yes uv run pytest backend/tests/ -m "not integration and not slow"
+
+test-local-integration-smoke:
+	@echo "Running local integration smoke (provider + /api/process-video)..."
+	@python -c 'exec("""import os\nimport socket\nimport sys\nfrom pathlib import Path\nfrom urllib.parse import urlparse\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\ncustom = (os.getenv(\"OPENAI_BASE_URL\") or \"\").strip()\nif custom and not (os.getenv(\"OPENAI_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is set but OPENAI_API_KEY is missing.\")\n    sys.exit(3)\nif (not custom) and not (os.getenv(\"OPENROUTER_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is unset and OPENROUTER_API_KEY is missing.\")\n    sys.exit(3)\nparsed = urlparse(os.getenv(\"TEST_DATABASE_URL\", \"postgresql://postgres:password@localhost:15432/langgraph\"))\nhost = parsed.hostname or \"localhost\"\nport = parsed.port or 5432\nsock = socket.socket()\nsock.settimeout(1.5)\nstatus = sock.connect_ex((host, port))\nsock.close()\nif status != 0:\n    print(f\"SKIP: test database is not reachable at {host}:{port}.\")\n    sys.exit(3)\n""")'; \
+	status=$$?; \
+	if [ $$status -eq 3 ]; then exit 0; fi; \
+	if [ $$status -ne 0 ]; then exit $$status; fi; \
+	export PYTHONPATH=$$PYTHONPATH:$(PWD)/backend; \
+	EVENTLET_NO_GREENDNS=yes uv run python backend/scripts/llm/verify_config.py --connect; \
+	export PYTHONPATH=$$PYTHONPATH:$(PWD)/backend; \
+	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini backend/tests/test_integration.py::test_process_video_endpoint_real_db --no-cov -v
 
 test-integration:
 	@echo "Running integration tests (OpenRouter real API)..."
-	LLM_PROVIDER=openrouter uv run pytest backend/tests/ -m integration --no-cov -v
+	OPENAI_BASE_URL= MODEL_ALIAS_SMART=openai/gpt-4o-mini MODEL_ALIAS_FAST=openai/gpt-4o-mini uv run pytest backend/tests/ -m integration --no-cov -v
 
 test-frontend:
 	@echo "Running frontend tests..."

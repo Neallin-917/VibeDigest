@@ -8,10 +8,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config import settings
 from utils.openai_client import create_chat_model
 
-def test_default_openai():
-    print("Testing Default OpenAI Provider...")
+def test_default_provider():
+    print("Testing Default Text Provider Routing...")
     try:
-        model = create_chat_model("gpt-4o")
+        model = create_chat_model(settings.MODEL_FAST)
         print(f"Success! Returned object type: {type(model).__name__}")
         # Check specific attributes if possible, e.g. base_url
         if hasattr(model, 'openai_api_base'):
@@ -23,12 +23,12 @@ def test_default_openai():
 
 def test_custom_provider_logic():
     print("\nTesting Custom Provider Logic (Simulation)...")
-    # We can't actually instantiate ChatLiteLLM if it's not installed, 
-    # but we can check if the factory TRIES to use it if we mock the settings.
-    
-    with patch.object(settings, 'LLM_PROVIDER', 'custom'):
+    # We can't actually instantiate ChatLiteLLM if it's not installed,
+    # but we can check if the factory follows the custom path when OPENAI_BASE_URL exists.
+    with patch.object(settings, 'OPENAI_BASE_URL', 'http://localhost:8317/v1'), \
+         patch.object(settings, '_llm_provider_override', None):
         try:
-            # This is expected to fail if litellm is not installed, 
+            # This is expected to fail if litellm is not installed,
             # proving it tries to go down that path.
             create_chat_model("gpt-4o")
             print("Unexpected success (Litellm installed?)")
@@ -38,5 +38,5 @@ def test_custom_provider_logic():
             print(f"Caught exception: {type(e).__name__}: {e}")
 
 if __name__ == "__main__":
-    test_default_openai()
+    test_default_provider()
     test_custom_provider_logic()

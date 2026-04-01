@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
+import type { ChatUIMessage } from '@/lib/chat-ui'
 
 // Mock env before importing route
 vi.mock('@/env', () => ({
@@ -10,7 +11,6 @@ vi.mock('@/env', () => ({
         BACKEND_API_URL: 'http://localhost:8000',
         MODEL_ALIAS_SMART: undefined,
         MODEL_ALIAS_FAST: undefined,
-        LLM_PROVIDER: undefined,
         OPENAI_BASE_URL: undefined,
         OPENAI_API_KEY: undefined,
         OPENROUTER_BASE_URL: undefined,
@@ -33,6 +33,7 @@ const {
     mockFrom,
     mockStreamText,
     mockConvertToModelMessages,
+    mockValidateUIMessages,
     mockGetSession,
     mockGenerateText,
 } = vi.hoisted(() => {
@@ -50,6 +51,7 @@ const {
         mockFrom: vi.fn(),
         mockStreamText: vi.fn(),
         mockConvertToModelMessages: vi.fn(),
+        mockValidateUIMessages: vi.fn(),
         mockGenerateText: vi.fn(),
     }
 })
@@ -78,6 +80,7 @@ vi.mock('ai', async (importOriginal) => {
         ...(actual as any),
         streamText: mockStreamText,
         convertToModelMessages: mockConvertToModelMessages,
+        validateUIMessages: mockValidateUIMessages,
         generateText: mockGenerateText,
     }
 })
@@ -95,10 +98,28 @@ vi.mock('@/lib/llm-config', () => ({
 }))
 
 const originalFetch = global.fetch
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+let consoleLogSpy: ReturnType<typeof vi.spyOn>
+
+function createTextMessage(
+    text: string,
+    role: ChatUIMessage['role'] = 'user',
+    id = `${role}-${Math.random().toString(36).slice(2, 10)}`
+): ChatUIMessage {
+    return {
+        id,
+        role,
+        parts: [{ type: 'text', text }],
+    }
+}
 
 describe('Lazy Thread Creation', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         // Default implementation for standard chains
         mockFrom.mockImplementation((() => ({
@@ -139,6 +160,7 @@ describe('Lazy Thread Creation', () => {
         mockOrder.mockResolvedValue({ data: [], error: null })
         mockInsert.mockResolvedValue({ error: null })
         mockUpsert.mockResolvedValue({ error: null })
+        mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
 
         ;(global as any).fetch = vi.fn().mockResolvedValue({
             ok: true,
@@ -150,9 +172,13 @@ describe('Lazy Thread Creation', () => {
             toUIMessageStreamResponse: vi.fn().mockReturnValue(new Response('mock stream'))
         })
         mockConvertToModelMessages.mockResolvedValue([])
+        mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
     })
 
     afterEach(() => {
+        consoleErrorSpy.mockRestore()
+        consoleWarnSpy.mockRestore()
+        consoleLogSpy.mockRestore()
         ;(global as any).fetch = originalFetch
     })
 
@@ -182,7 +208,7 @@ describe('Lazy Thread Creation', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Lazy Check' },
+                message: createTextMessage('Lazy Check'),
                 threadId: 'lazy-thread-id'
             })
         })
@@ -241,7 +267,7 @@ describe('Lazy Thread Creation', () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
-                message: { content: 'Finish Me' },
+                message: createTextMessage('Finish Me'),
                 threadId: 'lazy-finish-thread-id'
             })
         })
@@ -256,8 +282,14 @@ describe('Lazy Thread Creation', () => {
 
         // Execute onFinish manually
         const finalMessages = [
-            { id: 'msg-1', role: 'user', content: 'Finish Me', createdAt: new Date() },
-            { id: 'msg-2', role: 'assistant', content: 'Done.', createdAt: new Date() }
+            {
+                ...createTextMessage('Finish Me', 'user', 'msg-1'),
+                metadata: { createdAt: new Date() }
+            },
+            {
+                ...createTextMessage('Done.', 'assistant', 'msg-2'),
+                metadata: { createdAt: new Date() }
+            }
         ]
 
         // Reset insert mock to clear any previous calls (though there shouldn't be any based on previous test)

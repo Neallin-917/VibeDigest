@@ -14,12 +14,7 @@ import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { useState } from 'react'
-
-interface Thread {
-  id: string
-  title: string
-  updated_at: string
-}
+import type { Thread } from '@/types'
 
 interface MobileMenuDrawerProps {
   isOpen: boolean

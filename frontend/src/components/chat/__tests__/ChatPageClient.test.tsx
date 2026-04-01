@@ -1,6 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ChatPageClient } from '../ChatPageClient'
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+    },
+  })
+}
+
+function renderWithQueryClient(ui: React.ReactElement) {
+  const queryClient = createTestQueryClient()
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  )
+}
 
 let currentSearchParams = new URLSearchParams()
 const replaceMock = vi.fn()
@@ -112,7 +128,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
@@ -139,13 +155,13 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { unmount } = render(<ChatPageClient />)
+    const { unmount } = renderWithQueryClient(<ChatPageClient />)
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
     })
     unmount()
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
     })
@@ -173,7 +189,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
@@ -200,7 +216,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
@@ -220,7 +236,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
@@ -246,7 +262,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'fresh-thread')
@@ -272,7 +288,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
     await waitFor(() => expect(screen.getByTestId('workspace')).toBeInTheDocument())
 
     // Clear all calls from initial bootstrap
@@ -313,7 +329,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
@@ -346,7 +362,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
@@ -390,7 +406,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
@@ -425,7 +441,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
     await waitFor(() => expect(screen.getByTestId('workspace')).toBeInTheDocument())
 
     // Rapidly switch: thread-b then thread-c
@@ -466,7 +482,7 @@ describe('ChatPageClient', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ChatPageClient />)
+    renderWithQueryClient(<ChatPageClient />)
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')

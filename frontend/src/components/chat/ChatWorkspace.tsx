@@ -22,12 +22,7 @@ import { TopHeader } from "./TopHeader"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import type { ChatUIMessage } from "@/lib/chat-ui"
-
-interface Thread {
-  id: string
-  title: string
-  updated_at: string
-}
+import type { Thread } from "@/types"
 
 interface ChatWorkspaceProps {
   activeThreadId: string | null
@@ -43,7 +38,7 @@ interface ChatWorkspaceProps {
   onSelectTask: (taskId: string | null) => void
   onSelectExample?: (taskId: string) => void
   onThreadCreated?: () => void
-  onChatStarted?: (threadId: string) => void
+  onChatStarted?: (threadId: string, taskId?: string) => void
   threads?: Thread[]
 }
 

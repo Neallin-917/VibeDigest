@@ -8,7 +8,15 @@ import { isLocale } from "@/lib/i18n"
 import { ThemeProvider } from "next-themes"
 
 export function Providers({ children, locale }: { children: React.ReactNode, locale?: string }) {
-    const [queryClient] = useState(() => new QueryClient())
+    const [queryClient] = useState(() => new QueryClient({
+        defaultOptions: {
+            queries: {
+                staleTime: 30_000,
+                retry: 1,
+                refetchOnWindowFocus: false,
+            },
+        },
+    }))
     const safeLocale = locale && isLocale(locale) ? locale : undefined
 
     return (

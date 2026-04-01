@@ -58,8 +58,10 @@ jobs:
       env:
         SUPABASE_URL: "https://example.supabase.co"
         SUPABASE_SERVICE_KEY: "dummy-key"
+        SUPABASE_JWT_SECRET: "dummy-jwt-secret-for-ci"
         OPENAI_API_KEY: "dummy-key"
         RESEND_API_KEY: "dummy-key"
+        DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
         TEST_DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
@@ -97,6 +99,11 @@ jobs:
         # Use proven models for CI; YAML defaults may list aspirational future models.
         MODEL_ALIAS_SMART: openai/gpt-4o-mini
         MODEL_ALIAS_FAST: openai/gpt-4o-mini
+        DATABASE_URL: "dummy-not-used-in-integration"
+        SUPABASE_URL: "https://example.supabase.co"
+        SUPABASE_SERVICE_KEY: "dummy-key"
+        SUPABASE_JWT_SECRET: "dummy-jwt-secret-for-ci"
+        OPENAI_API_KEY: "dummy-key"
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         uv run pytest -c backend/pytest.ini backend/tests/ -m integration --no-cov -v

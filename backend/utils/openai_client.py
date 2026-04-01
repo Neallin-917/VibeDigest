@@ -110,6 +110,39 @@ def _is_rate_limit_error(exc: Exception) -> bool:
     return bool(re.search(r"rate.?limit|429|too many requests", str(exc), re.IGNORECASE))
 
 
+def _is_transient_error(exc: Exception) -> bool:
+    """
+    Return True when *exc* represents a transient connection error worth retrying.
+
+    Covers network-level failures (DNS timeouts, TCP resets, proxy errors, etc.)
+    that are likely to succeed on retry but are NOT rate-limit errors.
+    """
+    try:
+        import litellm
+        if isinstance(exc, (litellm.APIConnectionError, litellm.ServiceUnavailableError)):
+            return True
+        if isinstance(exc, litellm.InternalServerError) and re.search(
+            r"connection.?error|connect.?timeout|econnrefused|econnreset",
+            str(exc), re.IGNORECASE,
+        ):
+            return True
+    except (ImportError, AttributeError, TypeError):
+        pass
+
+    if isinstance(exc, ConnectionError):
+        return True
+
+    return bool(re.search(
+        r"connection.?error|connect.?timeout|econnrefused|econnreset|502|503|504",
+        str(exc), re.IGNORECASE,
+    ))
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    """Return True if the error is retryable (rate limit OR transient connection)."""
+    return _is_rate_limit_error(exc) or _is_transient_error(exc)
+
+
 def _compute_wait_seconds(exc: Exception, attempt: int) -> float:
     """
     Determine how long to wait before the next retry.
@@ -127,11 +160,13 @@ def _compute_wait_seconds(exc: Exception, attempt: int) -> float:
 
 class RateLimitAwareChatLiteLLM(ChatLiteLLM):
     """
-    Custom wrapper around ChatLiteLLM that detects rate-limit errors and
-    automatically retries with the appropriate wait time.
+    Custom wrapper around ChatLiteLLM that detects retryable errors
+    (rate-limit AND transient connection errors) and automatically retries
+    with exponential backoff.
 
     Detection strategy (in order):
-    1. ``litellm.RateLimitError`` isinstance check (accurate, version-dependent)
+    1. ``litellm.RateLimitError`` / ``litellm.APIConnectionError`` isinstance
+       checks (accurate, version-dependent)
     2. Regex match on the exception message (broad fallback)
     """
 
@@ -161,10 +196,11 @@ class RateLimitAwareChatLiteLLM(ChatLiteLLM):
 
                 current_attempt += 1
 
-                if _is_rate_limit_error(e) and current_attempt <= max_retries:
+                if _is_retryable_error(e) and current_attempt <= max_retries:
                     wait_seconds = _compute_wait_seconds(e, current_attempt)
+                    error_type = "Rate limit" if _is_rate_limit_error(e) else "Connection error"
                     logger.warning(
-                        f"Rate limit hit (stream). Waiting {wait_seconds:.1f}s. "
+                        f"{error_type} hit (stream). Waiting {wait_seconds:.1f}s. "
                         f"Retrying ({current_attempt}/{max_retries})…"
                     )
                     await asyncio.sleep(wait_seconds)
@@ -188,10 +224,11 @@ class RateLimitAwareChatLiteLLM(ChatLiteLLM):
             except Exception as e:
                 current_attempt += 1
 
-                if _is_rate_limit_error(e) and current_attempt <= max_retries:
+                if _is_retryable_error(e) and current_attempt <= max_retries:
                     wait_seconds = _compute_wait_seconds(e, current_attempt)
+                    error_type = "Rate limit" if _is_rate_limit_error(e) else "Connection error"
                     logger.warning(
-                        f"Rate limit hit (generate). Waiting {wait_seconds:.1f}s. "
+                        f"{error_type} hit (generate). Waiting {wait_seconds:.1f}s. "
                         f"Retrying ({current_attempt}/{max_retries})…"
                     )
                     await asyncio.sleep(wait_seconds)

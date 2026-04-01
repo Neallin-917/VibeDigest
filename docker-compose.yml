@@ -26,6 +26,8 @@ services:
       - .env.local
     environment:
       - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
+      # Inside Docker, "localhost" means the container itself — remap to host.
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL_DOCKER:-http://host.docker.internal:8317/v1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # No Traefik labels - Dev is NOT exposed to internet
@@ -52,6 +54,8 @@ services:
       - REDIS_URI=redis://redis:6379
       - PYTHONPATH=/deps/backend
       - LANGSERVE_GRAPHS={"agent":"workflow:app"}
+      # Inside Docker, "localhost" means the container itself — remap to host.
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL_DOCKER:-http://host.docker.internal:8317/v1}
     env_file:
       - .env
       - .env.local

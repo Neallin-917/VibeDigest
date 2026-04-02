@@ -82,6 +82,20 @@ describe('ChatWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1200 })
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(max-width: 1023px)' ? window.innerWidth < 1024 : false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
     window.dispatchEvent(new Event('resize'))
   })
 

@@ -1,9 +1,10 @@
 'use client'
 
+import { memo, useEffect, useState } from 'react'
+
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import {
   type ChatUIDataParts,
@@ -17,7 +18,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useI18n } from '@/components/i18n/I18nProvider'
-import { useEffect, useMemo, useState } from 'react'
+import { subscribeToTask } from '@/lib/task-live'
 
 type TaskDataGroupProps = {
   taskStatus?: ChatUIDataParts['task-status']
@@ -60,7 +61,6 @@ function getStatusIcon(status: TaskLifecycleStatus) {
 
 function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false) {
   const [snapshot, setSnapshot] = useState<TaskSnapshot | null>(seed ?? null)
-  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     if (seed) {
@@ -72,44 +72,14 @@ function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false
     if (!live || !seed?.taskId) return
 
     const taskId = seed.taskId
-    let isActive = true
-
-    const loadInitialTask = async () => {
-      const { data } = await supabase
-        .from('tasks')
-        .select('id,status,progress,video_title,thumbnail_url,video_url,error_message')
-        .eq('id', taskId)
-        .single()
-
-      if (data && isActive) {
-        setSnapshot(mapTaskRow(data as Record<string, unknown>, taskId))
-      }
-    }
-
-    void loadInitialTask()
-
-    const channel = supabase
-      .channel(`task_data_group_${taskId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `id=eq.${taskId}`,
-        },
-        payload => {
-          if (!isActive || typeof payload.new !== 'object' || payload.new === null) return
-          setSnapshot(mapTaskRow(payload.new as Record<string, unknown>, taskId))
-        }
-      )
-      .subscribe()
+    const unsubscribe = subscribeToTask(taskId, (row) => {
+      setSnapshot(mapTaskRow(row, taskId))
+    })
 
     return () => {
-      isActive = false
-      supabase.removeChannel(channel)
+      unsubscribe()
     }
-  }, [live, seed?.taskId, supabase])
+  }, [live, seed?.taskId])
 
   return snapshot
 }
@@ -278,7 +248,7 @@ function TaskStatusCard({
   )
 }
 
-export function TaskDataGroup({
+function TaskDataGroupComponent({
   taskStatus,
   showProgress,
   showPlan,
@@ -298,3 +268,5 @@ export function TaskDataGroup({
     />
   )
 }
+
+export const TaskDataGroup = memo(TaskDataGroupComponent)

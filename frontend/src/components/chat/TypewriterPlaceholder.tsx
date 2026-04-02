@@ -20,16 +20,43 @@ export function TypewriterPlaceholder({
   const [displayText, setDisplayText] = useState('')
   const [urlIndex, setUrlIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>('typing')
+  const [isDocumentVisible, setIsDocumentVisible] = useState(() =>
+    typeof document === 'undefined' ? true : document.visibilityState === 'visible'
+  )
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   const currentUrl = EXAMPLE_URLS[urlIndex]
+  const isAnimationEnabled = visible && isDocumentVisible && !prefersReducedMotion
 
   const advanceToNextUrl = useCallback(() => {
     setUrlIndex((prev) => (prev + 1) % EXAMPLE_URLS.length)
   }, [])
 
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return
+
+    const handleVisibilityChange = () => {
+      setIsDocumentVisible(document.visibilityState === 'visible')
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const handleMotionChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches)
+    }
+
+    setPrefersReducedMotion(mediaQuery.matches)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    mediaQuery.addEventListener('change', handleMotionChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      mediaQuery.removeEventListener('change', handleMotionChange)
+    }
+  }, [])
+
   // Animation loop: This pattern is intentional for typewriter effect state machine
   useEffect(() => {
-    if (!visible) return
+    if (!isAnimationEnabled) return
 
     let timeoutId: NodeJS.Timeout
 
@@ -71,18 +98,18 @@ export function TypewriterPlaceholder({
     }
 
     return () => clearTimeout(timeoutId)
-  }, [phase, displayText, currentUrl, visible, advanceToNextUrl])
+  }, [phase, displayText, currentUrl, isAnimationEnabled, advanceToNextUrl])
 
   // Reset animation when visibility changes
   useEffect(() => {
-    if (visible) {
+    if (isAnimationEnabled) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayText('')
       setPhase('typing')
     }
-  }, [visible])
+  }, [isAnimationEnabled])
 
-  if (!visible) return null
+  if (!isAnimationEnabled) return null
 
   return (
     <div

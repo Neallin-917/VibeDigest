@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState, useEffect, useMemo } from "react"
+import type { User } from "@supabase/supabase-js"
 import { Settings, LogOut, CreditCard, Sun, Moon, MessageSquareWarning } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
@@ -39,7 +40,7 @@ export function UserAvatarDropdown({
   const { t, locale } = useI18n()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
       setUserEmail(user?.email || null)
     })
   }, [supabase])

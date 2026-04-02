@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase'
 import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
 import { supportsVideoEmbed } from '@/components/tasks/VideoEmbed'
@@ -9,6 +10,7 @@ import { X, StickyNote, Quote, ChevronDown, ChevronUp, Sparkles } from 'lucide-r
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
+import { subscribeToTask } from '@/lib/task-live'
 
 interface VideoDetailPanelProps {
   taskId: string
@@ -26,6 +28,13 @@ interface Task {
 
 interface MediaController {
   seek: (seconds: number) => void
+}
+
+type TaskOutputRow = {
+  kind?: string | null
+  status?: string | null
+  locale?: string | null
+  content?: unknown
 }
 
 type SummaryKeyPoint = {
@@ -342,12 +351,7 @@ export function VideoDetailPanel({
 
     // States are reset via key-based remounting in parent
     const fetchData = async () => {
-      // 1. Fetch Task
-      const { data: t } = await supabase.from('tasks').select('*').eq('id', taskId).single()
-      const normalizedTask = toTask(t)
-      if (normalizedTask) setTask(normalizedTask)
-
-      // 2. Fetch Outputs (Summary & Audio)
+      // Fetch Outputs (Summary & Audio)
       const { data: outputs } = await supabase
         .from('task_outputs')
         .select('*')
@@ -356,19 +360,21 @@ export function VideoDetailPanel({
         .order('created_at', { ascending: false })
 
       if (outputs) {
+        const taskOutputs = outputs as TaskOutputRow[]
+
         // Prioritize source language (locale=null) which represents the canonical V4 summary
         // Fallback to any latest summary for backward compatibility
-        const summaryOut = outputs.find(o => o.kind === 'summary' && o.status === 'completed' && o.locale === null) 
-                        || outputs.find(o => o.kind === 'summary' && o.status === 'completed')
+        const summaryOut = taskOutputs.find((output) => output.kind === 'summary' && output.status === 'completed' && output.locale === null)
+                        || taskOutputs.find((output) => output.kind === 'summary' && output.status === 'completed')
 
         if (summaryOut) {
           const parsed = parseSummaryContent(summaryOut.content)
           setSummary(parsed)
         }
 
-        const audioOut = outputs.find(o => o.kind === 'audio')
+        const audioOut = taskOutputs.find((output) => output.kind === 'audio')
         if (audioOut) {
-          const parsed = parseAudioContent(audioOut.content)
+          const parsed = parseAudioContent(asString(audioOut.content))
           if (parsed?.audioUrl) {
             setAudioData(parsed)
           }
@@ -377,19 +383,18 @@ export function VideoDetailPanel({
     }
     fetchData()
 
-    // Realtime updates
+    const unsubscribeTask = subscribeToTask(taskId, (row) => {
+      const nextTask = toTask(row)
+      if (nextTask) {
+        setTask(nextTask)
+      }
+    })
+
+    // Realtime updates for outputs
     const channel = supabase.channel(`task_ctx_${taskId}`)
       .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}`
-      }, (payload) => {
-        const nextTask = toTask(payload.new)
-        if (nextTask) {
-          setTask(nextTask)
-        }
-      })
-      .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'task_outputs', filter: `task_id=eq.${taskId}`
-      }, async (payload) => {
+      }, async (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
         const next = payload.new
         if (!isRecord(next)) return
         const kind = asString(next.kind)
@@ -408,7 +413,7 @@ export function VideoDetailPanel({
       })
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'task_outputs', filter: `task_id=eq.${taskId}`
-      }, async (payload) => {
+      }, async (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
         const next = payload.new
         if (!isRecord(next)) return
         const kind = asString(next.kind)
@@ -426,7 +431,10 @@ export function VideoDetailPanel({
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      unsubscribeTask()
+      void supabase.removeChannel(channel)
+    }
   }, [taskId, supabase])
 
   // Determine media type based on task URL and available audio data

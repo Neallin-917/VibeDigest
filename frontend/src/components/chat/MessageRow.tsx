@@ -19,6 +19,18 @@ interface MessageRowProps {
   liveTaskIds?: Set<string>
 }
 
+function areTaskIdSetsEqual(prev?: Set<string>, next?: Set<string>) {
+  if (prev === next) return true
+  if (!prev || !next) return !prev && !next
+  if (prev.size !== next.size) return false
+
+  for (const value of prev) {
+    if (!next.has(value)) return false
+  }
+
+  return true
+}
+
 const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
   return (
     <ReactMarkdown
@@ -162,7 +174,7 @@ export const MessageRow = memo(MessageRowComponent, (prev, next) => {
   if (prev.enableMotion !== next.enableMotion) return false
   if (prev.isStreaming !== next.isStreaming) return false
   if (prev.onOpenPanel !== next.onOpenPanel) return false
-  if (prev.liveTaskIds !== next.liveTaskIds) return false
+  if (!areTaskIdSetsEqual(prev.liveTaskIds, next.liveTaskIds)) return false
 
   // If streaming, always re-render to show updates
   if (next.isStreaming) return false

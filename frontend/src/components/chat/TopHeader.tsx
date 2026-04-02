@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PlanBadge } from './PlanBadge'
@@ -10,7 +11,7 @@ interface TopHeaderProps {
   className?: string
 }
 
-export function TopHeader({ onMobileMenuClick, className }: TopHeaderProps) {
+function TopHeaderComponent({ onMobileMenuClick, className }: TopHeaderProps) {
   return (
     <header className={cn(
       "h-14 flex items-center justify-between px-4 md:px-6 shrink-0 z-30",
@@ -43,3 +44,5 @@ export function TopHeader({ onMobileMenuClick, className }: TopHeaderProps) {
     </header>
   )
 }
+
+export const TopHeader = memo(TopHeaderComponent)

@@ -7,6 +7,8 @@
 
 **VibeDigest** uses a **Chat-First Architecture** (v3.4), putting the conversational interface at the center of the user experience.
 
+For the current performance hotspot ranking and optimization roadmap, see [frontend-performance-audit.md](./frontend-performance-audit.md).
+
 ## Technology Stack
 
 | Layer | Technology |

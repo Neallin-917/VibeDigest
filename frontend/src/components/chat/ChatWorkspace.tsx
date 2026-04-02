@@ -90,18 +90,31 @@ export function ChatWorkspace({
 
   // Detect mobile
   useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 1024
-      setIsMobile(mobile)
+    const mediaQuery = window.matchMedia('(max-width: 1023px)')
+    const syncIsMobile = (matches: boolean) => {
+      setIsMobile(prev => (prev === matches ? prev : matches))
     }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
+
+    syncIsMobile(mediaQuery.matches)
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      syncIsMobile(event.matches)
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange)
+    }
   }, [])
 
   const setTaskParam = useCallback((nextTaskId: string | null) => {
     onSelectTask(nextTaskId)
   }, [onSelectTask])
+
+  const openMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(true)
+  }, [])
 
   const openPanelForTask = useCallback((taskId: string) => {
     setClosedSelectionKey(null)
@@ -113,6 +126,25 @@ export function ChatWorkspace({
       setClosedSelectionKey(selectionKey)
     }
   }, [selectionKey])
+
+  const handleMobileMenuChange = useCallback((open: boolean) => {
+    setIsMobileMenuOpen(open)
+  }, [])
+
+  const handleMobileNewChat = useCallback(() => {
+    onNewChat()
+    setIsMobileMenuOpen(false)
+  }, [onNewChat])
+
+  const handleOpenLibrary = useCallback(() => {
+    router.push(`/${locale}/explore`)
+    setIsMobileMenuOpen(false)
+  }, [router, locale])
+
+  const handleSelectMobileThread = useCallback((id: string) => {
+    onSelectThread(id)
+    setIsMobileMenuOpen(false)
+  }, [onSelectThread])
 
   // rAF throttle refs for smooth resize
   const pendingWidthRef = useRef<number | null>(null)
@@ -194,26 +226,17 @@ export function ChatWorkspace({
         <div className="blob blob-3"></div>
       </div>
 
-      <TopHeader onMobileMenuClick={() => setIsMobileMenuOpen(true)} />
+      <TopHeader onMobileMenuClick={openMobileMenu} />
 
       <MobileMenuDrawer
         isOpen={isMobileMenuOpen}
-        onOpenChange={setIsMobileMenuOpen}
-        onNewChat={() => {
-          onNewChat()
-          setIsMobileMenuOpen(false)
-        }}
-        onOpenLibrary={() => {
-          router.push(`/${locale}/explore`)
-          setIsMobileMenuOpen(false)
-        }}
+        onOpenChange={handleMobileMenuChange}
+        onNewChat={handleMobileNewChat}
+        onOpenLibrary={handleOpenLibrary}
         threads={threads}
         activeThreadId={activeThreadId}
         selectedThreadId={selectedThreadId}
-        onSelectThread={(id) => {
-          onSelectThread(id)
-          setIsMobileMenuOpen(false)
-        }}
+        onSelectThread={handleSelectMobileThread}
       />
 
       {/* Main Layout: Chat + Details */}

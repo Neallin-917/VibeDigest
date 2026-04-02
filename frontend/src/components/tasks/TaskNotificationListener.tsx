@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
-import { createClient } from "@/lib/supabase"
+import { useEffect, useRef } from "react"
 import { useTaskNotification } from "@/hooks/useTaskNotification"
-import { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
+import { subscribeToTask } from "@/lib/task-live"
 
 type Task = {
     id: string
@@ -16,32 +15,31 @@ export function TaskNotificationListener() {
     // We only need the subscription list and the sender function
     // The permission check is handled inside sendTaskNotification
     const { subbedTaskIds, sendTaskNotification } = useTaskNotification()
-    const supabase = useMemo(() => createClient(), [])
+    const taskStatusesRef = useRef<Map<string, string>>(new Map())
 
     useEffect(() => {
         const ids = Array.from(subbedTaskIds)
         if (ids.length === 0) return
 
-        const channels = ids.map(id => {
-            return supabase.channel(`notification_task_${id}`)
-                .on('postgres_changes', {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'tasks',
-                    filter: `id=eq.${id}`
-                }, (payload: RealtimePostgresChangesPayload<Task>) => {
-                    const newTask = payload.new as Task
-                    if (newTask.status === 'completed') {
-                        sendTaskNotification(newTask.id, newTask.video_title || newTask.video_url)
-                    }
-                })
-                .subscribe()
-        })
+        const unsubscribers = ids.map((id) =>
+            subscribeToTask(id, (row) => {
+                const newTask = row as unknown as Task
+                const previousStatus = taskStatusesRef.current.get(newTask.id)
+                taskStatusesRef.current.set(newTask.id, newTask.status)
+
+                if (previousStatus && previousStatus !== 'completed' && newTask.status === 'completed') {
+                    sendTaskNotification(newTask.id, newTask.video_title || newTask.video_url)
+                }
+            })
+        )
 
         return () => {
-            channels.forEach(ch => supabase.removeChannel(ch))
+            ids.forEach((id) => {
+                taskStatusesRef.current.delete(id)
+            })
+            unsubscribers.forEach((unsubscribe) => unsubscribe())
         }
-    }, [subbedTaskIds, supabase, sendTaskNotification])
+    }, [subbedTaskIds, sendTaskNotification])
 
     return null // This component renders nothing
 }

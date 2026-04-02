@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase"
 import { env } from "@/env"
 
@@ -22,7 +23,7 @@ export function useAuth(): { isAuthenticated: boolean | null } {
         if (env.NEXT_PUBLIC_E2E_MOCK === '1') {
             return
         }
-        supabase.auth.getUser().then(({ data: { user } }) => {
+        supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
             setIsAuthenticated(!!user)
         })
     }, [supabase])

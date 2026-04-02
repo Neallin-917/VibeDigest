@@ -15,6 +15,11 @@ vi.mock('../TypewriterPlaceholder', () => ({
   TypewriterPlaceholder: ({ visible }: any) => visible ? <div data-testid="typewriter">Typewriter</div> : null
 }))
 
+Object.defineProperty(document, 'visibilityState', {
+  configurable: true,
+  value: 'visible'
+})
+
 describe('ChatInput', () => {
   it('renders input with placeholder', () => {
     render(<ChatInput onSubmit={vi.fn()} />)

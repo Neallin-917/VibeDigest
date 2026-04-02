@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import type { User } from "@supabase/supabase-js"
 import { LogOut, Menu } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -29,7 +30,7 @@ export function MobileHeader() {
   const { t, locale } = useI18n()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUserEmail(user?.email || null))
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => setUserEmail(user?.email || null))
   }, [supabase])
 
   return (

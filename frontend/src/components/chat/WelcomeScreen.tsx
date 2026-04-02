@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -33,7 +33,11 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
+  const examplesCountRef = useRef(0)
+  const loadingRef = useRef(true)
+  const loadingMoreRef = useRef(false)
+  const hasMoreRef = useRef(true)
 
   const fetchExamples = useCallback(async (offset = 0, append = false) => {
     if (offset === 0) {
@@ -54,18 +58,23 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
         .range(offset, offset + limit - 1)
 
       if (data) {
+        const taskRows = data as Task[]
+        let nextCount = data.length
         if (append) {
           setExamples(prev => {
-            const existingIds = new Set(prev.map(t => t.id))
-            const newItems = data.filter(t => !existingIds.has(t.id))
-            return [...prev, ...newItems]
+            const existingIds = new Set(prev.map((task) => task.id))
+            const newItems = taskRows.filter((task) => !existingIds.has(task.id))
+            const nextExamples = [...prev, ...newItems]
+            nextCount = nextExamples.length
+            examplesCountRef.current = nextCount
+            return nextExamples
           })
         } else {
-          setExamples(data)
+          nextCount = taskRows.length
+          examplesCountRef.current = nextCount
+          setExamples(taskRows)
         }
-        // Check if there are more items to load
-        const totalLoaded = append ? examples.length + data.length : data.length
-        setHasMore(count !== null && totalLoaded < count)
+        setHasMore(count !== null && nextCount < count)
       }
     } catch (error) {
       console.error('Failed to fetch examples:', error)
@@ -73,25 +82,42 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [supabase, examples.length])
+  }, [supabase])
 
   const observerTarget = useRef<HTMLDivElement>(null)
 
   const handleLoadMore = useCallback(() => {
-    if (!loadingMore && hasMore) {
-      fetchExamples(examples.length, true)
+    if (document.visibilityState !== 'visible') return
+    if (!loadingMoreRef.current && hasMoreRef.current) {
+      void fetchExamples(examplesCountRef.current, true)
     }
-  }, [loadingMore, hasMore, fetchExamples, examples.length])
+  }, [fetchExamples])
 
   useEffect(() => {
-    fetchExamples(0, false)
+    examplesCountRef.current = examples.length
+  }, [examples.length])
+
+  useEffect(() => {
+    loadingRef.current = loading
+  }, [loading])
+
+  useEffect(() => {
+    loadingMoreRef.current = loadingMore
+  }, [loadingMore])
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore
+  }, [hasMore])
+
+  useEffect(() => {
+    void fetchExamples(0, false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+        if (entries[0].isIntersecting && hasMoreRef.current && !loadingMoreRef.current && !loadingRef.current) {
           handleLoadMore()
         }
       },
@@ -103,7 +129,7 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
     }
 
     return () => observer.disconnect()
-  }, [hasMore, loadingMore, loading, handleLoadMore])
+  }, [handleLoadMore])
 
   return (
     <div className="flex flex-col items-center justify-start min-h-full px-6 py-8 md:py-12">

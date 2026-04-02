@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -13,7 +14,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { BrandLogo } from '@/components/layout/BrandLogo'
-import { useState } from 'react'
 import type { Thread } from '@/types'
 
 interface MobileMenuDrawerProps {
@@ -28,7 +28,7 @@ interface MobileMenuDrawerProps {
   onPrefetchThread?: (threadId: string) => void
 }
 
-export function MobileMenuDrawer({ 
+function MobileMenuDrawerComponent({ 
   isOpen, 
   onOpenChange, 
   onNewChat, 
@@ -164,6 +164,8 @@ export function MobileMenuDrawer({
     </Sheet>
   )
 }
+
+export const MobileMenuDrawer = memo(MobileMenuDrawerComponent)
 
 // Menu Button (action)
 function MenuButton({

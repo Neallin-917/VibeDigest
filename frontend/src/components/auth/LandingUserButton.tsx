@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Button } from "@/components/ui/button"
@@ -57,7 +58,7 @@ export function LandingUserButton() {
         checkUser()
 
         // Listen for auth changes (including One Tap login)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
             if (mounted) {
                 setUser(session?.user ?? null)
                 // Ensure loading is cleared when auth state changes

@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js"
 
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { AppSidebarProvider } from "@/components/layout/AppSidebarContext"
@@ -16,7 +17,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
 
   // Public paths that don't require authentication
   // /tasks/* is public so unauthenticated users can view demo tasks
@@ -29,30 +30,41 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
   // Check authentication on mount and listen for auth changes
   useEffect(() => {
+    if (isPublicPath) {
+      setIsLoading(false)
+      return
+    }
+
+    let isActive = true
+
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user && !isPublicPath) {
+      if (!isActive) return
+
+      if (!user) {
         // Redirect to login page if not authenticated and not on public path
         router.replace(`/${locale}/login`)
         return
       }
-      setIsAuthenticated(!!user)
+      setIsAuthenticated(true)
       setIsLoading(false)
     }
 
-    checkAuth()
+    void checkAuth()
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session && !isPublicPath) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      if (!isActive) return
+      if (!session) {
         router.replace(`/${locale}/login`)
       } else {
-        setIsAuthenticated(!!session)
+        setIsAuthenticated(true)
         setIsLoading(false)
       }
     })
 
     return () => {
+      isActive = false
       subscription.unsubscribe()
     }
   }, [router, supabase, isPublicPath, locale])
@@ -101,4 +113,3 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     </AppSidebarProvider>
   )
 }
-

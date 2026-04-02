@@ -16,9 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { isSupportedUrl } from "@/lib/urls"
-
-import { createBrowserClient } from "@supabase/ssr"
-import { env } from "@/env"
+import { createClient } from "@/lib/supabase"
 
 export function HeroSection() {
     const { t } = useI18n()
@@ -26,10 +24,7 @@ export function HeroSection() {
     const [showUrlHelp, setShowUrlHelp] = useState(false)
     
     // Initialize Supabase client for client-side auth check
-    const supabase = createBrowserClient(
-        env.NEXT_PUBLIC_SUPABASE_URL,
-        env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
+    const supabase = createClient()
 
     const handleHeroSubmit = async (text: string) => {
         // Validate URL format for any non-empty input

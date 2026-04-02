@@ -34,7 +34,16 @@ describe('TaskNotificationListener', () => {
 
     render(<TaskNotificationListener />)
 
-    callback?.({
+    const notifyTaskUpdate = (row: Record<string, unknown>) => {
+      const currentCallback = callback
+      if (currentCallback === null) {
+        throw new Error('Expected subscribeToTask to register a listener')
+      }
+
+      currentCallback(row)
+    }
+
+    notifyTaskUpdate({
       id: 'task-1',
       status: 'completed',
       video_title: 'Existing task',
@@ -43,14 +52,14 @@ describe('TaskNotificationListener', () => {
 
     expect(sendTaskNotification).not.toHaveBeenCalled()
 
-    callback?.({
+    notifyTaskUpdate({
       id: 'task-1',
       status: 'processing',
       video_title: 'Existing task',
       video_url: 'https://example.com/existing',
     })
 
-    callback?.({
+    notifyTaskUpdate({
       id: 'task-1',
       status: 'completed',
       video_title: 'Existing task',

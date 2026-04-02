@@ -10,6 +10,7 @@ vi.mock('@/env', () => ({
   },
 }))
 
+import { env } from '@/env'
 import { POST } from './route'
 
 const {
@@ -101,5 +102,50 @@ describe('POST /api/chat/direct-submit', () => {
       })
     )
     expect(mockUpsertChatState).not.toHaveBeenCalled()
+  })
+
+  it('returns mocked task data in E2E mode without calling backend or persistence', async () => {
+    env.NEXT_PUBLIC_E2E_MOCK = '1'
+    global.fetch = vi.fn()
+
+    const req = new Request('http://localhost/api/chat/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        videoUrl: 'https://www.youtube.com/watch?v=e2e',
+        originalText: 'https://www.youtube.com/watch?v=e2e',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.task_id).toMatch(/^task-/)
+    expect(body.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'user',
+          parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=e2e' }],
+        }),
+        expect.objectContaining({
+          role: 'assistant',
+          parts: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'data-task-status',
+              data: expect.objectContaining({
+                taskId: body.task_id,
+                videoUrl: 'https://www.youtube.com/watch?v=e2e',
+                status: 'pending',
+              }),
+            }),
+          ]),
+        }),
+      ])
+    )
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(mockUpsertChatState).not.toHaveBeenCalled()
+    env.NEXT_PUBLIC_E2E_MOCK = '0'
   })
 })

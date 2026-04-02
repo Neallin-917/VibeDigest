@@ -16,7 +16,7 @@ test.describe('Thread-Task 1:1 Constraint', () => {
   })
 
   test('should prevent creating a second task in the same thread', async ({ page }) => {
-    let createTaskCallCount = 0
+    let directSubmitCallCount = 0
     let threadTaskId: string | null = null
 
     // Mock the threads API to track thread's task_id
@@ -61,30 +61,62 @@ test.describe('Thread-Task 1:1 Constraint', () => {
       }
     })
 
-    // Mock the chat API to intercept create_task tool calls
-    await page.route('**/api/chat', async (route) => {
-      const requestBody = await route.request().postDataJSON()
+    // Mock the direct-submit API, which is now the canonical URL submission path
+    await page.route('**/api/chat/direct-submit', async (route) => {
+      directSubmitCallCount++
 
-      // Simulate AI calling create_task tool
-      createTaskCallCount++
-
-      if (createTaskCallCount === 1) {
-        // First task creation - should succeed
+      if (directSubmitCallCount === 1) {
         threadTaskId = 'task-123'
 
         await route.fulfill({
           status: 200,
-          contentType: 'text/plain; charset=utf-8',
-          headers: { 'X-Vercel-AI-Data-Stream': 'v1' },
-          body: '0:"I\'ve started processing the video."\n'
+          contentType: 'application/json',
+          body: JSON.stringify({
+            task_id: 'task-123',
+            messages: [
+              {
+                id: 'user-1',
+                role: 'user',
+                parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=test1' }],
+              },
+              {
+                id: 'assistant-1',
+                role: 'assistant',
+                parts: [
+                  {
+                    type: 'data-task-status',
+                    id: 'task-status-task-123',
+                    data: {
+                      taskId: 'task-123',
+                      status: 'pending',
+                      progress: 0,
+                      videoUrl: 'https://www.youtube.com/watch?v=test1',
+                    },
+                  },
+                  {
+                    type: 'data-task-progress',
+                    id: 'task-progress-task-123',
+                    data: { taskId: 'task-123' },
+                  },
+                  {
+                    type: 'data-task-plan',
+                    id: 'task-plan-task-123',
+                    data: { taskId: 'task-123' },
+                  },
+                ],
+              },
+            ],
+          }),
         })
-      } else if (createTaskCallCount === 2) {
-        // Second task creation - should fail due to 1:1 constraint
+      } else if (directSubmitCallCount === 2) {
         await route.fulfill({
-          status: 200,
-          contentType: 'text/plain; charset=utf-8',
-          headers: { 'X-Vercel-AI-Data-Stream': 'v1' },
-          body: '0:"This conversation is already discussing a video. Please start a new chat to discuss a different video."\n'
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: 'Task creation failed',
+            code: 'TASK_ALREADY_EXISTS',
+            details: 'This conversation is already discussing a video. Please start a new chat to discuss a different video.',
+          }),
         })
       }
     })
@@ -102,7 +134,7 @@ test.describe('Thread-Task 1:1 Constraint', () => {
     await page.waitForTimeout(1000)
 
     // Verify first task was created
-    expect(createTaskCallCount).toBe(1)
+    expect(directSubmitCallCount).toBe(1)
     expect(threadTaskId).toBe('task-123')
 
     // Try to send second video URL in the same thread
@@ -113,14 +145,15 @@ test.describe('Thread-Task 1:1 Constraint', () => {
     await page.waitForTimeout(1000)
 
     // Verify second task creation was attempted
-    expect(createTaskCallCount).toBe(2)
+    expect(directSubmitCallCount).toBe(2)
 
     // Verify thread still has only the first task
     expect(threadTaskId).toBe('task-123')
+    await expect(page.getByText(/already discussing a video/i)).toBeVisible()
   })
 
   test('should allow creating task in new thread after constraint error', async ({ page }) => {
-    let chatRequestCount = 0
+    let directSubmitRequestCount = 0
     await page.route('**/rest/v1/chat_threads*', async (route) => {
       await route.fulfill({
         status: 200,
@@ -129,12 +162,47 @@ test.describe('Thread-Task 1:1 Constraint', () => {
       })
     })
 
-    await page.route('**/api/chat', async (route) => {
-      chatRequestCount++
+    await page.route('**/api/chat/direct-submit', async (route) => {
+      directSubmitRequestCount++
       await route.fulfill({
         status: 200,
-        contentType: 'text/plain',
-        body: 'Task created'
+        contentType: 'application/json',
+        body: JSON.stringify({
+          task_id: 'task-new-thread',
+          messages: [
+            {
+              id: 'user-1',
+              role: 'user',
+              parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=new-video' }],
+            },
+            {
+              id: 'assistant-1',
+              role: 'assistant',
+              parts: [
+                {
+                  type: 'data-task-status',
+                  id: 'task-status-task-new-thread',
+                  data: {
+                    taskId: 'task-new-thread',
+                    status: 'pending',
+                    progress: 0,
+                    videoUrl: 'https://www.youtube.com/watch?v=new-video',
+                  },
+                },
+                {
+                  type: 'data-task-progress',
+                  id: 'task-progress-task-new-thread',
+                  data: { taskId: 'task-new-thread' },
+                },
+                {
+                  type: 'data-task-plan',
+                  id: 'task-plan-task-new-thread',
+                  data: { taskId: 'task-new-thread' },
+                },
+              ],
+            },
+          ],
+        }),
       })
     })
 
@@ -156,7 +224,7 @@ test.describe('Thread-Task 1:1 Constraint', () => {
     // Should succeed (new thread allows new task)
     // Note: We check request count instead of UI text visibility due to mocking limitations with useChat stream rendering in E2E
     // The previous test ensures constraint logic, this ensures we CAN proceed in a new thread.
-    await expect.poll(() => chatRequestCount).toBe(1)
+    await expect.poll(() => directSubmitRequestCount).toBe(1)
   })
 })
 

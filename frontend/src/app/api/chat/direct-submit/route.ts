@@ -21,6 +21,27 @@ type DirectSubmitPayload = {
   originalText?: string
 }
 
+function buildDirectSubmitMessages(params: {
+  taskId?: string
+  videoUrl: string
+  originalText: string
+}) {
+  const taskId = params.taskId ?? `task-${uuidv4()}`
+  const userMessage = createUserTextMessage(`direct-user-${uuidv4()}`, params.originalText)
+  const assistantMessage = createTaskDataParts({
+    messageId: `direct-assistant-${uuidv4()}`,
+    taskId,
+    status: 'pending',
+    progress: 0,
+    videoUrl: params.videoUrl,
+  })
+
+  return {
+    taskId,
+    messages: [userMessage, assistantMessage] satisfies ChatUIMessage[],
+  }
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   let user: { id: string; email?: string } | null = null
@@ -62,6 +83,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
+    if (env.NEXT_PUBLIC_E2E_MOCK === '1') {
+      const { taskId, messages } = buildDirectSubmitMessages({
+        videoUrl: body.videoUrl,
+        originalText: body.originalText,
+      })
+
+      return NextResponse.json({
+        task_id: taskId,
+        messages,
+      })
+    }
+
     const formData = new FormData()
     formData.append('video_url', body.videoUrl)
 
@@ -90,16 +123,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Task creation failed' }, { status: 502 })
     }
 
-    const userMessage = createUserTextMessage(`direct-user-${uuidv4()}`, body.originalText)
-    const assistantMessage = createTaskDataParts({
-      messageId: `direct-assistant-${uuidv4()}`,
+    const { messages } = buildDirectSubmitMessages({
       taskId,
-      status: 'pending',
-      progress: 0,
       videoUrl: body.videoUrl,
+      originalText: body.originalText,
     })
-
-    const messages: ChatUIMessage[] = [userMessage, assistantMessage]
 
     if (env.NEXT_PUBLIC_E2E_MOCK !== '1') {
       await upsertChatState({

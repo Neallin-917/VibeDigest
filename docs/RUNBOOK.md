@@ -37,7 +37,13 @@ cd frontend && npm run build
 - Frontend and backend errors are reported to Sentry
 - Required configuration:
   - `SENTRY_DSN`
+  - `SENTRY_ENVIRONMENT`
   - `NEXT_PUBLIC_SENTRY_DSN`
+  - `NEXT_PUBLIC_SENTRY_ENVIRONMENT` for browser-side event labeling
+- Environment matrix:
+  - local → `development`
+  - Railway production → `production`
+  - Vercel production → `production`
 
 ### LLM observability
 

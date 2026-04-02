@@ -31,6 +31,11 @@ _SUPPRESSED_MESSAGES: tuple[str, ...] = (
     "SUPABASE_JWT_SECRET is required",
 )
 
+_RAILWAY_RUNTIME_MARKERS: tuple[str, ...] = (
+    "RAILWAY_PUBLIC_DOMAIN",
+    "RAILWAY_PROJECT_NAME",
+)
+
 
 def _before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
     """
@@ -63,6 +68,19 @@ def _before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] 
     return event
 
 
+def resolve_sentry_environment() -> str:
+    """Resolve the Sentry environment without assuming production by default."""
+    explicit_environment = (os.getenv("SENTRY_ENVIRONMENT") or "").strip()
+    if explicit_environment:
+        return explicit_environment
+
+    for marker in _RAILWAY_RUNTIME_MARKERS:
+        if (os.getenv(marker) or "").strip():
+            return "production"
+
+    return "development"
+
+
 def init_sentry(dsn: str) -> None:
     """
     Initialise the Sentry SDK with project-appropriate defaults.
@@ -76,7 +94,7 @@ def init_sentry(dsn: str) -> None:
     import sentry_sdk
     from sentry_sdk.integrations.logging import LoggingIntegration
 
-    environment = os.getenv("SENTRY_ENVIRONMENT", "production")
+    environment = resolve_sentry_environment()
 
     # Traces sample rate: configurable via env, default 10 %.
     # Error events are *not* affected by this setting.

@@ -87,8 +87,11 @@ def test_db(postgres_container):
     # We need to handle 'auth.users' dependency since we don't have Supabase Auth in container.
     # So we must create a fake auth schema and users table first.
     pre_setup_sql = """
+    DROP TABLE IF EXISTS public.payment_orders CASCADE;
     DROP TABLE IF EXISTS public.task_outputs CASCADE;
     DROP TABLE IF EXISTS public.tasks CASCADE;
+    DROP TABLE IF EXISTS public.profiles CASCADE;
+    DROP TABLE IF EXISTS public.guest_usage CASCADE;
     DROP TABLE IF EXISTS auth.users CASCADE;
     DROP SCHEMA IF EXISTS auth CASCADE;
 
@@ -132,8 +135,11 @@ def test_db(postgres_container):
         tier text DEFAULT 'free',
         credits_total integer DEFAULT 30,
         credits_used integer DEFAULT 0,
+        extra_credits integer DEFAULT 0,
         usage_limit integer DEFAULT 100,
         usage_count integer DEFAULT 0,
+        creem_customer_id text,
+        period_end timestamptz,
         created_at timestamptz DEFAULT now(),
         updated_at timestamptz DEFAULT now()
     );
@@ -180,6 +186,21 @@ def test_db(postgres_container):
     CREATE TABLE IF NOT EXISTS public.guest_usage (
         guest_id text PRIMARY KEY,
         usage_count integer DEFAULT 0,
+        updated_at timestamptz DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS public.payment_orders (
+        id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+        user_id uuid NOT NULL REFERENCES auth.users(id),
+        provider text NOT NULL,
+        provider_payment_id text,
+        amount_fiat numeric(10,2),
+        currency_fiat text DEFAULT 'USD',
+        amount_crypto numeric(20,8),
+        currency_crypto text,
+        status text DEFAULT 'pending',
+        metadata jsonb,
+        created_at timestamptz DEFAULT now(),
         updated_at timestamptz DEFAULT now()
     );
 

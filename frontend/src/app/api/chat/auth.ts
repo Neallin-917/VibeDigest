@@ -11,6 +11,11 @@ export type AuthError = {
     response: Response;
 };
 
+const E2E_MOCK_USER = {
+    id: '11111111-1111-1111-1111-111111111111',
+    email: 'tester@vibedigest.io',
+} as const;
+
 /**
  * Verify authentication via Supabase.
  * Supports E2E mock bypass when NEXT_PUBLIC_E2E_MOCK is set.
@@ -21,7 +26,7 @@ export async function verifyAuth(): Promise<AuthResult | AuthError> {
     if (env.NEXT_PUBLIC_E2E_MOCK === '1') {
         return {
             supabase,
-            user: { id: 'test-user-id', email: 'tester@vibedigest.io' },
+            user: E2E_MOCK_USER,
             accessToken: 'mock-access-token',
         };
     }

@@ -371,14 +371,15 @@ class DBClient:
         This enables 'Resumable Workflow' where we reuse the expensive transcript.
         """
         query = """
-            SELECT t.* 
+            SELECT t.*
             FROM tasks t
             JOIN task_outputs o ON o.task_id = t.id
-            WHERE t.video_url = :video_url 
-              AND o.kind = 'script' 
+            WHERE t.video_url = :video_url
+              AND o.kind = 'script'
               AND o.status = 'completed'
               AND o.content IS NOT NULL
-              AND o.content != 'null'::jsonb
+              AND NULLIF(BTRIM(CAST(o.content AS TEXT)), '') IS NOT NULL
+              AND BTRIM(CAST(o.content AS TEXT)) <> 'null'
             ORDER BY t.created_at DESC
             LIMIT 1
         """
@@ -401,7 +402,8 @@ class DBClient:
               AND o.kind = 'script'
               AND o.status = 'completed'
               AND o.content IS NOT NULL
-              AND o.content != 'null'::jsonb
+              AND NULLIF(BTRIM(CAST(o.content AS TEXT)), '') IS NOT NULL
+              AND BTRIM(CAST(o.content AS TEXT)) <> 'null'
             ORDER BY t.created_at DESC
             LIMIT 1
         """

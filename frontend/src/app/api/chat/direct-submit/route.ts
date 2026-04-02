@@ -2,12 +2,18 @@ import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { BACKEND_API_URL } from '@/lib/backend-url'
 import { createClient } from '@/lib/supabase/server'
+import { env } from '@/env'
 import {
   createTaskDataParts,
   createUserTextMessage,
   type ChatUIMessage,
 } from '@/lib/chat-ui'
 import { upsertChatState } from '../persistence'
+
+const E2E_MOCK_USER = {
+  id: '11111111-1111-1111-1111-111111111111',
+  email: 'tester@vibedigest.io',
+} as const
 
 type DirectSubmitPayload = {
   threadId?: string
@@ -17,20 +23,37 @@ type DirectSubmitPayload = {
 
 export async function POST(req: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user: { id: string; email?: string } | null = null
+  let accessToken: string | undefined
+  let backendHeaders: Record<string, string> = {}
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (env.NEXT_PUBLIC_E2E_MOCK === '1') {
+    user = E2E_MOCK_USER
+    backendHeaders = {
+      'X-Guest-Id': 'e2e-guest-user',
+    }
+  } else {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-  if (!session) {
-    return NextResponse.json({ error: 'Session invalid' }, { status: 401 })
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Session invalid' }, { status: 401 })
+    }
+
+    user = authUser
+    accessToken = session.access_token
+    backendHeaders = {
+      Authorization: `Bearer ${accessToken}`,
+    }
   }
 
     try {
@@ -44,9 +67,7 @@ export async function POST(req: Request) {
 
     const res = await fetch(`${BACKEND_API_URL}/api/process-video`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: backendHeaders,
       body: formData,
     })
 
@@ -80,13 +101,15 @@ export async function POST(req: Request) {
 
     const messages: ChatUIMessage[] = [userMessage, assistantMessage]
 
-    await upsertChatState({
-      threadId: body.threadId,
-      user: { id: user.id, email: user.email },
-      supabase,
-      messages,
-      taskIdToBind: taskId,
-    })
+    if (env.NEXT_PUBLIC_E2E_MOCK !== '1') {
+      await upsertChatState({
+        threadId: body.threadId,
+        user: { id: user.id, email: user.email },
+        supabase,
+        messages,
+        taskIdToBind: taskId,
+      })
+    }
 
     return NextResponse.json({
       task_id: taskId,

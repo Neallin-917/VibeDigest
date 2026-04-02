@@ -4,6 +4,12 @@ vi.mock('@/lib/backend-url', () => ({
   BACKEND_API_URL: 'http://localhost:8000',
 }))
 
+vi.mock('@/env', () => ({
+  env: {
+    NEXT_PUBLIC_E2E_MOCK: '0',
+  },
+}))
+
 import { POST } from './route'
 
 const {

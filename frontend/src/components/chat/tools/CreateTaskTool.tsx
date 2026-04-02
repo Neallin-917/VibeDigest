@@ -13,7 +13,6 @@ import type { CreateTaskToolProps } from './types'
 
 export function CreateTaskTool({
   state,
-  input,
   output,
   errorText,
   onViewClick,

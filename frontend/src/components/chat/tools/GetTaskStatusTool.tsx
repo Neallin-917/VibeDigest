@@ -11,7 +11,6 @@ import { useI18n } from '@/components/i18n/I18nProvider'
 
 export function GetTaskStatusTool({
   state,
-  input,
   output,
   errorText,
 }: GetTaskStatusToolProps) {

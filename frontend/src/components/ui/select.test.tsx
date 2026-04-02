@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import {
   Select,
@@ -33,10 +33,10 @@ describe('Select Component', () => {
         </SelectContent>
       </Select>
     )
-    
+
     const trigger = screen.getByRole('combobox')
     await userEvent.click(trigger)
-    
+
     expect(screen.getByText('Option 1')).toBeDefined()
     expect(screen.getByText('Option 2')).toBeDefined()
   })
@@ -54,13 +54,13 @@ describe('Select Component', () => {
         </SelectContent>
       </Select>
     )
-    
+
     const trigger = screen.getByRole('combobox')
     await userEvent.click(trigger)
-    
+
     const option1 = screen.getByText('Option 1')
     await userEvent.click(option1)
-    
+
     expect(onValueChange).toHaveBeenCalledWith('option1')
   })
 })

@@ -24,7 +24,7 @@ export function isSupportedUrl(url: string): boolean {
         return SUPPORTED_DOMAINS.some(domain => 
             hostname === domain || hostname.endsWith(`.${domain}`)
         )
-    } catch (e) {
+    } catch {
         return false
     }
 }

@@ -54,7 +54,7 @@ export function extractAndNormalizeUrl(text: string): string | null {
         }
 
         return urlObj.toString();
-    } catch (e) {
+    } catch {
         // Invalid URL structure
         return null;
     }

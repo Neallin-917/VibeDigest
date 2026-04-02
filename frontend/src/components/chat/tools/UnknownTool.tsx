@@ -11,7 +11,6 @@ import type { UnknownToolProps } from './types'
 export function UnknownTool({
   toolName,
   state,
-  input,
   output,
   errorText,
 }: UnknownToolProps) {

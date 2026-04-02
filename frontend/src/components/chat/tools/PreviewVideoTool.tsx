@@ -11,7 +11,6 @@ import type { PreviewVideoToolProps } from './types'
 
 export function PreviewVideoTool({
   state,
-  input,
   output,
   errorText,
 }: PreviewVideoToolProps) {

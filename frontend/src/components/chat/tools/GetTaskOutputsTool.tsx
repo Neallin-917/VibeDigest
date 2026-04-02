@@ -11,7 +11,6 @@ import type { GetTaskOutputsToolProps } from './types'
 
 export function GetTaskOutputsTool({
   state,
-  input,
   output,
   errorText,
 }: GetTaskOutputsToolProps) {

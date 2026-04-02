@@ -76,9 +76,7 @@ export function useThreadNavigation({
     // This prevents effect re-runs caused by unstable function references
     // (e.g. React Query hooks returning new callbacks on cache updates).
     const refetchThreadsRef = useRef(refetchThreads)
-    refetchThreadsRef.current = refetchThreads
     const loadThreadPayloadRef = useRef(loadThreadPayload)
-    loadThreadPayloadRef.current = loadThreadPayload
     const resolveOrCreateThreadForTaskRef = useRef<(taskId: string) => Promise<string>>(() => Promise.resolve(''))
     const safeReplaceRef = useRef<(params: URLSearchParams) => boolean>(() => false)
     const getCurrentParamsRef = useRef<() => URLSearchParams>(() => new URLSearchParams())
@@ -127,8 +125,6 @@ export function useThreadNavigation({
         replace(nextUrl, { scroll: false })
         return true
     }, [pathname, replace])
-    safeReplaceRef.current = safeReplace
-    getCurrentParamsRef.current = getCurrentParams
 
     const commitThreadSelection = useCallback((threadId: string, payload: ThreadPayload) => {
         startTransition(() => {
@@ -194,7 +190,20 @@ export function useThreadNavigation({
         newThreadIdsRef.current.add(fallbackId)
         return fallbackId
     }, [])
-    resolveOrCreateThreadForTaskRef.current = resolveOrCreateThreadForTask
+
+    useEffect(() => {
+        refetchThreadsRef.current = refetchThreads
+        loadThreadPayloadRef.current = loadThreadPayload
+        safeReplaceRef.current = safeReplace
+        getCurrentParamsRef.current = getCurrentParams
+        resolveOrCreateThreadForTaskRef.current = resolveOrCreateThreadForTask
+    }, [
+        getCurrentParams,
+        loadThreadPayload,
+        refetchThreads,
+        resolveOrCreateThreadForTask,
+        safeReplace,
+    ])
 
     // Main initialization effect — syncs local state with URL params
     useEffect(() => {
@@ -292,7 +301,6 @@ export function useThreadNavigation({
         return () => {
             cancelled = true
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Functions accessed via stable refs; only URL params should trigger re-init
     }, [queryTaskId, queryThreadId])
 
     // Handle New Chat

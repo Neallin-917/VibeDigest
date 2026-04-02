@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { match } from '@formatjs/intl-localematcher'
 import Negotiator from 'negotiator'
-import { createServerClient } from '@supabase/ssr'
-import { env } from '@/env'
 import { updateSession } from '@/lib/supabase/proxy'
 
 const SUPPORTED_LOCALES = ["en", "zh", "ja"]
@@ -16,7 +14,7 @@ function getLocale(request: NextRequest): string {
   const languages = new Negotiator({ headers }).languages()
   try {
     return match(languages, SUPPORTED_LOCALES, DEFAULT_LOCALE)
-  } catch (e) {
+  } catch {
     return DEFAULT_LOCALE
   }
 }
@@ -35,7 +33,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // 1. Initialize session and refresh cookies
-  let { response, user } = await updateSession(request)
+  const { response, user } = await updateSession(request)
 
   // API routes: session cookies are already refreshed in 'response'
   if (pathname.startsWith('/api')) {
@@ -44,7 +42,6 @@ export async function proxy(request: NextRequest) {
 
   const pathParts = pathname.split('/')
   const pathLocale = SUPPORTED_LOCALES.find(l => pathParts[1] === l)
-  
   const locale = pathLocale || DEFAULT_LOCALE
   let pathWithoutLocale = pathLocale ? '/' + pathParts.slice(2).join('/') : pathname
   if (!pathWithoutLocale.startsWith('/')) pathWithoutLocale = '/' + pathWithoutLocale

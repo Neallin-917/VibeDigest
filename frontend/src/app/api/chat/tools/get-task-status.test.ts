@@ -71,7 +71,7 @@ describe('createGetTaskStatusTool – retry logic', () => {
         const ctx = makeCtx({ supabase: supabase as any });
 
         const tool = createGetTaskStatusTool(ctx);
-        const result = await tool.execute({ taskId: 'task-1' }, execOpts);
+        const result = await tool.execute!({ taskId: 'task-1' }, execOpts);
 
         expect(result).toMatchObject({
             taskId: 'task-1',
@@ -102,7 +102,7 @@ describe('createGetTaskStatusTool – retry logic', () => {
         const ctx = makeCtx({ supabase: supabase as any });
 
         const tool = createGetTaskStatusTool(ctx);
-        const promise = tool.execute({ taskId: 'task-1' }, execOpts);
+        const promise = tool.execute!({ taskId: 'task-1' }, execOpts);
 
         // Advance past the 500ms retry delay
         await vi.advanceTimersByTimeAsync(600);
@@ -140,7 +140,7 @@ describe('createGetTaskStatusTool – retry logic', () => {
         });
 
         const tool = createGetTaskStatusTool(ctx);
-        const promise = tool.execute({ taskId: 'task-1' }, execOpts);
+        const promise = tool.execute!({ taskId: 'task-1' }, execOpts);
         await vi.advanceTimersByTimeAsync(600);
         const result = await promise;
 
@@ -162,7 +162,7 @@ describe('createGetTaskStatusTool – retry logic', () => {
         mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
 
         const tool = createGetTaskStatusTool(ctx);
-        const promise = tool.execute({ taskId: 'task-nonexistent' }, execOpts);
+        const promise = tool.execute!({ taskId: 'task-nonexistent' }, execOpts);
         await vi.advanceTimersByTimeAsync(600);
         const result = await promise;
 

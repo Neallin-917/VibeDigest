@@ -42,7 +42,7 @@ describe('createCreateTaskTool', () => {
     it('returns SESSION_EXPIRED when accessToken is undefined (no fetch call)', async () => {
         const ctx = makeCtx({ accessToken: undefined });
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             { toolCallId: 'tc1', messages: [], abortSignal: undefined as any },
         );
@@ -63,7 +63,7 @@ describe('createCreateTaskTool', () => {
         });
 
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             { toolCallId: 'tc2', messages: [], abortSignal: undefined as any },
         );
@@ -84,7 +84,7 @@ describe('createCreateTaskTool', () => {
         });
 
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             { toolCallId: 'tc3', messages: [], abortSignal: undefined as any },
         );
@@ -104,7 +104,7 @@ describe('createCreateTaskTool', () => {
         });
 
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             { toolCallId: 'tc4', messages: [], abortSignal: undefined as any },
         );
@@ -137,7 +137,7 @@ describe('createCreateTaskTool', () => {
             } as any,
         });
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=new' },
             { toolCallId: 'tc5', messages: [], abortSignal: undefined as any },
         );
@@ -154,7 +154,7 @@ describe('createCreateTaskTool', () => {
     it('returns "Authentication required" when user.id is falsy', async () => {
         const ctx = makeCtx({ user: null });
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             { toolCallId: 'tc6', messages: [], abortSignal: undefined as any },
         );
@@ -168,7 +168,7 @@ describe('createCreateTaskTool', () => {
     it('returns error when URL is invalid and no fallback in history', async () => {
         const ctx = makeCtx({ messages: [] });
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'not a url at all' },
             { toolCallId: 'tc7', messages: [], abortSignal: undefined as any },
         );
@@ -197,7 +197,7 @@ describe('createCreateTaskTool', () => {
         });
 
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'garbage input' },
             { toolCallId: 'tc8', messages: [], abortSignal: undefined as any },
         );
@@ -216,7 +216,7 @@ describe('createCreateTaskTool', () => {
         mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
 
         const tool = createCreateTaskTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             { toolCallId: 'tc9', messages: [], abortSignal: undefined as any },
         );

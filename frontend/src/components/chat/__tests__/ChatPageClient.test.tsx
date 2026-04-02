@@ -21,7 +21,7 @@ function renderWithQueryClient(ui: React.ReactElement) {
 let currentSearchParams = new URLSearchParams()
 const replaceMock = vi.fn()
 const pushMock = vi.fn()
-const fetchThreadTaskIdMock = vi.fn(async () => null)
+const fetchThreadTaskIdMock = vi.fn<(threadId: string) => Promise<string | null>>()
 const idleCallbacks: IdleRequestCallback[] = []
 
 vi.mock('next/navigation', () => ({
@@ -38,7 +38,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/lib/thread-utils', () => ({
-  fetchThreadTaskId: (...args: unknown[]) => fetchThreadTaskIdMock(...args)
+  fetchThreadTaskId: (threadId: string) => fetchThreadTaskIdMock(threadId)
 }))
 
 vi.mock('@/components/layout/AppSidebarContext', () => ({

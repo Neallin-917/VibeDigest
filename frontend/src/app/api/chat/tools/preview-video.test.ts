@@ -38,7 +38,7 @@ describe('createPreviewVideoTool', () => {
     it('returns SESSION_EXPIRED when accessToken is undefined (no fetch call)', async () => {
         const ctx = makeCtx({ accessToken: undefined });
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );
@@ -61,7 +61,7 @@ describe('createPreviewVideoTool', () => {
         });
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );
@@ -82,7 +82,7 @@ describe('createPreviewVideoTool', () => {
         });
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );
@@ -103,7 +103,7 @@ describe('createPreviewVideoTool', () => {
         });
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );
@@ -131,7 +131,7 @@ describe('createPreviewVideoTool', () => {
         });
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );
@@ -157,7 +157,7 @@ describe('createPreviewVideoTool', () => {
         });
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );
@@ -171,7 +171,7 @@ describe('createPreviewVideoTool', () => {
     it('returns error when no valid URL in args and no message history', async () => {
         const ctx = makeCtx({ messages: [] });
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'not a valid url' },
             EXECUTE_OPTS,
         );
@@ -198,7 +198,7 @@ describe('createPreviewVideoTool', () => {
         });
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'some garbage text' },
             EXECUTE_OPTS,
         );
@@ -217,7 +217,7 @@ describe('createPreviewVideoTool', () => {
         mockFetch.mockRejectedValueOnce(new Error('fetch failed: ECONNREFUSED'));
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );
@@ -233,7 +233,7 @@ describe('createPreviewVideoTool', () => {
         mockFetch.mockRejectedValueOnce('string error');
 
         const tool = createPreviewVideoTool(ctx);
-        const result = await tool.execute(
+        const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
             EXECUTE_OPTS,
         );

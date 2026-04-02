@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { threadKeys } from './queryKeys'
-import { mapDBMessageToUIMessage, DBMessage } from '@/lib/chat-utils'
 import { fetchThreadTaskId } from '@/lib/thread-utils'
 import type { ChatUIMessage } from '@/lib/chat-ui'
 
@@ -17,8 +16,7 @@ async function fetchThreadMessages(threadId: string): Promise<ChatUIMessage[]> {
             return []
         }
         if (res.ok) {
-            const dbMessages: DBMessage[] = await res.json()
-            return dbMessages.map(mapDBMessageToUIMessage)
+            return await res.json() as ChatUIMessage[]
         }
         return []
     } catch (error) {

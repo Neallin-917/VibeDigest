@@ -317,12 +317,12 @@ describe('ChatPageClient', () => {
         { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
       ])
       if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([
-        { id: 'm1', role: 'user', content: [{ type: 'text', text: 'Thread A' }], created_at: '2026-02-06T00:00:00Z' },
+        { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Thread A' }], metadata: { createdAt: '2026-02-06T00:00:00Z' } },
       ])
       if (url === '/api/chat/threads/thread-b/messages') {
         await new Promise((resolve) => setTimeout(resolve, 30))
         return jsonResponse([
-          { id: 'm2', role: 'user', content: [{ type: 'text', text: 'Thread B' }], created_at: '2026-02-06T00:00:00Z' },
+          { id: 'm2', role: 'user', parts: [{ type: 'text', text: 'Thread B' }], metadata: { createdAt: '2026-02-06T00:00:00Z' } },
         ])
       }
       throw new Error(`Unexpected fetch URL: ${url}`)

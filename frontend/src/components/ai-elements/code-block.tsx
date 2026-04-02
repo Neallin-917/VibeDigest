@@ -120,6 +120,11 @@ interface TokenizedCode {
   bg: string;
 }
 
+interface AsyncHighlightState {
+  cacheKey: string;
+  tokenized: TokenizedCode;
+}
+
 interface CodeBlockContextType {
   code: string;
 }
@@ -388,33 +393,34 @@ export const CodeBlockContent = ({
     () => highlightCode(code, language) ?? rawTokens,
     [code, language, rawTokens]
   );
+  const cacheKey = useMemo(
+    () => getTokensCacheKey(code, language),
+    [code, language]
+  );
 
   // Async highlighting result (populated after shiki loads)
-  const [asyncTokens, setAsyncTokens] = useState<TokenizedCode | null>(null);
-  const asyncKeyRef = useRef({ code, language });
-
-  // Invalidate stale async tokens synchronously during render
-  if (
-    asyncKeyRef.current.code !== code ||
-    asyncKeyRef.current.language !== language
-  ) {
-    asyncKeyRef.current = { code, language };
-    setAsyncTokens(null);
-  }
+  const [asyncHighlight, setAsyncHighlight] =
+    useState<AsyncHighlightState | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     highlightCode(code, language, (result) => {
       if (!cancelled) {
-        setAsyncTokens(result);
+        setAsyncHighlight({
+          cacheKey,
+          tokenized: result,
+        });
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [code, language]);
+  }, [cacheKey, code, language]);
+
+  const asyncTokens =
+    asyncHighlight?.cacheKey === cacheKey ? asyncHighlight.tokenized : null;
 
   const tokenized = asyncTokens ?? syncTokens;
 

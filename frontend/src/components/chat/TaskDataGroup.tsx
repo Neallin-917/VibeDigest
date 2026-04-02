@@ -59,21 +59,24 @@ function getStatusIcon(status: TaskLifecycleStatus) {
   }
 }
 
-function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false) {
-  const [snapshot, setSnapshot] = useState<TaskSnapshot | null>(seed ?? null)
+function resolveTaskSnapshot(
+  seed: ChatUIDataParts['task-status'] | undefined,
+  liveSnapshot: TaskSnapshot | null
+) {
+  if (!seed) return liveSnapshot
+  if (!liveSnapshot) return seed
+  return liveSnapshot.taskId === seed.taskId ? liveSnapshot : seed
+}
 
-  useEffect(() => {
-    if (seed) {
-      setSnapshot(seed)
-    }
-  }, [seed])
+function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false) {
+  const [liveSnapshot, setLiveSnapshot] = useState<TaskSnapshot | null>(null)
 
   useEffect(() => {
     if (!live || !seed?.taskId) return
 
     const taskId = seed.taskId
-    const unsubscribe = subscribeToTask(taskId, (row) => {
-      setSnapshot(mapTaskRow(row, taskId))
+    const unsubscribe = subscribeToTask(taskId, row => {
+      setLiveSnapshot(mapTaskRow(row, taskId))
     })
 
     return () => {
@@ -81,7 +84,7 @@ function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false
     }
   }, [live, seed?.taskId])
 
-  return snapshot
+  return resolveTaskSnapshot(seed, liveSnapshot)
 }
 
 function TaskStatusCard({

@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-> Last Verified: 2026-04-01
+> Last Verified: 2026-04-02
 > Scope: frontend implementation map, not onboarding
 
 ## System Overview
@@ -116,6 +116,15 @@ components/ui/
 | `layout/` | App Shell | `MainShell`, `Sidebar`, `MobileNav`, `FeedbackDialog` |
 | `auth/` | Authentication | `LoginForm`, `GoogleOneTap` |
 | `settings/` | User Preferences | `UsageCard` |
+
+### Chat Message Boundary
+
+- `src/lib/chat-ui.ts` defines the durable chat message factories and schema-aligned types.
+- `src/lib/chat-message-boundary.ts` is the single ingress/egress boundary for chat messages:
+  - request messages are validated before `/api/chat` accepts them
+  - stored history is normalized before read / replay
+  - persistence rejects any message that cannot satisfy the `UIMessage.parts` contract
+- UI-only loading states in `ChatContainer` must stay outside persisted `ChatUIMessage[]`; do not model transient placeholders as `assistant.parts = []`.
 
 ## State Management
 

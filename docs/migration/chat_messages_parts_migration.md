@@ -8,6 +8,10 @@ This runbook covers the cleanup path for historical `public.chat_messages` rows 
   - `hello` -> `[{"type":"text","text":"hello"}]`
 - Unwraps older message envelopes that still store `content` or `parts` inside the `content` column.
 - Leaves already-normalized parts arrays unchanged.
+- Deletes rows that can never satisfy the UIMessage contract:
+  - `content` is not a JSON array
+  - `content` is an empty array
+  - any part object is missing a string `type`
 - If `public.chat_messages.content` is still `text`, the script rewrites rows first and then converts the column to `jsonb`.
 
 ## Safe usage

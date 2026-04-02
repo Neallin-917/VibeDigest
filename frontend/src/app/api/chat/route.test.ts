@@ -454,6 +454,100 @@ describe('POST /api/chat', () => {
         ])
     })
 
+    it('filters persisted assistant placeholders with empty parts before validation', async () => {
+        mockFrom.mockImplementation(((table: string) => {
+            if (table === 'chat_threads') {
+                return {
+                    select: vi.fn().mockReturnValue({
+                        eq: vi.fn().mockReturnValue({
+                            single: vi.fn().mockResolvedValue({
+                                data: { id: 'thread-123', title: 'New Chat' },
+                                error: null,
+                            }),
+                        }),
+                    }),
+                }
+            }
+
+            if (table === 'chat_messages') {
+                return {
+                    select: vi.fn().mockReturnValue({
+                        eq: vi.fn().mockReturnValue({
+                            order: vi.fn().mockResolvedValue({
+                                data: [
+                                    {
+                                        id: 'msg-1',
+                                        role: 'user',
+                                        content: [{ type: 'text', text: 'https://www.youtube.com/watch?v=abc' }],
+                                        created_at: '2024-01-01T00:00:00Z',
+                                    },
+                                    {
+                                        id: 'msg-2',
+                                        role: 'assistant',
+                                        content: [],
+                                        created_at: '2024-01-01T00:00:01Z',
+                                    },
+                                ],
+                                error: null,
+                            }),
+                        }),
+                    }),
+                }
+            }
+
+            return {
+                select: mockSelect,
+                insert: mockInsert,
+                update: mockUpdate,
+                upsert: mockUpsert,
+            }
+        }) as any)
+
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: createTextMessage('hi', 'user', 'fresh-user'),
+                threadId: 'thread-123',
+            }),
+        })
+
+        const res = await POST(req)
+
+        expect(res.status).toBe(200)
+        const validatedInput = mockValidateUIMessages.mock.calls[0][0]
+        expect(validatedInput.messages).toEqual([
+            expect.objectContaining({ id: 'msg-1', role: 'user' }),
+            expect.objectContaining({ id: 'fresh-user', role: 'user' }),
+        ])
+        expect(validatedInput.messages).toHaveLength(2)
+    })
+
+    it('returns 400 when the incoming request message is not persistable', async () => {
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: {
+                    id: 'assistant-placeholder',
+                    role: 'assistant',
+                    parts: [],
+                },
+                threadId: 'thread-123',
+            }),
+        })
+
+        const res = await POST(req)
+        const body = await res.json()
+
+        expect(res.status).toBe(400)
+        expect(body).toEqual(
+            expect.objectContaining({
+                error: 'Invalid chat message',
+                details: expect.stringContaining('parts-empty'),
+            })
+        )
+        expect(mockValidateUIMessages).not.toHaveBeenCalled()
+    })
+
     it('injects RAG context when taskId is provided', async () => {
         const taskId = 'task-123'
 

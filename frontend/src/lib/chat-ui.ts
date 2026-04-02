@@ -136,7 +136,7 @@ export function createTaskDataParts(params: {
 }
 
 export function isStrictStoredMessageRow(row: StoredChatMessageRow): boolean {
-  return isStoredMessageRole(row.role) && hasOnlyTypedParts(row.content)
+  return isStoredMessageRole(row.role) && Array.isArray(row.content) && row.content.length > 0 && hasOnlyTypedParts(row.content)
 }
 
 export function toStoredChatUIMessage(row: StoredChatMessageRow): ChatUIMessage {

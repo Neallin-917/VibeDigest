@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { isStrictStoredMessageRow } from '@/lib/chat-ui';
+import { sanitizeStoredMessages, logInvalidChatMessages } from '@/lib/chat-message-boundary';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -37,5 +37,12 @@ export async function getThreadMessagesResponse({
         return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
 
-    return NextResponse.json((messages ?? []).filter(isStrictStoredMessageRow));
+    const { validMessages, invalidMessages } = sanitizeStoredMessages(messages ?? []);
+    logInvalidChatMessages({
+        source: 'thread-read',
+        threadId,
+        invalidMessages,
+    });
+
+    return NextResponse.json(validMessages);
 }

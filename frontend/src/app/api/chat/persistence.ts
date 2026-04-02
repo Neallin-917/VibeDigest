@@ -6,6 +6,7 @@ import {
     getMessageCreatedAtIso,
     extractTaskIdFromCreateTaskMessages,
 } from './utils';
+import { assertPersistableMessages, logInvalidChatMessages, sanitizeIncomingMessages } from '@/lib/chat-message-boundary';
 
 type PersistenceParams = {
     threadId: string | undefined;
@@ -35,6 +36,14 @@ export async function upsertChatState({
     taskIdToBind,
     threadTitle,
 }: UpsertChatStateParams) {
+    const { invalidMessages } = sanitizeIncomingMessages(messages);
+    logInvalidChatMessages({
+        source: 'persistence',
+        threadId,
+        invalidMessages,
+    });
+    const persistableMessages = assertPersistableMessages(messages);
+
     const { data: existingThread } = await supabase
         .from('chat_threads')
         .select('id')
@@ -60,7 +69,7 @@ export async function upsertChatState({
         }
     }
 
-    const messagesToUpsert = messages.map((msg) => ({
+    const messagesToUpsert = persistableMessages.map((msg) => ({
         id: msg.id,
         thread_id: threadId,
         role: msg.role,
@@ -117,14 +126,16 @@ export function createOnFinishHandler(params: PersistenceParams) {
                 return;
             }
 
+            const persistableFinalMessages = assertPersistableMessages(finalMessages);
+
             // 1. Determine Task ID binding first (from tool outputs or request)
-            const createdTaskId = extractTaskIdFromCreateTaskMessages(finalMessages);
+            const createdTaskId = extractTaskIdFromCreateTaskMessages(persistableFinalMessages);
             const taskIdToBind = createdTaskId || requestTaskId;
             await upsertChatState({
                 threadId,
                 user,
                 supabase,
-                messages: finalMessages,
+                messages: persistableFinalMessages,
                 taskIdToBind,
                 threadTitle,
             });
@@ -137,7 +148,7 @@ export function createOnFinishHandler(params: PersistenceParams) {
                     (m) => m.role === 'user' && getTextFromUIMessage(m).length > 0
                 );
 
-                const firstAssistantTextMsg = finalMessages.find(
+                const firstAssistantTextMsg = persistableFinalMessages.find(
                     (m) => m.role === 'assistant' && getTextFromUIMessage(m).length > 0
                 );
 

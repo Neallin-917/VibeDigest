@@ -17,7 +17,7 @@ import { useDirectUrlSubmission } from './useDirectUrlSubmission'
 import { Loader2, XCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useI18n } from '@/components/i18n/I18nProvider'
-import { chatDataSchemas, type ChatUIMessage } from '@/lib/chat-ui'
+import { chatDataSchemas, createUserTextMessage, type ChatUIMessage } from '@/lib/chat-ui'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -158,7 +158,7 @@ export function ChatContainer({
     window.location.href = loginUrl
   }
 
-  const { isDirectProcessing, handleDirectUrlSubmission } = useDirectUrlSubmission({
+  const { isDirectProcessing, directSubmitError, handleDirectUrlSubmission } = useDirectUrlSubmission({
     sendMessageToApi,
     setMessages,
     onChatStarted,
@@ -187,7 +187,7 @@ export function ChatContainer({
     }
 
     // Non-URL messages: send through LLM for Q&A
-    sendMessageToApi({ text: trimmed })
+    sendMessageToApi(createUserTextMessage(`user-${uuidv4()}`, trimmed))
   }
 
   // Sync initialMessages when they change
@@ -201,6 +201,11 @@ export function ChatContainer({
   }, [activeTaskId])
 
   const isLoading = status === 'streaming' || status === 'submitted' || isDirectProcessing
+  const displayErrorMessage = directSubmitError ?? (requiresAuth
+    ? t('auth.signInToContinue', { appName: t('brand.appName') })
+    : error
+      ? 'Something went wrong.'
+      : null)
   const hasRenderableAssistant = useMemo(
     () => checkHasRenderableAssistant(messages),
     [messages]
@@ -364,37 +369,39 @@ export function ChatContainer({
               </motion.div>
             )}
 
-            {/* Error State */}
-            {error && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex w-full">
-                <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 px-4 py-3 rounded-xl flex items-center gap-3">
-                  <XCircle className="w-4 h-4 text-red-500" />
-                  <div className="text-sm text-red-600 dark:text-red-400">
-                    {requiresAuth
-                      ? t('auth.signInToContinue', { appName: t('brand.appName') })
-                      : 'Something went wrong.'}
-                  </div>
-                  {requiresAuth ? (
-                    <button
-                      onClick={handleLogin}
-                      className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      {t('auth.signIn')}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => regenerate()}
-                      className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      Retry
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            )}
           </div>
         )}
       </div>
+
+      {displayErrorMessage && (
+        <div className="px-4 md:px-8 pb-4">
+          <div className="max-w-3xl mx-auto">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex w-full">
+              <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 px-4 py-3 rounded-xl flex items-center gap-3">
+                <XCircle className="w-4 h-4 text-red-500" />
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  {directSubmitError ?? displayErrorMessage}
+                </div>
+                {requiresAuth ? (
+                  <button
+                    onClick={handleLogin}
+                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    {t('auth.signIn')}
+                  </button>
+                ) : error && !directSubmitError ? (
+                  <button
+                    onClick={() => regenerate()}
+                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    Retry
+                  </button>
+                ) : null}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      )}
 
       {(messages.length > 0 || activeTaskId) && (
         <ChatInput

@@ -9,11 +9,13 @@ export function useDirectUrlSubmission(deps: {
   activeTaskIdRef: React.RefObject<string | null | undefined>
 }): {
   isDirectProcessing: boolean
+  directSubmitError: string | null
   handleDirectUrlSubmission: (url: string, originalText: string) => Promise<void>
 } {
-  const { sendMessageToApi, setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef } = deps
+  const { setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef } = deps
 
   const [isDirectProcessing, setIsDirectProcessing] = useState(false)
+  const [directSubmitError, setDirectSubmitError] = useState<string | null>(null)
 
   /**
    * Direct URL submission: bypass LLM tool calls entirely.
@@ -22,6 +24,7 @@ export function useDirectUrlSubmission(deps: {
    */
   const handleDirectUrlSubmission = useCallback(async (url: string, originalText: string) => {
     setIsDirectProcessing(true)
+    setDirectSubmitError(null)
     try {
       const res = await fetch('/api/chat/direct-submit', {
         method: 'POST',
@@ -34,8 +37,14 @@ export function useDirectUrlSubmission(deps: {
       })
 
       if (!res.ok) {
-        // Fall back to LLM path on API error
-        sendMessageToApi({ text: originalText })
+        const errorPayload = await res.json().catch(() => null)
+        const details =
+          errorPayload && typeof errorPayload === 'object' && 'details' in errorPayload && typeof errorPayload.details === 'string'
+            ? errorPayload.details
+            : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
+              ? errorPayload.error
+              : 'Unable to process this video right now.'
+        setDirectSubmitError(details)
         return
       }
 
@@ -44,7 +53,7 @@ export function useDirectUrlSubmission(deps: {
       const messages = Array.isArray(data.messages) ? (data.messages as ChatUIMessage[]) : null
 
       if (!taskId || !messages) {
-        sendMessageToApi({ text: originalText })
+        setDirectSubmitError('Unable to create a task for this URL.')
         return
       }
 
@@ -58,12 +67,11 @@ export function useDirectUrlSubmission(deps: {
         onChatStarted(effectiveThreadId, taskId)
       }
     } catch {
-      // Network error: fall back to LLM path
-      sendMessageToApi({ text: originalText })
+      setDirectSubmitError('Network error while starting video processing.')
     } finally {
       setIsDirectProcessing(false)
     }
-  }, [sendMessageToApi, setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef])
+  }, [setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef])
 
-  return { isDirectProcessing, handleDirectUrlSubmission }
+  return { isDirectProcessing, directSubmitError, handleDirectUrlSubmission }
 }

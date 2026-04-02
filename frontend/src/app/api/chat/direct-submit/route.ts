@@ -33,11 +33,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Session invalid' }, { status: 401 })
   }
 
-  try {
-    const body = (await req.json()) as DirectSubmitPayload
-    if (!body.videoUrl || !body.originalText || !body.threadId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
+    try {
+        const body = (await req.json()) as DirectSubmitPayload
+        if (!body.videoUrl || !body.originalText || !body.threadId) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
 
     const formData = new FormData()
     formData.append('video_url', body.videoUrl)
@@ -53,7 +53,11 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const errorText = await res.text()
       return NextResponse.json(
-        { error: `Backend error: ${res.status} ${errorText}` },
+        {
+          error: 'Task creation failed',
+          code: 'TASK_CREATION_FAILED',
+          details: errorText || `Backend returned status ${res.status}`,
+        },
         { status: res.status }
       )
     }
@@ -90,6 +94,13 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('[API/Chat] Direct submit failed:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Direct submit failed',
+        code: 'DIRECT_SUBMIT_FAILED',
+        details: error instanceof Error ? error.message : 'Unexpected error',
+      },
+      { status: 500 }
+    )
   }
 }

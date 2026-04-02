@@ -120,7 +120,12 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer isAuthenticated={true} />)
     fireEvent.click(screen.getByText('Send'))
-    expect(mockSendMessage).toHaveBeenCalledWith({ text: 'test message' })
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'user',
+        parts: [{ type: 'text', text: 'test message' }],
+      })
+    )
   })
 
   it('redirects to login when unauthenticated user sends a message', () => {
@@ -152,7 +157,12 @@ describe('ChatContainer', () => {
   it('sends message via WelcomeScreen when authenticated', async () => {
     render(<ChatContainer isAuthenticated={true} />)
     fireEvent.click(screen.getByText('Start'))
-    expect(mockSendMessage).toHaveBeenCalledWith({ text: 'welcome message' })
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'user',
+        parts: [{ type: 'text', text: 'welcome message' }],
+      })
+    )
   })
 
   it('shows login hint in WelcomeScreen when unauthenticated', () => {
@@ -273,7 +283,12 @@ describe('ChatContainer', () => {
     render(<ChatContainer isAuthenticated={true} />)
 
     await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({ text: 'Stored Message' })
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role: 'user',
+            parts: [{ type: 'text', text: 'Stored Message' }],
+          })
+        )
     })
     expect(localStorage.getItem('vibedigest_pending_message')).toBeNull()
   })
@@ -328,6 +343,31 @@ describe('ChatContainer', () => {
       const nextMessages = updater([]) as ChatUIMessage[]
       expect(nextMessages).toEqual(serverMessages)
       expect(mockSendMessage).not.toHaveBeenCalled()
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+
+  it('shows a direct-submit error and does not fall back to the chat transport', async () => {
+    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=broken123')
+    const originalFetch = global.fetch
+    try {
+      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          error: 'Task creation failed',
+          details: 'backend is down',
+        }),
+      } as Response)
+
+      render(<ChatContainer isAuthenticated={true} />)
+
+      await waitFor(() => {
+        expect(screen.getByText('backend is down')).toBeInTheDocument()
+      })
+
+      expect(mockSendMessage).not.toHaveBeenCalled()
+      expect(mockSetMessages).not.toHaveBeenCalled()
     } finally {
       global.fetch = originalFetch
     }

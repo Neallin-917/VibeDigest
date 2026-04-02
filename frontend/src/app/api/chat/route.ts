@@ -20,9 +20,12 @@ import {
     chatDataSchemas,
     messageMetadataSchema,
     type ChatUIMessage,
-    isStrictStoredMessageRow,
-    toStoredChatUIMessage,
 } from '@/lib/chat-ui';
+import {
+    logInvalidChatMessages,
+    sanitizeIncomingMessages,
+    sanitizeStoredMessages,
+} from '@/lib/chat-message-boundary';
 import { writeTaskDataParts } from './task-data-parts';
 
 const SHORT_QUERY_CHAR_LIMIT = 200;
@@ -44,7 +47,30 @@ export async function POST(req: Request) {
         // Parse request body
         const jsonBody = (await req.json()) as RequestPayload;
 
-        const { message, threadId, taskId: bodyTaskId } = jsonBody;
+        const { threadId, taskId: bodyTaskId } = jsonBody;
+
+        if (jsonBody.message) {
+            const { validMessages, invalidMessages } = sanitizeIncomingMessages([jsonBody.message]);
+            if (invalidMessages.length > 0) {
+                logInvalidChatMessages({
+                    source: 'request',
+                    threadId,
+                    invalidMessages,
+                });
+                return Response.json(
+                    {
+                        error: 'Invalid chat message',
+                        details: invalidMessages
+                            .map((item) => `${item.id ?? 'unknown'}:${item.failureReason}`)
+                            .join(', '),
+                    },
+                    { status: 400 }
+                );
+            }
+            jsonBody.message = validMessages[0];
+        }
+
+        const message = jsonBody.message;
 
         // Fallback for taskId if passed via URL (legacy support)
         const url = new URL(req.url);
@@ -84,9 +110,13 @@ export async function POST(req: Request) {
 
             if (dbMessages && dbMessages.length > 0) {
                 const persistedMessages = dbMessages as ChatMessageRow[];
-                messages = persistedMessages
-                    .filter(isStrictStoredMessageRow)
-                    .map((msg) => toStoredChatUIMessage(msg));
+                const { validMessages, invalidMessages } = sanitizeStoredMessages(persistedMessages);
+                logInvalidChatMessages({
+                    source: 'history',
+                    threadId,
+                    invalidMessages,
+                });
+                messages = validMessages;
             }
         }
 

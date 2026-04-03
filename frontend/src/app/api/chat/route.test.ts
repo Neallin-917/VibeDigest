@@ -280,7 +280,7 @@ describe('POST /api/chat', () => {
         // Verify system prompt contains default instruction
         const callArgs = mockStreamText.mock.calls[0][0]
         expect(callArgs.system).toContain('You are VibeDigest Assistant')
-        expect(callArgs.model.id).toBe('google/gemini-3-pro-preview')
+        expect(callArgs.model.id).toBe('openrouter/auto')
     })
 
     it('validates persisted tool messages before converting them for the model', async () => {
@@ -749,7 +749,7 @@ describe('POST /api/chat', () => {
         await POST(req)
 
         const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('google/gemini-3-flash-preview')
+        expect(callArgs?.model?.id).toBe('openrouter/auto')
     })
 
     it('returns 503 when createProviderClient throws Missing API Key', async () => {

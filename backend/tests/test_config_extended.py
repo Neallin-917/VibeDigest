@@ -92,8 +92,8 @@ class TestModelSmartFast:
         s.LLM_PROVIDER = None
 
         assert s.LLM_PROVIDER == "openrouter"
-        assert s.MODEL_SMART == "google/gemini-3-pro-preview"
-        assert s.MODEL_FAST == "google/gemini-3-flash-preview"
+        assert s.MODEL_SMART == "openrouter/auto"
+        assert s.MODEL_FAST == "openrouter/auto"
 
     def test_custom_runtime_contract_uses_shared_defaults(self):
         s = Settings()
@@ -135,7 +135,7 @@ class TestModelSmartFast:
         s.MODEL_ALIAS_SMART = None
         s.OPENAI_BASE_URL = None
         s.LLM_PROVIDER = None
-        assert s.MODEL_SMART == "google/gemini-3-pro-preview"
+        assert s.MODEL_SMART == "openrouter/auto"
 
     def test_fast_alias_overrides_default(self):
         s = Settings()
@@ -147,7 +147,7 @@ class TestModelSmartFast:
         s.MODEL_ALIAS_FAST = None
         s.OPENAI_BASE_URL = None
         s.LLM_PROVIDER = None
-        assert s.MODEL_FAST == "google/gemini-3-flash-preview"
+        assert s.MODEL_FAST == "openrouter/auto"
 
     def test_custom_provider_defaults_come_from_shared_registry(self):
         s = Settings()

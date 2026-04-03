@@ -4,8 +4,8 @@ import { getProviderModelDefaults, resolveProvider, resolveProviderModel } from 
 describe('llm-model-registry', () => {
     it('returns shared defaults for openrouter', () => {
         expect(getProviderModelDefaults('openrouter')).toEqual({
-            smart: 'google/gemini-3-pro-preview',
-            fast: 'google/gemini-3-flash-preview',
+            smart: 'openrouter/auto',
+            fast: 'openrouter/auto',
         });
     });
 

@@ -11,13 +11,13 @@ describe('llm routing contract', () => {
                 smart: undefined,
                 fast: undefined,
             })
-        ).toBe('google/gemini-3-pro-preview');
+        ).toBe('openrouter/auto');
         expect(
             resolveProviderModel(provider, 'fast', {
                 smart: undefined,
                 fast: undefined,
             })
-        ).toBe('google/gemini-3-flash-preview');
+        ).toBe('openrouter/auto');
     });
 
     it('matches the custom runtime contract when OPENAI_BASE_URL is configured', () => {

@@ -1,7 +1,7 @@
 {
   "openrouter": {
-    "smart": "google/gemini-3-pro-preview",
-    "fast": "google/gemini-3-flash-preview"
+    "smart": "openrouter/auto",
+    "fast": "openrouter/auto"
   },
   "custom": {
     "smart": "gemini-3-pro-preview",

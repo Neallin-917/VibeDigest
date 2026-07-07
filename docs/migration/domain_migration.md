@@ -1,6 +1,8 @@
-# 域名迁移计划 (vibedigest.io)
+# 域名迁移完成记录 (vibedigest.io)
 
-本计划旨在将项目的域名从 `vibedigest.neallin.xyz` 切换到 `vibedigest.io`。
+本记录保留域名迁移的执行路径和验证项。当前生产主站为 `https://www.vibedigest.io`，后端 API 为 `https://api.vibedigest.io`。
+
+> 状态：已完成。后续只在稳定观察期结束后清理第三方控制台中的旧域名白名单。
 
 为了降低风险，我们将迁移分为三个阶段。**您可以分阶段验证，不必一次性全部完成。**
 
@@ -10,7 +12,7 @@
 - **目标**: 让外部服务 (Auth, Payment) 提前信任新域名。
 - **验证**: 此时旧域名完全正常工作。新域名配置已就绪。
 - **操作**:
-  - 在 Auth/Google/Stripe 中**添加**新域名 (不要删除旧的)。
+  - 在 Auth/Google/Creem/Resend 中**添加**新域名 (不要删除旧的)。
   - 更新代码中的 Allow List (CORS, Config) 以包含新旧两个域名。
 
 ### 阶段 2: 切换 (Switch) - **核心变更**
@@ -32,16 +34,16 @@
 ## 用户审查 (User Review Required)
 
 > [!IMPORTANT]
-> **API 地址变更**: 所有的 API 请求 URL 将变更。如果后端 (Backend) 也部署在 `vibedigest.io` 下 (例如 `https://api.vibedigest.io` 或同构部署)，请确认 `NEXT_PUBLIC_API_URL` 的值。本计划假设 API 也将迁移到新域名或其子域名。
+> **API 地址变更**: 生产 `NEXT_PUBLIC_API_URL` 和 `BACKEND_API_URL` 均已切换到 `https://api.vibedigest.io`。
 
 > [!WARNING]
-> **OAuth 回调 URL**: 请务必在 Google Cloud Console 和 Supabase Auth 设置中更新 "Authorized redirect URIs"，将旧域名替换为 `https://vibedigest.io`。
+> **OAuth 回调 URL**: Supabase Auth redirect allowlist 已反向验证；生产回调可正常进入 Google OAuth。
 
 ## 变更方案 (Proposed Changes)
 
 ### 前端 (Frontend)
 
-将所有硬编码的 `vibedigest.neallin.xyz` 替换为 `vibedigest.io`。
+将所有面向用户的旧域名引用替换为 `vibedigest.io` / `www.vibedigest.io`。
 
 #### [MODIFY] [robots.ts](file:///Users/haoran/Documents/coding/VibeDigest/frontend/src/app/robots.ts)
 - 更新 `baseUrl` 为 `'https://vibedigest.io'`。
@@ -87,9 +89,9 @@
   - **验证**: 保存成功即可。
 
 #### 2. 支付网关 (Payments - Add Only)
-- **Stripe**:
-  - `Webhooks`: **新增** 一个 Endpoint 指向 `https://vibedigest.io/api/webhook/stripe` (上线前可保持禁用或测试模式)。
-  - `Apple Pay`: 添加并验证新域名文件。
+- **Creem**:
+  - `Webhooks`: production endpoint 使用 `https://api.vibedigest.io/api/webhook/creem`。
+  - **验证**: endpoint 可达且探测 POST 返回 `200`；生产 Creem API key 可用。
 
 #### 3. 邮件 (Email)
 - **Resend**:
@@ -106,7 +108,7 @@
 
 #### 2. 核心设置更新
 - **Supabase Auth**:
-  - 确认新域名能访问后，将 `Site URL` 更新为 `https://vibedigest.io` (这会影响重置密码等邮件中的默认链接)。
+  - 确认新域名能访问后，将 `Site URL` 更新为 `https://www.vibedigest.io` (这会影响重置密码等邮件中的默认链接)。
 
 ---
 
@@ -121,7 +123,7 @@
 ## 验证计划 (Verification Plan)
 
 ### 自动化检查
-- 运行 `grep` 搜索 `vibedigest.neallin.xyz` 确保没有遗漏。
+- 运行 `rg` 搜索旧域名字符串，确保没有面向用户的遗漏。
 - 运行 `grep` 搜索 `vibedigest.io` 确认替换成功。
 
 ### 手动验证

@@ -46,7 +46,7 @@ export default function RefundPolicy() {
                     </Heading>
                     <p>
                         {t("policies.common.contactRefundText")}
-                        <a href="mailto:support@vibedigest.com" className="text-blue-500 hover:underline ml-1">support@vibedigest.com</a>
+                        <a href="mailto:support@vibedigest.io" className="text-blue-500 hover:underline ml-1">support@vibedigest.io</a>
                     </p>
                 </section>
             </div>

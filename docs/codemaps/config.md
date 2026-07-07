@@ -67,7 +67,7 @@
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ALLOWED_ORIGINS` | `https://vibedigest.io,http://localhost:3000` | Comma-separated allowed origins |
+| `ALLOWED_ORIGINS` | `https://vibedigest.io,https://www.vibedigest.io,http://localhost:3000` | Comma-separated allowed origins |
 
 ---
 
@@ -212,7 +212,7 @@ TEST_USER_PASSWORD=...
 
 | Variable | Local Dev | Production |
 |----------|-----------|------------|
-| `FRONTEND_URL` | `http://localhost:3000` | `https://vibedigest.io` |
+| `FRONTEND_URL` | `http://localhost:3000` | `https://www.vibedigest.io` |
 | `CREEM_API_BASE` | `https://test-api.creem.io` | `https://api.creem.io` |
 | `LOG_LEVEL` | `DEBUG` | `INFO` |
 | `MOCK_MODE` | `true` (optional) | `false` |

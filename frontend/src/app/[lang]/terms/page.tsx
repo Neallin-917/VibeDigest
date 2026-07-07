@@ -73,7 +73,7 @@ export default function TermsOfService() {
                         </h2>
                         <p className="text-slate-700 dark:text-[#EDEDED]">
                             {t("policies.common.contactText")}
-                            <a href="mailto:support@vibedigest.com" className="text-indigo-600 dark:text-blue-500 hover:underline ml-1">support@vibedigest.com</a>
+                            <a href="mailto:support@vibedigest.io" className="text-indigo-600 dark:text-blue-500 hover:underline ml-1">support@vibedigest.io</a>
                         </p>
                     </section>
                 </div>

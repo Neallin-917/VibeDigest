@@ -37,18 +37,19 @@ Also set your Supabase credentials before running the backend.
 ### Run
 
 ```bash
-make start-backend
-make start-frontend
+make dev
 ```
 
-Or run the backend in Docker:
+This starts the backend and Postgres in Docker, starts the frontend locally, and streams unified logs in one terminal. If the default ports are occupied, the dev runner scans upward and injects the resolved backend URL into the frontend.
+
+For single-service debugging, keep using the lower-level commands:
 
 ```bash
 make start-dev
 make start-frontend
 ```
 
-Frontend defaults to [http://localhost:3000](http://localhost:3000). Backend defaults to `http://localhost:16081`.
+Frontend defaults to [http://localhost:3000](http://localhost:3000). Backend defaults to `http://localhost:16081`. Override with `BACKEND_HOST_PORT=17081 FRONTEND_PORT=3100 make dev`. Stop the Docker backend stack with `make dev-stop`.
 
 ## Architecture
 
@@ -67,12 +68,18 @@ The implementation details live in the codemaps under `docs/codemaps/`.
 | Command | Purpose |
 | --- | --- |
 | `make install` | Install backend and frontend dependencies |
+| `make dev` | Start Docker backend plus local frontend with unified logs |
+| `make dev-stop` | Stop the Docker backend and Postgres stack |
 | `make start-backend` | Run FastAPI locally |
 | `make start-frontend` | Run Next.js locally |
 | `make test-backend` | Backend unit tests plus local smoke when prerequisites exist |
+| `make test-provider-smoke` | Verify the configured LLM provider with a real API call |
 | `make test-frontend` | Frontend unit tests |
+| `make create-demo-task` | Create and process the default public demo task |
 | `cd frontend && npm run build` | Production build check |
 | `make clean` | Remove generated local artifacts |
+
+Demo task defaults to `https://www.youtube.com/watch?v=7rzYDM6vMtI`, sets `is_demo=true`, and uses `VIBEDIGEST_DEMO_USER_ID`, `DEMO_USER_ID`, or the first `profiles` row as the owner. Override with `DEMO_URL='https://...' DEMO_USER_ID=... make create-demo-task`; use `DEMO_NO_RUN=1` to create only the task row and output placeholders.
 
 ## Documentation Map
 

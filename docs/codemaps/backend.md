@@ -11,7 +11,7 @@
 | **Orchestration** | LangGraph (StateGraph) |
 | **AI/LLM** | OpenAI API (GPT-4o, Whisper) via LiteLLM |
 | **Package Manager** | uv |
-| **Observability** | Langfuse V3, Sentry |
+| **Observability** | LangSmith, Sentry |
 
 ## LangGraph Workflow State Machine
 

@@ -19,10 +19,13 @@ export interface Task {
     created_at: string
 }
 
+export type ThreadStatus = 'active' | 'archived' | 'deleted'
+
 export interface Thread {
     id: string
     title: string
     updated_at: string
+    status: ThreadStatus
     task_id?: string | null
 }
 

@@ -127,10 +127,32 @@ async def test_process_video_quota_exceeded(mock_db_client, mock_video_processor
 
 @pytest.mark.asyncio
 async def test_retry_output(api_client, mock_db_client):
+    mock_db_client.get_output.return_value = {
+        "id": "out_123",
+        "task_id": "task_123",
+        "user_id": "test_user_id",
+    }
+
     with patch("api.routes.tasks.handle_retry_output") as mock_handle:
         response = await api_client.post("/api/retry-output", data={"output_id": "out_123"})
         assert response.status_code == 200
         mock_db_client.update_output_status.assert_called_with("out_123", status="pending", progress=0, error="")
+
+
+@pytest.mark.asyncio
+async def test_retry_output_rejects_non_owner(api_client, mock_db_client):
+    mock_db_client.get_output.return_value = {
+        "id": "out_123",
+        "task_id": "task_123",
+        "user_id": "other_user",
+    }
+
+    with patch("api.routes.tasks.handle_retry_output") as mock_handle:
+        response = await api_client.post("/api/retry-output", data={"output_id": "out_123"})
+
+    assert response.status_code == 403
+    mock_db_client.update_output_status.assert_not_called()
+    mock_handle.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_update_task_title(api_client, mock_db_client):
@@ -162,10 +184,69 @@ async def test_get_task_status(api_client, mock_db_client):
     assert data["id"] == "task_123"
 
 @pytest.mark.asyncio
+async def test_get_task_status_rejects_non_owner(api_client, mock_db_client):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123",
+        "user_id": "other_user",
+        "is_demo": False,
+        "status": "completed",
+        "progress": 100,
+    }
+
+    response = await api_client.get("/api/tasks/task_123/status")
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_task_status_allows_demo_for_non_owner(api_client, mock_db_client):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123",
+        "user_id": "other_user",
+        "is_demo": True,
+        "status": "completed",
+        "progress": 100,
+    }
+
+    response = await api_client.get("/api/tasks/task_123/status")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "task_123"
+
+
+@pytest.mark.asyncio
 async def test_get_task_status_not_found(api_client, mock_db_client):
     mock_db_client.get_task.return_value = None
     response = await api_client.get("/api/tasks/task_123/status")
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_process_video_without_identity_rejected(mock_db_client, mock_video_processor):
+    saved_overrides = dict(app.dependency_overrides)
+    try:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides[get_db_client] = lambda: mock_db_client
+        app.dependency_overrides[get_video_processor] = lambda: mock_video_processor
+
+        mock_db_client.find_latest_inflight_task.return_value = None
+        mock_db_client.find_latest_task_with_valid_script_for_user.return_value = None
+        mock_db_client.create_task.return_value = {"id": "task_123"}
+
+        with patch("dependencies.settings") as mock_settings:
+            mock_settings.MOCK_MODE = False
+            with patch.dict(os.environ, {"DEV_AUTH_BYPASS": "0"}, clear=False):
+                transport = ASGITransport(app=app)
+                async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                    response = await ac.post(
+                        "/api/process-video",
+                        data={"video_url": "https://youtube.com/watch?v=123"},
+                    )
+
+        assert response.status_code == 401
+        mock_db_client.create_task.assert_not_called()
+    finally:
+        app.dependency_overrides = saved_overrides
 
 @pytest.mark.asyncio
 async def test_misconfigured_jwt_secret_returns_503(mock_db_client):

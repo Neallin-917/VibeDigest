@@ -1,5 +1,4 @@
 import { test as setup, expect } from '@playwright/test';
-import { AuthPage } from './pages/AuthPage';
 import { setupApiMocks } from './fixtures/mock-api';
 
 const authFile = 'playwright/.auth/user.json';
@@ -10,8 +9,6 @@ const authFile = 'playwright/.auth/user.json';
  * 此脚本会在需要认证的测试之前运行，保存登录态到 storageState
  */
 setup('authenticate', async ({ page }) => {
-    const baseURL = 'http://localhost:3001';
-    
     // 0. 预先注入 Auth Bypass Cookie
     await page.context().addCookies([
         {

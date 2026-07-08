@@ -156,3 +156,4 @@ frontend/public/google*.html
 temp_backup/
 video/
 static/
+.vercel

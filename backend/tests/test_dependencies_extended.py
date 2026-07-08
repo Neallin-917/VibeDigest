@@ -139,15 +139,14 @@ class TestGuestId:
 # ---------------------------------------------------------------------------
 
 class TestFallbackUser:
-    def test_no_headers_returns_fallback_uuid(self, mock_db):
+    def test_no_headers_rejected(self, mock_db):
         with patch("dependencies.settings") as mock_settings:
             mock_settings.MOCK_MODE = False
             app = _make_app(mock_db)
             with TestClient(app) as c:
                 response = c.get("/me")
 
-        assert response.status_code == 200
-        assert response.json()["user_id"] == "00000000-0000-0000-0000-000000000001"
+        assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------

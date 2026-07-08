@@ -8,7 +8,7 @@ import {
   createUserTextMessage,
   type ChatUIMessage,
 } from '@/lib/chat-ui'
-import { upsertChatState } from '../persistence'
+import { restoreArchivedThreadIfNeeded, upsertChatState } from '../persistence'
 
 const E2E_MOCK_USER = {
   id: '11111111-1111-1111-1111-111111111111',
@@ -94,6 +94,12 @@ export async function POST(req: Request) {
         messages,
       })
     }
+
+    await restoreArchivedThreadIfNeeded({
+      threadId: body.threadId,
+      userId: user.id,
+      supabase,
+    })
 
     const formData = new FormData()
     formData.append('video_url', body.videoUrl)

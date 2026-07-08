@@ -28,6 +28,61 @@ type UpsertChatStateParams = {
     threadTitle?: string | undefined;
 };
 
+type RestoreArchivedThreadParams = {
+    threadId: string;
+    userId: string;
+    supabase: ToolContext['supabase'];
+};
+
+type RestorableThreadRow = {
+    id: string;
+    title: string;
+    status: 'active' | 'archived' | 'deleted';
+};
+
+export async function restoreArchivedThreadIfNeeded({
+    threadId,
+    userId,
+    supabase,
+}: RestoreArchivedThreadParams): Promise<RestorableThreadRow | null> {
+    const { data: thread, error: threadError } = await supabase
+        .from('chat_threads')
+        .select('id, title, status')
+        .eq('id', threadId)
+        .eq('user_id', userId)
+        .single();
+
+    if (threadError) {
+        if (threadError.code !== 'PGRST116') {
+            console.error('[API/Chat] Thread lookup error:', threadError);
+        }
+        return null;
+    }
+
+    if (!thread) {
+        return null;
+    }
+
+    if (thread.status !== 'archived') {
+        return thread as RestorableThreadRow;
+    }
+
+    const { error: restoreError } = await supabase
+        .from('chat_threads')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', threadId)
+        .eq('user_id', userId);
+
+    if (restoreError) {
+        throw restoreError;
+    }
+
+    return {
+        ...thread,
+        status: 'active',
+    } as RestorableThreadRow;
+}
+
 export async function upsertChatState({
     threadId,
     user,
@@ -46,8 +101,9 @@ export async function upsertChatState({
 
     const { data: existingThread } = await supabase
         .from('chat_threads')
-        .select('id')
+        .select('id, status')
         .eq('id', threadId)
+        .eq('user_id', user.id)
         .single();
 
     if (!existingThread) {
@@ -88,6 +144,7 @@ export async function upsertChatState({
 
     const threadUpdatePayload: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
+        status: 'active',
     };
     if (taskIdToBind) {
         threadUpdatePayload.task_id = taskIdToBind;
@@ -96,7 +153,8 @@ export async function upsertChatState({
     const { error: threadUpdateError } = await supabase
         .from('chat_threads')
         .update(threadUpdatePayload)
-        .eq('id', threadId);
+        .eq('id', threadId)
+        .eq('user_id', user.id);
 
     if (threadUpdateError) {
         throw threadUpdateError;

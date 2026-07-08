@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import type { Thread } from '@/types'
+import { ThreadActionMenu } from '@/components/layout/sidebar/ThreadActionMenu'
 
 interface MobileMenuDrawerProps {
   isOpen: boolean
@@ -26,6 +27,7 @@ interface MobileMenuDrawerProps {
   selectedThreadId?: string | null
   onSelectThread?: (threadId: string) => void
   onPrefetchThread?: (threadId: string) => void
+  onUpdateThreadStatus?: (threadId: string, status: 'active' | 'archived') => void | Promise<void>
 }
 
 function MobileMenuDrawerComponent({ 
@@ -37,7 +39,8 @@ function MobileMenuDrawerComponent({
   activeThreadId,
   selectedThreadId,
   onSelectThread,
-  onPrefetchThread
+  onPrefetchThread,
+  onUpdateThreadStatus
 }: MobileMenuDrawerProps) {
   const { t, locale } = useI18n()
   const pathname = usePathname()
@@ -45,10 +48,21 @@ function MobileMenuDrawerComponent({
 
   // Collapse state
   const [isChatsOpen, setIsChatsOpen] = useState(true)
+  const [isArchivedOpen, setIsArchivedOpen] = useState(false)
 
   const currentSelectedThreadId = selectedThreadId ?? activeThreadId
   const isNewChatActive = pathname?.endsWith('/chat') && !searchParams?.get('task') && !currentSelectedThreadId
   const isCommunityActive = pathname?.includes('/explore')
+  const activeThreads = useMemo(
+    () => threads.filter((thread) => thread.status !== 'archived'),
+    [threads]
+  )
+  const archivedThreads = useMemo(
+    () => threads.filter((thread) => thread.status === 'archived'),
+    [threads]
+  )
+  const isSelectedThreadArchived = archivedThreads.some((thread) => thread.id === currentSelectedThreadId)
+  const shouldShowArchivedThreads = isArchivedOpen || isSelectedThreadArchived
   
   const handleNewChat = () => {
     onOpenChange(false)
@@ -124,30 +138,59 @@ function MobileMenuDrawerComponent({
             
             {isChatsOpen && (
               <div className="space-y-0.5 mt-1">
-                {threads.length === 0 ? (
-                   <div className="px-3 py-2 text-xs text-slate-400">No chats yet</div>
+                {activeThreads.length === 0 ? (
+                   <div className="px-3 py-2 text-xs text-slate-400">
+                    {archivedThreads.length === 0 ? 'No chats yet' : (t('chat.noActiveChats') || 'No active chats')}
+                  </div>
                 ) : (
-                  threads.map(thread => (
-                    <button
+                  activeThreads.map(thread => (
+                    <MobileThreadListItem
                       key={thread.id}
-                      onClick={() => onSelectThread?.(thread.id)}
-                      onPointerEnter={() => onPrefetchThread?.(thread.id)}
-                      onFocus={() => onPrefetchThread?.(thread.id)}
-                      className={cn(
-                        "w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-3",
-                        currentSelectedThreadId === thread.id
-                          ? "bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5"
-                      )}
-                    >
-                      <MessageSquare className={cn(
-                        "w-4 h-4 shrink-0", 
-                        currentSelectedThreadId === thread.id ? "text-emerald-500" : "text-slate-400"
-                      )} />
-                      <span className="text-sm font-medium truncate">{thread.title || 'New Chat'}</span>
-                    </button>
+                      thread={thread}
+                      isSelected={currentSelectedThreadId === thread.id}
+                      onSelectThread={onSelectThread}
+                      onPrefetchThread={onPrefetchThread}
+                      onUpdateThreadStatus={onUpdateThreadStatus}
+                    />
                   ))
                 )}
+
+                {archivedThreads.length > 0 ? (
+                  <div className="pt-3">
+                    <button
+                      type="button"
+                      aria-label="Toggle archived chats"
+                      onClick={() => setIsArchivedOpen((open) => !open)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all rounded-xl w-full text-left",
+                        "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
+                        "dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-white/5"
+                      )}
+                    >
+                      {shouldShowArchivedThreads ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                      <span className="uppercase tracking-wider text-xs">{t("chat.archived") || "Archived"}</span>
+                    </button>
+
+                    {shouldShowArchivedThreads ? (
+                      <div className="space-y-0.5 mt-1">
+                        {archivedThreads.map((thread) => (
+                          <MobileThreadListItem
+                            key={thread.id}
+                            thread={thread}
+                            isSelected={currentSelectedThreadId === thread.id}
+                            onSelectThread={onSelectThread}
+                            onPrefetchThread={onPrefetchThread}
+                            onUpdateThreadStatus={onUpdateThreadStatus}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -166,6 +209,53 @@ function MobileMenuDrawerComponent({
 }
 
 export const MobileMenuDrawer = memo(MobileMenuDrawerComponent)
+
+function MobileThreadListItem({
+  thread,
+  isSelected,
+  onSelectThread,
+  onPrefetchThread,
+  onUpdateThreadStatus,
+}: {
+  thread: Thread
+  isSelected: boolean
+  onSelectThread?: (threadId: string) => void
+  onPrefetchThread?: (threadId: string) => void
+  onUpdateThreadStatus?: (threadId: string, status: 'active' | 'archived') => void | Promise<void>
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1 rounded-xl",
+        isSelected
+          ? "bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5"
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSelectThread?.(thread.id)}
+        onPointerEnter={() => onPrefetchThread?.(thread.id)}
+        onFocus={() => onPrefetchThread?.(thread.id)}
+        className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
+      >
+        <MessageSquare className={cn(
+          "w-4 h-4 shrink-0",
+          isSelected ? "text-emerald-500" : "text-slate-400"
+        )} />
+        <span className="text-sm font-medium truncate">{thread.title || 'New Chat'}</span>
+      </button>
+
+      {thread.status === 'active' || thread.status === 'archived' ? (
+        <ThreadActionMenu
+          threadTitle={thread.title || 'New Chat'}
+          status={thread.status}
+          onUpdateStatus={(status) => onUpdateThreadStatus?.(thread.id, status)}
+        />
+      ) : null}
+    </div>
+  )
+}
 
 // Menu Button (action)
 function MenuButton({

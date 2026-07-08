@@ -35,6 +35,7 @@ load_env()
 
 from db_client import DBClient
 from services.summarizer import Summarizer
+from services.summarizer.validation import parse_summary_payload_v4
 from config import settings
 from utils.text_utils import detect_language
 
@@ -197,12 +198,13 @@ async def regenerate_summary_v4(
             # Clean markdown fences if present
             summary_result = clean_json_markdown(summary_result)
             
-            # Parse result to check version
             try:
-                summary_data = json.loads(summary_result)
-                version = summary_data.get("version", 0)
-            except json.JSONDecodeError:
-                version = 0
+                summary_data = parse_summary_payload_v4(summary_result)
+                version = int(summary_data.get("version", 0))
+                summary_result = json.dumps(summary_data, ensure_ascii=False)
+            except ValueError as exc:
+                logger.error(f"  FAILED: Invalid V4 summary payload ({exc})")
+                return False
                 
             if version != 4:
                 logger.warning(f"  Generated summary is V{version}, not V4!")

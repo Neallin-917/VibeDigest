@@ -122,17 +122,26 @@ class DBClient:
             session.close()
 
     def create_task(
-        self, user_id: str, video_url: str, video_title: Optional[str] = None
+        self,
+        user_id: str,
+        video_url: str,
+        video_title: Optional[str] = None,
+        is_demo: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Create a new task row."""
         query = """
-            INSERT INTO tasks (user_id, video_url, status, progress, video_title)
-            VALUES (:user_id, :video_url, 'pending', 0, :video_title)
+            INSERT INTO tasks (user_id, video_url, status, progress, video_title, is_demo)
+            VALUES (:user_id, :video_url, 'pending', 0, :video_title, :is_demo)
             RETURNING *;
         """
         rows = self._execute_query(
             query,
-            {"user_id": user_id, "video_url": video_url, "video_title": video_title},
+            {
+                "user_id": user_id,
+                "video_url": video_url,
+                "video_title": video_title,
+                "is_demo": is_demo,
+            },
         )
         return rows[0] if rows else None
 

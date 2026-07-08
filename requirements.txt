@@ -27,7 +27,6 @@ langchain-openai>=1.0.0
 langchain-text-splitters>=0.0.1
 langsmith>=0.1.0
 stop-words==2018.7.23
-langgraph-checkpoint-postgres>=2.0.0
 testcontainers[postgres]>=3.7.1
 langchain-community>=0.3.0,<0.4.0
 litellm>=1.55.0,<1.82.0

@@ -6,6 +6,12 @@ import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
+import {
+    buildSummaryExcerptFromContent,
+    buildSummaryMarkdownFromContent,
+    pickPreferredSummaryOutput,
+    type SummaryOutputCandidate,
+} from "@/lib/summary-contract"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Heading, Text } from "@/components/ui/typography"
@@ -29,31 +35,7 @@ type TaskOutput = {
     content: unknown
     status: string | null
     locale?: string | null
-}
-
-type SummaryKeyPoint = {
-    title?: string
-    detail?: string
-    why_it_matters?: string
-    evidence?: string
-}
-
-type SummarySectionItem = {
-    content?: string
-}
-
-type SummarySection = {
-    section_type?: string
-    title?: string
-    description?: string
-    items?: SummarySectionItem[]
-}
-
-type StructuredSummary = {
-    tl_dr?: string
-    overview?: string
-    keypoints?: SummaryKeyPoint[]
-    sections?: SummarySection[]
+    created_at?: string | null
 }
 
 async function getTaskAndOutputs(id: string) {
@@ -71,159 +53,13 @@ async function getTaskAndOutputs(id: string) {
     if (task) {
         const { data } = await supabase
             .from('task_outputs')
-            .select('kind, content, status, locale')
+            .select('kind, content, status, locale, created_at')
             .eq('task_id', id)
-            .order('created_at', { ascending: true }) // Ensure older outputs come first (or logic)
+            .order('created_at', { ascending: false })
         outputs = data || []
     }
 
     return { task, outputs }
-}
-
-const stripCodeFence = (text: string) => {
-    if (!text.startsWith('```')) return text
-    const match = text.match(/^```[a-zA-Z]*\n([\s\S]*?)\n```$/)
-    return match ? match[1].trim() : text
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-    typeof value === 'object' && value !== null
-
-const asString = (value: unknown): string | undefined =>
-    typeof value === 'string' ? value : undefined
-
-const asNumber = (value: unknown): number | undefined =>
-    typeof value === 'number' ? value : undefined
-
-const normalizeSummary = (value: unknown): StructuredSummary | null => {
-    if (!isRecord(value)) return null
-
-    const keypointsRaw = Array.isArray(value.keypoints) ? value.keypoints : []
-    const keypoints = keypointsRaw
-        .map((kp) => {
-            const point = isRecord(kp) ? kp : {}
-            return {
-                title: asString(point.title),
-                detail: asString(point.detail),
-                why_it_matters: asString(point.why_it_matters),
-                evidence: asString(point.evidence),
-                startSeconds: asNumber(point.startSeconds),
-            }
-        })
-        .filter((kp: SummaryKeyPoint) => kp.title || kp.detail || kp.why_it_matters || kp.evidence)
-
-    const sectionsRaw = Array.isArray(value.sections) ? value.sections : []
-    const sections = sectionsRaw
-        .map((section) => {
-            const safeSection = isRecord(section) ? section : {}
-            const itemsRaw = Array.isArray(safeSection.items) ? safeSection.items : []
-            const items = itemsRaw
-                .map((item) => {
-                    const safeItem = isRecord(item) ? item : {}
-                    return {
-                        content: asString(safeItem.content),
-                    }
-                })
-                .filter((item: SummarySectionItem) => item.content)
-
-            return {
-                section_type: asString(safeSection.section_type),
-                title: asString(safeSection.title),
-                description: asString(safeSection.description),
-                items,
-            }
-        })
-        .filter((section: SummarySection) => section.items?.length || section.title || section.description)
-
-    return {
-        tl_dr: typeof value.tl_dr === 'string' ? value.tl_dr : undefined,
-        overview: typeof value.overview === 'string' ? value.overview : undefined,
-        keypoints,
-        sections,
-    }
-}
-
-const parseSummaryContent = (content: unknown): StructuredSummary | string | null => {
-    if (!content) return null
-    if (isRecord(content)) {
-        return normalizeSummary(content)
-    }
-    if (typeof content !== 'string') return null
-
-    const trimmed = content.trim()
-    if (!trimmed) return null
-
-    const jsonCandidate = stripCodeFence(trimmed)
-
-    if (jsonCandidate.startsWith('{') || jsonCandidate.startsWith('[')) {
-        try {
-            const parsed = JSON.parse(jsonCandidate)
-            return normalizeSummary(parsed) || trimmed
-        } catch {
-            return trimmed
-        }
-    }
-
-    return trimmed
-}
-
-const formatSectionTitle = (value: string) =>
-    value
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase())
-
-const buildSummaryMarkdown = (content: unknown) => {
-    const parsed = parseSummaryContent(content)
-    if (!parsed) return ""
-    if (typeof parsed === 'string') return parsed
-
-    const parts: string[] = []
-
-    if (parsed.tl_dr) {
-        parts.push(`## In Brief\n${parsed.tl_dr}`)
-    }
-    if (parsed.overview) {
-        parts.push(`## Overview\n${parsed.overview}`)
-    }
-    if (parsed.keypoints?.length) {
-        const lines = parsed.keypoints.map((kp) => {
-            const title = kp.title ? `${kp.title}` : ""
-            const detail = kp.detail ? `${kp.detail}` : ""
-            const why = kp.why_it_matters ? `Why it matters: ${kp.why_it_matters}` : ""
-            const evidence = kp.evidence ? `Evidence: ${kp.evidence}` : ""
-            const body = [detail, why, evidence].filter(Boolean).join(" ")
-            return `- ${[title, body].filter(Boolean).join(": ")}`
-        })
-        parts.push(`## Key Points\n${lines.join("\n")}`)
-    }
-    if (parsed.sections?.length) {
-        const sectionBlocks = parsed.sections.map((section) => {
-            const title = section.title || (section.section_type ? formatSectionTitle(section.section_type) : "Section")
-            const description = section.description ? `${section.description}\n` : ""
-            const items = section.items?.length
-                ? section.items
-                    .map((item) => item.content)
-                    .filter(Boolean)
-                    .map((item) => `- ${item}`)
-                    .join("\n")
-                : ""
-            return `### ${title}\n${description}${items}`.trim()
-        })
-        parts.push(`## Sections\n${sectionBlocks.join("\n\n")}`)
-    }
-
-    return parts.filter(Boolean).join("\n\n").trim()
-}
-
-const toPlainText = (markdown: string) =>
-    markdown
-        .replace(/[`*_>#-]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-
-const truncate = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text
-    return `${text.slice(0, maxLength - 3).trim()}...`
 }
 
 export async function generateMetadata(
@@ -248,16 +84,10 @@ export async function generateMetadata(
 
     const path = `/tasks/${id}/${currentSlug}`
     const shouldIndex = task.is_demo === true && task.status === "completed"
-    const summaryOutput = outputs.find(
-        (output) =>
-            output.kind === 'summary' &&
-            output.status === 'completed' &&
-            (output.locale === null || typeof output.locale === 'undefined')
-    ) || outputs.find((output) => output.kind === 'summary' && output.status === 'completed')
-    const summaryMarkdown = summaryOutput ? buildSummaryMarkdown(summaryOutput.content) : ""
-    const summaryText = summaryMarkdown ? toPlainText(summaryMarkdown) : ""
+    const summaryOutput = pickPreferredSummaryOutput(outputs as SummaryOutputCandidate[])
+    const summaryText = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 160) : ""
     const fallbackDescription = `View the AI-generated summary and transcript for "${task.video_title || 'this video'}".`
-    const description = summaryText ? truncate(summaryText, 160) : fallbackDescription
+    const description = summaryText || fallbackDescription
 
     return {
         title: task.video_title || "Processed Video",
@@ -294,16 +124,10 @@ export default async function TaskDetailPage(props: Props) {
         redirect(`/${lang}/tasks/${id}/${correctSlug}`);
     }
 
-    const summaryOutput = outputs.find(
-        (output) =>
-            output.kind === 'summary' &&
-            output.status === 'completed' &&
-            (output.locale === null || typeof output.locale === 'undefined')
-    ) || outputs.find((output) => output.kind === 'summary' && output.status === 'completed')
-    const summaryMarkdown = summaryOutput ? buildSummaryMarkdown(summaryOutput.content) : ""
+    const summaryOutput = pickPreferredSummaryOutput(outputs as SummaryOutputCandidate[])
+    const summaryMarkdown = summaryOutput ? buildSummaryMarkdownFromContent(summaryOutput.content) : ""
     const hasSummary = Boolean(summaryMarkdown)
-    const summaryPlain = summaryMarkdown ? toPlainText(summaryMarkdown) : ""
-    const summaryExcerpt = summaryPlain ? truncate(summaryPlain, 200) : ""
+    const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200) : ""
     const title = task.video_title || "Processed Video"
     const chatPath = `/${lang}/chat?task=${id}`
     const status = task.status || "pending"

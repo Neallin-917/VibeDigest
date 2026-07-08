@@ -89,11 +89,6 @@ class Settings:
     # Monitoring
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
 
-    # Database
-    POSTGRES_URI: str = os.getenv(
-        "POSTGRES_URI", "postgresql://postgres:password@postgres:5432/langgraph"
-    )
-
     # Models
     # Chat Agent Model
     MOCK_MODE: bool = parse_bool_env("MOCK_MODE", False)

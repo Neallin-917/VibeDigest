@@ -124,6 +124,16 @@ function getLastUIStreamOptions() {
     return mockCreateUIMessageStream.mock.calls.at(-1)?.[0]
 }
 
+function createSelectSingleMock(result: { data: unknown; error?: unknown }) {
+    const chain = {} as {
+        eq: ReturnType<typeof vi.fn>
+        single: ReturnType<typeof vi.fn>
+    }
+    chain.eq = vi.fn(() => chain)
+    chain.single = vi.fn().mockResolvedValue(result)
+    return vi.fn().mockReturnValue(chain)
+}
+
 describe('Lazy Thread Creation', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -149,18 +159,23 @@ describe('Lazy Thread Creation', () => {
         })
 
         // Default chain returns
-        mockSelect.mockImplementation(() => ({
-            eq: vi.fn(() => ({
-                in: mockIn,
-                single: mockSingle,
-                order: mockOrder
-            })),
-            in: mockIn,
-            single: mockSingle,
-            order: mockOrder
-        }))
-        mockUpdate.mockReturnValue({
-            eq: vi.fn().mockResolvedValue({})
+        mockSelect.mockImplementation(() => {
+            const chain = {} as {
+                eq: ReturnType<typeof vi.fn>
+                in: typeof mockIn
+                single: typeof mockSingle
+                order: typeof mockOrder
+            }
+            chain.eq = vi.fn(() => chain)
+            chain.in = mockIn
+            chain.single = mockSingle
+            chain.order = mockOrder
+            return chain
+        })
+        mockUpdate.mockImplementation(() => {
+            const chain = {} as { eq: ReturnType<typeof vi.fn> }
+            chain.eq = vi.fn(() => chain)
+            return chain
         })
         mockEq.mockImplementation(() => {
             return { single: mockSingle, order: mockOrder };
@@ -207,11 +222,9 @@ describe('Lazy Thread Creation', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            // Return null to simulate "not found", which triggers creation logic
-                            single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
-                        })
+                    select: createSelectSingleMock({
+                        data: null,
+                        error: { code: 'PGRST116' },
                     }),
                     insert: mockInsert
                 }
@@ -253,11 +266,9 @@ describe('Lazy Thread Creation', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            // Return null to simulate "not found"
-                            single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
-                        })
+                    select: createSelectSingleMock({
+                        data: null,
+                        error: { code: 'PGRST116' },
                     }),
                     insert: mockInsert,
                     update: mockUpdate

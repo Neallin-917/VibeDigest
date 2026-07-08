@@ -92,8 +92,9 @@ async def get_current_user(
             raise HTTPException(status_code=402, detail="Guest quota exceeded")
         return x_guest_id
 
-    # 3. FALLBACK (No ID provided)
-    return "00000000-0000-0000-0000-000000000001"
+    # 3. No usable identity. Do not fall back to a shared user, because that
+    # bypasses guest quota and makes task ownership ambiguous.
+    raise HTTPException(status_code=401, detail="Authentication or guest identity required")
 
 
 def increment_guest_usage(guest_id: str, db: DBClient):

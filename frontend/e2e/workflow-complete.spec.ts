@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { ChatPage } from './pages/ChatPage'
 import { TaskPage } from './pages/TaskPage'
-import { createMockTask, createMockUser, createMockTaskOutput } from './fixtures/testData'
+import { createMockTask, createMockTaskOutput } from './fixtures/testData'
 import { setupApiMocks } from './fixtures/mock-api'
 
 test.describe('Complete Task Workflow (Mocked)', () => {

@@ -18,7 +18,7 @@ services:
       - ./downloads:/app/downloads
     ports:
       # Dev uses 16081 to avoid conflict with Prod (16080)
-      - "16081:8000"
+      - "${BACKEND_HOST_PORT:-16081}:8000"
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     # ---------------------------------------------------------
     env_file:
@@ -26,39 +26,13 @@ services:
       - .env.local
     environment:
       - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       # Inside Docker, "localhost" means the container itself — remap to host.
       - OPENAI_BASE_URL=${OPENAI_BASE_URL_DOCKER:-http://host.docker.internal:8317/v1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # No Traefik labels - Dev is NOT exposed to internet
-
-  langgraph-server:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.langgraph
-    # container_name removed
-    restart: unless-stopped
-    ports:
-      - "${LANGGRAPH_PORT}:8000"
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./backend:/deps/backend
-      - ./config/llm-provider-defaults.json:/deps/backend/llm-provider-defaults.json:ro
-    environment:
-      - LANGGRAPH_CONTAINER_PORT=8000
-      - LANGGRAPH_API_URL=http://localhost:${LANGGRAPH_PORT}
-      - BACKEND_API_URL=http://localhost:16081
-      - POSTGRES_URI=postgresql://postgres:password@postgres:5432/langgraph
-      - REDIS_URI=redis://redis:6379
-      - PYTHONPATH=/deps/backend
-      - LANGSERVE_GRAPHS={"agent":"workflow:app"}
-      # Inside Docker, "localhost" means the container itself — remap to host.
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL_DOCKER:-http://host.docker.internal:8317/v1}
-    env_file:
-      - .env
-      - .env.local
 
   postgres:
     image: postgres:16
@@ -68,16 +42,9 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: langgraph
     ports:
-      - "15432:5432"
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
       - langgraph_postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  redis:
-    image: redis:7
-    # container_name removed
-    ports:
-      - "16379:6379"
     restart: unless-stopped
 
 volumes:

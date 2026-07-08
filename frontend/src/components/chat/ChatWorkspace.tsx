@@ -40,6 +40,7 @@ interface ChatWorkspaceProps {
   onThreadCreated?: () => void
   onChatStarted?: (threadId: string, taskId?: string) => void
   threads?: Thread[]
+  onUpdateThreadStatus?: (threadId: string, status: 'active' | 'archived') => void | Promise<void>
 }
 
 
@@ -57,7 +58,8 @@ export function ChatWorkspace({
   onSelectTask,
   onSelectExample,
   onChatStarted,
-  threads
+  threads,
+  onUpdateThreadStatus
 }: ChatWorkspaceProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -237,6 +239,7 @@ export function ChatWorkspace({
         activeThreadId={activeThreadId}
         selectedThreadId={selectedThreadId}
         onSelectThread={handleSelectMobileThread}
+        onUpdateThreadStatus={onUpdateThreadStatus}
       />
 
       {/* Main Layout: Chat + Details */}

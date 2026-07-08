@@ -21,11 +21,12 @@ export function TaskNotificationListener() {
         const ids = Array.from(subbedTaskIds)
         if (ids.length === 0) return
 
+        const taskStatuses = taskStatusesRef.current
         const unsubscribers = ids.map((id) =>
             subscribeToTask(id, (row) => {
                 const newTask = row as unknown as Task
-                const previousStatus = taskStatusesRef.current.get(newTask.id)
-                taskStatusesRef.current.set(newTask.id, newTask.status)
+                const previousStatus = taskStatuses.get(newTask.id)
+                taskStatuses.set(newTask.id, newTask.status)
 
                 if (previousStatus && previousStatus !== 'completed' && newTask.status === 'completed') {
                     sendTaskNotification(newTask.id, newTask.video_title || newTask.video_url)
@@ -35,7 +36,7 @@ export function TaskNotificationListener() {
 
         return () => {
             ids.forEach((id) => {
-                taskStatusesRef.current.delete(id)
+                taskStatuses.delete(id)
             })
             unsubscribers.forEach((unsubscribe) => unsubscribe())
         }

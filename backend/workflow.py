@@ -20,6 +20,7 @@ from dependencies import (
     get_supadata_client,
 )
 from services.comprehension import ComprehensionAgent
+from services.summarizer.validation import parse_summary_payload_v4
 from utils.url import normalize_video_url
 from utils.language_utils import normalize_lang_code
 from utils.text_utils import detect_language, is_cjk_language
@@ -539,30 +540,6 @@ async def _run_summarize(
     transcript_source: Optional[str],
     classification_result: Optional[Dict[str, Any]] = None,
 ):
-    def _parse_summary_payload(summary: Any) -> Dict[str, Any]:
-        if summary is None:
-            raise ValueError("Empty summary payload")
-        if hasattr(summary, "model_dump"):
-            payload = summary.model_dump()
-        elif isinstance(summary, dict):
-            payload = summary
-        elif isinstance(summary, str):
-            payload = json.loads(summary)
-        else:
-            raise ValueError("Unsupported summary payload type")
-
-        if not isinstance(payload, dict):
-            raise ValueError("Summary payload must be a JSON object")
-
-        overview = payload.get("overview")
-        keypoints = payload.get("keypoints")
-        if not isinstance(overview, str) or not overview.strip():
-            raise ValueError("Summary payload missing overview")
-        if not isinstance(keypoints, list):
-            raise ValueError("Summary payload missing keypoints")
-
-        return payload
-
     try:
         logger.info("Cognition: Starting summarization...")
         _advance_task_progress(task_id, 85)
@@ -584,7 +561,7 @@ async def _run_summarize(
             existing_classification=classification_result,
         )
 
-        payload = _parse_summary_payload(summary)
+        payload = parse_summary_payload_v4(summary)
         summary_content = json.dumps(payload, ensure_ascii=False)
         summary_payload = payload
 

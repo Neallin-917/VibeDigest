@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { EXAMPLE_URLS, TYPEWRITER_CONFIG } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +13,29 @@ interface TypewriterPlaceholderProps {
 
 type Phase = 'typing' | 'pausing' | 'deleting' | 'waiting'
 
+function subscribeDocumentVisibility(onStoreChange: () => void) {
+  if (typeof document === 'undefined') return () => {}
+  document.addEventListener('visibilitychange', onStoreChange)
+  return () => document.removeEventListener('visibilitychange', onStoreChange)
+}
+
+function getDocumentVisibilitySnapshot() {
+  if (typeof document === 'undefined') return false
+  return document.visibilityState === 'visible'
+}
+
+function subscribeReducedMotion(onStoreChange: () => void) {
+  if (typeof window === 'undefined') return () => {}
+  const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  mediaQuery.addEventListener('change', onStoreChange)
+  return () => mediaQuery.removeEventListener('change', onStoreChange)
+}
+
+function getReducedMotionSnapshot() {
+  if (typeof window === 'undefined') return true
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 export function TypewriterPlaceholder({
   visible = true,
   className
@@ -20,38 +43,22 @@ export function TypewriterPlaceholder({
   const [displayText, setDisplayText] = useState('')
   const [urlIndex, setUrlIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>('typing')
-  const [isDocumentVisible, setIsDocumentVisible] = useState(() =>
-    typeof document === 'undefined' ? true : document.visibilityState === 'visible'
+  const isDocumentVisible = useSyncExternalStore(
+    subscribeDocumentVisibility,
+    getDocumentVisibilitySnapshot,
+    () => false
   )
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const prefersReducedMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    () => true
+  )
 
   const currentUrl = EXAMPLE_URLS[urlIndex]
   const isAnimationEnabled = visible && isDocumentVisible && !prefersReducedMotion
 
   const advanceToNextUrl = useCallback(() => {
     setUrlIndex((prev) => (prev + 1) % EXAMPLE_URLS.length)
-  }, [])
-
-  useEffect(() => {
-    if (typeof document === 'undefined' || typeof window === 'undefined') return
-
-    const handleVisibilityChange = () => {
-      setIsDocumentVisible(document.visibilityState === 'visible')
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const handleMotionChange = (event: MediaQueryListEvent) => {
-      setPrefersReducedMotion(event.matches)
-    }
-
-    setPrefersReducedMotion(mediaQuery.matches)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    mediaQuery.addEventListener('change', handleMotionChange)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      mediaQuery.removeEventListener('change', handleMotionChange)
-    }
   }, [])
 
   // Animation loop: This pattern is intentional for typewriter effect state machine
@@ -109,7 +116,9 @@ export function TypewriterPlaceholder({
     }
   }, [isAnimationEnabled])
 
-  if (!isAnimationEnabled) return null
+  if (!visible) return null
+
+  const placeholderText = isAnimationEnabled ? displayText : currentUrl
 
   return (
     <div
@@ -121,13 +130,15 @@ export function TypewriterPlaceholder({
       aria-hidden="true"
     >
       <span className="text-slate-400/80 dark:text-zinc-500 text-[15px] font-medium tracking-wide truncate">
-        {displayText}
-        <span
-          className={cn(
-            "inline-block w-0.5 h-4 md:h-5 ml-0.5 bg-slate-400 dark:bg-zinc-500 align-middle",
-            "animate-pulse"
-          )}
-        />
+        {placeholderText}
+        {isAnimationEnabled && (
+          <span
+            className={cn(
+              "inline-block w-0.5 h-4 md:h-5 ml-0.5 bg-slate-400 dark:bg-zinc-500 align-middle",
+              "animate-pulse"
+            )}
+          />
+        )}
       </span>
     </div>
   )

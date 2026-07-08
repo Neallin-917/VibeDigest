@@ -34,18 +34,19 @@ make install
 ### 启动
 
 ```bash
-make start-backend
-make start-frontend
+make dev
 ```
 
-如果后端希望走 Docker：
+这会用 Docker 启动后端和 Postgres，本机启动前端，并在一个终端里统一显示日志。如果默认端口被占用，dev runner 会自动向上扫描空闲端口，并把最终后端地址注入前端。
+
+如果只想单独调试某个服务，继续使用底层命令：
 
 ```bash
 make start-dev
 make start-frontend
 ```
 
-前端默认运行在 [http://localhost:3000](http://localhost:3000)，后端默认运行在 `http://localhost:16081`。
+前端默认运行在 [http://localhost:3000](http://localhost:3000)，后端默认运行在 `http://localhost:16081`。可用 `BACKEND_HOST_PORT=17081 FRONTEND_PORT=3100 make dev` 手动指定起始端口。用 `make dev-stop` 停止 Docker 后端和 Postgres。
 
 ## 架构概览
 
@@ -64,12 +65,17 @@ Frontend (Next.js App Router)
 | 命令 | 用途 |
 | --- | --- |
 | `make install` | 安装前后端依赖 |
+| `make dev` | 启动 Docker 后端和本机前端，并统一日志 |
+| `make dev-stop` | 停止 Docker 后端和 Postgres |
 | `make start-backend` | 本地运行 FastAPI |
 | `make start-frontend` | 本地运行 Next.js |
 | `make test-backend` | 后端单测，加上条件满足时的本地 smoke |
 | `make test-frontend` | 前端单测 |
+| `make create-demo-task` | 创建并处理默认公开 demo task |
 | `cd frontend && npm run build` | 前端生产构建校验 |
 | `make clean` | 清理本地生成物 |
+
+Demo task 默认使用 `https://www.youtube.com/watch?v=7rzYDM6vMtI`，会设置 `is_demo=true`，账号优先读取 `VIBEDIGEST_DEMO_USER_ID`、`DEMO_USER_ID`，否则使用第一条 `profiles` 记录。可用 `DEMO_URL='https://...' DEMO_USER_ID=... make create-demo-task` 覆盖；只建任务和输出占位符时用 `DEMO_NO_RUN=1`。
 
 ## 文档归属
 

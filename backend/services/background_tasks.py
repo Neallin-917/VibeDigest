@@ -6,6 +6,7 @@ from typing import Any, cast
 from workflow import app as workflow_app, VideoProcessingState
 from .transcriber import format_markdown_from_raw_segments
 from dependencies import get_db_client, get_summarizer
+from services.summarizer.validation import parse_summary_payload_v4
 
 logger = logging.getLogger(__name__)
 
@@ -149,12 +150,15 @@ async def handle_retry_output(output_id: str, user_id: str):
                     video_title=video_title,
                     script_raw_json=script_raw_json,
                 )
+                validated_summary = json.dumps(
+                    parse_summary_payload_v4(summary_json), ensure_ascii=False
+                )
 
                 db_client.update_output_status(
                     output_id,
                     status="completed",
                     progress=100,
-                    content=summary_json,
+                    content=validated_summary,
                     error="",
                 )
             except Exception as e:

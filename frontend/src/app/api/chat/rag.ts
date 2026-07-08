@@ -1,4 +1,9 @@
 import type { ToolContext } from './types';
+import {
+    buildSummaryMarkdownFromContent,
+    pickPreferredSummaryOutput,
+    type SummaryOutputCandidate,
+} from '@/lib/summary-contract';
 
 /**
  * Build RAG context from task data and outputs in Supabase.
@@ -20,11 +25,11 @@ export async function buildRagContext(
 
     const { data: outputs } = await supabase
         .from('task_outputs')
-        .select('kind, content, status')
+        .select('kind, content, status, locale, created_at')
         .eq('task_id', taskId)
         .in('kind', ['summary']);
 
-    const completedOutputs = outputs?.filter((o) => o.status === 'completed') || [];
+    const completedOutputs = (outputs as SummaryOutputCandidate[] | null) ?? [];
 
     if (!task) {
         console.warn(`[API/Chat] Task ${taskId} not found in DB`);
@@ -39,10 +44,10 @@ export async function buildRagContext(
 
     if (completedOutputs.length > 0) {
         console.log(`[API/Chat] Found ${completedOutputs.length} completed outputs`);
-        const summary = completedOutputs.find((o) => o.kind === 'summary');
-        const summaryContent = summary?.content || '';
-        if (summaryContent) {
-            contextParts.push(`## Summary\n${summaryContent}`);
+        const summary = pickPreferredSummaryOutput(completedOutputs);
+        const summaryMarkdown = summary ? buildSummaryMarkdownFromContent(summary.content) : '';
+        if (summaryMarkdown) {
+            contextParts.push(`## Summary\n${summaryMarkdown}`);
         }
     } else {
         console.log('[API/Chat] No completed outputs found for this task');

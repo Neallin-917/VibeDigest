@@ -68,6 +68,22 @@ class MockModel:
         return json.dumps(self.data)
 
 
+def _valid_summary_payload(overview: str, *, title: str = "Point A", detail: str = "Important detail.") -> dict:
+    return {
+        "version": 4,
+        "language": "en",
+        "tl_dr": "Short take.",
+        "overview": overview,
+        "keypoints": [
+            {
+                "title": title,
+                "detail": detail,
+                "evidence": "Quoted support.",
+            }
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -571,9 +587,7 @@ class TestCognition:
         """All three cognitive tasks succeed → all outputs present."""
         transcript = "Long enough transcript for analysis to proceed. " * 10
         mock_summarizer.classify_content.return_value = MockModel({"category": "Tech"})
-        mock_summarizer.summarize.return_value = MockModel({
-            "overview": "Great summary", "keypoints": ["point1"],
-        })
+        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Great summary"))
         mock_comprehension.generate_comprehension_brief.return_value = '{"insights": []}'
 
         state = _make_state(transcript_text=transcript)
@@ -591,9 +605,7 @@ class TestCognition:
         """COGNITION_SEQUENTIAL=True → runs sequentially, classification passed to summarizer."""
         transcript = "Sequential test transcript with enough length. " * 10
         mock_summarizer.classify_content.return_value = MockModel({"category": "Education"})
-        mock_summarizer.summarize.return_value = MockModel({
-            "overview": "Edu summary", "keypoints": ["learn"],
-        })
+        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Edu summary"))
         mock_comprehension.generate_comprehension_brief.return_value = '{"brief": "ok"}'
 
         state = _make_state(transcript_text=transcript)
@@ -613,9 +625,7 @@ class TestCognition:
         """Classification raises exception → summary still runs, error recorded."""
         transcript = "Partial failure test transcript enough text. " * 10
         mock_summarizer.classify_content.side_effect = Exception("LLM timeout")
-        mock_summarizer.summarize.return_value = MockModel({
-            "overview": "Still works", "keypoints": ["resilient"],
-        })
+        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Still works"))
         mock_comprehension.generate_comprehension_brief.return_value = '{"brief": "ok"}'
 
         state = _make_state(transcript_text=transcript)
@@ -657,9 +667,7 @@ class TestCognition:
         """Comprehension brief fails → others still present, error recorded."""
         transcript = "Comprehension failure scenario test content. " * 10
         mock_summarizer.classify_content.return_value = MockModel({"category": "Tech"})
-        mock_summarizer.summarize.return_value = MockModel({
-            "overview": "Summary ok", "keypoints": ["ok"],
-        })
+        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Summary ok"))
         mock_comprehension.generate_comprehension_brief.side_effect = Exception("Model unavailable")
 
         state = _make_state(transcript_text=transcript)

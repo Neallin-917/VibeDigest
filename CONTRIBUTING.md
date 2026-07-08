@@ -41,6 +41,7 @@ Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 | `make install` | Install backend and frontend dependencies |
 | `make test-unit` | Backend unit test suite |
 | `make test-backend` | Backend unit tests plus local smoke if prerequisites exist |
+| `make test-provider-smoke` | Real configured LLM provider smoke test |
 | `make test-frontend` | Frontend unit tests in run mode |
 | `cd frontend && npm run build` | Frontend production build |
 | `make lint` | Frontend lint plus backend lint placeholder |
@@ -54,7 +55,8 @@ Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
   - New or materially changed code should reach `80%+` coverage in its touched area
 - Default execution split:
   - Backend unit tests: mocked, safe for local and CI
-  - Backend integration tests: opt-in, may require DB/provider setup
+  - Backend local smoke: DB-backed `/api/process-video`, no real LLM call
+  - Provider smoke and broader integration tests: opt-in, may require provider/database setup
   - Frontend unit tests: Vitest
   - Frontend E2E tests: Playwright, separate from default unit flow
 

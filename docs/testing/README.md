@@ -29,13 +29,15 @@ This distinction is intentional: the repo gate protects baseline health, while t
 ```bash
 make test-unit
 make test-backend
+make test-provider-smoke
 make test-integration
 ```
 
 Notes:
 - `make test-unit` is mocked and safe by default
-- `make test-backend` includes a local smoke path and skips cleanly when DB/provider prerequisites are missing
-- `make test-integration` is opt-in and uses real provider/database prerequisites
+- `make test-backend` includes a local DB-backed `/api/process-video` smoke path and skips cleanly when the DB prerequisite is missing
+- `make test-provider-smoke` is opt-in and uses the configured provider for one real LLM API call
+- `make test-integration` is opt-in and may use real provider/database prerequisites
 
 ### Frontend
 
@@ -50,6 +52,10 @@ cd frontend && npx playwright test
 ### Backend integration prerequisites
 
 - reachable test database
+- environment loaded from `.env.local` or shell
+
+### Provider smoke prerequisites
+
 - provider credentials matching the active routing mode
 - environment loaded from `.env.local` or shell
 

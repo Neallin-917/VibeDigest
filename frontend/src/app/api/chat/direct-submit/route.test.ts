@@ -20,6 +20,7 @@ const {
   mockFrom,
   mockUpsert,
   mockUpsertChatState,
+  mockRestoreArchivedThreadIfNeeded,
 } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
   mockGetUser: vi.fn(),
@@ -27,6 +28,7 @@ const {
   mockFrom: vi.fn(),
   mockUpsert: vi.fn(),
   mockUpsertChatState: vi.fn(),
+  mockRestoreArchivedThreadIfNeeded: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -35,6 +37,7 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('../persistence', () => ({
   upsertChatState: mockUpsertChatState,
+  restoreArchivedThreadIfNeeded: mockRestoreArchivedThreadIfNeeded,
 }))
 
 const originalFetch = global.fetch
@@ -67,6 +70,7 @@ describe('POST /api/chat/direct-submit', () => {
       error: null,
     })
     mockUpsertChatState.mockResolvedValue(undefined)
+    mockRestoreArchivedThreadIfNeeded.mockResolvedValue(null)
   })
 
   afterEach(() => {
@@ -105,7 +109,7 @@ describe('POST /api/chat/direct-submit', () => {
   })
 
   it('returns mocked task data in E2E mode without calling backend or persistence', async () => {
-    env.NEXT_PUBLIC_E2E_MOCK = '1'
+    ;(env as { NEXT_PUBLIC_E2E_MOCK: string }).NEXT_PUBLIC_E2E_MOCK = '1'
     global.fetch = vi.fn()
 
     const req = new Request('http://localhost/api/chat/direct-submit', {
@@ -146,6 +150,44 @@ describe('POST /api/chat/direct-submit', () => {
     )
     expect(global.fetch).not.toHaveBeenCalled()
     expect(mockUpsertChatState).not.toHaveBeenCalled()
-    env.NEXT_PUBLIC_E2E_MOCK = '0'
+    ;(env as { NEXT_PUBLIC_E2E_MOCK: string }).NEXT_PUBLIC_E2E_MOCK = '0'
+  })
+
+  it('restores archived threads before persisting direct URL submission', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ task_id: 'task-123' }),
+    } as Response)
+
+    mockRestoreArchivedThreadIfNeeded.mockResolvedValue({
+      id: 'thread-1',
+      title: 'Archived chat',
+      status: 'active',
+    })
+
+    const req = new Request('http://localhost/api/chat/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        videoUrl: 'https://www.youtube.com/watch?v=abc',
+        originalText: 'https://www.youtube.com/watch?v=abc',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(200)
+    expect(mockRestoreArchivedThreadIfNeeded).toHaveBeenCalledWith({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      supabase: expect.any(Object),
+    })
+    expect(mockUpsertChatState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: 'thread-1',
+        taskIdToBind: 'task-123',
+      })
+    )
   })
 })

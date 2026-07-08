@@ -132,6 +132,12 @@ async def retry_output(
     db: DBClient = Depends(get_db_client)
 ):
     """Retry a specific output."""
+    output = db.get_output(output_id)
+    if not output:
+        raise HTTPException(status_code=404, detail="Output not found")
+    if output.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     db.update_output_status(output_id, status="pending", progress=0, error="")
     background_tasks.add_task(handle_retry_output, output_id, user_id)
     return {"message": "Retry queued"}
@@ -163,4 +169,6 @@ async def get_task_status(
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    if task.get("user_id") != user_id and not task.get("is_demo"):
+        raise HTTPException(status_code=403, detail="Unauthorized")
     return task

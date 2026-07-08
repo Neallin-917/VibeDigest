@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { setupApiMocks } from './fixtures/mock-api';
 
 test.describe('Visual Regression', () => {
-  test('Landing Page visual check', async ({ page }, testInfo) => {
+  test('Landing Page visual check', async ({ page }) => {
     // Visual regression snapshots are platform-specific (darwin vs linux differ in fonts/rendering).
     // Run locally only to update baselines: npx playwright test --update-snapshots
     test.skip(!!process.env.CI, 'Visual regression snapshots must be generated per-platform locally');

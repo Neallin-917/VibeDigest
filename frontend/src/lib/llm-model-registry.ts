@@ -5,24 +5,16 @@ export type SupportedProvider = 'openrouter' | 'custom';
 export type ModelTier = 'smart' | 'fast';
 export type ProviderModelDefaults = Record<SupportedProvider, Record<ModelTier, string>>;
 
-function loadProviderModelDefaults(): ProviderModelDefaults {
-    const candidates = [
-        path.resolve(process.cwd(), 'config', 'llm-provider-defaults.json'),
-        path.resolve(process.cwd(), '..', 'config', 'llm-provider-defaults.json'),
-    ];
+const providerModelDefaultsPath = path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    '..',
+    'config',
+    'llm-provider-defaults.json'
+);
 
-    for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) {
-            return JSON.parse(fs.readFileSync(candidate, 'utf-8')) as ProviderModelDefaults;
-        }
-    }
-
-    throw new Error(
-        `Unable to locate llm-provider-defaults.json. Checked: ${candidates.join(', ')}.`
-    );
-}
-
-const PROVIDER_MODEL_DEFAULTS = loadProviderModelDefaults();
+const PROVIDER_MODEL_DEFAULTS = JSON.parse(
+    fs.readFileSync(providerModelDefaultsPath, 'utf-8')
+) as ProviderModelDefaults;
 
 export function resolveProvider(openaiBaseUrl?: string): SupportedProvider {
     return openaiBaseUrl ? 'custom' : 'openrouter';

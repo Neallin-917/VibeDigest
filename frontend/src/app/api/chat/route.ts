@@ -15,7 +15,7 @@ import { getTextFromUIMessage, extractUrl, isUsableTaskId, getErrorMessage, getE
 import { verifyAuth, isAuthError } from './auth';
 import { buildRagContext } from './rag';
 import { buildAllTools, buildTools } from './tools';
-import { createOnFinishHandler } from './persistence';
+import { createOnFinishHandler, restoreArchivedThreadIfNeeded } from './persistence';
 import {
     chatDataSchemas,
     messageMetadataSchema,
@@ -88,17 +88,13 @@ export async function POST(req: Request) {
         let threadTitle: string | undefined;
 
         if (threadId) {
-            const { data: thread, error: threadError } = await supabase
-                .from('chat_threads')
-                .select('id, title')
-                .eq('id', threadId)
-                .single();
+            const thread = await restoreArchivedThreadIfNeeded({
+                threadId,
+                userId: user.id,
+                supabase,
+            });
 
             threadTitle = thread?.title;
-
-            if (threadError && threadError.code !== 'PGRST116') {
-                console.error('[API/Chat] Thread lookup error:', threadError);
-            }
 
             const { data: dbMessages, error: msgError } = await supabase
                 .from('chat_messages')

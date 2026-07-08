@@ -44,7 +44,30 @@ def test_create_task(db_client_instance, mock_session):
     
     assert result["id"] == "task_1"
     mock_session.execute.assert_called()
+    args, _ = mock_session.execute.call_args
+    assert "is_demo" in args[0].text
+    assert args[1]["is_demo"] is False
     mock_session.commit.assert_called()
+
+
+def test_create_task_can_mark_demo(db_client_instance, mock_session):
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    row = MagicMock()
+    row._mapping = {
+        "id": "task_demo",
+        "user_id": "u1",
+        "status": "pending",
+        "is_demo": True,
+    }
+    mock_result.__iter__.return_value = iter([row])
+    mock_session.execute.return_value = mock_result
+
+    result = db_client_instance.create_task("u1", "http://vid", is_demo=True)
+
+    assert result["is_demo"] is True
+    args, _ = mock_session.execute.call_args
+    assert args[1]["is_demo"] is True
 
 
 def test_find_latest_inflight_task(db_client_instance, mock_session):

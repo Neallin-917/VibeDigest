@@ -101,7 +101,7 @@ class SummaryResponseV4(BaseModel):
 
     version: int = Field(default=4)
     language: str = Field(..., description="Language code of the summary (e.g., 'zh')")
-    tl_dr: str = Field(..., description="Ultra-concise 1-2 sentence takeaway")
+    tl_dr: str = Field(default="", description="Ultra-concise 1-2 sentence takeaway")
     overview: str = Field(..., description="A comprehensive overview of the content")
     keypoints: List[KeyPoint] = Field(
         ..., description="Core key points (always present)"

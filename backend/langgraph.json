@@ -1,6 +1,0 @@
-{
-    "graphs": {
-        "agent": "./workflow.py:app"
-    },
-    "env": "../.env"
-}

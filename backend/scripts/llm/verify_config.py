@@ -57,20 +57,31 @@ async def verify_connection():
     fast_model = settings.MODEL_FAST
     if not fast_model:
         print("  [FAIL] No FAST model resolved. Check your configuration.")
-        return
+        return False
 
     print(f"Attempting to send 'Hello' to model: {fast_model} (Provider: {settings.LLM_PROVIDER})...")
     try:
         model = create_chat_model(fast_model)
         response = await model.ainvoke("Hello, are you operational?")
         print(f"  [SUCCESS] Response: {response.content[:50]}...")
+        return True
     except Exception as e:
         print(f"  [FAIL] Connection failed: {e}")
+        return False
 
-if __name__ == "__main__":
+
+def main(argv=None):
+    args = sys.argv[1:] if argv is None else argv
+
     verify_config()
     verify_factory_logic()
-    if len(sys.argv) > 1 and sys.argv[1] == "--connect":
-        asyncio.run(verify_connection())
+
+    if "--connect" in args:
+        return 0 if asyncio.run(verify_connection()) else 1
     else:
         print("\n(Run with --connect to perform actual API call)")
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

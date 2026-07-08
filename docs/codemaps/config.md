@@ -48,9 +48,10 @@
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LANGFUSE_PUBLIC_KEY` | (none) | Langfuse public key |
-| `LANGFUSE_SECRET_KEY` | (none) | Langfuse secret key |
-| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse endpoint |
+| `LANGCHAIN_TRACING_V2` | `false` | Enables LangSmith tracing through LangChain |
+| `LANGCHAIN_API_KEY` / `LANGSMITH_API_KEY` | (none) | LangSmith API key |
+| `LANGCHAIN_PROJECT` / `LANGSMITH_PROJECT` | `default` | LangSmith project name |
+| `LANGCHAIN_ENDPOINT` / `LANGSMITH_ENDPOINT` | `https://api.smith.langchain.com` | LangSmith endpoint |
 | `SENTRY_DSN` | (none) | Sentry error tracking DSN |
 | `LOG_LEVEL` | `INFO` | Python logging level |
 

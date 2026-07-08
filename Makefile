@@ -1,9 +1,10 @@
 .PHONY: all install start test lint clean help
 .PHONY: install-backend install-frontend
-.PHONY: start-backend start-frontend start-dev start-prod
-.PHONY: test-backend test-frontend test-local-integration-smoke
+.PHONY: dev dev-stop start-backend start-frontend start-dev start-prod
+.PHONY: test-backend test-frontend test-local-integration-smoke test-provider-smoke create-demo-task
 .PHONY: stop restart-dev rebuild-dev restart-prod deploy
 .PHONY: perf perf-frontend perf-check perf-update-baseline
+.PHONY: ops-audit
 
 # --- Configuration ---
 # 提取端口 (macOS 兼容)
@@ -14,13 +15,15 @@ BACKEND_PORT=16081
 help:
 	@echo "Available commands:"
 	@echo "  make install       - Install both backend and frontend dependencies"
+	@echo "  make dev           - Start Docker backend + local frontend with unified logs"
+	@echo "  make dev-stop      - Stop Docker backend and Postgres"
 	@echo "  make start-backend - Start the backend server (local)"
 	@echo "  make start-frontend- Start the frontend development server"
 	@echo "  make stop-frontend - Stop the frontend development server"
 	@echo "  make stop-backend  - Stop the backend development server"
 	@echo "  make restart-frontend - Restart the frontend development server"
 	@echo "  make restart-backend  - Restart the backend development server"
-	@echo "  make start-dev     - Start backend in Docker (Dev Mode, hot reload)"
+	@echo "  make start-dev     - Start only backend in Docker (Dev Mode, hot reload)"
 	@echo "  make start-prod    - Start backend in Docker (Prod Mode, stable)"
 	@echo "  make stop          - Stop all Docker containers"
 	@echo "  make restart-dev   - Restart backend in Docker (quick, no rebuild)"
@@ -28,6 +31,9 @@ help:
 	@echo "  make restart-prod  - Restart backend in Docker (Prod Mode)"
 	@echo "  make deploy        - Deploy to Production (Same as start-prod for now)"
 	@echo "  make test          - Run all tests"
+	@echo "  make test-provider-smoke - Verify the configured LLM provider with a real API call"
+	@echo "  make ops-audit    - Run read-only deployment and local ops checks"
+	@echo "  make create-demo-task - Create and process the default demo task"
 	@echo "  make lint          - Run formatters and linters"
 	@echo "  make clean         - Clean up temporary files"
 
@@ -43,6 +49,12 @@ install-frontend:
 	cd frontend && npm install
 
 # --- Execution ---
+dev:
+	FRONTEND_PORT=$(FRONTEND_PORT) \
+	BACKEND_HOST_PORT="$(BACKEND_HOST_PORT)" \
+	POSTGRES_HOST_PORT="$(POSTGRES_HOST_PORT)" \
+	python3 scripts/dev.py
+
 start-backend:
 	@echo "Starting backend..."
 	cd backend && uv run uvicorn main:app --reload --port $(BACKEND_PORT)
@@ -69,6 +81,10 @@ PROJ_DEV=vibedigest-dev
 start-dev:
 	@echo "Starting Docker (Dev Mode)... [Project: $(PROJ_DEV)]"
 	COMPOSE_PROJECT_NAME=$(PROJ_DEV) docker-compose -f docker-compose.yml up --build -d
+
+dev-stop:
+	@echo "Stopping Docker backend and Postgres... [Project: $(PROJ_DEV)]"
+	COMPOSE_PROJECT_NAME=$(PROJ_DEV) docker-compose -f docker-compose.yml down
 
 # Prod: Runs Immutable Image, No Build
 PROJ_PROD=vibedigest-prod
@@ -116,15 +132,23 @@ test-unit:
 	EVENTLET_NO_GREENDNS=yes uv run pytest backend/tests/ -m "not integration and not slow"
 
 test-local-integration-smoke:
-	@echo "Running local integration smoke (provider + /api/process-video)..."
-	@python -c 'exec("""import os\nimport socket\nimport sys\nfrom pathlib import Path\nfrom urllib.parse import urlparse\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\ncustom = (os.getenv(\"OPENAI_BASE_URL\") or \"\").strip()\nif custom and not (os.getenv(\"OPENAI_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is set but OPENAI_API_KEY is missing.\")\n    sys.exit(3)\nif (not custom) and not (os.getenv(\"OPENROUTER_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is unset and OPENROUTER_API_KEY is missing.\")\n    sys.exit(3)\nparsed = urlparse(os.getenv(\"TEST_DATABASE_URL\", \"postgresql://postgres:password@localhost:15432/langgraph\"))\nhost = parsed.hostname or \"localhost\"\nport = parsed.port or 5432\nsock = socket.socket()\nsock.settimeout(1.5)\nstatus = sock.connect_ex((host, port))\nsock.close()\nif status != 0:\n    print(f\"SKIP: test database is not reachable at {host}:{port}.\")\n    sys.exit(3)\n""")'; \
+	@echo "Running local integration smoke (/api/process-video against local test DB)..."
+	@python -c 'exec("""import os\nimport socket\nimport sys\nfrom pathlib import Path\nfrom urllib.parse import urlparse\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\nparsed = urlparse(os.getenv(\"TEST_DATABASE_URL\", \"postgresql://postgres:password@localhost:15432/langgraph\"))\nhost = parsed.hostname or \"localhost\"\nport = parsed.port or 5432\nsock = socket.socket()\nsock.settimeout(1.5)\nstatus = sock.connect_ex((host, port))\nsock.close()\nif status != 0:\n    print(f\"SKIP: test database is not reachable at {host}:{port}.\")\n    sys.exit(3)\n""")'; \
 	status=$$?; \
 	if [ $$status -eq 3 ]; then exit 0; fi; \
 	if [ $$status -ne 0 ]; then exit $$status; fi; \
-	export PYTHONPATH=$$PYTHONPATH:$(PWD)/backend; \
-	EVENTLET_NO_GREENDNS=yes uv run python backend/scripts/llm/verify_config.py --connect; \
-	export PYTHONPATH=$$PYTHONPATH:$(PWD)/backend; \
-	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/test_integration.py::test_process_video_endpoint_real_db --no-cov -v
+	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/test_integration.py::test_process_video_endpoint_real_db --no-cov -v
+
+test-provider-smoke:
+	@echo "Running provider smoke (real LLM API call)..."
+	@python -c 'exec("""import os\nimport sys\nfrom pathlib import Path\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\ncustom = (os.getenv(\"OPENAI_BASE_URL\") or \"\").strip()\nif custom and not (os.getenv(\"OPENAI_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is set but OPENAI_API_KEY is missing.\")\n    sys.exit(3)\nif (not custom) and not (os.getenv(\"OPENROUTER_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is unset and OPENROUTER_API_KEY is missing.\")\n    sys.exit(3)\n""")'; \
+	status=$$?; \
+	if [ $$status -eq 3 ]; then exit 0; fi; \
+	if [ $$status -ne 0 ]; then exit $$status; fi; \
+	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run python backend/scripts/llm/verify_config.py --connect
+
+ops-audit:
+	python3 scripts/ops_audit.py
 
 test-integration:
 	@echo "Running integration tests (OpenRouter real API)..."
@@ -139,6 +163,13 @@ verify:
 	uv run backend/scripts/llm/verify_connection.py
 	@echo "Verifying Workflow..."
 	uv run backend/scripts/tasks/test_workflow.py
+
+create-demo-task:
+	uv run python backend/scripts/tasks/create_demo.py \
+		$(if $(DEMO_URL),--url "$(DEMO_URL)",) \
+		$(if $(DEMO_USER_ID),--user-id "$(DEMO_USER_ID)",) \
+		$(if $(DEMO_TITLE),--title "$(DEMO_TITLE)",) \
+		$(if $(DEMO_NO_RUN),--no-run,)
 
 # --- Quality Control ---
 lint:

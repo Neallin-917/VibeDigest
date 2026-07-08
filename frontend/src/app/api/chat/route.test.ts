@@ -138,6 +138,16 @@ function getLastUIStreamOptions() {
     return mockCreateUIMessageStream.mock.calls.at(-1)?.[0]
 }
 
+function createSelectSingleMock(result: { data: unknown; error?: unknown }) {
+    const chain = {} as {
+        eq: ReturnType<typeof vi.fn>
+        single: ReturnType<typeof vi.fn>
+    }
+    chain.eq = vi.fn(() => chain)
+    chain.single = vi.fn().mockResolvedValue(result)
+    return vi.fn().mockReturnValue(chain)
+}
+
 // --- Tests ---
 
 describe('POST /api/chat', () => {
@@ -173,18 +183,23 @@ describe('POST /api/chat', () => {
         })
 
         // Setup chain returns
-        mockSelect.mockImplementation(() => ({
-            eq: vi.fn(() => ({
-                in: mockIn,
-                single: mockSingle,
-                order: mockOrder
-            })),
-            in: mockIn,
-            single: mockSingle,
-            order: mockOrder
-        }))
-        mockUpdate.mockReturnValue({
-            eq: vi.fn().mockResolvedValue({})
+        mockSelect.mockImplementation(() => {
+            const chain = {} as {
+                eq: ReturnType<typeof vi.fn>
+                in: typeof mockIn
+                single: typeof mockSingle
+                order: typeof mockOrder
+            }
+            chain.eq = vi.fn(() => chain)
+            chain.in = mockIn
+            chain.single = mockSingle
+            chain.order = mockOrder
+            return chain
+        })
+        mockUpdate.mockImplementation(() => {
+            const chain = {} as { eq: ReturnType<typeof vi.fn> }
+            chain.eq = vi.fn(() => chain)
+            return chain
         })
         mockEq.mockImplementation(() => {
             return { single: mockSingle, order: mockOrder };
@@ -310,13 +325,9 @@ describe('POST /api/chat', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({
-                                data: { id: 'thread-123', title: 'New Chat' },
-                                error: null,
-                            }),
-                        }),
+                    select: createSelectSingleMock({
+                        data: { id: 'thread-123', title: 'New Chat' },
+                        error: null,
                     }),
                 }
             }
@@ -392,13 +403,9 @@ describe('POST /api/chat', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({
-                                data: { id: 'thread-123', title: 'New Chat' },
-                                error: null,
-                            }),
-                        }),
+                    select: createSelectSingleMock({
+                        data: { id: 'thread-123', title: 'New Chat' },
+                        error: null,
                     }),
                 }
             }
@@ -458,13 +465,9 @@ describe('POST /api/chat', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({
-                                data: { id: 'thread-123', title: 'New Chat' },
-                                error: null,
-                            }),
-                        }),
+                    select: createSelectSingleMock({
+                        data: { id: 'thread-123', title: 'New Chat' },
+                        error: null,
                     }),
                 }
             }
@@ -550,6 +553,15 @@ describe('POST /api/chat', () => {
 
     it('injects RAG context when taskId is provided', async () => {
         const taskId = 'task-123'
+        const validSummary = JSON.stringify({
+            version: 4,
+            language: 'en',
+            tl_dr: 'Quick take.',
+            overview: 'This is a summary.',
+            keypoints: [
+                { title: 'Key point', detail: 'Useful detail', evidence: 'Evidence quote' }
+            ]
+        })
 
         // Setup: Task lookup success
         // We need to carefully mock the chain for specific tables
@@ -579,7 +591,7 @@ describe('POST /api/chat', () => {
                         eq: vi.fn().mockReturnValue({
                             in: vi.fn().mockResolvedValue({
                                 data: [
-                                    { kind: 'summary', content: 'This is a summary.', status: 'completed' },
+                                    { kind: 'summary', content: validSummary, status: 'completed', locale: null },
                                     { kind: 'script', content: 'This is a transcript.', status: 'completed' }
                                 ],
                                 error: null
@@ -610,6 +622,8 @@ describe('POST /api/chat', () => {
         const callArgs = mockStreamText.mock.calls[0][0]
         expect(callArgs.system).toContain('CURRENT VIDEO CONTEXT')
         expect(callArgs.system).toContain('Test Video')
+        expect(callArgs.system).toContain('## Summary')
+        expect(callArgs.system).toContain('## In Brief')
         expect(callArgs.system).toContain('This is a summary.')
     })
 
@@ -618,10 +632,9 @@ describe('POST /api/chat', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
-                        })
+                    select: createSelectSingleMock({
+                        data: null,
+                        error: { code: 'PGRST116' },
                     }),
                     insert: mockInsert,
                     update: mockUpdate,
@@ -669,10 +682,9 @@ describe('POST /api/chat', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
-                        })
+                    select: createSelectSingleMock({
+                        data: null,
+                        error: { code: 'PGRST116' },
                     }),
                     insert: mockInsert,
                     update: mockUpdate,
@@ -962,7 +974,11 @@ describe('Chat Title Generation Logic', () => {
         mockIn.mockResolvedValue({ data: [], error: null })
         mockInsert.mockResolvedValue({ error: null })
         mockUpsert.mockResolvedValue({ error: null })
-        mockUpdate.mockReturnValue({ eq: vi.fn().mockResolvedValue({}) })
+        mockUpdate.mockImplementation(() => {
+            const chain = {} as { eq: ReturnType<typeof vi.fn> }
+            chain.eq = vi.fn(() => chain)
+            return chain
+        })
         mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
             void execute({
                 writer: {
@@ -1011,13 +1027,9 @@ describe('Chat Title Generation Logic', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({ 
-                                data: { id: threadId, title: 'New Chat' }, 
-                                error: null 
-                            })
-                        })
+                    select: createSelectSingleMock({
+                        data: { id: threadId, title: 'New Chat' },
+                        error: null,
                     }),
                     update: mockUpdate
                 }
@@ -1102,13 +1114,9 @@ describe('Chat Title Generation Logic', () => {
         mockFrom.mockImplementation(((table: string) => {
             if (table === 'chat_threads') {
                 return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({ 
-                                data: { id: threadId, title: 'My Custom Analysis' }, 
-                                error: null 
-                            })
-                        })
+                    select: createSelectSingleMock({
+                        data: { id: threadId, title: 'My Custom Analysis' },
+                        error: null,
                     }),
                     update: mockUpdate
                 }

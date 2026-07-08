@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
+import { toast } from "sonner"
 import { ChatWorkspace } from "@/components/chat/ChatWorkspace"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { AppSidebarProvider } from "@/components/layout/AppSidebarContext"
@@ -10,8 +11,17 @@ import { useThreadNavigation } from "@/hooks/useThreadNavigation"
 
 function ChatPageContent() {
     const { isAuthenticated } = useAuth()
-    const { threads, refetch: refetchThreads } = useThreadsQuery()
+    const { threads, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery()
     const nav = useThreadNavigation({ threads, refetchThreads })
+
+    const handleUpdateThreadStatus = async (threadId: string, status: 'active' | 'archived') => {
+        try {
+            await updateThreadStatus(threadId, status)
+        } catch (error) {
+            console.error('Failed to update thread status', error)
+            toast.error(status === 'archived' ? 'Failed to archive chat' : 'Failed to restore chat')
+        }
+    }
 
     return (
         <AppSidebarProvider defaultCollapsed={true}>
@@ -23,6 +33,7 @@ function ChatPageContent() {
                     onNewChat={nav.handleNewChat}
                     onSelectThread={nav.handleSelectThread}
                     onPrefetchThread={nav.prefetchThread}
+                    onUpdateThreadStatus={handleUpdateThreadStatus}
                 />
 
                 {nav.isBootstrapping ? (
@@ -44,6 +55,7 @@ function ChatPageContent() {
                         onThreadCreated={refetchThreads}
                         onChatStarted={nav.handleChatStarted}
                         threads={threads}
+                        onUpdateThreadStatus={handleUpdateThreadStatus}
                     />
                 )}
             </div>

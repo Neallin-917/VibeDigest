@@ -32,6 +32,8 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         self.mock_summarizer.summarize = AsyncMock()
         self.mock_summarizer.optimize_transcript = AsyncMock()
         self.mock_summarizer.fast_clean_transcript = MagicMock(side_effect=lambda x: x)
+        self.mock_comprehension = AsyncMock()
+        self.mock_comprehension.generate_comprehension_brief = AsyncMock(return_value='{"brief": "ok"}')
 
         # Patch getter functions to return our mocks
         for attr, mock in [
@@ -40,6 +42,7 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
             ('_get_video_processor', self.mock_vp),
             ('_get_transcriber', self.mock_transcriber),
             ('_get_summarizer', self.mock_summarizer),
+            ('_get_comprehension_agent', self.mock_comprehension),
         ]:
             p = patch(f'workflow.{attr}', return_value=mock)
             p.start()
@@ -101,12 +104,27 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         def model_dump(self): return self.data
         def model_dump_json(self): return json.dumps(self.data)
 
+    def valid_summary(self, overview: str) -> dict:
+        return {
+            "version": 4,
+            "language": "en",
+            "tl_dr": "Short take.",
+            "overview": overview,
+            "keypoints": [
+                {
+                    "title": "Point A",
+                    "detail": "Important detail.",
+                    "evidence": "Quoted support.",
+                }
+            ],
+        }
+
     async def test_cognition_parallel(self):
         """Test Cognition executed in parallel"""
         print("\nRunning test_cognition_parallel...")
         # Setup Mocks to return objects with model_dump
         self.mock_summarizer.classify_content.return_value = self.MockModel({"category": "Tech"})
-        self.mock_summarizer.summarize.return_value = self.MockModel({"overview": "Summary", "keypoints": []})
+        self.mock_summarizer.summarize.return_value = self.MockModel(self.valid_summary("Summary"))
 
         state = cast(VideoProcessingState, {
             "task_id": str(uuid4()),
@@ -132,7 +150,7 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         self.mock_supadata.get_transcript_async.return_value = (long_transcript, "{}", "en")
         self.mock_vp.extract_info_only.return_value = {"title": "Graph Video", "thumbnail": "img"}
         self.mock_summarizer.classify_content.return_value = self.MockModel({"cat": "test"})
-        self.mock_summarizer.summarize.return_value = self.MockModel({"sum": "mary"})
+        self.mock_summarizer.summarize.return_value = self.MockModel(self.valid_summary("Graph summary"))
 
         app = build_graph()
 

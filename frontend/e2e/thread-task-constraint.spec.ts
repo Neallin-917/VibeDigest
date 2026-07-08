@@ -266,8 +266,6 @@ test.describe('Navigation Cycle Prevention', () => {
     await page.goto('/en/chat?threadId=thread-a&task=task-a')
     await page.waitForLoadState('networkidle')
 
-    const initialUrl = page.url()
-
     // Try to trigger a navigation that would cycle
     // In the bug scenario, clicking a summary would cause:
     // thread-a -> thread-b -> thread-a -> thread-b (infinite)

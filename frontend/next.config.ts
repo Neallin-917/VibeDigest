@@ -48,15 +48,6 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "**.xyzcdn.net" },
     ],
   },
-  // Proxy /lg/* requests to LangGraph server for chat functionality
-  async rewrites() {
-    return [
-      {
-        source: "/lg/:path*",
-        destination: "http://localhost:8123/:path*",
-      },
-    ];
-  },
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },

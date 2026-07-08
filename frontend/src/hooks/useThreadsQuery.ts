@@ -3,6 +3,8 @@ import { useCallback } from 'react'
 import { threadKeys } from './queryKeys'
 import type { Thread } from '@/types'
 
+type MutableThreadStatus = 'active' | 'archived'
+
 async function fetchThreads(): Promise<Thread[]> {
     try {
         const res = await fetch('/api/chat/threads')
@@ -17,6 +19,28 @@ async function fetchThreads(): Promise<Thread[]> {
         console.error('Failed to fetch threads', error)
     }
     return []
+}
+
+async function patchThreadStatus(threadId: string, status: MutableThreadStatus): Promise<Thread> {
+    const res = await fetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+    })
+
+    if (!res.ok) {
+        throw new Error(`Failed to update thread status: ${res.status}`)
+    }
+
+    return await res.json() as Thread
+}
+
+function sortThreadsByUpdatedAt(threads: Thread[]) {
+    return [...threads].sort((left, right) => {
+        const leftTime = new Date(left.updated_at).getTime()
+        const rightTime = new Date(right.updated_at).getTime()
+        return rightTime - leftTime
+    })
 }
 
 /**
@@ -45,5 +69,24 @@ export function useThreadsQuery() {
         return data
     }, [queryClient])
 
-    return { threads, isLoading, refetch }
+    const updateThreadStatus = useCallback(async (threadId: string, status: MutableThreadStatus) => {
+        const updatedThread = await patchThreadStatus(threadId, status)
+
+        queryClient.setQueryData<Thread[]>(threadKeys.all, (currentThreads = []) => {
+            const hasExistingThread = currentThreads.some((thread) => thread.id === updatedThread.id)
+            const nextThreads = hasExistingThread
+                ? currentThreads.map((thread) => (
+                    thread.id === updatedThread.id
+                        ? { ...thread, ...updatedThread }
+                        : thread
+                ))
+                : [...currentThreads, updatedThread]
+
+            return sortThreadsByUpdatedAt(nextThreads)
+        })
+
+        return updatedThread
+    }, [queryClient])
+
+    return { threads, isLoading, refetch, updateThreadStatus }
 }

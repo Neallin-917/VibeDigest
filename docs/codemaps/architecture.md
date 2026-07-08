@@ -48,7 +48,7 @@
 │  │  ├─ task_outputs       │  │  ├─ OpenAI GPT-4o (LLM)        ││
 │  │  ├─ threads/messages   │  │  ├─ yt-dlp (Video Download)    ││
 │  │  ├─ subscriptions      │  │  ├─ Supadata (YT Transcripts)  ││
-│  │  └─ payment_orders     │  │  └─ Langfuse (Observability)   ││
+│  │  └─ payment_orders     │  │  └─ LangSmith (Observability)  ││
 │  └────────────────────────┘  └────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -123,7 +123,7 @@ User                Frontend              Backend                 Supabase
 | Concern | Solution |
 |---------|----------|
 | **Auth** | Supabase Auth (Email + Google OAuth) |
-| **Observability** | Langfuse (LLM tracing) + Sentry (Errors) |
+| **Observability** | LangSmith (LLM tracing) + Sentry (Errors) |
 | **Payments** | Creem (Card) + Coinbase Commerce (Crypto) |
 | **i18n** | 3 UI locales (`en`, `zh`, `ja`) |
 | **Rate Limiting** | Semaphore (4 concurrent) + Quota system |

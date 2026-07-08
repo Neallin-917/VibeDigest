@@ -51,7 +51,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
         "tasks.summaryStructured.keypointsTitle": "Key Insights",
         "tasks.summaryStructured.tldrTitle": "TL;DR",
         "tasks.summaryStructured.sectionsTitle": "Sections",
-        "tasks.summaryStructured.overviewTitle": "Overview"
+        "tasks.summaryStructured.overviewTitle": "Overview",
+        "chat.contextPanel.noSummary": "No summary available"
       }
       return translations[key] || key
     },
@@ -104,9 +105,11 @@ describe('VideoDetailPanel', () => {
 
   it('renders structured summary content (Insights)', async () => {
     const summaryContent = {
+      version: 4,
+      language: 'en',
       overview: "An overview of the test video.",
       keypoints: [
-        { title: "Key Insight 1", detail: "Detail 1", startSeconds: 10 }
+        { title: "Key Insight 1", detail: "Detail 1", evidence: "Evidence 1", startSeconds: 10 }
       ]
     }
 
@@ -129,6 +132,7 @@ describe('VideoDetailPanel', () => {
   it('renders V4 summary fields and dynamic sections', async () => {
     const summaryContent = {
       version: 4,
+      language: 'en',
       tl_dr: "Short take for V4.",
       overview: "V4 overview text.",
       keypoints: [
@@ -174,7 +178,7 @@ describe('VideoDetailPanel', () => {
     })
   })
 
-  it('handles non-JSON text summary (Markdown fallback)', async () => {
+  it('treats non-JSON legacy text as missing summary', async () => {
     const markdownSummary = "# Video Summary\nThis is a markdown summary."
 
     mockOrder.mockResolvedValue({
@@ -188,12 +192,12 @@ describe('VideoDetailPanel', () => {
     render(<VideoDetailPanel taskId="task-123" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/This is a markdown summary/)).toBeInTheDocument()
-      expect(screen.queryByText('Insight 1')).not.toBeInTheDocument()
+      expect(screen.getByText('No summary available')).toBeInTheDocument()
+      expect(screen.queryByText(/This is a markdown summary/)).not.toBeInTheDocument()
     })
   })
 
-  it('handles malformed JSON by treating as text', async () => {
+  it('treats malformed JSON as missing summary', async () => {
     const malformedJson = "{ keypoints: [ ... incomplete"
 
     mockOrder.mockResolvedValue({
@@ -207,8 +211,8 @@ describe('VideoDetailPanel', () => {
     render(<VideoDetailPanel taskId="task-123" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/{ keypoints:/)).toBeInTheDocument()
-      expect(screen.getByText(/incomplete/)).toBeInTheDocument()
+      expect(screen.getByText('No summary available')).toBeInTheDocument()
+      expect(screen.queryByText(/{ keypoints:/)).not.toBeInTheDocument()
     })
   })
 
@@ -218,7 +222,7 @@ describe('VideoDetailPanel', () => {
     render(<VideoDetailPanel taskId="task-123" />)
 
     await waitFor(() => {
-      expect(screen.getByText('chat.contextPanel.noSummary')).toBeInTheDocument()
+      expect(screen.getByText('No summary available')).toBeInTheDocument()
     })
   })
 })

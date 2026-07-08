@@ -15,9 +15,6 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const { locale } = useI18n()
   const router = useRouter()
   const pathname = usePathname()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const supabase = createClient()
 
   // Public paths that don't require authentication
   // /tasks/* is public so unauthenticated users can view demo tasks
@@ -27,11 +24,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     pathname?.endsWith('/tasks') ||
     pathname?.includes('/explore') ||
     pathname?.endsWith('/explore')
+  const [isLoading, setIsLoading] = useState(!isPublicPath)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const supabase = createClient()
 
   // Check authentication on mount and listen for auth changes
   useEffect(() => {
     if (isPublicPath) {
-      setIsLoading(false)
       return
     }
 

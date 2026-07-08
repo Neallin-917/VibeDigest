@@ -10,6 +10,7 @@ import {
   type ChatUIDataParts,
   type TaskLifecycleStatus,
 } from '@/lib/chat-ui'
+import { normalizeTaskStatus, sanitizeErrorMessage } from '@/lib/safe-error'
 import { getTaskPlanState, type TaskSnapshot, type TaskPlanStepKey } from '@/lib/task-progress'
 import {
   AlertCircle,
@@ -31,18 +32,12 @@ type TaskDataGroupProps = {
 function mapTaskRow(row: Record<string, unknown>, fallbackTaskId: string): TaskSnapshot {
   return {
     taskId: typeof row.id === 'string' ? row.id : fallbackTaskId,
-    status:
-      row.status === 'pending' ||
-      row.status === 'processing' ||
-      row.status === 'completed' ||
-      row.status === 'failed'
-        ? row.status
-        : 'pending',
+    status: normalizeTaskStatus(row.status),
     progress: typeof row.progress === 'number' ? row.progress : 0,
     videoTitle: typeof row.video_title === 'string' ? row.video_title : undefined,
     thumbnailUrl: typeof row.thumbnail_url === 'string' ? row.thumbnail_url : undefined,
     videoUrl: typeof row.video_url === 'string' ? row.video_url : undefined,
-    errorMessage: typeof row.error_message === 'string' ? row.error_message : undefined,
+    errorMessage: typeof row.error_message === 'string' ? sanitizeErrorMessage(row.error_message) : undefined,
   }
 }
 
@@ -99,6 +94,11 @@ function TaskStatusCard({
   onOpenPanel?: (taskId: string) => void
 }) {
   const { t } = useI18n()
+  const normalizedSnapshot = {
+    ...snapshot,
+    status: normalizeTaskStatus(snapshot.status),
+    errorMessage: snapshot.errorMessage ? sanitizeErrorMessage(snapshot.errorMessage) : undefined,
+  }
   const title = snapshot.videoTitle?.trim()
   const displayTitle =
     title && title.toLowerCase() !== 'unknown'
@@ -114,15 +114,15 @@ function TaskStatusCard({
         : t('chat.tools.status.videoTask')
 
   const statusLabel =
-    snapshot.status === 'completed'
+    normalizedSnapshot.status === 'completed'
       ? t('chat.tools.status.statusReady')
-      : snapshot.status === 'failed'
+      : normalizedSnapshot.status === 'failed'
         ? t('chat.tools.status.statusFailed')
-        : snapshot.status === 'processing'
+        : normalizedSnapshot.status === 'processing'
           ? t('chat.tools.status.statusProcessing')
           : t('chat.tools.status.statusQueued')
 
-  const plan = getTaskPlanState(snapshot)
+  const plan = getTaskPlanState(normalizedSnapshot)
 
   const getStepCopy = (key: TaskPlanStepKey) => {
     switch (key) {
@@ -171,7 +171,7 @@ function TaskStatusCard({
               {displayTitle}
             </h3>
             <div className="flex items-center gap-2 text-xs text-zinc-400">
-              {getStatusIcon(snapshot.status)}
+              {getStatusIcon(normalizedSnapshot.status)}
               <span>{statusLabel}</span>
             </div>
           </div>
@@ -229,13 +229,13 @@ function TaskStatusCard({
           </div>
         ) : null}
 
-        {snapshot.errorMessage ? (
+        {normalizedSnapshot.errorMessage ? (
           <div className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-            {snapshot.errorMessage}
+            {normalizedSnapshot.errorMessage}
           </div>
         ) : null}
 
-        {snapshot.status === 'completed' && onOpenPanel ? (
+        {normalizedSnapshot.status === 'completed' && onOpenPanel ? (
           <div className="pt-1">
             <Button
               onClick={() => onOpenPanel(snapshot.taskId)}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { BACKEND_API_URL } from '@/lib/backend-url'
+import { sanitizeErrorMessage } from '@/lib/safe-error'
 import { createClient } from '@/lib/supabase/server'
 import { env } from '@/env'
 import {
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
         {
           error: 'Task creation failed',
           code: 'TASK_CREATION_FAILED',
-          details: errorText || `Backend returned status ${res.status}`,
+          details: sanitizeErrorMessage(errorText || `Backend returned status ${res.status}`),
         },
         { status: res.status }
       )

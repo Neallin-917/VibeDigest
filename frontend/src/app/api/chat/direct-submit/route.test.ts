@@ -108,6 +108,41 @@ describe('POST /api/chat/direct-submit', () => {
     expect(mockUpsertChatState).not.toHaveBeenCalled()
   })
 
+  it('does not expose upstream Cloudflare challenge HTML on task creation failure', async () => {
+    const challengeHtml =
+      '<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title></head><body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>'
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () => challengeHtml,
+    } as Response)
+
+    const req = new Request('http://localhost/api/chat/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        videoUrl: 'https://www.youtube.com/watch?v=hyqLNX3VExQ',
+        originalText: 'https://www.youtube.com/watch?v=hyqLNX3VExQ',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body).toEqual(
+      expect.objectContaining({
+        error: 'Task creation failed',
+        code: 'TASK_CREATION_FAILED',
+        details: expect.stringContaining('blocking automated access'),
+      })
+    )
+    expect(body.details).not.toContain('<!DOCTYPE')
+    expect(body.details).not.toContain('challenge-platform')
+    expect(mockUpsertChatState).not.toHaveBeenCalled()
+  })
+
   it('returns mocked task data in E2E mode without calling backend or persistence', async () => {
     ;(env as { NEXT_PUBLIC_E2E_MOCK: string }).NEXT_PUBLIC_E2E_MOCK = '1'
     global.fetch = vi.fn()

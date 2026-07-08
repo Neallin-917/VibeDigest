@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { BACKEND_API_URL } from '@/lib/backend-url';
+import { sanitizeErrorMessage } from '@/lib/safe-error';
 import { extractUrl, findLastUrlInMessages } from '../utils';
 import type { ToolContext } from '../types';
 
@@ -11,6 +12,25 @@ export const createTaskSchema = z.object({
             'REQUIRED: Complete Video URL (YouTube, Bilibili, Apple Podcasts, etc). Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ'
         ),
 });
+
+async function readBackendErrorDetails(response: Response) {
+    const responseReaders = response as Response & {
+        text?: () => Promise<string>;
+        json?: () => Promise<unknown>;
+    };
+
+    if (typeof responseReaders.text === 'function') {
+        const text = await responseReaders.text().catch(() => '');
+        return sanitizeErrorMessage(text || `Backend returned status ${response.status}`);
+    }
+
+    if (typeof responseReaders.json === 'function') {
+        const payload = await responseReaders.json().catch(() => null);
+        return sanitizeErrorMessage(payload || `Backend returned status ${response.status}`);
+    }
+
+    return sanitizeErrorMessage(`Backend returned status ${response.status}`);
+}
 
 export function createCreateTaskTool(ctx: ToolContext) {
     return tool({
@@ -83,8 +103,8 @@ export function createCreateTaskTool(ctx: ToolContext) {
                     },
                     body: new URLSearchParams({ video_url: cleanUrl }),
                 });
-                const data = await response.json();
                 if (!response.ok) {
+                    const details = await readBackendErrorDetails(response);
                     if (response.status === 401) {
                         return {
                             error: 'Authentication failed',
@@ -95,16 +115,17 @@ export function createCreateTaskTool(ctx: ToolContext) {
                     if (response.status === 503) {
                         return {
                             error: 'Service configuration error',
-                            details: 'The server is temporarily misconfigured. Please try again later.',
+                            details,
                             status: response.status,
                         };
                     }
                     return {
                         error: 'Failed to create task',
-                        details: data.detail || 'Unknown error',
+                        details,
                         status: response.status,
                     };
                 }
+                const data = await response.json();
                 return {
                     taskId: data.task_id,
                     status: 'started',

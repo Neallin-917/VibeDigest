@@ -9,6 +9,7 @@ import json
 import jwt
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientConnectionError, PyJWKClientError
+from utils.error_messages import sanitize_error_message
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -16,6 +17,12 @@ logger = logging.getLogger(__name__)
 # Pricing Constants
 FREE_LIMIT = 3
 PRO_LIMIT = 100
+
+
+def _normalize_error_for_storage(error: str) -> str:
+    if error == "":
+        return ""
+    return sanitize_error_message(error)
 
 # REMOVED: GUEST_TRIAL_CACHE was an in-memory dict that could drift from DB.
 # Guest usage is now tracked solely via the guest_usage table in the database.
@@ -208,7 +215,7 @@ class DBClient:
             params["thumbnail_url"] = thumbnail_url
         if error is not None:
             fields.append("error_message = :error")
-            params["error"] = error
+            params["error"] = _normalize_error_for_storage(error)
 
         # Metadata fields
         meta_mapping = {
@@ -266,7 +273,7 @@ class DBClient:
             params["content"] = content
         if error is not None:
             fields.append("error_message = :error")
-            params["error"] = error
+            params["error"] = _normalize_error_for_storage(error)
 
         fields.append("updated_at = now()")
         query = f"UPDATE task_outputs SET {', '.join(fields)} WHERE id = :output_id"
@@ -519,7 +526,7 @@ class DBClient:
             params["content"] = content
         if error is not None:
             fields.append("error_message = :error")
-            params["error"] = error
+            params["error"] = _normalize_error_for_storage(error)
 
         if not fields:
             return

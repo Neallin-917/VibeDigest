@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { sanitizeErrorMessage } from "@/lib/safe-error";
 
 export const API_BASE_URL =
     env.NEXT_PUBLIC_API_URL ||
@@ -17,7 +18,7 @@ export class ApiClient {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || `API Error: ${response.statusText}`);
+            throw new Error(sanitizeErrorMessage(errorData.detail || errorData.error || `API Error: ${response.statusText}`));
         }
 
         return response.json();

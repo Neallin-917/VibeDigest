@@ -1,11 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { BACKEND_API_URL } from "@/lib/backend-url";
+import { sanitizeErrorMessage } from "@/lib/safe-error";
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return "Internal Server Error";
+  return sanitizeErrorMessage(error, "Internal Server Error");
 }
 
 export async function POST(req: Request) {
@@ -45,7 +44,7 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const errorText = await res.text();
       return NextResponse.json(
-        { error: `Backend error: ${res.status} ${errorText}` },
+        { error: sanitizeErrorMessage(errorText || `Backend returned status ${res.status}`) },
         { status: res.status }
       );
     }

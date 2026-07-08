@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { BACKEND_API_URL } from '@/lib/backend-url';
+import { normalizeTaskStatus, sanitizeErrorMessage } from '@/lib/safe-error';
 import { extractUrl } from '../utils';
 import type { ToolContext } from '../types';
 
@@ -39,12 +40,12 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
 
                 return {
                     taskId: row.id,
-                    status: row.status,
+                    status: normalizeTaskStatus(row.status),
                     progress: row.progress,
                     video_title: normalizedTitle,
                     thumbnail_url: row.thumbnail_url || previewThumbnail,
                     video_url: row.video_url,
-                    error_message: row.error_message,
+                    error_message: row.error_message ? sanitizeErrorMessage(row.error_message) : row.error_message,
                     created_at: row.created_at,
                     updated_at: row.updated_at,
                 };
@@ -85,12 +86,14 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
                         console.log(`[API/Chat] Task ${taskId} recovered via Backend API`);
                         return {
                             taskId: apiData.id,
-                            status: apiData.status,
+                            status: normalizeTaskStatus(apiData.status),
                             progress: apiData.progress,
                             video_title: apiData.video_title,
                             thumbnail_url: apiData.thumbnail_url,
                             video_url: apiData.video_url,
-                            error_message: apiData.error,
+                            error_message: apiData.error_message || apiData.error
+                                ? sanitizeErrorMessage(apiData.error_message || apiData.error)
+                                : apiData.error_message || apiData.error,
                             created_at: apiData.created_at,
                             updated_at: apiData.updated_at,
                             source: 'backend_api_fallback',

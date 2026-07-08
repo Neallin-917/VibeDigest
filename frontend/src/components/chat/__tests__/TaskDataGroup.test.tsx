@@ -73,4 +73,24 @@ describe('TaskDataGroup', () => {
     fireEvent.click(button)
     expect(onOpenPanel).toHaveBeenCalledWith('task-123')
   })
+
+  it('renders backend error status as failed without raw HTML details', () => {
+    render(
+      <TaskDataGroup
+        taskStatus={{
+          taskId: 'task-123',
+          status: 'error' as never,
+          progress: 100,
+          errorMessage:
+            '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>',
+        }}
+        showProgress
+        showPlan
+      />
+    )
+
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.getByText(/blocking automated access/)).toBeInTheDocument()
+    expect(screen.queryByText(/<!DOCTYPE/)).not.toBeInTheDocument()
+  })
 })

@@ -156,6 +156,35 @@ def test_update_task_status(db_client_instance, mock_session):
     assert params["status"] == "processing"
     assert params["progress"] == 50
 
+
+def test_update_task_status_sanitizes_html_error(db_client_instance, mock_session):
+    raw_html = (
+        '<!DOCTYPE html><html><head><title>Just a moment...</title></head>'
+        '<body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>'
+    )
+
+    db_client_instance.update_task_status("task_1", status="error", error=raw_html)
+
+    args, kwargs = mock_session.execute.call_args
+    params = args[1] if len(args) > 1 else kwargs.get("params", {})
+    assert "blocking automated access" in params["error"]
+    assert "<!DOCTYPE" not in params["error"]
+    assert "challenge-platform" not in params["error"]
+
+
+def test_update_output_status_sanitizes_html_error(db_client_instance, mock_session):
+    raw_html = (
+        '<!DOCTYPE html><html><head><title>Just a moment...</title></head>'
+        '<body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>'
+    )
+
+    db_client_instance.update_output_status("output_1", status="error", error=raw_html)
+
+    args, kwargs = mock_session.execute.call_args
+    params = args[1] if len(args) > 1 else kwargs.get("params", {})
+    assert "blocking automated access" in params["error"]
+    assert "<!DOCTYPE" not in params["error"]
+
 def test_create_task_output(db_client_instance, mock_session):
     mock_result = MagicMock()
     mock_result.returns_rows = True

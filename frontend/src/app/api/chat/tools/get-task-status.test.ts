@@ -84,6 +84,33 @@ describe('createGetTaskStatusTool – retry logic', () => {
         expect(supabase._mockSingle).toHaveBeenCalledTimes(1);
     });
 
+    it('maps backend error status and sanitizes stored HTML error messages', async () => {
+        const taskRow = {
+            id: 'task-1',
+            user_id: 'test-user-id',
+            status: 'error',
+            progress: 100,
+            video_url: 'https://youtube.com/watch?v=abc',
+            video_title: 'My Video',
+            thumbnail_url: 'thumb.jpg',
+            error_message: '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>',
+            created_at: '2026-01-01',
+            updated_at: '2026-01-02',
+        };
+        const supabase = makeSupabaseMock([{ data: taskRow }]);
+        const ctx = makeCtx({ supabase: supabase as any });
+
+        const tool = createGetTaskStatusTool(ctx);
+        const result = await tool.execute!({ taskId: 'task-1' }, execOpts);
+
+        expect(result).toMatchObject({
+            taskId: 'task-1',
+            status: 'failed',
+            error_message: expect.stringContaining('blocking automated access'),
+        });
+        expect((result as { error_message?: string }).error_message).not.toContain('<!DOCTYPE');
+    });
+
     it('should retry once after initial Supabase query returns null', async () => {
         const taskRow = {
             id: 'task-1',

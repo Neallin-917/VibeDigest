@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { ChatUIMessage } from '@/lib/chat-ui'
+import { sanitizeErrorMessage } from '@/lib/safe-error'
 
 export function useDirectUrlSubmission(deps: {
   sendMessageToApi: (params: { text: string }) => void
@@ -44,7 +45,7 @@ export function useDirectUrlSubmission(deps: {
             : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
               ? errorPayload.error
               : 'Unable to process this video right now.'
-        setDirectSubmitError(details)
+        setDirectSubmitError(sanitizeErrorMessage(details))
         return
       }
 

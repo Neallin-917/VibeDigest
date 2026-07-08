@@ -95,6 +95,29 @@ describe('createCreateTaskTool', () => {
         });
     });
 
+    it('sanitizes upstream anti-bot challenge HTML in backend errors', async () => {
+        const ctx = makeCtx();
+        mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 403,
+            text: async () =>
+                '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>',
+        });
+
+        const tool = createCreateTaskTool(ctx);
+        const result = await tool.execute!(
+            { video_url: 'https://www.youtube.com/watch?v=hyqLNX3VExQ' },
+            { toolCallId: 'tc-cloudflare', messages: [], abortSignal: undefined as any },
+        );
+
+        expect(result).toMatchObject({
+            error: 'Failed to create task',
+            details: expect.stringContaining('blocking automated access'),
+            status: 403,
+        });
+        expect((result as { details?: string }).details).not.toContain('<!DOCTYPE');
+    });
+
     it('returns taskId on successful 200 response', async () => {
         const ctx = makeCtx();
         mockFetch.mockResolvedValueOnce({

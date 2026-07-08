@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 HTTP_USER_AGENT = "VibeDigest-OpsAudit/1.0"
 ENV_KEYS = {
     "BACKEND_API_URL",
+    "BACKEND_ORIGIN_URL",
     "DATABASE_URL",
     "FRONTEND_URL",
     "LANGCHAIN_TRACING_V2",
@@ -32,6 +33,8 @@ ENV_KEYS = {
     "SUPABASE_URL",
 }
 SENSITIVE_KEY_PARTS = ("KEY", "SECRET", "TOKEN", "PASSWORD", "DSN")
+PUBLIC_API_HOST = "api.vibedigest.io"
+RAILWAY_SERVICE_HOST_SUFFIX = ".up.railway.app"
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,58 @@ def build_env_snapshot(paths: list[Path]) -> dict[str, dict[str, str]]:
         if selected:
             snapshot[str(path)] = selected
     return snapshot
+
+
+def merge_selected_env_values(paths: list[Path]) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for path in paths:
+        values.update({k: v for k, v in parse_env_file(path).items() if k in ENV_KEYS})
+    return values
+
+
+def hostname(value: str) -> str:
+    try:
+        return (urlparse(value).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def describe_backend_url_roles(values: dict[str, str]) -> list[str]:
+    public_url = values.get("NEXT_PUBLIC_API_URL") or values.get("BACKEND_API_URL", "")
+    backend_api_url = values.get("BACKEND_API_URL", "")
+    origin_url = values.get("BACKEND_ORIGIN_URL", "")
+    server_url = origin_url or backend_api_url
+
+    lines = [
+        f"public API URL: {redact_env_value('NEXT_PUBLIC_API_URL', public_url)}",
+        f"server backend URL: {redact_env_value('BACKEND_ORIGIN_URL', server_url)}",
+    ]
+
+    public_host = hostname(public_url)
+    server_host = hostname(server_url)
+
+    if public_host == PUBLIC_API_HOST:
+        lines.append("public API role: OK canonical api.vibedigest.io")
+    elif public_host:
+        lines.append(f"public API role: CHECK expected {PUBLIC_API_HOST}")
+    else:
+        lines.append("public API role: MISSING")
+
+    if server_host.endswith(RAILWAY_SERVICE_HOST_SUFFIX):
+        lines.append("server backend role: OK Railway origin")
+    elif server_host == PUBLIC_API_HOST:
+        lines.append(
+            "server backend role: WARN set BACKEND_ORIGIN_URL to the Railway service domain; "
+            "server-to-server calls should not depend on the public Cloudflare API domain"
+        )
+    elif server_host in {"localhost", "127.0.0.1"}:
+        lines.append("server backend role: OK local development")
+    elif server_host:
+        lines.append("server backend role: CHECK non-standard origin")
+    else:
+        lines.append("server backend role: MISSING")
+
+    return lines
 
 
 def run_command(args: list[str], timeout: float = 5.0) -> CommandResult:
@@ -160,18 +215,23 @@ def main() -> int:
     print(run_command(["git", "status", "--short", "--branch"]).output)
 
     print_section("Selected Environment")
+    env_paths = [
+        PROJECT_ROOT / ".env",
+        PROJECT_ROOT / ".env.local",
+        PROJECT_ROOT / "frontend" / ".env",
+        PROJECT_ROOT / "frontend" / ".env.local",
+    ]
     snapshot = build_env_snapshot(
-        [
-            PROJECT_ROOT / ".env",
-            PROJECT_ROOT / ".env.local",
-            PROJECT_ROOT / "frontend" / ".env",
-            PROJECT_ROOT / "frontend" / ".env.local",
-        ]
+        env_paths
     )
     for file_name, values in snapshot.items():
         print(f"[{Path(file_name).relative_to(PROJECT_ROOT)}]")
         for key, value in values.items():
             print(f"{key}={value}")
+
+    print_section("Backend URL Roles")
+    for line in describe_backend_url_roles(merge_selected_env_values(env_paths)):
+        print(line)
 
     print_section("Local Runtime")
     backend_url = read_workspace_backend_url()
@@ -190,6 +250,10 @@ def main() -> int:
         print(f"{record_type} {name}: {dig_short(record_type, name)}")
     print(f"https://vibedigest.io: {http_status('https://vibedigest.io')}")
     print(f"https://api.vibedigest.io/health: {http_status('https://api.vibedigest.io/health')}")
+    print(
+        "https://www.vibedigest.io/api/health/backend-origin: "
+        f"{http_status('https://www.vibedigest.io/api/health/backend-origin')}"
+    )
 
     print_section("Local Tool Access")
     checks = [

@@ -59,3 +59,27 @@ def test_build_env_snapshot_redacts_selected_values(tmp_path):
         "OPENAI_BASE_URL": "http://localhost:8317/v1",
         "SUPABASE_URL": "https://example.supabase.co",
     }
+
+
+def test_describe_backend_url_roles_accepts_public_api_with_railway_origin():
+    lines = ops_audit.describe_backend_url_roles(
+        {
+            "NEXT_PUBLIC_API_URL": "https://api.vibedigest.io",
+            "BACKEND_API_URL": "https://api.vibedigest.io",
+            "BACKEND_ORIGIN_URL": "https://vibedigest-production.up.railway.app",
+        }
+    )
+
+    assert "public API role: OK canonical api.vibedigest.io" in lines
+    assert "server backend role: OK Railway origin" in lines
+
+
+def test_describe_backend_url_roles_warns_when_server_uses_public_api_domain():
+    lines = ops_audit.describe_backend_url_roles(
+        {
+            "NEXT_PUBLIC_API_URL": "https://api.vibedigest.io",
+            "BACKEND_API_URL": "https://api.vibedigest.io",
+        }
+    )
+
+    assert any("WARN set BACKEND_ORIGIN_URL" in line for line in lines)

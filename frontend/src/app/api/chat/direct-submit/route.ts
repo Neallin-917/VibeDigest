@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
-import { BACKEND_API_URL } from '@/lib/backend-url'
+import { SERVER_BACKEND_URL } from '@/lib/backend-url'
 import { sanitizeErrorMessage } from '@/lib/safe-error'
 import { createClient } from '@/lib/supabase/server'
 import { env } from '@/env'
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
     const formData = new FormData()
     formData.append('video_url', body.videoUrl)
 
-    const res = await fetch(`${BACKEND_API_URL}/api/process-video`, {
+    const res = await fetch(`${SERVER_BACKEND_URL}/api/process-video`, {
       method: 'POST',
       headers: backendHeaders,
       body: formData,

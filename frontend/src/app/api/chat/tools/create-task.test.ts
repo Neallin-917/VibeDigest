@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock @/lib/backend-url before importing the module under test
 vi.mock('@/lib/backend-url', () => ({
     BACKEND_API_URL: 'http://test-backend:8000',
+    SERVER_BACKEND_URL: 'http://test-backend:8000',
 }));
 
 import { createCreateTaskTool } from './create-task';

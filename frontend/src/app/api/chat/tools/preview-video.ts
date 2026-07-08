@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { tool } from 'ai';
-import { BACKEND_API_URL } from '@/lib/backend-url';
+import { SERVER_BACKEND_URL } from '@/lib/backend-url';
 import { extractUrl, findLastUrlInMessages } from '../utils';
 import type { ToolContext } from '../types';
 
@@ -51,7 +51,7 @@ export function createPreviewVideoTool(ctx: ToolContext) {
             }
 
             try {
-                const response = await fetch(`${BACKEND_API_URL}/api/preview-video`, {
+                const response = await fetch(`${SERVER_BACKEND_URL}/api/preview-video`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',

@@ -189,6 +189,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 # Backend
 NEXT_PUBLIC_API_URL=http://localhost:16081
+BACKEND_API_URL=http://localhost:16081
+# Production only: set this to the Railway service domain so Vercel
+# server-side routes do not depend on the public Cloudflare API domain.
+# BACKEND_ORIGIN_URL=https://vibedigest-production.up.railway.app
 
 # Sentry (optional)
 NEXT_PUBLIC_SENTRY_DSN=https://...
@@ -214,6 +218,9 @@ TEST_USER_PASSWORD=...
 | Variable | Local Dev | Production |
 |----------|-----------|------------|
 | `FRONTEND_URL` | `http://localhost:3000` | `https://www.vibedigest.io` |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:16081` | `https://api.vibedigest.io` |
+| `BACKEND_API_URL` | `http://localhost:16081` | `https://api.vibedigest.io` |
+| `BACKEND_ORIGIN_URL` | optional, usually unset | `https://vibedigest-production.up.railway.app` |
 | `CREEM_API_BASE` | `https://test-api.creem.io` | `https://api.creem.io` |
 | `LOG_LEVEL` | `DEBUG` | `INFO` |
 | `MOCK_MODE` | `true` (optional) | `false` |

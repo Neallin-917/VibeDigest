@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('@/lib/backend-url', () => ({
   BACKEND_API_URL: 'http://localhost:8000',
+  SERVER_BACKEND_URL: 'http://localhost:8000',
 }))
 
 vi.mock('@/env', () => ({

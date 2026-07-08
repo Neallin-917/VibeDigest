@@ -9,6 +9,7 @@ vi.mock('@/env', () => ({
     env: {
         AI_SDK_DEBUG: '0',
         BACKEND_API_URL: 'http://localhost:8000',
+        SERVER_BACKEND_URL: 'http://localhost:8000',
         MODEL_ALIAS_SMART: undefined,
         MODEL_ALIAS_FAST: undefined,
         OPENAI_BASE_URL: undefined,

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { tool } from 'ai';
-import { BACKEND_API_URL } from '@/lib/backend-url';
+import { SERVER_BACKEND_URL } from '@/lib/backend-url';
 import { sanitizeErrorMessage } from '@/lib/safe-error';
 import { extractUrl, findLastUrlInMessages } from '../utils';
 import type { ToolContext } from '../types';
@@ -95,7 +95,7 @@ export function createCreateTaskTool(ctx: ToolContext) {
             }
 
             try {
-                const response = await fetch(`${BACKEND_API_URL}/api/process-video`, {
+                const response = await fetch(`${SERVER_BACKEND_URL}/api/process-video`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',

@@ -8,6 +8,10 @@
 - **Production**: `https://api.vibedigest.io`
 - **Local**: `http://localhost:16081`
 
+`api.vibedigest.io` is the canonical public API URL. Vercel server-side routes
+use `BACKEND_ORIGIN_URL` for origin calls when configured; in production that
+origin is the Railway service domain, not the public Cloudflare API domain.
+
 ## Authentication
 
 All authenticated endpoints require:

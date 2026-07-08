@@ -8,6 +8,7 @@ export const env = createEnv({
     NEXT_DIST_DIR: z.string().optional(),
     AI_SDK_DEBUG: z.string().optional(),
     BACKEND_API_URL: z.string().url(),
+    BACKEND_ORIGIN_URL: z.string().url().optional(),
     
     // LLM Configuration
     MODEL_ALIAS_SMART: z.string().optional(),
@@ -47,6 +48,7 @@ export const env = createEnv({
     NEXT_DIST_DIR: process.env.NEXT_DIST_DIR,
     AI_SDK_DEBUG: process.env.AI_SDK_DEBUG,
     BACKEND_API_URL: process.env.BACKEND_API_URL,
+    BACKEND_ORIGIN_URL: process.env.BACKEND_ORIGIN_URL,
     
     MODEL_ALIAS_SMART: process.env.MODEL_ALIAS_SMART,
     MODEL_ALIAS_FAST: process.env.MODEL_ALIAS_FAST,

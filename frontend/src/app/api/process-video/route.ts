@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { BACKEND_API_URL } from "@/lib/backend-url";
+import { SERVER_BACKEND_URL } from "@/lib/backend-url";
 import { sanitizeErrorMessage } from "@/lib/safe-error";
 
 function getErrorMessage(error: unknown): string {
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     formData.append("video_url", body.video_url);
     if (body.language) formData.append("language", body.language);
 
-    const res = await fetch(`${BACKEND_API_URL}/api/process-video`, {
+    const res = await fetch(`${SERVER_BACKEND_URL}/api/process-video`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,

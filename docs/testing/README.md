@@ -80,6 +80,17 @@ Routing rules:
   - `make test-backend`
   - `cd frontend && npm run build`
 
+Deployment or production-routing changes must also verify the deployed
+server-side backend hop:
+
+```bash
+curl -fsSL https://www.vibedigest.io/api/health/backend-origin >/dev/null
+```
+
+This probe runs inside the Vercel route and fetches the backend origin health
+endpoint. It is not equivalent to `https://api.vibedigest.io/health`, which only
+tests the public API edge.
+
 ## Related Files
 
 - `backend/pytest.ini`

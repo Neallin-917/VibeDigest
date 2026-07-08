@@ -10,9 +10,9 @@ Last verified: 2026-07-08.
 
 | Surface | Current state | AI management status |
 | --- | --- | --- |
-| Frontend | Vercel project `vibe-digest` (`prj_JoNad0xEVl7XnJUTrbRwl0bBuJxo`) under team `team_4UjccirhWnowbBx4gbsuugVc`; latest production deployment `dpl_7ThhsPuYqbDrs2t7AxJCJCabVWfw` is `READY` from commit `0e47b26ca7a28ab8f63b0e5bd3c6ac7b8185e3cc`; production `NEXT_PUBLIC_API_URL` and `BACKEND_API_URL` point to `https://api.vibedigest.io` | Manageable through the Vercel connector and local Vercel CLI |
+| Frontend | Vercel project `vibe-digest` (`prj_JoNad0xEVl7XnJUTrbRwl0bBuJxo`) under team `team_4UjccirhWnowbBx4gbsuugVc`; latest production deployment `dpl_HS3Jq2tLj5hLqUVqiShzKtYJgRFG` is `READY`; production `NEXT_PUBLIC_API_URL` points to `https://api.vibedigest.io`, while server-only `BACKEND_API_URL` points to `https://vibedigest-production.up.railway.app` to avoid Cloudflare browser challenges on Vercel-to-Railway API calls | Manageable through the Vercel connector and local Vercel CLI |
 | Public domain | `vibedigest.io` uses Cloudflare nameservers; root and `www` resolve to Vercel; `https://vibedigest.io` redirects to `https://www.vibedigest.io/en` | DNS is visible through public checks; Cloudflare write access requires a Cloudflare connector, API token, or IaC |
-| Backend | Railway project `steadfast-vibrancy`; service `VibeDigest`; production URL `https://api.vibedigest.io`; latest deployment `bed4aad3-7e76-48b2-be55-f6b0e3bd147e` is online and `/health` returns `200` | Manageable through the Railway CLI after local `railway login` |
+| Backend | Railway project `steadfast-vibrancy`; service `VibeDigest`; public API URL `https://api.vibedigest.io`; Railway service URL `https://vibedigest-production.up.railway.app`; latest deployment `b1c54cc1-3df3-4976-9fe2-81f8773d2dda` is online and `/health` returns `200` | Manageable through the Railway CLI after local `railway login` |
 | Backend API DNS | `api.vibedigest.io` is proxied by Cloudflare to Railway; public A queries return Cloudflare IPs, and the Railway verification TXT record is present | Manageable through the Cloudflare API token in local env |
 | Database | Supabase project `transcriber` (`cwdgdytqafqrqnlcdpcc`) in `ap-south-1`, status `ACTIVE_HEALTHY`; local CLI is linked; no Edge Functions | Manageable through the Supabase connector and local Supabase CLI |
 

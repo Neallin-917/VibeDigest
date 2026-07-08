@@ -34,7 +34,7 @@
 ## 用户审查 (User Review Required)
 
 > [!IMPORTANT]
-> **API 地址变更**: 生产 `NEXT_PUBLIC_API_URL` 和 `BACKEND_API_URL` 均已切换到 `https://api.vibedigest.io`。
+> **API 地址变更**: 生产公开浏览器 API `NEXT_PUBLIC_API_URL` 保持 `https://api.vibedigest.io`；Vercel server-only `BACKEND_API_URL` 使用 Railway 直连域名 `https://vibedigest-production.up.railway.app`，避免服务端创建任务时经过 Cloudflare browser challenge。
 
 > [!WARNING]
 > **OAuth 回调 URL**: Supabase Auth redirect allowlist 已反向验证；生产回调可正常进入 Google OAuth。

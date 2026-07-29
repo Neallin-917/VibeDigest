@@ -21,6 +21,8 @@ Historical record of major version changes. For current architecture, see [AGENT
 - **Backend Dependencies**: Updated 18 API, database, telemetry, and networking
   dependencies; aligned the Pydantic Core pin and refreshed the transitive lock,
   removing 50 audit findings across 18 packages
+- **Dependency Ownership**: Removed the redundant direct Pydantic Core pin so
+  Pydantic remains the single owner of its compatible runtime dependency
 
 ---
 

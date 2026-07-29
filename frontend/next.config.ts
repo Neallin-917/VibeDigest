@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
   // Next.js infers the frontend root from this package's lockfile. Keeping that
   // inference avoids conflicting with Sentry's outputFileTracingRoot on Vercel.
+  // The explicit empty object also selects Turbopack when plugins add webpack
+  // configuration, which keeps the Playwright development server startable.
+  turbopack: {},
   /* config options here */
   images: {
     minimumCacheTTL: 60 * 60 * 24, // Cache images for 24 hours

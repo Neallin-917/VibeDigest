@@ -26,12 +26,14 @@ async def test_workflow_mocked():
     mock_vp = AsyncMock()
     mock_transcriber = AsyncMock()
     mock_summarizer = MagicMock()
+    mock_comprehension = AsyncMock()
     mock_supadata = AsyncMock()
 
     with patch('workflow._get_db_client', return_value=mock_db), \
          patch('workflow._get_video_processor', return_value=mock_vp), \
          patch('workflow._get_transcriber', return_value=mock_transcriber), \
          patch('workflow._get_summarizer', return_value=mock_summarizer), \
+         patch('workflow._get_comprehension_agent', return_value=mock_comprehension), \
          patch('workflow._get_supadata_client', return_value=mock_supadata):
 
         # --- Mock Supadata ---
@@ -83,8 +85,23 @@ async def test_workflow_mocked():
         mock_summarizer.optimize_transcript = AsyncMock(return_value=long_transcript)
         mock_summarizer.classify_content = AsyncMock(return_value={"form": "monologue", "confidence": 0.9})
         # Workflow calls .summarize() which internally might call others, but we should mock the entry point used by workflow.py
-        mock_summarizer.summarize = AsyncMock(return_value={"overview": "Mock summary", "keypoints": []})
+        mock_summarizer.summarize = AsyncMock(return_value={
+            "version": 4,
+            "language": "en",
+            "overview": "Mock summary",
+            "keypoints": [
+                {
+                    "title": "Mock insight",
+                    "detail": "A deterministic summary for the workflow test.",
+                    "evidence": "Optimized mock transcript.",
+                }
+            ],
+            "sections": [],
+        })
         mock_summarizer.summarize_in_language_with_anchors = AsyncMock(return_value='{"overview": "Mock summary"}')
+        mock_comprehension.generate_comprehension_brief = AsyncMock(
+            return_value='{"brief": "Mock comprehension brief"}'
+        )
 
         # --- Initial State ---
         initial_state = cast(VideoProcessingState, {

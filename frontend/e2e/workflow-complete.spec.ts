@@ -51,8 +51,16 @@ test.describe('Complete Task Workflow (Mocked)', () => {
         contentType: 'application/json',
         body: JSON.stringify([
           createMockTaskOutput('summary', {
+              version: 4,
+              language: 'en',
               overview: 'AI Summary Content',
-              keypoints: [{ title: 'Intro', detail: 'The beginning', startSeconds: 0 }]
+              keypoints: [{
+                title: 'Intro',
+                detail: 'The beginning',
+                evidence: 'The video opens with the introduction.',
+                startSeconds: 0
+              }],
+              sections: []
           }),
           createMockTaskOutput('script', '00:00 - Intro')
         ])

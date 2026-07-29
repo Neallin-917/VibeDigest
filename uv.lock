@@ -2,8 +2,18 @@
 #    uv pip compile requirements.txt -o uv.lock
 aiofiles==25.1.0
     # via -r requirements.txt
+aiohappyeyeballs==2.7.1
+    # via aiohttp
+aiohttp==3.14.3
+    # via
+    #   langchain-community
+    #   litellm
+aiosignal==1.4.0
+    # via aiohttp
 annotated-doc==0.0.4
-    # via fastapi
+    # via
+    #   fastapi
+    #   typer
 annotated-types==0.7.0
     # via pydantic
 anyio==4.12.0
@@ -12,6 +22,13 @@ anyio==4.12.0
     #   openai
     #   starlette
     #   watchfiles
+async-timeout==5.0.1
+    # via aiohttp
+attrs==26.1.0
+    # via
+    #   aiohttp
+    #   jsonschema
+    #   referencing
 cachetools==6.2.4
     # via pyiceberg
 certifi==2025.11.12
@@ -26,12 +43,15 @@ charset-normalizer==3.4.4
     # via requests
 click==8.3.1
     # via
+    #   litellm
     #   pyiceberg
     #   uvicorn
 coinbase-commerce==1.0.1
     # via -r requirements.txt
 cryptography==46.0.3
     # via pyjwt
+dataclasses-json==0.6.7
+    # via langchain-community
 deprecation==2.1.0
     # via
     #   postgrest
@@ -40,18 +60,32 @@ distro==1.9.0
     # via openai
 docker==7.1.0
     # via testcontainers
+exceptiongroup==1.3.1
+    # via anyio
 fastapi==0.125.0
     # via
     #   -r requirements.txt
     #   sentry-sdk
+fastuuid==0.14.0
+    # via litellm
+filelock==3.32.0
+    # via huggingface-hub
+frozenlist==1.8.0
+    # via
+    #   aiohttp
+    #   aiosignal
 fsspec==2025.12.0
-    # via pyiceberg
+    # via
+    #   huggingface-hub
+    #   pyiceberg
 h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
 h2==4.3.0
     # via httpx
+hf-xet==1.5.2
+    # via huggingface-hub
 hpack==4.1.0
     # via h2
 httpcore==1.0.9
@@ -61,14 +95,20 @@ httptools==0.7.1
 httpx==0.28.1
     # via
     #   -r requirements.txt
+    #   huggingface-hub
     #   langgraph-sdk
     #   langsmith
+    #   litellm
     #   openai
     #   postgrest
     #   storage3
     #   supabase
     #   supabase-auth
     #   supabase-functions
+httpx-sse==0.4.3
+    # via langchain-community
+huggingface-hub==1.16.1
+    # via tokenizers
 hyperframe==6.1.0
     # via h2
 idna==3.11
@@ -77,15 +117,29 @@ idna==3.11
     #   httpx
     #   requests
     #   yarl
+importlib-metadata==8.9.0
+    # via litellm
+jinja2==3.1.6
+    # via litellm
 jiter==0.12.0
     # via openai
 jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.0.0
     # via jsonpatch
+jsonschema==4.26.0
+    # via litellm
+jsonschema-specifications==2025.9.1
+    # via jsonschema
+langchain==1.2.6
+    # via langchain-community
+langchain-community==0.3.31
+    # via -r requirements.txt
 langchain-core==1.2.7
     # via
     #   -r requirements.txt
+    #   langchain
+    #   langchain-community
     #   langchain-openai
     #   langchain-text-splitters
     #   langgraph
@@ -96,7 +150,9 @@ langchain-openai==1.1.7
 langchain-text-splitters==1.1.0
     # via -r requirements.txt
 langgraph==1.0.6
-    # via -r requirements.txt
+    # via
+    #   -r requirements.txt
+    #   langchain
 langgraph-checkpoint==4.0.0
     # via
     #   langgraph
@@ -108,19 +164,35 @@ langgraph-sdk==0.3.3
 langsmith==0.6.4
     # via
     #   -r requirements.txt
+    #   langchain-community
     #   langchain-core
+litellm==1.94.0
+    # via -r requirements.txt
+loguru==0.7.3
+    # via -r requirements.txt
 markdown-it-py==4.0.0
     # via rich
+markupsafe==3.0.3
+    # via jinja2
+marshmallow==3.26.2
+    # via dataclasses-json
 mdurl==0.1.2
     # via markdown-it-py
 mmh3==5.2.0
     # via pyiceberg
 multidict==6.7.0
-    # via yarl
-openai==2.14.0
+    # via
+    #   aiohttp
+    #   yarl
+mypy-extensions==1.1.0
+    # via typing-inspect
+numpy==2.2.6
+    # via langchain-community
+openai==2.50.0
     # via
     #   -r requirements.txt
     #   langchain-openai
+    #   litellm
 orjson==3.11.5
     # via
     #   langgraph-sdk
@@ -130,29 +202,40 @@ ormsgpack==1.12.2
 packaging==25.0
     # via
     #   deprecation
+    #   huggingface-hub
     #   langchain-core
     #   langsmith
+    #   marshmallow
 postgrest==2.27.0
     # via supabase
 propcache==0.4.1
-    # via yarl
+    # via
+    #   aiohttp
+    #   yarl
+psycopg2-binary==2.9.12
+    # via -r requirements.txt
 pycparser==2.23
     # via cffi
 pydantic==2.12.5
     # via
     #   -r requirements.txt
     #   fastapi
+    #   langchain
     #   langchain-core
     #   langgraph
     #   langsmith
+    #   litellm
     #   openai
     #   postgrest
+    #   pydantic-settings
     #   pyiceberg
     #   realtime
     #   storage3
     #   supabase-auth
 pydantic-core==2.41.5
     # via pydantic
+pydantic-settings==2.14.2
+    # via langchain-community
 pydub==0.25.1
     # via -r requirements.txt
 pygments==2.19.2
@@ -170,22 +253,32 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
     # via
     #   -r requirements.txt
+    #   litellm
+    #   pydantic-settings
     #   testcontainers
     #   uvicorn
 python-multipart==0.0.21
     # via -r requirements.txt
 pyyaml==6.0.3
     # via
+    #   -r requirements.txt
+    #   huggingface-hub
+    #   langchain-community
     #   langchain-core
     #   uvicorn
 realtime==2.27.0
     # via supabase
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
 regex==2026.1.15
     # via tiktoken
 requests==2.32.5
     # via
     #   coinbase-commerce
     #   docker
+    #   langchain-community
     #   langsmith
     #   pyiceberg
     #   requests-toolbelt
@@ -197,9 +290,17 @@ requests-toolbelt==1.0.0
 resend==2.19.0
     # via -r requirements.txt
 rich==14.2.0
-    # via pyiceberg
+    # via
+    #   pyiceberg
+    #   typer
+rpds-py==0.30.0
+    # via
+    #   jsonschema
+    #   referencing
 sentry-sdk==2.49.0
     # via -r requirements.txt
+shellingham==1.5.4
+    # via typer
 six==1.17.0
     # via
     #   coinbase-commerce
@@ -208,6 +309,10 @@ sniffio==1.3.1
     # via openai
 sortedcontainers==2.4.0
     # via pyiceberg
+sqlalchemy==2.0.51
+    # via
+    #   -r requirements.txt
+    #   langchain-community
 starlette==0.50.0
     # via fastapi
 stop-words==2018.7.23
@@ -215,7 +320,9 @@ stop-words==2018.7.23
 storage3==2.27.0
     # via supabase
 strenum==0.4.15
-    # via supabase-functions
+    # via
+    #   postgrest
+    #   supabase-functions
 strictyaml==1.7.3
     # via pyiceberg
 stripe==14.2.0
@@ -228,30 +335,53 @@ supabase-functions==2.27.0
     # via supabase
 tenacity==9.1.2
     # via
+    #   langchain-community
     #   langchain-core
     #   pyiceberg
 testcontainers==4.14.0
     # via -r requirements.txt
 tiktoken==0.12.0
-    # via langchain-openai
+    # via
+    #   langchain-openai
+    #   litellm
+tokenizers==0.23.1
+    # via litellm
 tqdm==4.67.1
-    # via openai
+    # via
+    #   huggingface-hub
+    #   openai
+typer==0.27.0
+    # via huggingface-hub
 typing-extensions==4.15.0
     # via
+    #   aiohttp
+    #   aiosignal
     #   anyio
+    #   cryptography
+    #   exceptiongroup
     #   fastapi
+    #   huggingface-hub
     #   langchain-core
+    #   multidict
     #   openai
     #   pydantic
     #   pydantic-core
     #   realtime
+    #   referencing
     #   resend
+    #   sqlalchemy
     #   starlette
     #   stripe
     #   testcontainers
+    #   typing-inspect
     #   typing-inspection
+    #   uvicorn
+typing-inspect==0.9.0
+    # via dataclasses-json
 typing-inspection==0.4.2
-    # via pydantic
+    # via
+    #   pydantic
+    #   pydantic-settings
 urllib3==2.6.2
     # via
     #   docker
@@ -278,11 +408,14 @@ xxhash==3.6.0
     # via langgraph
 yarl==1.22.0
     # via
+    #   aiohttp
     #   postgrest
     #   storage3
     #   supabase
     #   supabase-functions
 yt-dlp==2025.12.8
     # via -r requirements.txt
+zipp==4.1.0
+    # via importlib-metadata
 zstandard==0.25.0
     # via langsmith

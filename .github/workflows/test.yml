@@ -67,16 +67,6 @@ jobs:
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         uv run pytest -c backend/pytest.ini backend -m "not integration and not slow" 2>&1 | tee test-output.log
 
-    - name: Auto-fix failing tests with Claude
-      if: failure()
-      env:
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      run: |
-        npm install -g @anthropic-ai/claude-code
-        claude -p "Fix the failing tests. Here's the error output: $(cat test-output.log)" \
-          --allowedTools "Edit,Read,Bash,Write" \
-          --max-turns 10
-
   backend-integration:
     name: Backend Integration Tests (OpenRouter)
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release')

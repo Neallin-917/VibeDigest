@@ -4,6 +4,19 @@ Historical record of major version changes. For current architecture, see [AGENT
 
 ---
 
+## Unreleased
+
+- **CI Reliability**: Updated stale V4 summary fixtures and mocked the comprehension
+  boundary so backend and end-to-end workflow tests exercise the current contract
+- **Dependency Security**: Patched production vulnerabilities in Next.js, Sharp,
+  PostCSS, and LiteLLM; regenerated the Python dependency lock
+- **Supply-Chain Maintenance**: Added weekly grouped Dependabot updates for npm,
+  Python, and GitHub Actions
+- **CI Hardening**: Removed the failure-log-driven agent step that installed and
+  ran a third-party CLI with repository write-capable tools
+
+---
+
 ## v3.4 — Chat-First Architecture
 
 - **Core Interface Migration**: `/chat` is now the primary interface, replacing `/dashboard`

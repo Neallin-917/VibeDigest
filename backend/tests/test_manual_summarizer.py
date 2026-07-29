@@ -3,10 +3,8 @@
 Auto-marked as ``integration`` by conftest.py (filename contains "manual"),
 so it is excluded from the default ``make test-backend`` run.
 
-Run:
-    make test-integration
-    # or manually:
-    uv run pytest backend/tests/test_manual_summarizer.py -v -s
+Run manually:
+    uv run pytest backend/tests/test_manual_summarizer.py -m "llm_live and eval" -v -s
 """
 import sys
 from pathlib import Path
@@ -18,11 +16,9 @@ backend_root = Path(__file__).resolve().parents[1]
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
-from utils.env_loader import load_env  # noqa: E402
-
-load_env()
-
 from services.summarizer import Summarizer  # noqa: E402
+
+pytestmark = [pytest.mark.integration, pytest.mark.llm_live, pytest.mark.eval]
 
 _TRANSCRIPT = (
     "This is a short test transcript. "

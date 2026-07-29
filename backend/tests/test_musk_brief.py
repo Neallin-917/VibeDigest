@@ -7,9 +7,6 @@ from pathlib import Path
 # Add backend to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.env_loader import load_env  # noqa: E402
-load_env()
-
 from services.comprehension import ComprehensionAgent  # noqa: E402
 from db_client import DBClient  # noqa: E402
 

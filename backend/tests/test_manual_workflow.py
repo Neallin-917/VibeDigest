@@ -8,9 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Setup path and env
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.env_loader import load_env
-load_env()
-
 # Configure simplified logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 

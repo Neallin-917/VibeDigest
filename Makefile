@@ -1,7 +1,7 @@
 .PHONY: all install start test lint clean help
 .PHONY: install-backend install-frontend
 .PHONY: dev dev-stop start-backend start-frontend start-dev start-prod
-.PHONY: test-backend test-frontend test-local-integration-smoke test-provider-smoke create-demo-task
+.PHONY: test-backend test-frontend test-local-integration-smoke test-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task
 .PHONY: stop restart-dev rebuild-dev restart-prod deploy
 .PHONY: perf perf-frontend perf-check perf-update-baseline
 .PHONY: ops-audit
@@ -31,6 +31,9 @@ help:
 	@echo "  make restart-prod  - Restart backend in Docker (Prod Mode)"
 	@echo "  make deploy        - Deploy to Production (Same as start-prod for now)"
 	@echo "  make test          - Run all tests"
+	@echo "  make test-integration - Run offline integration tests"
+	@echo "  make test-llm-replay - Run deterministic LLM replay tests without a database"
+	@echo "  make test-llm-live - Run opt-in real-provider contract tests"
 	@echo "  make test-provider-smoke - Verify the configured LLM provider with a real API call"
 	@echo "  make ops-audit    - Run read-only deployment and local ops checks"
 	@echo "  make create-demo-task - Create and process the default demo task"
@@ -129,7 +132,7 @@ test-backend: test-unit test-local-integration-smoke
 
 test-unit:
 	@echo "Running unit tests (mocked, fast)..."
-	EVENTLET_NO_GREENDNS=yes uv run pytest backend/tests/ -m "not integration and not slow"
+	EVENTLET_NO_GREENDNS=yes uv run pytest backend/tests/ -m "not integration and not llm_live and not eval and not network and not slow"
 
 test-local-integration-smoke:
 	@echo "Running local integration smoke (/api/process-video against local test DB)..."
@@ -151,8 +154,16 @@ ops-audit:
 	python3 scripts/ops_audit.py
 
 test-integration:
-	@echo "Running integration tests (OpenRouter real API)..."
-	OPENAI_BASE_URL= MODEL_ALIAS_SMART=openai/gpt-4o-mini MODEL_ALIAS_FAST=openai/gpt-4o-mini uv run pytest backend/tests/ -m integration --no-cov -v
+	@echo "Running offline integration tests..."
+	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini backend/tests/ -m "integration and not llm_live and not eval and not network" --no-cov -v
+
+test-llm-replay:
+	@echo "Running deterministic LLM replay tests..."
+	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini backend/tests/integration/test_llm_replay_pipeline.py -m "integration and not llm_live" --no-cov -v
+
+test-llm-live:
+	@echo "Running opt-in real-provider contract tests..."
+	OPENAI_BASE_URL= EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini backend/tests/integration/test_llm_pipeline.py -m llm_live --no-cov -v
 
 test-frontend:
 	@echo "Running frontend tests..."

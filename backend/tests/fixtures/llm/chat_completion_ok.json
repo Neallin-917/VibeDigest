@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "interactions": [
+    {
+      "request": {
+        "model": "replay-fast",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Reply with exactly one word: OK"
+          }
+        ]
+      },
+      "response": {
+        "id": "chatcmpl-replay-ok",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "replay-fast",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "OK"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 7,
+          "completion_tokens": 1,
+          "total_tokens": 8
+        }
+      }
+    }
+  ]
+}

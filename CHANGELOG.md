@@ -16,6 +16,8 @@ Historical record of major version changes. For current architecture, see [AGENT
   ran a third-party CLI with repository write-capable tools
 - **CI Runtime**: Upgraded first-party GitHub Actions and `setup-uv` to their
   Node 24-compatible major versions, eliminating Node 20 deprecation warnings
+- **CI Cache**: Disabled `setup-uv`'s automatic cache because the workflow owns
+  the same uv cache explicitly, preventing concurrent cache-save warnings
 
 ---
 

@@ -29,5 +29,5 @@ langsmith>=0.1.0
 stop-words==2018.7.23
 testcontainers[postgres]>=3.7.1
 langchain-community>=0.3.0,<0.4.0
-litellm>=1.55.0,<1.82.0
+litellm>=1.84.0,<2.0.0
 pyyaml>=6.0.1

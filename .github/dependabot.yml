@@ -10,6 +10,17 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # Next.js 16.2 and its ESLint toolchain do not support the TypeScript 7
+      # compiler API yet. Keep the supported 5.x line until the framework does.
+      - dependency-name: typescript
+        versions:
+          - ">=7.0.0"
+      # AI SDK provider majors must be migrated together with `ai` and
+      # `@ai-sdk/react`; a provider-only major produces incompatible model types.
+      - dependency-name: "@ai-sdk/openai"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: pip
     directory: /
@@ -21,6 +32,12 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # Python 3.10 is still supported by this repository, while the current
+      # stop-words major requires Python 3.11 or newer.
+      - dependency-name: stop-words
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /

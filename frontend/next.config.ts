@@ -18,11 +18,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   // Allow custom build directory for testing to avoid lock conflicts
   distDir: process.env.NEXT_DIST_DIR || '.next',
-  // Keep workspace root anchored to the frontend folder for module resolution.
-  // This avoids Tailwind resolving from the monorepo root when multiple lockfiles exist.
-  turbopack: {
-    root: __dirname,
-  },
+  // Next.js infers the frontend root from this package's lockfile. Keeping that
+  // inference avoids conflicting with Sentry's outputFileTracingRoot on Vercel.
   /* config options here */
   images: {
     minimumCacheTTL: 60 * 60 * 24, // Cache images for 24 hours

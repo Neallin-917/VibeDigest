@@ -18,6 +18,9 @@ Historical record of major version changes. For current architecture, see [AGENT
   Node 24-compatible major versions, eliminating Node 20 deprecation warnings
 - **CI Cache**: Disabled `setup-uv`'s automatic cache because the workflow owns
   the same uv cache explicitly, preventing concurrent cache-save warnings
+- **Backend Dependencies**: Updated 18 API, database, telemetry, and networking
+  dependencies; aligned the Pydantic Core pin and refreshed the transitive lock,
+  removing 50 audit findings across 18 packages
 
 ---
 

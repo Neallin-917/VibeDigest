@@ -71,7 +71,6 @@ jobs:
 
   backend-integration:
     name: Backend Integration Tests (Offline)
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release')
     runs-on: ubuntu-latest
     services:
       postgres:

@@ -14,6 +14,8 @@ Historical record of major version changes. For current architecture, see [AGENT
   Python, and GitHub Actions
 - **CI Hardening**: Removed the failure-log-driven agent step that installed and
   ran a third-party CLI with repository write-capable tools
+- **CI Runtime**: Upgraded first-party GitHub Actions and `setup-uv` to their
+  Node 24-compatible major versions, eliminating Node 20 deprecation warnings
 
 ---
 

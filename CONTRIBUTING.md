@@ -41,6 +41,9 @@ Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 | `make install` | Install backend and frontend dependencies |
 | `make test-unit` | Backend unit test suite |
 | `make test-backend` | Backend unit tests plus local smoke if prerequisites exist |
+| `make test-integration` | Offline backend integration and LLM replay contracts |
+| `make test-llm-replay` | Deterministic LLM replay without database or provider credentials |
+| `make test-llm-live` | Explicit real-provider contract test |
 | `make test-provider-smoke` | Real configured LLM provider smoke test |
 | `make test-frontend` | Frontend unit tests in run mode |
 | `cd frontend && npm run build` | Frontend production build |
@@ -56,7 +59,8 @@ Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 - Default execution split:
   - Backend unit tests: mocked, safe for local and CI
   - Backend local smoke: DB-backed `/api/process-video`, no real LLM call
-  - Provider smoke and broader integration tests: opt-in, may require provider/database setup
+  - Offline integration: replay-backed and safe for CI
+  - Provider smoke and model evals: explicit opt-in, may require provider setup
   - Frontend unit tests: Vitest
   - Frontend E2E tests: Playwright, separate from default unit flow
 
@@ -78,3 +82,15 @@ Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 - Any changed facts are updated in their owning document
 - Generated files, caches, logs, and build artifacts are not committed
 - If public behavior changed, docs were updated in the correct owning file
+
+## CI Automation
+
+- The normal `CI` workflow never receives real text-model credentials.
+- `LLM Live Validation` is manually dispatched and reads
+  `OPENROUTER_API_KEY` from the environment-scoped `llm-live` secret.
+- `Codex CI Failure Triage` runs only after failed trusted-repository CI runs
+  or an explicit manual dispatch, and only when the repository variable
+  `CODEX_CI_ENABLED` is `true`. It uses `openai/codex-action`, read-only
+  permissions, and a secret named `OPENAI_API_KEY`.
+- Codex produces diagnosis text only. It does not commit, open a pull request,
+  merge, or deploy.

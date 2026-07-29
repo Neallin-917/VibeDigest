@@ -6,10 +6,10 @@ so it is excluded from the default ``make test-backend`` run.
 
 Requirements:
     OPENROUTER_API_KEY  - set in .env.local or as shell env var
-    OPENAI_BASE_URL unset - ``make test-integration`` clears it automatically
+    OPENAI_BASE_URL unset - ``make test-llm-live`` clears it automatically
 
 Run:
-    make test-integration
+    make test-llm-live
     # or manually:
     OPENAI_BASE_URL= uv run pytest backend/tests/integration/test_llm_pipeline.py -v -s
 """
@@ -18,6 +18,8 @@ import sys
 from pathlib import Path
 
 import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.llm_live]
 
 # Ensure backend root is in path when running this file directly.
 backend_root = Path(__file__).resolve().parents[2]
@@ -38,7 +40,7 @@ def test_openrouter_provider_is_active():
 
     assert settings.LLM_PROVIDER == "openrouter", (
         f"Expected provider=openrouter, got {settings.LLM_PROVIDER!r}. "
-        "Run via: make test-integration or unset OPENAI_BASE_URL before running this test."
+        "Run via: make test-llm-live or unset OPENAI_BASE_URL before running this test."
     )
 
 
@@ -56,14 +58,16 @@ def test_openrouter_model_defaults():
 def test_openrouter_chat_completion():
     """Smoke test: send a simple prompt to OpenRouter and verify a non-empty response.
 
-    Uses ``openai/gpt-4o-mini`` — cheap and broadly available on OpenRouter.
+    Uses the configured fast-model alias/default so model names remain in the
+    provider-defaults SSOT.
     """
     from langchain_core.messages import HumanMessage
 
     from utils.openai_client import create_chat_model
 
-    model_name = "openai/gpt-4o-mini"
-    llm = create_chat_model(model_name)
+    from config import settings
+
+    llm = create_chat_model(settings.MODEL_FAST)
 
     response = llm.invoke([HumanMessage(content="Reply with exactly one word: OK")])
 

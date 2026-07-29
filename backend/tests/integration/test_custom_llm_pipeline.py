@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.llm_live]
+
 # Ensure backend root is in path when running this file directly.
 backend_root = Path(__file__).resolve().parents[2]
 if str(backend_root) not in sys.path:

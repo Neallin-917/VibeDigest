@@ -67,10 +67,10 @@ jobs:
         TEST_DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
-        uv run pytest -c backend/pytest.ini backend -m "not integration and not slow" 2>&1 | tee test-output.log
+        make test-unit 2>&1 | tee test-output.log
 
   backend-integration:
-    name: Backend Integration Tests (OpenRouter)
+    name: Backend Integration Tests (Offline)
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release')
     runs-on: ubuntu-latest
     services:
@@ -113,10 +113,7 @@ jobs:
         sudo apt-get install -y ffmpeg
     - name: Run integration tests
       env:
-        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        # Use proven models for CI; YAML defaults may list aspirational future models.
-        MODEL_ALIAS_SMART: openai/gpt-4o-mini
-        MODEL_ALIAS_FAST: openai/gpt-4o-mini
+        MOCK_MODE: "true"
         DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
         TEST_DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
         SUPABASE_URL: "https://example.supabase.co"
@@ -125,7 +122,7 @@ jobs:
         OPENAI_API_KEY: "dummy-key"
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
-        uv run pytest -c backend/pytest.ini backend/tests/ -m integration --no-cov -v
+        make test-integration
 
   frontend-test:
     runs-on: ubuntu-latest

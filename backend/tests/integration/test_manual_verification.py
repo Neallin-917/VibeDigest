@@ -7,6 +7,10 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.network]
+
 # Add backend to path
 backend_path = Path(__file__).parents[2]
 sys.path.insert(0, str(backend_path))
@@ -16,7 +20,6 @@ async def test_preview_endpoint():
     """Test the new preview-video endpoint."""
     try:
         from services.video_processor import VideoProcessor
-        from utils.url import normalize_video_url
 
         print("✅ Successfully imported backend modules")
 
@@ -45,7 +48,7 @@ async def test_database_connection():
 
         print("✅ Successfully imported DBClient")
 
-        client = DBClient()
+        DBClient()
 
         # Test a simple query (this might fail in dev, but import should work)
         print("✅ DBClient initialized successfully")

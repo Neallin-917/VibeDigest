@@ -60,7 +60,9 @@ export function useThreadNavigation({
     const [pendingThreadId, setPendingThreadId] = useState<string | null>(null)
     const [isThreadSwitching, setIsThreadSwitching] = useState(false)
     const [taskSelectionNonce, setTaskSelectionNonce] = useState(0)
-    const [isBootstrapping, setIsBootstrapping] = useState(true)
+    const [isBootstrapping, setIsBootstrapping] = useState(
+        () => Boolean(queryTaskId || queryThreadId)
+    )
 
     // Refs
     const newThreadIdsRef = useRef<Set<string>>(new Set())

@@ -1,6 +1,7 @@
 
 import type { Metadata } from "next"
 import { ChatPageClient } from "@/components/chat/ChatPageClient"
+import { getChatExamples } from "@/lib/chat-examples"
 
 export const metadata: Metadata = {
     title: "Chat",
@@ -8,6 +9,14 @@ export const metadata: Metadata = {
     robots: { index: false, follow: false },
 }
 
-export default function ChatPage() {
-    return <ChatPageClient />
+export default async function ChatPage({
+    searchParams,
+}: {
+    searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+    const params = await searchParams
+    const shouldLoadExamples = !params.task
+    const initialExamples = shouldLoadExamples ? getChatExamples() : null
+
+    return <ChatPageClient initialExamples={initialExamples} />
 }

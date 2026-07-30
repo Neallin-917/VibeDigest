@@ -33,7 +33,7 @@ function TopHeaderComponent({ onMobileMenuClick, className }: TopHeaderProps) {
             "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
             "dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10"
           )}
-          aria-label={t('nav.menu')}
+          aria-label={t('nav.openMenu')}
         >
           <Menu className="w-5 h-5" />
         </button>

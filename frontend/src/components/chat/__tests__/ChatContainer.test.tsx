@@ -36,6 +36,9 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'auth.signInToContinue') return 'Sign in to continue to VibeDigest'
       if (key === 'auth.signIn') return 'Sign In'
       if (key === 'brand.appName') return 'VibeDigest'
+      if (key === 'chat.thinking') return 'Thinking...'
+      if (key === 'chat.genericError') return 'Something went wrong.'
+      if (key === 'chat.retry') return 'Retry'
       return key
     },
     locale: 'en',

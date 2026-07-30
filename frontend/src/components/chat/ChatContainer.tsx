@@ -173,28 +173,28 @@ export function ChatContainer({
     activeTaskIdRef,
   })
 
-  const handleSendMessage = (content: string) => {
-    if (isInteractionLocked) return
+  const handleSendMessage = async (content: string): Promise<boolean> => {
+    if (isInteractionLocked) return false
 
     const trimmed = content.trim()
-    if (!trimmed) return
+    if (!trimmed) return false
 
     // Auth gate: save message and redirect to login for unauthenticated users
     if (!isAuthenticated) {
       localStorage.setItem('vibedigest_pending_message', trimmed)
       handleLogin()
-      return
+      return true
     }
 
     // Direct URL path: detect URL and bypass LLM entirely
     const detectedUrl = extractAndNormalizeUrl(trimmed)
     if (detectedUrl) {
-      handleDirectUrlSubmission(detectedUrl, trimmed)
-      return
+      return handleDirectUrlSubmission(detectedUrl, trimmed)
     }
 
     // Non-URL messages: send through LLM for Q&A
     sendMessageToApi(createUserTextMessage(`user-${uuidv4()}`, trimmed))
+    return true
   }
 
   // Sync initialMessages when they change
@@ -211,7 +211,7 @@ export function ChatContainer({
   const displayErrorMessage = directSubmitError ?? (requiresAuth
     ? t('auth.signInToContinue', { appName: t('brand.appName') })
     : error
-      ? 'Something went wrong.'
+      ? t('chat.genericError')
       : null)
   const hasRenderableAssistant = useMemo(
     () => checkHasRenderableAssistant(messages),
@@ -260,16 +260,14 @@ export function ChatContainer({
     if (pendingMessage) {
       localStorage.removeItem('vibedigest_pending_message')
       // Small delay to ensure hydration
-      setTimeout(() => handleSendMessage(pendingMessage), 100)
+      setTimeout(() => void handleSendMessage(pendingMessage), 100)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /* handleSendMessage is already defined above */
 
-  const handleSubmit = (text: string) => {
-    handleSendMessage(text);
-  }
+  const handleSubmit = (text: string) => handleSendMessage(text)
 
   // Auto-open panel when a task is created
   const lastAutoOpenedTaskId = useRef<string | null>(null)
@@ -366,7 +364,7 @@ export function ChatContainer({
                   <div className="bg-white/40 dark:bg-white/5 px-5 py-3 rounded-2xl rounded-tl-sm border border-white/40 dark:border-white/5 flex items-center gap-2 w-fit">
                     <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                     <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                      Thinking...
+                      {t('chat.thinking')}
                     </span>
                   </div>
                 </div>
@@ -381,7 +379,10 @@ export function ChatContainer({
         <div className="px-4 md:px-8 pb-4">
           <div className="max-w-3xl mx-auto">
             <div className="flex w-full">
-              <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 px-4 py-3 rounded-xl flex items-center gap-3">
+              <div
+                role="alert"
+                className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 px-4 py-3 rounded-xl flex items-center gap-3"
+              >
                 <XCircle className="w-4 h-4 text-red-500" />
                 <div className="text-sm text-red-600 dark:text-red-400">
                   {directSubmitError ?? displayErrorMessage}
@@ -398,7 +399,7 @@ export function ChatContainer({
                     onClick={() => regenerate()}
                     className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
-                    Retry
+                    {t('chat.retry')}
                   </button>
                 ) : null}
               </div>

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { createClient } from '@/lib/supabase'
 import { QuickTemplateCard } from './QuickTemplateCard'
-import { ChatInput } from './ChatInput'
+import { ChatInput, type ChatSubmitHandler } from './ChatInput'
 
 interface Task {
   id: string
@@ -18,7 +18,7 @@ interface Task {
 interface WelcomeScreenProps {
   onSelectExample: (taskId: string) => void
   /** Handler for input submission */
-  onSubmit: (text: string) => void
+  onSubmit: ChatSubmitHandler
   /** Loading state for input */
   isLoading?: boolean
   /** Whether the user is authenticated */
@@ -102,7 +102,7 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
       {loading ? (
         <div className="flex items-center gap-2 text-slate-400">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Loading examples...</span>
+          <span className="text-sm">{t('chat.loadingExamples')}</span>
         </div>
       ) : examples.length > 0 ? (
         <div className="w-full max-w-4xl @container">

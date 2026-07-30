@@ -51,7 +51,11 @@ vi.mock('@/components/ui/sheet', () => ({
 
 vi.mock('@/components/i18n/I18nProvider', () => ({
   useI18n: () => ({
-    t: (key: string) => key,
+    t: (key: string, values?: Record<string, string>) => {
+      if (key === 'chat.openingChat') return 'Opening chat...'
+      if (key === 'chat.openingThread') return `Opening ${values?.title}`
+      return key
+    },
     locale: 'en'
   })
 }))

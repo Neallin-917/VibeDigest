@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ChatInput } from '../ChatInput'
 
 vi.mock('@/components/i18n/I18nProvider', () => ({
@@ -47,7 +47,7 @@ describe('ChatInput', () => {
     expect(input.value).toBe('Hello')
   })
 
-  it('submits on button click', () => {
+  it('clears accepted submissions on button click', async () => {
     const onSubmit = vi.fn()
     render(<ChatInput onSubmit={onSubmit} />)
     
@@ -58,7 +58,42 @@ describe('ChatInput', () => {
     fireEvent.click(button)
     
     expect(onSubmit).toHaveBeenCalledWith('Hello')
-    expect((input as HTMLInputElement).value).toBe('')
+    await waitFor(() => {
+      expect((input as HTMLInputElement).value).toBe('')
+    })
+  })
+
+  it('preserves a submission when the handler rejects it', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(false)
+    render(<ChatInput onSubmit={onSubmit} />)
+
+    const input = screen.getByPlaceholderText('Ask me anything...') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'https://youtu.be/example' } })
+    fireEvent.click(screen.getByLabelText('Send message'))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith('https://youtu.be/example')
+    })
+    expect(input.value).toBe('https://youtu.be/example')
+  })
+
+  it('does not clear newer text when an earlier submission finishes', async () => {
+    let resolveSubmission!: (accepted: boolean) => void
+    const onSubmit = vi.fn(() => new Promise<boolean>((resolve) => {
+      resolveSubmission = resolve
+    }))
+    render(<ChatInput onSubmit={onSubmit} />)
+
+    const input = screen.getByPlaceholderText('Ask me anything...') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'First message' } })
+    fireEvent.click(screen.getByLabelText('Send message'))
+    fireEvent.change(input, { target: { value: 'Next message' } })
+
+    resolveSubmission(true)
+
+    await waitFor(() => {
+      expect(input.value).toBe('Next message')
+    })
   })
 
   it('submits on Enter key', () => {

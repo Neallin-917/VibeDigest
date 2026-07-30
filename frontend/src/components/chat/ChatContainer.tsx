@@ -2,7 +2,6 @@
 
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isDataUIPart } from 'ai'
-import dynamic from 'next/dynamic'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
 import { TaskDataGroup } from './TaskDataGroup'
@@ -17,12 +16,7 @@ import { useDirectUrlSubmission } from './useDirectUrlSubmission'
 import { Loader2, XCircle } from 'lucide-react'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { chatDataSchemas, createUserTextMessage, type ChatUIMessage } from '@/lib/chat-ui'
-
-const loadMessageRow = () => import('./MessageRow')
-const MessageRow = dynamic(
-  () => loadMessageRow().then(module => module.MessageRow),
-  { loading: () => null }
-)
+import { LazyMessageRow as MessageRow, preloadMessageRow } from './LazyMessageRow'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -201,7 +195,7 @@ export function ChatContainer({
 
     // Start loading the renderer while direct-submit/chat requests run.
     // Fresh and unauthenticated chats do not pay this cost.
-    void loadMessageRow()
+    void preloadMessageRow()
 
     // Direct URL path: detect URL and bypass LLM entirely
     const detectedUrl = extractAndNormalizeUrl(trimmed)

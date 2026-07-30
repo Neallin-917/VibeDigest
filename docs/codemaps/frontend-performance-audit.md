@@ -56,6 +56,23 @@ The same pass removed a submission race at route entry: pending landing/login
 messages now wait for the browser session to resolve, while every login method
 preserves the intended chat destination.
 
+## Current Thread-Opening Intervention
+
+A signed-in production cold switch to a non-prefetched, message-heavy thread
+was measured at 3,132 ms on commit `b947660`. The thread-opening path now uses
+the data already present in the sidebar and removes avoidable serial work:
+
+- Known `task_id` values come from the cached thread list instead of a second
+  BFF request.
+- The messages route reads `chat_messages` directly under its existing
+  ownership RLS policy and indexed `thread_id, created_at` access path, instead
+  of first issuing a duplicate ownership query.
+- Pointer/focus intent and direct selection start loading the deferred message
+  renderer alongside the thread payload rather than after the payload arrives.
+
+The fallback metadata request remains available for callers whose thread model
+does not include `task_id`; no new cache, endpoint, or state layer was added.
+
 ## Audit Framework
 
 The frontend is assessed across four layers:

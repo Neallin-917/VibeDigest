@@ -18,7 +18,6 @@ export async function GET(
         return await getThreadMessagesResponse({
             supabase,
             threadId: id,
-            userId: user.id,
         });
     } catch (error) {
         console.error('[API/Chat] Unexpected error fetching messages:', error);

@@ -22,6 +22,7 @@ let currentSearchParams = new URLSearchParams()
 const replaceMock = vi.fn()
 const pushMock = vi.fn()
 const fetchThreadTaskIdMock = vi.fn<(threadId: string) => Promise<string | null>>()
+const loadMessageRowMock = vi.fn<() => Promise<unknown>>()
 const idleCallbacks: IdleRequestCallback[] = []
 
 vi.mock('next/navigation', () => ({
@@ -39,6 +40,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/thread-utils', () => ({
   fetchThreadTaskId: (threadId: string) => fetchThreadTaskIdMock(threadId)
+}))
+
+vi.mock('@/components/chat/LazyMessageRow', () => ({
+  preloadMessageRow: () => loadMessageRowMock()
 }))
 
 vi.mock('@/components/layout/AppSidebarContext', () => ({
@@ -68,6 +73,9 @@ vi.mock('../ChatWorkspace', () => ({
       <button onClick={() => props.onSelectThread?.('thread-b')}>Select Thread B</button>
       <button onClick={() => props.onSelectThread?.('thread-c')}>Select Thread C</button>
       <button onClick={() => props.onChatStarted?.(props.activeThreadId || 'thread-a')}>Chat Started</button>
+      <button onClick={() => props.onChatStarted?.(props.activeThreadId || 'thread-a', 'task-new')}>
+        Chat Started With Task
+      </button>
     </div>
   )
 }))
@@ -94,6 +102,8 @@ describe('ChatPageClient', () => {
     vi.clearAllMocks()
     fetchThreadTaskIdMock.mockReset()
     fetchThreadTaskIdMock.mockResolvedValue(null)
+    loadMessageRowMock.mockReset()
+    loadMessageRowMock.mockResolvedValue({})
     idleCallbacks.length = 0
     Object.defineProperty(window, 'requestIdleCallback', {
       writable: true,
@@ -251,6 +261,36 @@ describe('ChatPageClient', () => {
     expect(replaceMock).not.toHaveBeenCalled()
   })
 
+  it('does not reload a newly persisted thread after adding its task to the URL', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url.includes('/messages')) {
+        throw new Error(`Unexpected history reload: ${url}`)
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithQueryClient(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toBeInTheDocument()
+      expect(screen.getByTestId('workspace')).not.toHaveAttribute('data-thread-id', '')
+    })
+
+    fetchMock.mockClear()
+    fireEvent.click(screen.getByText('Chat Started With Task'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', 'task-new')
+    })
+
+    expect(
+      fetchMock.mock.calls.some(([url]) => url.toString().includes('/messages'))
+    ).toBe(false)
+  })
+
   it('treats an unknown threadId in the URL as a fresh thread without reloading history', async () => {
     currentSearchParams = new URLSearchParams('threadId=fresh-thread')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -306,7 +346,12 @@ describe('ChatPageClient', () => {
       const url = input.toString()
       if (url === '/api/chat/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
-        { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
+        {
+          id: 'thread-b',
+          title: 'Thread B',
+          task_id: 'task-b',
+          updated_at: '2026-02-06T00:00:00Z',
+        },
       ])
       if (url.startsWith('/api/chat/threads/') && url.endsWith('/messages')) return jsonResponse([])
       // Note: fetchThreadTaskId is module-mocked (see top of file), so /api/threads/<id> won't reach here
@@ -332,6 +377,8 @@ describe('ChatPageClient', () => {
       ([url]) => url.toString() === '/api/chat/threads/thread-b/messages'
     )
     expect(messageFetches).toHaveLength(1)
+    expect(fetchThreadTaskIdMock).not.toHaveBeenCalledWith('thread-b')
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', 'task-b')
   })
 
   it('keeps the previous thread visible while an uncached thread is loading', async () => {
@@ -367,6 +414,7 @@ describe('ChatPageClient', () => {
     expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
     expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'true')
     expect(screen.getByTestId('sidebar')).toHaveAttribute('data-selected-thread-id', 'thread-b')
+    expect(loadMessageRowMock).toHaveBeenCalled()
 
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-b')
@@ -403,6 +451,7 @@ describe('ChatPageClient', () => {
       )
       expect(prefetchedCalls).toHaveLength(1)
     })
+    expect(loadMessageRowMock).toHaveBeenCalledTimes(1)
 
     fireEvent.click(screen.getByText('Select Thread B'))
 

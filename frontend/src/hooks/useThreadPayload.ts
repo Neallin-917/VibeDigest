@@ -25,7 +25,15 @@ async function fetchThreadMessages(threadId: string): Promise<ChatUIMessage[]> {
     }
 }
 
-async function fetchThreadPayload(threadId: string): Promise<ThreadPayload> {
+async function fetchThreadPayload(
+    threadId: string,
+    knownTaskId?: string | null,
+): Promise<ThreadPayload> {
+    if (knownTaskId !== undefined) {
+        const messages = await fetchThreadMessages(threadId)
+        return { taskId: knownTaskId, messages }
+    }
+
     const [taskId, messages] = await Promise.all([
         fetchThreadTaskId(threadId),
         fetchThreadMessages(threadId),
@@ -67,11 +75,11 @@ export function useThreadPayload(threadId: string | null, options?: { enabled?: 
 export function usePrefetchThread() {
     const queryClient = useQueryClient()
 
-    return useCallback((threadId: string) => {
+    return useCallback((threadId: string, knownTaskId?: string | null) => {
         if (!threadId) return
         void queryClient.prefetchQuery({
             queryKey: threadKeys.payload(threadId),
-            queryFn: () => fetchThreadPayload(threadId),
+            queryFn: () => fetchThreadPayload(threadId, knownTaskId),
             staleTime: 5 * 60 * 1000,
         })
     }, [queryClient])
@@ -84,10 +92,13 @@ export function usePrefetchThread() {
 export function useLoadThreadPayload() {
     const queryClient = useQueryClient()
 
-    return useCallback(async (threadId: string): Promise<ThreadPayload> => {
+    return useCallback(async (
+        threadId: string,
+        knownTaskId?: string | null,
+    ): Promise<ThreadPayload> => {
         return queryClient.ensureQueryData({
             queryKey: threadKeys.payload(threadId),
-            queryFn: () => fetchThreadPayload(threadId),
+            queryFn: () => fetchThreadPayload(threadId, knownTaskId),
             staleTime: 5 * 60 * 1000,
         })
     }, [queryClient])

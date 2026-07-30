@@ -15,44 +15,47 @@ export function PreviewVideoTool({
   errorText,
 }: PreviewVideoToolProps) {
   const { t } = useI18n()
+  const resolvedError = errorText ?? output?.error
+  const displayState = resolvedError ? 'output-error' : state
+  const successfulOutput = output && !resolvedError ? output : undefined
 
   return (
     <Tool
-      defaultOpen={state === 'output-available' || state === 'output-error'}
+      defaultOpen={displayState === 'output-available' || displayState === 'output-error'}
       className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
     >
       <ToolHeader
         type="tool-preview_video"
-        state={state}
+        state={displayState}
         title="Video preview"
         className="text-zinc-100"
       />
       <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
         <ToolOutput
           output={
-            output ? (
+            successfulOutput ? (
               <div className="space-y-3">
-                {output.thumbnail ? (
+                {successfulOutput.thumbnail ? (
                   // eslint-disable-next-line @next/next/no-img-element -- dynamic external thumbnail URLs are rendered directly without Next image optimization
                   <img
-                    src={output.thumbnail}
-                    alt={output.title || 'Video'}
+                    src={successfulOutput.thumbnail}
+                    alt={successfulOutput.title || 'Video'}
                     className="aspect-video w-full rounded-md object-cover"
                   />
                 ) : null}
                 <div className="space-y-1 text-sm">
-                  <div>{output.title || t('chat.tools.preview.untitled')}</div>
-                  {output.channel ? (
-                    <div className="text-xs text-zinc-400">{output.channel}</div>
+                  <div>{successfulOutput.title || t('chat.tools.preview.untitled')}</div>
+                  {successfulOutput.channel ? (
+                    <div className="text-xs text-zinc-400">{successfulOutput.channel}</div>
                   ) : null}
-                  {output.duration ? (
-                    <div className="text-xs text-zinc-400">{output.duration}</div>
+                  {successfulOutput.duration ? (
+                    <div className="text-xs text-zinc-400">{successfulOutput.duration}</div>
                   ) : null}
                 </div>
               </div>
             ) : undefined
           }
-          errorText={errorText ?? output?.error}
+          errorText={resolvedError}
         />
       </ToolContent>
     </Tool>

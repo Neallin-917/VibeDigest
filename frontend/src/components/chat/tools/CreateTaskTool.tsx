@@ -18,30 +18,33 @@ export function CreateTaskTool({
   onViewClick,
 }: CreateTaskToolProps) {
   const { t } = useI18n()
+  const resolvedError = errorText ?? output?.error
+  const displayState = resolvedError ? 'output-error' : state
+  const successfulOutput = output && !resolvedError ? output : undefined
 
   return (
     <Tool
-      defaultOpen={state === 'output-available' || state === 'output-error'}
+      defaultOpen={displayState === 'output-available' || displayState === 'output-error'}
       className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
     >
       <ToolHeader
         type="tool-create_task"
-        state={state}
+        state={displayState}
         title="Processing"
         className="text-zinc-100"
       />
       <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
         <ToolOutput
           output={
-            output ? (
+            successfulOutput ? (
               <div className="space-y-3 text-sm">
-                <div>{output.message || t('chat.tools.create.success')}</div>
-                {output.videoUrl ? (
-                  <div className="break-all text-xs text-zinc-400">{output.videoUrl}</div>
+                <div>{successfulOutput.message || t('chat.tools.create.success')}</div>
+                {successfulOutput.videoUrl ? (
+                  <div className="break-all text-xs text-zinc-400">{successfulOutput.videoUrl}</div>
                 ) : null}
-                {output.taskId && onViewClick ? (
+                {successfulOutput.taskId && onViewClick ? (
                   <Button
-                    onClick={() => onViewClick(output.taskId!)}
+                    onClick={() => onViewClick(successfulOutput.taskId!)}
                     variant="outline"
                     size="sm"
                     className="h-7 border-white/10 bg-transparent text-xs text-zinc-200 hover:bg-white/5"
@@ -53,7 +56,7 @@ export function CreateTaskTool({
               </div>
             ) : undefined
           }
-          errorText={errorText ?? output?.error}
+          errorText={resolvedError}
         />
       </ToolContent>
     </Tool>

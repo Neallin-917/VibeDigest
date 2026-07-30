@@ -39,7 +39,15 @@ const getPlatformFromUrl = (url: string) => {
     }
 }
 
-function TemplateCard({ task, locale }: { task: Task, locale: Locale }) {
+function TemplateCard({
+    task,
+    locale,
+    highPriorityThumbnail = false,
+}: {
+    task: Task
+    locale: Locale
+    highPriorityThumbnail?: boolean
+}) {
     const platform = getPlatformFromUrl(task.video_url)
     const showAuthor = task.author && task.author !== "Unknown"
 
@@ -58,6 +66,8 @@ function TemplateCard({ task, locale }: { task: Task, locale: Locale }) {
                         className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:contrast-[1.1]"
                         referrerPolicy="no-referrer"
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                        loading={highPriorityThumbnail ? "eager" : "lazy"}
+                        fetchPriority={highPriorityThumbnail ? "high" : "auto"}
                     />
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -245,8 +255,13 @@ export function CommunityTemplates({
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {tasks.map((task) => (
-                    <TemplateCard key={task.id} task={task} locale={locale} />
+                {tasks.map((task, index) => (
+                    <TemplateCard
+                        key={task.id}
+                        task={task}
+                        locale={locale}
+                        highPriorityThumbnail={index === 0}
+                    />
                 ))}
             </div>
         </div>

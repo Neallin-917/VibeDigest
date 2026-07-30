@@ -148,7 +148,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
           </div>
 
           <Suspense fallback={<TemplatesSkeleton />}>
-            <ServerCommunityTemplates limit={8} showHeader={false} locale={locale} />
+            <ServerCommunityTemplates limit={4} showHeader={false} locale={locale} />
           </Suspense>
 
           <div className="mt-8 flex justify-center">

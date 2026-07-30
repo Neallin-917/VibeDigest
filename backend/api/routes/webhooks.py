@@ -26,15 +26,22 @@ async def creem_webhook(
     payload = await request.body()
     sig_header = request.headers.get("creem-signature")
 
-    # Verify signature using HMAC-SHA256
-    if CREEM_WEBHOOK_SECRET and sig_header:
-        expected_sig = hmac.new(
-            CREEM_WEBHOOK_SECRET.encode("utf-8"), payload, hashlib.sha256
-        ).hexdigest()
+    if not CREEM_WEBHOOK_SECRET:
+        logger.error("Creem webhook secret is not configured")
+        raise HTTPException(status_code=503, detail="Webhook verification unavailable")
 
-        if not hmac.compare_digest(expected_sig, sig_header):
-            logger.warning("Creem webhook signature verification failed")
-            raise HTTPException(status_code=400, detail="Invalid signature")
+    if not sig_header:
+        logger.warning("Creem webhook signature is missing")
+        raise HTTPException(status_code=400, detail="Missing signature")
+
+    # Verify signature using HMAC-SHA256
+    expected_sig = hmac.new(
+        CREEM_WEBHOOK_SECRET.encode("utf-8"), payload, hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_sig, sig_header):
+        logger.warning("Creem webhook signature verification failed")
+        raise HTTPException(status_code=400, detail="Invalid signature")
 
     try:
         event = json.loads(payload.decode("utf-8"))

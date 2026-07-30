@@ -143,3 +143,48 @@ async def create_checkout_session(
     except Exception as e:
         logger.error(f"Creem session creation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/customer-portal")
+async def create_customer_portal(
+    user_id: str = Depends(get_current_user),
+    db: DBClient = Depends(get_db_client),
+):
+    """Create a short-lived Creem customer portal link for the current user."""
+    if not CREEM_API_KEY:
+        raise HTTPException(status_code=503, detail="Payment service not configured")
+
+    profile = db.get_profile(user_id)
+    customer_id = profile.get("creem_customer_id") if profile else None
+    if not customer_id:
+        raise HTTPException(status_code=404, detail="No billing account found")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{CREEM_API_BASE}/v1/customers/billing",
+                headers={
+                    "x-api-key": CREEM_API_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={"customer_id": customer_id},
+                timeout=15.0,
+            )
+    except httpx.RequestError as e:
+        logger.warning(f"Creem customer portal request failed: {e}")
+        raise HTTPException(
+            status_code=503, detail="Payment service temporarily unavailable"
+        ) from e
+
+    if response.status_code != 200:
+        logger.error(
+            "Creem customer portal creation failed with status %s",
+            response.status_code,
+        )
+        raise HTTPException(status_code=502, detail="Unable to open billing portal")
+
+    portal_url = response.json().get("customer_portal_link")
+    if not portal_url:
+        raise HTTPException(status_code=502, detail="Unable to open billing portal")
+
+    return {"url": portal_url}

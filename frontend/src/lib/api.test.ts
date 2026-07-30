@@ -157,6 +157,27 @@ describe('ApiClient', () => {
         })
     })
 
+    describe('createCustomerPortal', () => {
+        it('sends an authenticated POST request', async () => {
+            fetchSpy.mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ url: 'https://creem.io/portal' }),
+            } as Response)
+
+            await ApiClient.createCustomerPortal(mockToken)
+
+            expect(fetchSpy).toHaveBeenCalledWith(
+                expect.stringContaining('/api/customer-portal'),
+                expect.objectContaining({
+                    method: 'POST',
+                    headers: expect.objectContaining({
+                        Authorization: `Bearer ${mockToken}`
+                    })
+                })
+            )
+        })
+    })
+
     describe('createCryptoCharge', () => {
         it('sends correct request', async () => {
             fetchSpy.mockResolvedValueOnce({

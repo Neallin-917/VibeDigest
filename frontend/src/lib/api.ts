@@ -84,6 +84,15 @@ export class ApiClient {
         });
     }
 
+    static async createCustomerPortal(token: string) {
+        return this.request("/api/customer-portal", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+    }
+
     static async createCryptoCharge(priceId: string, token: string) {
         const formData = new FormData();
         formData.append("price_id", priceId);

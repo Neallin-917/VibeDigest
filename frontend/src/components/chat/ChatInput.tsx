@@ -5,8 +5,13 @@ import { ArrowUp, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 
+export type ChatSubmitResult = void | boolean
+export type ChatSubmitHandler = (
+  text: string
+) => ChatSubmitResult | Promise<ChatSubmitResult>
+
 interface ChatInputProps {
-  onSubmit: (text: string) => void
+  onSubmit: ChatSubmitHandler
   onStop?: () => void
   isLoading?: boolean
   error?: string
@@ -37,13 +42,26 @@ export function ChatInput({
 }: ChatInputProps) {
   const [input, setInput] = useState('')
   const [isFocused, setIsFocused] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { t } = useI18n()
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!input.trim() || isLoading || disabled) return
-    onSubmit(input)
-    setInput('')
+    if (!input.trim() || isLoading || isSubmitting || disabled) return
+
+    const submittedInput = input
+    setIsSubmitting(true)
+
+    try {
+      const accepted = await onSubmit(submittedInput)
+      if (accepted !== false) {
+        setInput(currentInput =>
+          currentInput === submittedInput ? '' : currentInput
+        )
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   
   const handleStop = (e: React.MouseEvent) => {
@@ -53,6 +71,7 @@ export function ChatInput({
 
   const isFloating = variant === "floating"
   const isStopMode = isLoading && !!onStop
+  const isBusy = isLoading || isSubmitting
 
   return (
     <div className={cn(
@@ -95,7 +114,7 @@ export function ChatInput({
           <button
             type={isStopMode ? "button" : "submit"}
             onClick={isStopMode ? handleStop : undefined}
-            disabled={(!input.trim() && !isStopMode) || (isLoading && !isStopMode) || (disabled && !isStopMode)}
+            disabled={(!input.trim() && !isStopMode) || (isBusy && !isStopMode) || (disabled && !isStopMode)}
             className={cn(
               "p-2.5 rounded-[1.2rem] shadow-sm transition-colors duration-200 active:scale-95 shrink-0 mr-1",
               isStopMode
@@ -120,7 +139,7 @@ export function ChatInput({
         {!hideDisclaimer && (
           <div className="hidden md:block text-center mt-3">
             <p className="text-[11px] text-slate-400/80 dark:text-zinc-500 font-medium tracking-wide">
-              AI can make mistakes. Please verify important information.
+              {t('chat.disclaimer')}
             </p>
           </div>
         )}

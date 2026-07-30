@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { ChatUIMessage } from '@/lib/chat-ui'
 import { sanitizeErrorMessage } from '@/lib/safe-error'
+import { useI18n } from '@/components/i18n/I18nProvider'
 
 export function useDirectUrlSubmission(deps: {
   sendMessageToApi: (params: { text: string }) => void
@@ -11,9 +12,10 @@ export function useDirectUrlSubmission(deps: {
 }): {
   isDirectProcessing: boolean
   directSubmitError: string | null
-  handleDirectUrlSubmission: (url: string, originalText: string) => Promise<void>
+  handleDirectUrlSubmission: (url: string, originalText: string) => Promise<boolean>
 } {
   const { setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef } = deps
+  const { t } = useI18n()
 
   const [isDirectProcessing, setIsDirectProcessing] = useState(false)
   const [directSubmitError, setDirectSubmitError] = useState<string | null>(null)
@@ -44,9 +46,9 @@ export function useDirectUrlSubmission(deps: {
             ? errorPayload.details
             : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
               ? errorPayload.error
-              : 'Unable to process this video right now.'
+              : t('chat.directSubmit.unavailable')
         setDirectSubmitError(sanitizeErrorMessage(details))
-        return
+        return false
       }
 
       const data = await res.json()
@@ -54,8 +56,8 @@ export function useDirectUrlSubmission(deps: {
       const messages = Array.isArray(data.messages) ? (data.messages as ChatUIMessage[]) : null
 
       if (!taskId || !messages) {
-        setDirectSubmitError('Unable to create a task for this URL.')
-        return
+        setDirectSubmitError(t('chat.directSubmit.invalidResponse'))
+        return false
       }
 
       setMessages(prev => [...prev, ...messages])
@@ -67,12 +69,15 @@ export function useDirectUrlSubmission(deps: {
       if (onChatStarted) {
         onChatStarted(effectiveThreadId, taskId)
       }
+
+      return true
     } catch {
-      setDirectSubmitError('Network error while starting video processing.')
+      setDirectSubmitError(t('chat.directSubmit.networkError'))
+      return false
     } finally {
       setIsDirectProcessing(false)
     }
-  }, [setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef])
+  }, [setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef, t])
 
   return { isDirectProcessing, directSubmitError, handleDirectUrlSubmission }
 }

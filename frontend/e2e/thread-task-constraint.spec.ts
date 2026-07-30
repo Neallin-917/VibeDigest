@@ -150,6 +150,7 @@ test.describe('Thread-Task 1:1 Constraint', () => {
     // Verify thread still has only the first task
     expect(threadTaskId).toBe('task-123')
     await expect(page.getByText(/already discussing a video/i)).toBeVisible()
+    await expect(chatInput).toHaveValue('https://www.youtube.com/watch?v=test2')
   })
 
   test('should allow creating task in new thread after constraint error', async ({ page }) => {

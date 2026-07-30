@@ -72,7 +72,7 @@ export function ChatWorkspace({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const router = useRouter()
-  const { locale } = useI18n()
+  const { locale, t } = useI18n()
 
   // Resizable logic
   const [panelWidth, setPanelWidth] = useState(420)
@@ -309,12 +309,14 @@ export function ChatWorkspace({
 
         {isThreadSwitching && (
           <div
-            aria-label={switchingThreadTitle ? `Opening ${switchingThreadTitle}` : 'Opening chat'}
+            aria-label={switchingThreadTitle
+              ? t('chat.openingThread', { title: switchingThreadTitle })
+              : t('chat.openingChat')}
             className="absolute inset-0 z-30 flex items-center justify-center bg-white/32 dark:bg-black/24 backdrop-blur-[2px] transition-opacity duration-150"
           >
             <div className="pointer-events-none inline-flex items-center gap-2 rounded-full border border-white/60 dark:border-white/10 bg-white/82 dark:bg-zinc-900/82 px-3 py-1.5 text-sm text-slate-600 dark:text-zinc-300 shadow-sm">
               <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-zinc-500" />
-              <span>Opening chat...</span>
+              <span>{t('chat.openingChat')}</span>
             </div>
           </div>
         )}
@@ -329,7 +331,7 @@ export function ChatWorkspace({
         }}
       >
         <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] border-t border-slate-200 dark:border-white/20 bg-white dark:bg-zinc-900 [&>button]:hidden">
-          <SheetTitle className="sr-only">Video Details</SheetTitle>
+          <SheetTitle className="sr-only">{t('chat.videoDetails')}</SheetTitle>
           {activeTaskId && isPanelOpen && (
             <VideoDetailPanel
               key={activeTaskId}

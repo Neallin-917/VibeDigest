@@ -20,7 +20,16 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
 
 // Mock ChatInput
 vi.mock("@/components/chat/ChatInput", () => ({
-    ChatInput: ({ variant }: any) => <div data-testid="chat-input" data-variant={variant}>ChatInput</div>
+    ChatInput: ({ variant, placeholder, inputLabel }: any) => (
+        <div
+            data-testid="chat-input"
+            data-variant={variant}
+            data-placeholder={placeholder}
+            data-input-label={inputLabel}
+        >
+            ChatInput
+        </div>
+    ),
 }))
 
 describe("HeroSection", () => {
@@ -43,5 +52,7 @@ describe("HeroSection", () => {
         const input = screen.getByTestId("chat-input")
         expect(input).toBeInTheDocument()
         expect(input).toHaveAttribute("data-variant", "inline")
+        expect(input).toHaveAttribute("data-placeholder", "taskForm.urlPlaceholder")
+        expect(input).toHaveAttribute("data-input-label", "taskForm.urlInputLabel")
     })
 })

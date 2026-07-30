@@ -404,7 +404,7 @@
           <div class="card metric"><strong>1</strong><span>产品运行路径：Cloud</span></div>
           <div class="card metric"><strong>1</strong><span>Python 依赖 SSOT：pyproject + uv.lock</span></div>
           <div class="card metric"><strong>588</strong><span>后端通过测试</span></div>
-          <div class="card metric"><strong>285</strong><span>前端通过测试</span></div>
+          <div class="card metric"><strong>286</strong><span>前端通过测试</span></div>
         </div>
         <div class="card verdict" style="margin-top:16px">
           <p>
@@ -653,7 +653,7 @@
           <div class="card">
             <h3>已通过</h3>
             <div class="evidence">Backend: 588 passed · 1 xfailed · coverage 76.36%</div>
-            <div class="evidence">Frontend: 50 files · 285 tests passed</div>
+            <div class="evidence">Frontend: 50 files · 286 tests passed</div>
             <div class="evidence">Node 24.18.1 · Next.js 16.2.12 production build: success</div>
             <div class="evidence">Ruff + ESLint: success</div>
             <div class="evidence">PGMQ 1.5.1 real integration: 4/4 passed</div>
@@ -764,7 +764,8 @@
             <li>任务详情的骨架闪烁改为稳定的单行状态；摘要面板在数据返回前保留标题、关闭入口与可访问状态提示。</li>
             <li>聊天示例缩略图采用分层加载：第一排 4 张立即发现，仅第一张使用高网络优先级，其余缩略图继续懒加载；避免 LCP 候选延迟，也不让全部图片争抢首屏带宽。</li>
             <li>首页与聊天输入框移除循环打字示例，改用真实的本地化原生 placeholder；提示在聚焦后继续保留，避免把示例误认成已输入内容，同时删除 237 行专用计时器、可见性监听与测试代码。</li>
-            <li>验证结果：ESLint 通过、50 个测试文件共 285 项通过、生产构建通过；首页、聊天首屏、聚焦输入与有效 URL 四个状态均在内置浏览器完成前后截图和 DOM 对比，无布局回退。测试减少的 3 项均属于已删除动画组件，而非覆盖率缺口。</li>
+            <li>首页主输入不再承诺实际不支持的“直接提问”：首页明确要求视频或播客链接，并使用匹配用途的无障碍标签；进入聊天后仍保留“链接或提问”，中英日三种语言行为一致。</li>
+            <li>验证结果：ESLint 通过、50 个测试文件共 286 项通过、生产构建通过；首页、聊天首屏、聚焦输入与有效 URL 四个状态，以及首页错误承诺的复现与修复均在内置浏览器完成截图和 DOM 对比，无布局回退。</li>
           </ul>
         </div>
         <div class="grid two">

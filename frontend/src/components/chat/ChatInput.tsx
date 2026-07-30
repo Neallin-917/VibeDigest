@@ -11,6 +11,10 @@ interface ChatInputProps {
   isLoading?: boolean
   error?: string
   disabled?: boolean
+  /** Override guidance for contexts that only accept a URL. */
+  placeholder?: string
+  /** Override the accessible label when the input has a narrower purpose. */
+  inputLabel?: string
   /** 
    * Layout variant:
    * - "floating": Absolute positioned at bottom (default, for chat mode)
@@ -26,6 +30,8 @@ export function ChatInput({
   onStop,
   isLoading, 
   disabled, 
+  placeholder,
+  inputLabel,
   variant = "floating",
   hideDisclaimer = false
 }: ChatInputProps) {
@@ -74,14 +80,14 @@ export function ChatInput({
               onChange={(e) => setInput(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              aria-label={t('chat.inputLabel')}
+              aria-label={inputLabel ?? t('chat.inputLabel')}
               data-testid="chat-input"
               className={cn(
                 "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 dark:text-zinc-100",
                 "py-3.5 text-[15px] font-medium tracking-wide",
                 "placeholder-slate-400/80 dark:placeholder-zinc-500"
               )}
-              placeholder={t('chat.inputPlaceholder') || "Ask anything or paste a URL..."}
+              placeholder={placeholder ?? t('chat.inputPlaceholder') ?? "Ask anything or paste a URL..."}
               disabled={disabled}
             />
           </div>

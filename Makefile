@@ -1,8 +1,8 @@
-.PHONY: all install start test lint clean help
+.PHONY: all install start test lint lint-backend clean help
 .PHONY: install-backend install-frontend
-.PHONY: dev dev-stop start-backend start-frontend start-dev start-prod
-.PHONY: test-backend test-frontend test-local-integration-smoke test-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task
-.PHONY: stop restart-dev rebuild-dev restart-prod deploy
+.PHONY: dev dev-stop start-backend start-worker start-frontend start-dev
+.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task
+.PHONY: stop restart-dev rebuild-dev
 .PHONY: perf perf-frontend perf-check perf-update-baseline
 .PHONY: ops-audit
 
@@ -16,20 +16,18 @@ help:
 	@echo "Available commands:"
 	@echo "  make install       - Install both backend and frontend dependencies"
 	@echo "  make dev           - Start Docker backend + local frontend with unified logs"
-	@echo "  make dev-stop      - Stop Docker backend and Postgres"
+	@echo "  make dev-stop      - Stop the Docker API and worker"
 	@echo "  make start-backend - Start the backend server (local)"
+	@echo "  make start-worker  - Start the durable Cloud task worker"
 	@echo "  make start-frontend- Start the frontend development server"
 	@echo "  make stop-frontend - Stop the frontend development server"
 	@echo "  make stop-backend  - Stop the backend development server"
 	@echo "  make restart-frontend - Restart the frontend development server"
 	@echo "  make restart-backend  - Restart the backend development server"
-	@echo "  make start-dev     - Start only backend in Docker (Dev Mode, hot reload)"
-	@echo "  make start-prod    - Start backend in Docker (Prod Mode, stable)"
+	@echo "  make start-dev     - Start the API and worker against the dev Cloud DB"
 	@echo "  make stop          - Stop all Docker containers"
 	@echo "  make restart-dev   - Restart backend in Docker (quick, no rebuild)"
 	@echo "  make rebuild-dev   - Rebuild backend in Docker (full rebuild)"
-	@echo "  make restart-prod  - Restart backend in Docker (Prod Mode)"
-	@echo "  make deploy        - Deploy to Production (Same as start-prod for now)"
 	@echo "  make test          - Run all tests"
 	@echo "  make test-integration - Run offline integration tests"
 	@echo "  make test-llm-replay - Run deterministic LLM replay tests without a database"
@@ -45,22 +43,25 @@ install: install-backend install-frontend
 
 install-backend:
 	@echo "Installing backend dependencies..."
-	uv pip install -r requirements.txt -r backend/requirements-dev.txt
+	uv sync --locked --group dev
 
 install-frontend:
 	@echo "Installing frontend dependencies..."
-	cd frontend && npm install
+	cd frontend && npm ci
 
 # --- Execution ---
 dev:
 	FRONTEND_PORT=$(FRONTEND_PORT) \
 	BACKEND_HOST_PORT="$(BACKEND_HOST_PORT)" \
-	POSTGRES_HOST_PORT="$(POSTGRES_HOST_PORT)" \
-	python3 scripts/dev.py
+	uv run python scripts/dev.py
 
 start-backend:
 	@echo "Starting backend..."
 	cd backend && uv run uvicorn main:app --reload --port $(BACKEND_PORT)
+
+start-worker:
+	@echo "Starting task worker..."
+	cd backend && uv run python worker.py
 
 start-frontend:
 	@echo "Starting frontend..."
@@ -86,29 +87,12 @@ start-dev:
 	COMPOSE_PROJECT_NAME=$(PROJ_DEV) docker-compose -f docker-compose.yml up --build -d
 
 dev-stop:
-	@echo "Stopping Docker backend and Postgres... [Project: $(PROJ_DEV)]"
+	@echo "Stopping Docker API and worker... [Project: $(PROJ_DEV)]"
 	COMPOSE_PROJECT_NAME=$(PROJ_DEV) docker-compose -f docker-compose.yml down
-
-# Prod: Runs Immutable Image, No Build
-PROJ_PROD=vibedigest-prod
-start-prod:
-	@echo "Starting Docker (Prod Mode)... [Project: $(PROJ_PROD)]"
-	@echo "ℹ️  Using image: transcriber-backend:prod"
-	COMPOSE_PROJECT_NAME=$(PROJ_PROD) docker-compose --env-file .env.local -f docker-compose.prod.yml up -d
-
-# Release: Explicitly builds the production image
-release-prod:
-	@echo "Building Production Image..."
-	docker build -t transcriber-backend:prod -f backend/Dockerfile .
-	@echo "✅ New production image built: transcriber-backend:prod"
-	@echo "Run 'make start-prod' to deploy."
-
-deploy: release-prod start-prod
 
 stop:
 	@echo "Stopping all containers..."
 	COMPOSE_PROJECT_NAME=$(PROJ_DEV) docker-compose down
-	COMPOSE_PROJECT_NAME=$(PROJ_PROD) docker-compose -f docker-compose.prod.yml down
 
 restart-dev:
 	@echo "Restarting Docker (Dev Mode)... [Quick - no rebuild]"
@@ -120,42 +104,41 @@ rebuild-dev:
 	COMPOSE_PROJECT_NAME=$(PROJ_DEV) docker-compose down
 	COMPOSE_PROJECT_NAME=$(PROJ_DEV) docker-compose up --build -d
 
-restart-prod:
-	@echo "Restarting Docker (Prod Mode)..."
-	COMPOSE_PROJECT_NAME=$(PROJ_PROD) docker-compose --env-file .env.local -f docker-compose.prod.yml down
-	COMPOSE_PROJECT_NAME=$(PROJ_PROD) docker-compose --env-file .env.local -f docker-compose.prod.yml up -d
-
 # --- Testing ---
 test: test-backend test-frontend
 
-test-backend: test-unit test-local-integration-smoke
+test-backend: test-unit test-db-integration-smoke
 
 test-unit:
 	@echo "Running unit tests (mocked, fast)..."
 	EVENTLET_NO_GREENDNS=yes uv run pytest backend/tests/ -m "not integration and not llm_live and not eval and not network and not slow"
 
-test-local-integration-smoke:
-	@echo "Running local integration smoke (/api/process-video against local test DB)..."
-	@python -c 'exec("""import os\nimport socket\nimport sys\nfrom pathlib import Path\nfrom urllib.parse import urlparse\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\nparsed = urlparse(os.getenv(\"TEST_DATABASE_URL\", \"postgresql://postgres:password@localhost:15432/langgraph\"))\nhost = parsed.hostname or \"localhost\"\nport = parsed.port or 5432\nsock = socket.socket()\nsock.settimeout(1.5)\nstatus = sock.connect_ex((host, port))\nsock.close()\nif status != 0:\n    print(f\"SKIP: test database is not reachable at {host}:{port}.\")\n    sys.exit(3)\n""")'; \
+test-db-integration-smoke:
+	@echo "Running API/database integration smoke..."
+	@uv run python -c 'exec("""import os\nimport socket\nimport sys\nfrom pathlib import Path\nfrom urllib.parse import urlparse\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\nparsed = urlparse(os.getenv(\"TEST_DATABASE_URL\", \"postgresql://postgres:password@localhost:15432/langgraph\"))\nhost = parsed.hostname or \"localhost\"\nport = parsed.port or 5432\nsock = socket.socket()\nsock.settimeout(1.5)\nstatus = sock.connect_ex((host, port))\nsock.close()\nif status != 0:\n    print(f\"SKIP: test database is not reachable at {host}:{port}.\")\n    sys.exit(3)\n""")'; \
 	status=$$?; \
 	if [ $$status -eq 3 ]; then exit 0; fi; \
 	if [ $$status -ne 0 ]; then exit $$status; fi; \
 	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/test_integration.py::test_process_video_endpoint_real_db --no-cov -v
 
+test-queue-integration:
+	@echo "Running real PGMQ integration tests..."
+	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/integration/test_pgmq_queue.py --no-cov -v
+
 test-provider-smoke:
 	@echo "Running provider smoke (real LLM API call)..."
-	@python -c 'exec("""import os\nimport sys\nfrom pathlib import Path\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\ncustom = (os.getenv(\"OPENAI_BASE_URL\") or \"\").strip()\nif custom and not (os.getenv(\"OPENAI_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is set but OPENAI_API_KEY is missing.\")\n    sys.exit(3)\nif (not custom) and not (os.getenv(\"OPENROUTER_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is unset and OPENROUTER_API_KEY is missing.\")\n    sys.exit(3)\n""")'; \
+	@uv run python -c 'exec("""import os\nimport sys\nfrom pathlib import Path\nfrom dotenv import load_dotenv\n\nproject_root = Path.cwd()\nload_dotenv(project_root / \".env.local\", override=False)\nload_dotenv(project_root / \".env\", override=False)\ncustom = (os.getenv(\"OPENAI_BASE_URL\") or \"\").strip()\nif custom and not (os.getenv(\"OPENAI_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is set but OPENAI_API_KEY is missing.\")\n    sys.exit(3)\nif (not custom) and not (os.getenv(\"OPENROUTER_API_KEY\") or \"\").strip():\n    print(\"SKIP: OPENAI_BASE_URL is unset and OPENROUTER_API_KEY is missing.\")\n    sys.exit(3)\n""")'; \
 	status=$$?; \
 	if [ $$status -eq 3 ]; then exit 0; fi; \
 	if [ $$status -ne 0 ]; then exit $$status; fi; \
 	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run python backend/scripts/llm/verify_config.py --connect
 
 ops-audit:
-	python3 scripts/ops_audit.py
+	uv run python scripts/ops_audit.py
 
 test-integration:
 	@echo "Running offline integration tests..."
-	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini backend/tests/ -m "integration and not llm_live and not eval and not network" --no-cov -v
+	EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini backend/tests/ -m "integration and not pgmq and not llm_live and not eval and not network" --no-cov -v
 
 test-llm-replay:
 	@echo "Running deterministic LLM replay tests..."
@@ -185,9 +168,13 @@ create-demo-task:
 # --- Quality Control ---
 lint:
 	@echo "Linting backend..."
-	# assuming ruff or black if available, otherwise just echo
+	$(MAKE) lint-backend
 	@echo "Linting frontend..."
 	cd frontend && npm run lint
+
+lint-backend:
+	uv run ruff check backend/api backend/services backend/utils backend/config.py backend/db_client.py backend/dependencies.py backend/main.py backend/worker.py
+	uv run ruff check backend/api/routes/tasks.py backend/services/job_handlers.py backend/services/task_queue.py backend/worker.py --select=E4,E7,E9,F,I,UP,B --ignore=B008
 
 # --- Utility ---
 clean:

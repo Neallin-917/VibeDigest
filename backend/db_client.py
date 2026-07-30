@@ -245,10 +245,9 @@ class DBClient:
         fields.append("updated_at = now()")
         query = f"UPDATE tasks SET {', '.join(fields)} WHERE id = :task_id"
 
-        try:
-            self._execute_query(query, params)
-        except Exception as e:
-            logger.error(f"Failed to update task {task_id}: {e}")
+        rows = self._execute_query(f"{query} RETURNING id", params)
+        if not rows:
+            raise LookupError(f"Task {task_id} was not updated")
 
     def update_output_status(
         self,
@@ -278,10 +277,51 @@ class DBClient:
         fields.append("updated_at = now()")
         query = f"UPDATE task_outputs SET {', '.join(fields)} WHERE id = :output_id"
 
-        try:
-            self._execute_query(query, params)
-        except Exception as e:
-            logger.error(f"Failed to update output {output_id}: {e}")
+        rows = self._execute_query(f"{query} RETURNING id", params)
+        if not rows:
+            raise LookupError(f"Output {output_id} was not updated")
+
+    def mark_task_failed_if_not_completed(self, task_id: str, error: str) -> bool:
+        """Set a terminal task error without permitting completed -> error."""
+        rows = self._execute_query(
+            """
+            UPDATE tasks
+               SET status = 'error',
+                   error_message = :error,
+                   updated_at = now()
+             WHERE id = :task_id
+               AND status <> 'completed'
+            RETURNING id
+            """,
+            {
+                "task_id": task_id,
+                "error": _normalize_error_for_storage(error),
+            },
+        )
+        return bool(rows)
+
+    def mark_output_failed_if_not_completed(
+        self,
+        output_id: str,
+        error: str,
+    ) -> bool:
+        """Set a terminal output error without permitting completed -> error."""
+        rows = self._execute_query(
+            """
+            UPDATE task_outputs
+               SET status = 'error',
+                   error_message = :error,
+                   updated_at = now()
+             WHERE id = :output_id
+               AND status <> 'completed'
+            RETURNING id
+            """,
+            {
+                "output_id": output_id,
+                "error": _normalize_error_for_storage(error),
+            },
+        )
+        return bool(rows)
 
     def get_task_count(self, identifier: str) -> int:
         """Count tasks. For guest IDs, check the guest_usage table."""
@@ -296,7 +336,7 @@ class DBClient:
                     return int(guest_res)
             except (ProgrammingError, OperationalError):
                 logger.warning(
-                    "[db] guest_usage table not found — run migration 16_guest_usage.sql"
+                    "[db] guest_usage table not found — apply Supabase migrations"
                 )
 
             # 2. Fallback to tasks table (Regular user_id — must be valid UUID)
@@ -335,7 +375,7 @@ class DBClient:
         # Explicitly select columns to avoid future schema changes breaking things or fetching unused heavy columns
         query = """
             SELECT
-                id, user_id, video_url, status, progress, video_title, thumbnail_url,
+                id, user_id, guest_id, video_url, status, progress, video_title, thumbnail_url,
                 error_message, created_at, updated_at, is_demo,
                 author, author_url, author_image_url, description, keywords,
                 view_count, upload_date, duration
@@ -379,41 +419,27 @@ class DBClient:
         rows = self._execute_query(query, {"video_url": video_url})
         return rows[0] if rows else None
 
-    def find_latest_task_with_valid_script(
-        self, video_url: str
+    def find_latest_task_with_valid_script_for_owner(
+        self,
+        user_id: str,
+        guest_id: Optional[str],
+        video_url: str,
     ) -> Optional[Dict[str, Any]]:
         """
-        Find the most recent task that has a valid script output, regardless of task status.
-        This enables 'Resumable Workflow' where we reuse the expensive transcript.
-        """
-        query = """
-            SELECT t.*
-            FROM tasks t
-            JOIN task_outputs o ON o.task_id = t.id
-            WHERE t.video_url = :video_url
-              AND o.kind = 'script'
-              AND o.status = 'completed'
-              AND o.content IS NOT NULL
-              AND NULLIF(BTRIM(CAST(o.content AS TEXT)), '') IS NOT NULL
-              AND BTRIM(CAST(o.content AS TEXT)) <> 'null'
-            ORDER BY t.created_at DESC
-            LIMIT 1
-        """
-        rows = self._execute_query(query, {"video_url": video_url})
-        return rows[0] if rows else None
+        Find the newest reusable script for the exact task owner and URL.
 
-    def find_latest_task_with_valid_script_for_user(
-        self, user_id: str, video_url: str
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Find the newest completed-script task for the same user and URL.
-        This is suitable for request-time reuse without cross-user leakage.
+        Guest tasks share a database user UUID, so guest ownership must also
+        include guest_id. Authenticated tasks require guest_id IS NULL.
         """
         query = """
             SELECT t.*
             FROM tasks t
             JOIN task_outputs o ON o.task_id = t.id
             WHERE t.user_id = :user_id
+              AND (
+                (:guest_id IS NULL AND t.guest_id IS NULL)
+                OR (:guest_id IS NOT NULL AND t.guest_id = :guest_id)
+              )
               AND t.video_url = :video_url
               AND o.kind = 'script'
               AND o.status = 'completed'
@@ -425,7 +451,11 @@ class DBClient:
         """
         rows = self._execute_query(
             query,
-            {"user_id": user_id, "video_url": video_url},
+            {
+                "user_id": user_id,
+                "guest_id": guest_id,
+                "video_url": video_url,
+            },
         )
         return rows[0] if rows else None
 
@@ -495,10 +525,7 @@ class DBClient:
         for k in kinds:
             kind = self._normalize_kind(k)
             if kind not in existing_kinds:
-                try:
-                    self.create_task_output(task_id, user_id, kind=kind, locale=locale)
-                except Exception as e:
-                    logger.warning(f"Failed to ensure output {kind}: {e}")
+                self.create_task_output(task_id, user_id, kind=kind, locale=locale)
 
     def update_task_output_by_kind(
         self,
@@ -534,27 +561,13 @@ class DBClient:
         fields.append("updated_at = now()")
         query = (
             f"UPDATE task_outputs SET {', '.join(fields)} "
-            f"WHERE task_id = :task_id AND kind = :kind"
+            f"WHERE task_id = :task_id AND kind = :kind RETURNING id"
         )
-
-        if not self.engine:
-            raise Exception("Database engine not initialized")
-
-        session = self.Session()
-        try:
-            result = session.execute(text(query), params)
-            session.commit()
-            if result.rowcount == 0:
-                logger.warning(
-                    f"No output kind '{kind}' found for task {task_id}"
-                )
-        except Exception as e:
-            session.rollback()
-            logger.error(
-                f"Failed to update output kind '{kind}' for task {task_id}: {e}"
+        rows = self._execute_query(query, params)
+        if not rows:
+            raise LookupError(
+                f"Output kind '{kind}' for task {task_id} was not updated"
             )
-        finally:
-            session.close()
 
     def is_auth_configured(self) -> bool:
         """Check whether JWT secret or JWKS client is available for token validation."""

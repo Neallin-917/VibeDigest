@@ -168,19 +168,33 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_no_cache_hit(self, mock_db):
         """No existing task found → cache_hit=False."""
-        mock_db.find_latest_task_with_valid_script.return_value = None
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = None
         state = _make_state()
 
         result = await check_cache(state)
 
         assert result["cache_hit"] is False
-        assert result["is_youtube"] is True
+
+    @pytest.mark.asyncio
+    async def test_cache_lookup_is_scoped_to_exact_guest_owner(self, mock_db):
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = None
+        state = _make_state(
+            user_id="00000000-0000-0000-0000-000000000001",
+            guest_id="guest-a",
+        )
+
+        await check_cache(state)
+
+        assert mock_db.find_latest_task_with_valid_script_for_owner.call_args_list
+        for call in mock_db.find_latest_task_with_valid_script_for_owner.call_args_list:
+            assert call.args[0] == "00000000-0000-0000-0000-000000000001"
+            assert call.args[1] == "guest-a"
 
     @pytest.mark.asyncio
     async def test_cache_hit_all_outputs_complete(self, mock_db):
         """Existing task with script + summary → copies both, cache_hit=True."""
         existing_task_id = str(uuid4())
-        mock_db.find_latest_task_with_valid_script.return_value = {
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = {
             "id": existing_task_id,
             "video_title": "Cached Video",
             "thumbnail_url": "http://thumb.jpg",
@@ -220,7 +234,7 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_cache_hit_summary_missing(self, mock_db):
         """Existing task with script but NO summary → copies script, cache_hit=True, no summary."""
-        mock_db.find_latest_task_with_valid_script.return_value = {
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = {
             "id": str(uuid4()),
             "video_title": "Partial Cache",
             "thumbnail_url": None,
@@ -250,7 +264,7 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_cache_hit_script_missing_treated_as_miss(self, mock_db):
         """Existing task found but script output missing/empty → treated as cache miss."""
-        mock_db.find_latest_task_with_valid_script.return_value = {
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = {
             "id": str(uuid4()),
             "video_title": "No Script Task",
             "thumbnail_url": None,
@@ -275,7 +289,7 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_cache_hit_skips_incomplete_outputs(self, mock_db):
         """Outputs with status != COMPLETED are NOT copied."""
-        mock_db.find_latest_task_with_valid_script.return_value = {
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = {
             "id": str(uuid4()),
             "video_title": "Mixed Outputs",
             "thumbnail_url": None,
@@ -305,7 +319,7 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_cache_hit_summary_language_mismatch_skipped(self, mock_db):
         """Summary in different language than transcript → NOT copied."""
-        mock_db.find_latest_task_with_valid_script.return_value = {
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = {
             "id": str(uuid4()),
             "video_title": "Lang Mismatch",
             "thumbnail_url": None,
@@ -342,7 +356,7 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_cache_db_exception_graceful_degradation(self, mock_db):
         """DB error during cache check → graceful fallback to cache_hit=False."""
-        mock_db.find_latest_task_with_valid_script.side_effect = Exception("DB connection lost")
+        mock_db.find_latest_task_with_valid_script_for_owner.side_effect = Exception("DB connection lost")
 
         state = _make_state()
         result = await check_cache(state)
@@ -352,7 +366,7 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_cache_hit_non_youtube_url(self, mock_db):
         """Non-YouTube URL → is_youtube=False."""
-        mock_db.find_latest_task_with_valid_script.return_value = None
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = None
 
         state = _make_state(video_url="https://www.bilibili.com/video/BV123")
         result = await check_cache(state)
@@ -362,7 +376,7 @@ class TestCheckCache:
     @pytest.mark.asyncio
     async def test_cache_hit_copies_audio_output(self, mock_db):
         """Audio output is in the reusable set → gets copied."""
-        mock_db.find_latest_task_with_valid_script.return_value = {
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = {
             "id": str(uuid4()),
             "video_title": "Audio Task",
             "thumbnail_url": None,

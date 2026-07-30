@@ -59,13 +59,11 @@ def test_build_compose_env_sets_dynamic_ports_and_frontend_origin():
     env = dev_runner.build_compose_env(
         base_env={"ALLOWED_ORIGINS": "https://example.com"},
         backend_port=16082,
-        postgres_port=15433,
         frontend_port=3001,
     )
 
     assert env["COMPOSE_PROJECT_NAME"] == "vibedigest-dev"
     assert env["BACKEND_HOST_PORT"] == "16082"
-    assert env["POSTGRES_HOST_PORT"] == "15433"
     assert env["FRONTEND_HOST_PORT"] == "3001"
     assert env["FRONTEND_URL"] == "http://localhost:3001"
     assert env["ALLOWED_ORIGINS"] == (

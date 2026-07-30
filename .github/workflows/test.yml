@@ -6,9 +6,16 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.11.6"
+
 jobs:
   backend-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15
@@ -30,27 +37,23 @@ jobs:
       uses: astral-sh/setup-uv@v9.0.0
       with:
         enable-cache: false
+        version: ${{ env.UV_VERSION }}
     - name: Set up Python
       uses: actions/setup-python@v7
       with:
-        python-version: '3.10'
+        python-version: '3.12'
     - name: Restore uv cache
       uses: actions/cache@v6
       with:
         path: ~/.cache/uv
-        key: ${{ runner.os }}-uv-${{ hashFiles('requirements.txt', 'backend/requirements-dev.txt') }}
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
         restore-keys: |
           ${{ runner.os }}-uv-
     - name: Install dependencies
-      run: |
-        uv pip install --system -r requirements.txt -r backend/requirements-dev.txt
+      run: uv sync --locked --group dev
 
     - name: Run Linting
-      run: |
-        # Stop the build if there are Python syntax errors or undefined names
-        ruff check backend --select=E9,F63,F7,F82 --target-version=py310
-        # Exit with zero even if there are errors, to treat as warnings for now
-        ruff check backend --exit-zero
+      run: make lint-backend
 
     - name: Install system dependencies
       run: |
@@ -72,6 +75,7 @@ jobs:
   backend-integration:
     name: Backend Integration Tests (Offline)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15
@@ -92,20 +96,20 @@ jobs:
       uses: astral-sh/setup-uv@v9.0.0
       with:
         enable-cache: false
+        version: ${{ env.UV_VERSION }}
     - name: Set up Python
       uses: actions/setup-python@v7
       with:
-        python-version: '3.10'
+        python-version: '3.12'
     - name: Restore uv cache
       uses: actions/cache@v6
       with:
         path: ~/.cache/uv
-        key: ${{ runner.os }}-uv-${{ hashFiles('requirements.txt', 'backend/requirements-dev.txt') }}
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
         restore-keys: |
           ${{ runner.os }}-uv-
     - name: Install dependencies
-      run: |
-        uv pip install --system -r requirements.txt -r backend/requirements-dev.txt
+      run: uv sync --locked --group dev
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -122,8 +126,75 @@ jobs:
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         make test-integration
 
+  queue-integration:
+    name: PGMQ Transaction Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: ghcr.io/pgmq/pg16-pgmq:v1.5.1
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v9.0.0
+      with:
+        enable-cache: false
+        version: ${{ env.UV_VERSION }}
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: uv sync --locked --group dev
+    - name: Verify the real PGMQ transaction boundary
+      env:
+        DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
+        TEST_DATABASE_URL: "postgresql://postgres:test@localhost:5432/postgres"
+        SUPABASE_URL: "https://example.supabase.co"
+        SUPABASE_SERVICE_KEY: "dummy-key"
+        SUPABASE_JWT_SECRET: "dummy-jwt-secret-for-ci-at-least-32-bytes"
+        OPENAI_API_KEY: "dummy-key"
+      run: make test-queue-integration
+
+  backend-image:
+    name: Backend Container Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v7
+    - name: Build production image
+      run: docker build --tag vibedigest-backend:ci --file backend/Dockerfile .
+    - name: Verify non-root runtime and worker import
+      run: |
+        test "$(docker run --rm --entrypoint id vibedigest-backend:ci -u)" = "10001"
+        docker run --rm \
+          -e DATABASE_URL=postgresql://postgres:test@127.0.0.1:5432/postgres \
+          -e SUPABASE_URL=https://example.supabase.co \
+          -e SUPABASE_SERVICE_KEY=dummy \
+          -e SUPABASE_JWT_SECRET=dummy-jwt-secret-for-ci-at-least-32-bytes \
+          -e OPENAI_API_KEY=dummy \
+          --entrypoint python \
+          vibedigest-backend:ci \
+          -c "import worker"
+    - name: Verify build context exclusions
+      run: |
+        docker run --rm --entrypoint sh vibedigest-backend:ci -c \
+          'test ! -d /app/tests && test -z "$(find /app/temp /app/downloads -type f -print -quit)"'
+
   frontend-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ./frontend
@@ -132,18 +203,21 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v7
       with:
-        node-version: '20'
+        node-version: '24'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     - name: Install dependencies
       run: npm ci
     - name: Run Build Check
       run: npm run build
+    - name: Run lint
+      run: npm run lint
     - name: Run tests
       run: npm run test -- --run
 
   frontend-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ./frontend
@@ -152,7 +226,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v7
       with:
-        node-version: '20'
+        node-version: '24'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     - name: Install dependencies

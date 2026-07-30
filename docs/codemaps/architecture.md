@@ -1,129 +1,146 @@
 # VibeDigest Architecture Codemap
 
-> Last Verified: 2026-04-01
-> Scope: implementation structure and system shape only
+> Last verified: 2026-07-30
+> Scope: implementation structure and Cloud production shape
 
+## Product Boundary
+
+VibeDigest is a Cloud-first video transcription and AI knowledge product.
+
+- Production frontend: Next.js on Vercel
+- Command API: FastAPI on Railway
+- Identity and state: Supabase Auth + Postgres
+- Durable task delivery: Supabase Queues (`pgmq`)
+- Long-running execution: independent Python worker
+- State updates: Supabase Realtime
+
+This is the only supported product topology. Development may expose components
+on localhost, but must preserve the same Postgres, queue, Auth, and Realtime
+contracts used in production.
 
 ## System Overview
 
-**VibeDigest** is a video transcription and AI summarization platform using a Control Plane vs Data Plane architecture.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      CLIENT LAYER                               │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              Next.js 16 (App Router)                     │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌────────────────────────┐ │   │
-│  │  │ Pages    │  │ API      │  │ Supabase Realtime      │ │   │
-│  │  │ /[lang]/ │  │ Routes   │  │ (WebSocket Subscriber) │ │   │
-│  │  └────┬─────┘  └────┬─────┘  └───────────┬────────────┘ │   │
-│  └───────┼─────────────┼────────────────────┼──────────────┘   │
-└──────────┼─────────────┼────────────────────┼──────────────────┘
-           │ SSR         │ HTTP POST          │ Realtime
-           ▼             ▼                    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      SERVICE LAYER                              │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              FastAPI Backend (Python 3.10+)              │   │
-│  │                                                          │   │
-│  │  ┌──────────────┐     ┌──────────────────────────────┐  │   │
-│  │  │  REST API    │────▶│  LangGraph State Machine     │  │   │
-│  │  │  (main.py)   │     │  (workflow.py)               │  │   │
-│  │  └──────────────┘     └──────────────────────────────┘  │   │
-│  │         │                        │                       │   │
-│  │         ▼                        ▼                       │   │
-│  │  ┌──────────────┐     ┌──────────────────────────────┐  │   │
-│  │  │ Auth/Billing │     │  AI Processing Pipeline      │  │   │
-│  │  │ Creem/USDC   │     │  Transcriber → Summarizer    │  │   │
-│  │  └──────────────┘     └──────────────────────────────┘  │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-           │                          │
-           ▼                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      DATA LAYER                                 │
-│  ┌────────────────────────┐  ┌────────────────────────────────┐│
-│  │  Supabase (PostgreSQL) │  │  External Services             ││
-│  │  ├─ tasks              │  │  ├─ OpenAI Whisper (ASR)       ││
-│  │  ├─ task_outputs       │  │  ├─ OpenAI GPT-4o (LLM)        ││
-│  │  ├─ threads/messages   │  │  ├─ yt-dlp (Video Download)    ││
-│  │  ├─ subscriptions      │  │  ├─ Supadata (YT Transcripts)  ││
-│  │  └─ payment_orders     │  │  └─ LangSmith (Observability)  ││
-│  └────────────────────────┘  └────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────┘
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Next.js Cloud UI                                             │
+│ /[lang] · Auth · Tasks · Chat · Billing                      │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ authenticated HTTP command
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│ FastAPI Command API                                          │
+│ validate · authorize · call atomic submission boundary       │
+└──────────────────────┬───────────────────┬───────────────────┘
+                       │                   │
+                       ▼                   ▼
+┌──────────────────────────────┐  ┌────────────────────────────┐
+│ Supabase Postgres            │  │ Supabase Queues / PGMQ     │
+│ tasks · outputs · billing    │  │ video_processing           │
+│ threads · messages           │  │ visibility · retry · archive│
+└──────────────┬───────────────┘  └─────────────┬──────────────┘
+               │ Realtime                       │ claim
+               │                                ▼
+               │                  ┌─────────────────────────────┐
+               │                  │ Python Worker               │
+               │                  │ heartbeat · retry · pipeline│
+               │                  └─────────────┬───────────────┘
+               │                                │
+               │                                ▼
+               │                  ┌─────────────────────────────┐
+               │                  │ Video / Transcript / LLM    │
+               │                  │ Supadata · yt-dlp · ASR     │
+               │                  │ OpenRouter / OpenAI compat  │
+               │                  └─────────────────────────────┘
+               └──────── committed task/output changes ────────► UI
 ```
 
-## Key Architectural Patterns
+## Request Flow
 
-| Pattern | Implementation | Benefit |
-|---------|----------------|---------|
-| **Control/Data Plane** | HTTP for commands; Supabase Realtime for status | Decoupled, resilient |
-| **State Machine** | LangGraph orchestrates 4-node workflow | Resumable, debuggable |
-| **Cascade Fallback** | Supadata → VTT → Whisper transcript strategy | Reliability + cost optimization |
-| **Semaphore Limiting** | `MAX_CONCURRENT_JOBS = 4` | Prevents OOM/CPU saturation |
-| **Cache Deduplication** | URL normalization + task cloning | Instant results for repeat URLs |
+1. The frontend authenticates with Supabase and sends
+   `POST /api/process-video`.
+2. FastAPI validates the URL and identity. A private Postgres function then
+   deduplicates, consumes guest quota, creates task/output state, and calls
+   `pgmq.send` in one transaction.
+3. The HTTP request returns a task id. It never executes the pipeline.
+4. A Python worker claims the ID-only message with a visibility timeout,
+   extends the lease with a heartbeat, and enforces an attempt timeout.
+5. The worker runs cache, intake, cognition, and cleanup stages and writes
+   progress/results to Postgres.
+6. The frontend observes committed changes through Supabase Realtime.
+7. The worker stops the heartbeat before retry/archive. Archive and handoff
+   completion share a transaction; failed attempts use bounded backoff, and the
+   final attempt persists a terminal error before archival.
 
-## Request Flow (Happy Path)
+## Ownership Boundaries
 
-```
-User                Frontend              Backend                 Supabase
-  │                    │                     │                       │
-  │─── Submit URL ────▶│                     │                       │
-  │                    │── POST /process ───▶│                       │
-  │                    │                     │── INSERT task ───────▶│
-  │                    │◀── {task_id} ───────│                       │
-  │                    │                     │                       │
-  │                    │◀───────────────── Realtime: status=pending ─│
-  │                    │                     │                       │
-  │                    │                     │── LangGraph workflow ─│
-  │                    │                     │   check_cache         │
-  │                    │                     │   ingest              │
-  │                    │                     │   cognition           │
-  │                    │                     │   cleanup             │
-  │                    │                     │                       │
-  │                    │◀──────────────── Realtime: status=completed │
-  │◀── Show Results ───│                     │                       │
-```
+| Component | Owns | Does not own |
+| --- | --- | --- |
+| Next.js | Cloud UI, session-aware BFF routes, presentation | Video provider fallback, long jobs |
+| FastAPI | Validation, authorization, task creation, enqueue | Video/ASR/LLM execution |
+| PGMQ | Durable delivery, visibility timeout, retry eligibility | Business workflow |
+| Worker | Claim, heartbeat, dispatch, terminal failure handling | Browser sessions, billing UI |
+| `workflow.py` | Pipeline stage orchestration | Message delivery or process durability |
+| `VideoIntakeGateway` | Agent-plugin metadata/caption/ASR boundary | Cloud task persistence, MCP protocol |
+| Supabase Postgres | Tasks, outputs, users, chat, billing facts | Transient React state |
+| Supabase Realtime | Committed state notification | Source-of-truth storage |
+| MCP adapter | Protocol and structured result mapping | Cloud task queue orchestration |
 
-## Directory Structure
+## Key Files
 
-```
+```text
 /
-├── backend/              # FastAPI + LangGraph (Python)
-│   ├── main.py           # API entrypoint
-│   ├── workflow.py       # LangGraph state machine
-│   ├── tests/            # Pytest test suite
-│   └── scripts/          # Utility scripts
-├── frontend/             # Next.js 16 (TypeScript)
+├── pyproject.toml                         # Python dependency SSOT
+├── uv.lock                                # Exact Python resolution
+├── backend/
+│   ├── main.py                            # FastAPI entrypoint
+│   ├── worker.py                          # Durable queue consumer
+│   ├── workflow.py                        # Processing stages
+│   ├── services/
+│   │   ├── task_queue.py                  # PGMQ adapter
+│   │   ├── job_handlers.py                # Pipeline/retry handlers
+│   │   └── video_intake/                  # Shared intake boundary
+│   └── tests/
+├── frontend/
 │   └── src/
-│       ├── app/          # App Router pages + API routes
-│       ├── components/   # React component library
-│       └── lib/          # Utilities, clients, i18n
-├── docs/                 # Documentation
-│   └── codemaps/         # Architecture maps (this folder)
-├── supabase/             # Database migrations
-└── docker-compose.yml    # Container orchestration
+│       ├── app/                           # App Router pages and BFF routes
+│       ├── components/
+│       └── lib/                           # Supabase, API, i18n
+├── supabase/migrations/
+│   └── 202607290001_create_video_processing_queue.sql
+├── railway.toml                           # FastAPI service
+├── railway.worker.toml                    # Worker service
+└── docker-compose.yml                     # API/worker Cloud-contract development
 ```
+
+## Cross-Cutting Rules
+
+| Concern | Rule |
+| --- | --- |
+| Auth | Supabase Auth; backend validates bearer tokens; data access respects ownership |
+| Async work | Only the worker executes video/ASR/LLM jobs |
+| Delivery | PGMQ messages are archived only after terminal handling |
+| Idempotency | Advisory transaction lock + active handoff key + terminal-state short circuit |
+| Realtime | UI subscribes to committed Postgres changes; no HTTP polling |
+| Secrets | Server-side environment only; never expose service credentials to the browser |
+| Observability | Sentry for failures; LangSmith only when explicitly configured |
+| Dependencies | `pyproject.toml` + `uv.lock`; Node package lock for frontend |
 
 ## Deployment Topology
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Vercel Edge   │────▶│   Railway/Fly   │────▶│    Supabase     │
-│   (Frontend)    │     │   (Backend)     │     │   (Database)    │
-│   Next.js SSR   │     │   FastAPI       │     │   PostgreSQL    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-         │                      │                       │
-         └──────────────────────┴───────────────────────┘
-                        Supabase Realtime (WebSocket)
+```text
+Vercel / Next.js
+        │
+        ▼
+Railway FastAPI service ───────► Supabase Postgres + PGMQ
+                                      ▲          │
+                                      │          ▼
+                               Realtime      Railway Worker
+                                      │          │
+                                      └──────────┘
 ```
 
-## Cross-Cutting Concerns
-
-| Concern | Solution |
-|---------|----------|
-| **Auth** | Supabase Auth (Email + Google OAuth) |
-| **Observability** | LangSmith (LLM tracing) + Sentry (Errors) |
-| **Payments** | Creem (Card) + Coinbase Commerce (Crypto) |
-| **i18n** | 3 UI locales (`en`, `zh`, `ja`) |
-| **Rate Limiting** | Semaphore (4 concurrent) + Quota system |
+The API and worker use separate Railway services built from the same backend
+image. This is the repository target topology; production activation remains
+unverified until the migration is applied and the worker service is observed
+processing a controlled job. Railway must set the worker custom config path to
+`/railway.worker.toml`.

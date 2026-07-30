@@ -4,12 +4,13 @@ This file owns the development workflow. It does not duplicate product setup, de
 
 ## Development Baseline
 
-- Frontend: Node.js 20+, npm, Next.js 16
-- Backend: Python 3.10+, `uv`
+- Frontend: Node.js 24 LTS, npm, Next.js 16
+- Backend: Python 3.12, `uv`
 - Dependency policy:
-  - Runtime Python dependencies live in root `requirements.txt`
-  - Backend-only dev/test additions live in `backend/requirements-dev.txt`
-  - `backend/requirements.core.txt` exists only for Docker layer caching and is not an authoring target
+  - `pyproject.toml` is the only Python dependency manifest
+  - `uv.lock` is the only resolved Python lock
+  - Use the `dev` dependency group for tests and authoring tools
+  - Install with `uv sync --locked`; do not use raw `pip`
 - Primary local orchestration happens through `Makefile`
 
 ## Standard Workflow
@@ -47,7 +48,7 @@ Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 | `make test-provider-smoke` | Real configured LLM provider smoke test |
 | `make test-frontend` | Frontend unit tests in run mode |
 | `cd frontend && npm run build` | Frontend production build |
-| `make lint` | Frontend lint plus backend lint placeholder |
+| `make lint` | Enforced production-backend Ruff plus frontend ESLint |
 | `make clean` | Remove generated local artifacts |
 
 ## Test Policy

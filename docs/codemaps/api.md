@@ -1,238 +1,65 @@
 # API Codemap
 
-> Last Verified: 2026-04-01
-> Scope: API surface and request/response mapping
+> Last verified: 2026-07-30
+> Owner: Cloud command/API contract
 
-## Base URL
+## Boundaries
 
-- **Production**: `https://api.vibedigest.io`
-- **Local**: `http://localhost:16081`
+- Canonical public API: `https://api.vibedigest.io`
+- Vercel server routes may use `BACKEND_ORIGIN_URL` for direct Railway calls.
+- Bearer users use Supabase access tokens.
+- Guest commands require `X-Guest-Id`; guest ownership is stored on `tasks.guest_id`.
+- Long-running work is never executed by an HTTP request handler.
 
-`api.vibedigest.io` is the canonical public API URL. Vercel server-side routes
-use `BACKEND_ORIGIN_URL` for origin calls when configured; in production that
-origin is the Railway service domain, not the public Cloudflare API domain.
+## Video commands
 
-## Authentication
+### `POST /api/process-video`
 
-All authenticated endpoints require:
-```
-Authorization: Bearer <supabase_access_token>
-```
+Form field: `video_url`.
 
-Token validation: `db_client.validate_token(authorization)` → `user_id`
+The route validates identity and URL, then calls the private transactional
+submission boundary. Task creation, guest usage, output placeholders, active
+handoff registration, and `pgmq.send` either all commit or all roll back.
 
----
+Successful responses:
 
-## Endpoints
-
-### Core Video Processing
-
-#### `POST /api/process-video`
-Start a new video processing task.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `video_url` | string | ✅ | Video URL (YouTube, etc.) |
-
-**Response** `200`:
 ```json
-{
-  "task_id": "uuid",
-  "message": "Task started"
-}
+{"task_id":"uuid","message":"Task queued"}
+{"task_id":"uuid","message":"Task already in progress"}
+{"task_id":"uuid","message":"Task already processed"}
 ```
 
-**Errors**:
-- `400`: Invalid video URL
-- `401`: Missing/Invalid token
-- `402`: Quota exceeded
+Errors: `400` invalid URL, `401` identity missing/invalid, `402` guest quota,
+`503` transactional queue submission unavailable.
 
----
+### `POST /api/retry-output`
 
-#### `POST /api/preview-video`
-Get video metadata without processing.
+Form field: `output_id`. Ownership is checked through the parent task. Resetting
+the output and sending the retry message happen in one private Postgres
+transaction.
 
-| Field | Type | Required |
-|-------|------|----------|
-| `url` | string | ✅ |
+Response: `{"message":"Retry queued"}`. Queue failure returns `503` without a
+partial pending state.
 
-**Response** `200`:
-```json
-{
-  "title": "Video Title",
-  "thumbnail": "https://...",
-  "duration": 3600,
-  "author": "Channel Name",
-  "url": "normalized_url",
-  "description": "...",
-  "upload_date": "20240101",
-  "view_count": 12345
-}
-```
+### `POST /api/preview-video`
 
----
+Returns normalized metadata only. It does not create or enqueue a task.
 
-#### `POST /api/retry-output`
-Retry a failed output.
+### `GET /api/tasks/{task_id}/status`
 
-| Field | Type | Required |
-|-------|------|----------|
-| `output_id` | string | ✅ |
+Returns current task state after bearer or guest ownership validation. The
+frontend uses Supabase Realtime for progress; this endpoint is a direct read,
+not a polling transport.
 
-**Response** `200`:
-```json
-{ "message": "Retry queued" }
-```
+### `PATCH /api/tasks/{task_id}`
 
----
+Updates `video_title` after owner validation.
 
-#### `PATCH /api/tasks/{task_id}`
-Update task metadata (title).
+## Other surfaces
 
-**Body**:
-```json
-{ "video_title": "New Title" }
-```
+- `/api/create-checkout-session`, `/api/create-crypto-charge`: payment commands.
+- `/api/webhook/creem`, `/api/webhook/coinbase`: signed payment webhooks.
+- `/health`: Railway health probe.
 
-**Response** `200`:
-```json
-{ "status": "success" }
-```
-
-**Errors**:
-- `403`: Not authorized (not owner)
-- `404`: Task not found
-
----
-
-### Payments
-
-#### `POST /api/create-checkout-session`
-Create Creem payment session.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `price_id` | string | ✅ |
-
-**Response** `200`:
-```json
-{ "url": "https://checkout.creem.io/..." }
-```
-
----
-
-#### `POST /api/create-crypto-charge`
-Create Coinbase Commerce charge.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `price_id` | string | ✅ |
-
-**Response** `200`:
-```json
-{ "url": "https://commerce.coinbase.com/charges/..." }
-```
-
----
-
-### Webhooks
-
-#### `POST /api/webhook/creem`
-Creem payment webhook (HMAC-SHA256 signed).
-
-**Headers**:
-```
-creem-signature: <hmac_signature>
-```
-
-**Events Handled**:
-- `checkout.completed` → Activate subscription or add credits
-- `subscription.paid` → Renew subscription
-- `subscription.canceled` → Downgrade to free
-- `subscription.expired` → Downgrade to free
-
----
-
-#### `POST /api/webhook/coinbase`
-Coinbase Commerce webhook.
-
-**Headers**:
-```
-X-CC-Webhook-Signature: <signature>
-```
-
-**Events Handled**:
-- `charge:confirmed` → Add credits
-
----
-
-### Utility
-
-#### `GET /`
-Health check (public).
-
-**Response**:
-```json
-{ "status": "VibeDigest API is running", "docs": "/docs" }
-```
-
----
-
-#### `GET /health`
-Detailed health check.
-
-**Response**:
-```json
-{ "status": "healthy", "service": "vibedigest-backend" }
-```
-
----
-
-#### `POST /api/feedback`
-Submit user feedback (allows anonymous).
-
-**Body**:
-```json
-{
-  "category": "bug|feature|other",
-  "message": "Feedback text",
-  "contact_email": "optional@email.com"
-}
-```
-
----
-
-## Price IDs (Creem Products)
-
-| Key | Product ID | Amount | Description |
-|-----|------------|--------|-------------|
-| `CREDIT_PACK` | `prod_5VVI5ldN9dtI7tbHaST5OB` | $5.00 | 50 Credits |
-| `PRO_MONTHLY` | `prod_5XoWWMZN6ptDexocrwyqT0` | $9.90 | Pro Monthly |
-| `PRO_ANNUAL` | `prod_1pLnYf7AwktcAhRhkjiJTh` | $99.00 | Pro Annual |
-
----
-
-## Error Codes
-
-| Code | Meaning |
-|------|---------|
-| `400` | Bad Request (invalid input) |
-| `401` | Unauthorized (missing/invalid token) |
-| `402` | Payment Required (quota exceeded) |
-| `403` | Forbidden (not owner) |
-| `404` | Not Found |
-| `500` | Internal Server Error |
-
----
-
-## Frontend API Routes (Next.js)
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/process-video` | POST | Proxy to backend |
-| `/api/chat` | POST | AI chat (streaming) |
-| `/api/chat/threads` | GET/POST | Thread management |
-| `/api/chat/threads/[id]/messages` | GET | Message retrieval and invalid-history cleanup |
-| `/api/threads` | GET/POST | Thread CRUD |
-| `/api/threads/[id]` | GET/PATCH/DELETE | Single thread |
-| `/api/image-proxy` | GET | Image proxy for CORS |
+Route implementation is owned by `backend/api/routes/`; exact request code is
+the final source of truth when this codemap and implementation disagree.

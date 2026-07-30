@@ -33,16 +33,14 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
   const examplesCountRef = useRef(0)
   const loadingRef = useRef(true)
   const loadingMoreRef = useRef(false)
   const hasMoreRef = useRef(true)
 
   const fetchExamples = useCallback(async (offset = 0, append = false) => {
-    if (offset === 0) {
-      setLoading(true)
-    } else {
+    if (offset > 0) {
       setLoadingMore(true)
     }
 
@@ -110,6 +108,8 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
   }, [hasMore])
 
   useEffect(() => {
+    // The state writes happen only after the Supabase request settles.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchExamples(0, false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

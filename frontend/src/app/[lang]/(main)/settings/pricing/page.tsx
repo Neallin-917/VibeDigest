@@ -35,8 +35,6 @@ export default function PricingPage() {
     const [profile, setProfile] = useState<Profile | null>(null)
     const [supabase] = useState(() => createClient())
 
-    const [mounted, setMounted] = useState(false)
-
     const fetchProfile = useCallback(async () => {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
@@ -46,13 +44,10 @@ export default function PricingPage() {
     }, [supabase])
 
     useEffect(() => {
-        setMounted(true)
+        // The state write happens after Supabase resolves, not synchronously in the effect.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         void fetchProfile()
     }, [fetchProfile])
-
-    if (!mounted) {
-        return null // Prevent hydration mismatch by rendering only on client
-    }
 
     const handleCheckout = async (priceId: string) => {
         setLoading(true)

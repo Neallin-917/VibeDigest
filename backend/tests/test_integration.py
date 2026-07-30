@@ -1,9 +1,8 @@
 import pytest
-from unittest.mock import patch
 from httpx import AsyncClient
 from sqlalchemy import text
 from main import app
-from dependencies import get_current_user, get_db_client
+from dependencies import get_current_user, get_db_client, get_task_queue
 import dependencies as deps
 
 pytestmark = pytest.mark.integration
@@ -70,45 +69,46 @@ def setup_test_data(async_client):
 
 @pytest.mark.asyncio
 async def test_process_video_endpoint_real_db(async_client: AsyncClient, monkeypatch, mock_auth):
-    """Test creating a video task using REAL DB (Postgres Container).
-    We still mock ``run_pipeline`` to avoid executing actual video processing.
-    """
+    """Test creating and enqueueing a video task using the real test database."""
     monkeypatch.setenv("DEV_AUTH_BYPASS", "false")
 
-    with patch("api.routes.tasks.run_pipeline") as mock_pipeline:
-        response = await async_client.post(
-            "/api/process-video",
-            data={"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-            headers={"Authorization": "Bearer fake-token"},  # mark as authenticated
-        )
+    response = await async_client.post(
+        "/api/process-video",
+        data={"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        headers={"Authorization": "Bearer fake-token"},  # mark as authenticated
+    )
 
-        assert response.status_code == 200, f"Response: {response.text}"
-        data = response.json()
-        task_id = data["task_id"]
-        assert task_id
+    assert response.status_code == 200, f"Response: {response.text}"
+    data = response.json()
+    task_id = data["task_id"]
+    assert task_id
 
-        # --- VERIFY DB SIDE EFFECTS ---
-        db = app.dependency_overrides[get_db_client]()
-        with db.engine.connect() as conn:
-            # 1. Task created with correct user and URL
-            res = conn.execute(
-                text("SELECT * FROM tasks WHERE id = :tid"), {"tid": task_id}
-            ).fetchone()
-            assert res is not None
-            assert str(res._mapping["user_id"]) == TEST_USER_ID
-            assert res._mapping["video_url"] == "https://youtube.com/watch?v=dQw4w9WgXcQ"
+    # --- VERIFY DB SIDE EFFECTS ---
+    db = app.dependency_overrides[get_db_client]()
+    with db.engine.connect() as conn:
+        # 1. Task created with correct user and URL
+        res = conn.execute(
+            text("SELECT * FROM tasks WHERE id = :tid"), {"tid": task_id}
+        ).fetchone()
+        assert res is not None
+        assert str(res._mapping["user_id"]) == TEST_USER_ID
+        assert res._mapping["video_url"] == "https://youtube.com/watch?v=dQw4w9WgXcQ"
 
-            # 2. Placeholder outputs created
-            res_outs = conn.execute(
-                text("SELECT * FROM task_outputs WHERE task_id = :tid"), {"tid": task_id}
-            ).fetchall()
-            kinds = [row._mapping["kind"] for row in res_outs]
-            assert "script" in kinds
-            assert "summary" in kinds
+        # 2. Placeholder outputs created
+        res_outs = conn.execute(
+            text("SELECT * FROM task_outputs WHERE task_id = :tid"), {"tid": task_id}
+        ).fetchall()
+        kinds = [row._mapping["kind"] for row in res_outs]
+        assert "script" in kinds
+        assert "summary" in kinds
 
-        # 3. Pipeline was triggered
-        args, _ = mock_pipeline.call_args
-        assert str(args[0]) == task_id
+    # 3. Durable queue boundary was invoked.
+    queue = app.dependency_overrides[get_task_queue]()
+    queue.submit_process_video.assert_called_with(
+        video_url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+        user_id=TEST_USER_ID,
+        guest_id=None,
+    )
 
 
 @pytest.mark.asyncio
@@ -119,20 +119,19 @@ async def test_process_video_guest_quota_exceeded_real_db(
     monkeypatch.setenv("DEV_AUTH_BYPASS", "false")
     guest_id = "integration-test-guest-001"
 
-    with patch("api.routes.tasks.run_pipeline"):
-        # First request — should succeed
-        r1 = await async_client.post(
-            "/api/process-video",
-            data={"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-            headers={"X-Guest-Id": guest_id},
-        )
-        assert r1.status_code == 200, f"First guest request failed: {r1.text}"
+    # First request — should succeed
+    r1 = await async_client.post(
+        "/api/process-video",
+        data={"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        headers={"X-Guest-Id": guest_id},
+    )
+    assert r1.status_code == 200, f"First guest request failed: {r1.text}"
 
-        # Second request with same guest_id — quota exceeded
-        r2 = await async_client.post(
-            "/api/process-video",
-            data={"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-            headers={"X-Guest-Id": guest_id},
-        )
-        assert r2.status_code == 402
-        assert "quota" in r2.json()["detail"].lower()
+    # Second request with same guest_id — quota exceeded
+    r2 = await async_client.post(
+        "/api/process-video",
+        data={"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        headers={"X-Guest-Id": guest_id},
+    )
+    assert r2.status_code == 402
+    assert "quota" in r2.json()["detail"].lower()

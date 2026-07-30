@@ -124,7 +124,7 @@ describe('createCreateTaskTool', () => {
         mockFetch.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            json: async () => ({ task_id: 'task_abc', message: 'Task started' }),
+            json: async () => ({ task_id: 'task_abc', message: 'Task queued' }),
         });
 
         const tool = createCreateTaskTool(ctx);
@@ -217,7 +217,7 @@ describe('createCreateTaskTool', () => {
         mockFetch.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            json: async () => ({ task_id: 'task_fallback', message: 'Task started' }),
+            json: async () => ({ task_id: 'task_fallback', message: 'Task queued' }),
         });
 
         const tool = createCreateTaskTool(ctx);

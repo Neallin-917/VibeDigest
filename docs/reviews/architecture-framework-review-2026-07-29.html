@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>VibeDigest Cloud-only 架构整改报告</title>
+  <style>
+    :root {
+      --ink: #17211b;
+      --muted: #657068;
+      --paper: #f4f5ef;
+      --card: #fffefa;
+      --line: #d9ddd4;
+      --green: #176b4d;
+      --green-soft: #e7f2eb;
+      --amber: #8b5b10;
+      --amber-soft: #fff2d5;
+      --red: #9b352f;
+      --red-soft: #fbe9e6;
+      --blue: #235e82;
+      --blue-soft: #e8f1f7;
+      --code: #25302a;
+      --shadow: 0 18px 54px rgba(26, 40, 31, .08);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 5% 0%, rgba(130, 164, 124, .14), transparent 30rem),
+        var(--paper);
+      font: 15px/1.68 -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    a { color: var(--green); text-underline-offset: 3px; }
+    code {
+      padding: .12rem .36rem;
+      border-radius: 5px;
+      color: var(--code);
+      background: #edf0e9;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .9em;
+    }
+    .shell {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 980px);
+      gap: 40px;
+      width: min(1270px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 36px 0 80px;
+    }
+    aside {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      padding: 22px 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 254, 250, .84);
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      margin-bottom: 18px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    nav a {
+      display: block;
+      padding: 7px 9px;
+      border-radius: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+    }
+    nav a:hover { color: var(--ink); background: #eef0e9; }
+    .nav-note {
+      margin: 18px 8px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    main { min-width: 0; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 54px;
+      border: 1px solid #cfd8ce;
+      border-radius: 28px;
+      background: linear-gradient(145deg, #fffefa 15%, #eef4ec 100%);
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      position: absolute;
+      right: -76px;
+      bottom: -110px;
+      width: 310px;
+      height: 310px;
+      border: 60px solid rgba(58, 111, 77, .07);
+      border-radius: 50%;
+      content: "";
+    }
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 18px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(23, 107, 77, .12);
+    }
+    h1, h2, h3 { margin-top: 0; line-height: 1.18; }
+    h1 {
+      max-width: 760px;
+      margin-bottom: 20px;
+      font-size: clamp(38px, 6vw, 68px);
+      letter-spacing: -.045em;
+    }
+    h2 {
+      margin-bottom: 9px;
+      font-size: 28px;
+      letter-spacing: -.025em;
+    }
+    h3 { margin-bottom: 9px; font-size: 18px; }
+    .lead {
+      max-width: 780px;
+      margin: 0;
+      color: #49554d;
+      font-size: 18px;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 30px;
+    }
+    .pill, .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+    .pill { border: 1px solid #cfdbd0; background: rgba(255,255,255,.7); }
+    .status.done { color: var(--green); background: var(--green-soft); }
+    .status.pending { color: var(--amber); background: var(--amber-soft); }
+    .status.risk { color: var(--red); background: var(--red-soft); }
+    .status.info { color: var(--blue); background: var(--blue-soft); }
+    section {
+      scroll-margin-top: 28px;
+      margin-top: 56px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 20px;
+    }
+    .section-head p {
+      max-width: 620px;
+      margin: 0;
+      color: var(--muted);
+    }
+    .grid { display: grid; gap: 16px; }
+    .metrics { grid-template-columns: repeat(4, 1fr); }
+    .two { grid-template-columns: repeat(2, 1fr); }
+    .three { grid-template-columns: repeat(3, 1fr); }
+    .card {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: 0 8px 28px rgba(26, 40, 31, .045);
+    }
+    .metric strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--green);
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+    .metric span { color: var(--muted); font-size: 13px; }
+    .verdict {
+      padding: 24px 26px;
+      border-left: 5px solid var(--green);
+      background: var(--green-soft);
+    }
+    .verdict p { margin: 0; font-size: 16px; }
+    .architecture {
+      display: grid;
+      gap: 10px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #1f2b24;
+      color: #f7f7f1;
+      overflow-x: auto;
+    }
+    .arch-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+      min-width: 650px;
+    }
+    .arch-row.single { grid-template-columns: 1fr; }
+    .arch-box {
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 12px;
+      background: rgba(255,255,255,.07);
+    }
+    .arch-box b { display: block; margin-bottom: 4px; color: #dff6e6; }
+    .arch-box small { color: #b7c7bd; }
+    .arrow {
+      text-align: center;
+      color: #8fbaa0;
+      font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 740px;
+    }
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      background: #f5f6f0;
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 700; }
+    .priority { color: var(--red); font-weight: 800; }
+    .priority.p1 { color: var(--amber); }
+    .compact-list { margin: 10px 0 0; padding-left: 20px; }
+    .compact-list li + li { margin-top: 7px; }
+    .file-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 18px;
+      margin-top: 14px;
+    }
+    .file-item {
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #f8f8f3;
+      overflow-wrap: anywhere;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .checklist { counter-reset: release; }
+    .check {
+      position: relative;
+      padding: 18px 18px 18px 58px;
+      border-bottom: 1px solid var(--line);
+      counter-increment: release;
+    }
+    .check:last-child { border-bottom: 0; }
+    .check::before {
+      position: absolute;
+      left: 18px;
+      top: 18px;
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      color: white;
+      background: var(--amber);
+      content: counter(release);
+      font-weight: 800;
+    }
+    .check b { display: block; }
+    .check span { color: var(--muted); font-size: 13px; }
+    .evidence {
+      padding: 16px 18px;
+      border-radius: 12px;
+      color: #dfe9e2;
+      background: #253029;
+      font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .evidence + .evidence { margin-top: 10px; }
+    .note {
+      padding: 16px 18px;
+      border: 1px solid #ead9aa;
+      border-radius: 12px;
+      color: #694b18;
+      background: var(--amber-soft);
+    }
+    footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 980px) {
+      .shell { display: block; width: min(100% - 28px, 820px); padding-top: 16px; }
+      aside { position: static; margin-bottom: 16px; padding: 14px; }
+      nav { display: flex; gap: 4px; overflow-x: auto; }
+      nav a { flex: 0 0 auto; }
+      .nav-note, .brand { display: none; }
+      .hero { padding: 34px 26px; border-radius: 20px; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .three { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      body { font-size: 14px; }
+      .hero { padding: 28px 21px; }
+      h1 { font-size: 38px; }
+      .lead { font-size: 16px; }
+      .two, .metrics { grid-template-columns: 1fr; }
+      .section-head { display: block; }
+      .section-head p { margin-top: 8px; }
+      .file-list { grid-template-columns: 1fr; }
+      section { margin-top: 42px; }
+    }
+    @media print {
+      body { background: white; }
+      .shell { display: block; width: auto; padding: 0; }
+      aside { display: none; }
+      .hero, .card, .table-wrap { box-shadow: none; break-inside: avoid; }
+      section { break-inside: auto; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside aria-label="报告目录">
+      <div class="brand">VibeDigest / Review</div>
+      <nav>
+        <a href="#summary">结论</a>
+        <a href="#architecture">目标架构</a>
+        <a href="#remediation">整改矩阵</a>
+        <a href="#removed">删除内容</a>
+        <a href="#versions">框架版本</a>
+        <a href="#quality">质量证据</a>
+        <a href="#live">线上现状</a>
+        <a href="#release">上线清单</a>
+        <a href="#residual">剩余风险</a>
+      </nav>
+      <p class="nav-note">代码整改状态与生产部署状态被刻意分开，避免“仓库已完成”等同于“线上已生效”。</p>
+    </aside>
+
+    <main>
+      <header class="hero">
+        <div class="eyebrow"><span class="dot"></span>Architecture remediation · 2026-07-30</div>
+        <h1>从双轨产品，收敛为一条 Cloud 主线</h1>
+        <p class="lead">
+          本报告是 2026-07-29 架构评审的执行版。桌面/本地产品运行时已从仓库删除，
+          长任务已从 FastAPI 请求进程迁至 PGMQ + 独立 Worker；依赖、运行时、Docker、
+          Railway、CI、数据库 schema 与文档也被收敛到更少的事实来源。OrbStack、目标 PGMQ
+          版本、生产形态迁移与容器运行契约已经完成本地验证；线上环境尚未被本次操作修改。
+        </p>
+        <div class="hero-meta">
+          <span class="pill">产品边界：Cloud-only</span>
+          <span class="pill">仓库整改：已完成</span>
+          <span class="pill">本地发布门禁：已通过</span>
+          <span class="pill">生产发布：待远端 CI</span>
+          <span class="pill">审查基线：当前工作区</span>
+        </div>
+      </header>
+
+      <section id="summary">
+        <div class="section-head">
+          <div>
+            <h2>执行结论</h2>
+            <p>最大的问题不是某个框架版本，而是同一产品同时维护两套运行语义。</p>
+          </div>
+          <span class="status done">仓库层面完成</span>
+        </div>
+        <div class="grid metrics">
+          <div class="card metric"><strong>1</strong><span>产品运行路径：Cloud</span></div>
+          <div class="card metric"><strong>1</strong><span>Python 依赖 SSOT：pyproject + uv.lock</span></div>
+          <div class="card metric"><strong>588</strong><span>后端通过测试</span></div>
+          <div class="card metric"><strong>284</strong><span>前端通过测试</span></div>
+        </div>
+        <div class="card verdict" style="margin-top:16px">
+          <p>
+            <strong>判断：</strong>当前仓库已经符合 Cloud-first 的最小架构方向。
+            保留 Next.js、FastAPI、Supabase 与 LangGraph 是合理的；真正需要删除的是
+            Local/Cloud 双轨、进程内长任务、重复依赖清单、本地生产 Compose、手写类型生成器
+            和重复 schema 副本。目标 PGMQ 1.5.1、生产旧约束数据形态、非 root Docker
+            与 Node 24 构建已经验证；生产环境仍需通过远端 CI、应用单一增量迁移并上线 Worker，
+            不能仅凭本地门禁宣告完成。
+          </p>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <div class="section-head">
+          <div>
+            <h2>目标架构</h2>
+            <p>HTTP 只提交命令；数据库事务保证状态与消息一致；Worker 执行长任务；Realtime 只通知已提交状态。</p>
+          </div>
+        </div>
+        <div class="architecture" role="img" aria-label="VibeDigest Cloud-only 架构">
+          <div class="arch-row">
+            <div class="arch-box"><b>Vercel · Next.js</b><small>Cloud UI / BFF / Auth session</small></div>
+            <div class="arch-box"><b>Railway · FastAPI</b><small>验证、授权、原子提交</small></div>
+            <div class="arch-box"><b>Supabase</b><small>Auth / Postgres / Realtime</small></div>
+          </div>
+          <div class="arrow">HTTP command ─────────► private DB transaction ─────────► committed state</div>
+          <div class="arch-row">
+            <div class="arch-box"><b>Browser Realtime</b><small>不轮询，只订阅已提交变更</small></div>
+            <div class="arch-box"><b>Supabase Queues / PGMQ</b><small>ID-only 消息、visibility、archive</small></div>
+            <div class="arch-box"><b>Railway Worker</b><small>heartbeat、timeout、bounded retry</small></div>
+          </div>
+          <div class="arrow">Realtime ◄──────── Postgres writes ◄──────── video / ASR / LLM pipeline</div>
+          <div class="arch-row single">
+            <div class="arch-box"><b>外部能力</b><small>Supadata · yt-dlp · ASR · OpenRouter / OpenAI-compatible endpoint</small></div>
+          </div>
+        </div>
+        <div class="grid three" style="margin-top:16px">
+          <div class="card">
+            <h3>原子提交</h3>
+            <p>去重、Guest 配额、任务、输出占位和 <code>pgmq.send</code> 在同一 Postgres 事务内完成；队列失败即整体回滚。</p>
+          </div>
+          <div class="card">
+            <h3>可恢复执行</h3>
+            <p>Worker 使用可见性租约、heartbeat、执行超时、指数退避和最大尝试次数；完成态不会被重试降级，不再依赖 API 进程寿命。</p>
+          </div>
+          <div class="card">
+            <h3>最小消息</h3>
+            <p>消息只携带版本、kind、job id 与实体 id。URL、用户数据和凭据从数据库按需读取，减少泄漏与陈旧数据。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="remediation">
+        <div class="section-head">
+          <div>
+            <h2>整改矩阵</h2>
+            <p>状态描述的是当前仓库，不代表生产环境已经部署。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>优先级</th><th>原问题</th><th>执行结果</th><th>状态</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="priority">P0</td>
+                <td>Cloud 与 Local/桌面双轨，边界冲突</td>
+                <td>删除 Local UI、API、SSE、SQLite 与设置；<code>AGENTS.md</code> 明确禁止无 ADR 重建第二运行时。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority">P0</td>
+                <td>长任务绑定 FastAPI 进程内 BackgroundTasks</td>
+                <td>改为 PGMQ 持久投递 + 独立 Worker，API 只负责命令提交。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority">P0</td>
+                <td>任务状态与队列消息可能出现双写不一致</td>
+                <td>私有 Postgres 函数提供原子提交、重试与完成边界；Guest 去重与限额只有一个事务权威，并新增并发配额用例。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority">P0</td>
+                <td>缓存复用可能跨用户或访客边界</td>
+                <td>缓存查询现在同时绑定 <code>user_id</code> 与精确 <code>guest_id</code>，并有访客隔离回归测试。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority">P0</td>
+                <td>错误投递或重复确认可能污染终态</td>
+                <td>严格校验 job、queue、message、kind 与 entity 交接；完成态条件写保护，确认失败只重投和重归档。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority p1">P1</td>
+                <td>多份 Python requirements 与版本漂移</td>
+                <td>统一到 <code>pyproject.toml</code> + <code>uv.lock</code>，Dependabot 使用 uv ecosystem。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority p1">P1</td>
+                <td>Docker 镜像体积、root 用户、媒体上下文风险</td>
+                <td>锁定 Python 3.12.13 与 uv 镜像，非 root 运行，no-recommends，并排除媒体、测试和缓存。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority p1">P1</td>
+                <td>Node/Python 运行时与 CI 不一致</td>
+                <td><code>.nvmrc</code> 固定 Node 24，<code>.python-version</code> 固定 Python 3.12，CI 与容器同步。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority p1">P1</td>
+                <td>手写类型生成器与生成物形成伪 SSOT</td>
+                <td>删除生成脚本与四个生成文件，保留前端真正拥有的 UI 类型。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority p1">P1</td>
+                <td>数据库 schema 同时存在 migrations、SQL dump 与散落脚本</td>
+                <td>新增可从空库执行的 Cloud baseline；测试读取 migration 链；删除 <code>backend/sql/</code> 与硬编码迁移脚本。</td>
+                <td><span class="status done">仓库已修复</span></td>
+              </tr>
+              <tr>
+                <td class="priority p1">P1</td>
+                <td>Railway API/Worker 配置混淆</td>
+                <td>API 与 Worker 使用独立 config 文件；Worker 需在 Railway 设置自定义路径。</td>
+                <td><span class="status pending">待部署</span></td>
+              </tr>
+              <tr>
+                <td>P2</td>
+                <td>Radix 聚合包与无用类型依赖</td>
+                <td>替换为 granular Collapsible 包，移除未使用的 <code>@types/uuid</code>。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td>P2</td>
+                <td>活跃文档仍描述 Local-first 与本地生产栈</td>
+                <td>重写 <code>AGENTS.md</code>、架构、API、Data、Config、Dependencies、Frontend codemap 和 Runbook，只保留唯一 Cloud 拓扑。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+              <tr>
+                <td>P2</td>
+                <td>仓库内存在完整工作树副本与失效启动脚本</td>
+                <td>删除 247 个 <code>.tmp-baseline/</code> 跟踪文件、旧 Compose、安装/启动脚本和失效日志；加入忽略规则。</td>
+                <td><span class="status done">已修复</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="removed">
+        <div class="section-head">
+          <div>
+            <h2>已删除的歧义面</h2>
+            <p>删除的是产品第二运行时及其维护负担；localhost 开发工具仍保留，但遵守同一 Cloud 合同。</p>
+          </div>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <h3>桌面 / Local 产品运行时</h3>
+            <div class="file-list">
+              <div class="file-item">LocalWorkspace.tsx</div>
+              <div class="file-item">LocalSettingsDialog.tsx</div>
+              <div class="file-item">frontend/src/lib/local-api.ts</div>
+              <div class="file-item">backend/api/routes/local.py</div>
+              <div class="file-item">backend/local_events.py</div>
+              <div class="file-item">backend/local_runtime_config.py</div>
+              <div class="file-item">backend/local_store.py</div>
+              <div class="file-item">backend/tests/test_local_runtime.py</div>
+              <div class="file-item">backend/scripts/test_local_llm.py</div>
+              <div class="file-item">scripts/local_app.py</div>
+              <div class="file-item">docs/codemaps/local-first.md</div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>重复或过度设计</h3>
+            <div class="file-list">
+              <div class="file-item">requirements.txt</div>
+              <div class="file-item">backend/requirements-dev.txt</div>
+              <div class="file-item">backend/requirements.core.txt</div>
+              <div class="file-item">docker-compose.prod.yml</div>
+              <div class="file-item">backend/services/background_tasks.py</div>
+              <div class="file-item">scripts/generate_types.py</div>
+              <div class="file-item">frontend/src/types/generated/*</div>
+              <div class="file-item">backend/sql/*</div>
+              <div class="file-item">backend/scripts/db/apply_migration.py</div>
+              <div class="file-item">.tmp-baseline/*</div>
+              <div class="file-item">scripts/start.py / setup/install.sh</div>
+              <div class="file-item">radix-ui aggregate package</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="versions">
+        <div class="section-head">
+          <div>
+            <h2>当前框架与版本判断</h2>
+            <p>版本来自锁文件实际解析，不维护第二份“最新版本”真相；升级由 Dependabot 提议、测试门禁决定。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>层</th><th>解析版本</th><th>判断</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Next.js</td><td>16.2.12</td><td>保留。App Router/BFF 适配 Vercel；不引入微前端或自定义服务器。</td></tr>
+              <tr><td>React / React DOM</td><td>19.2.8</td><td>保留。继续控制 Client Component 边界，避免把所有页面客户端化。</td></tr>
+              <tr><td>AI SDK / @ai-sdk/react</td><td>6.0.237 / 3.0.239</td><td>已在当前主版本内更新。Chat 流与任务队列是两个不同通道，不应合并。</td></tr>
+              <tr><td>@ai-sdk/openai</td><td>3.0.89</td><td>已在当前主版本内更新。模型与 provider 仍由配置 SSOT 选择。</td></tr>
+              <tr><td>Supabase JS</td><td>2.111.0</td><td>保留。Auth、Postgres、Realtime、Queues 形成单一云数据平面。</td></tr>
+              <tr><td>TanStack Query</td><td>5.101.4</td><td>保留。只管理浏览器 server state，不复制数据库事实。</td></tr>
+              <tr><td>Tailwind CSS</td><td>4.3.3</td><td>保留。视觉极简不等于删框架，重点是减少组件与状态。</td></tr>
+              <tr><td>FastAPI / Uvicorn</td><td>0.141.0 / 0.52.0</td><td>保留。API 作为薄命令层，不承担长任务。</td></tr>
+              <tr><td>Pydantic</td><td>2.13.4</td><td>保留。继续用于外部边界验证；不要为内部字典重复造 schema。</td></tr>
+              <tr><td>LangGraph</td><td>1.2.10</td><td>保留。它编排业务阶段，不承担进程耐久性或队列职责。</td></tr>
+              <tr><td>OpenAI SDK</td><td>2.50.0</td><td>保留为 OpenAI-compatible 客户端；模型名继续由配置 SSOT 路由。</td></tr>
+              <tr><td>Sentry Next / Python</td><td>10.69.0 / 2.66.1</td><td>保留。部署后用 release/environment 区分 API、Worker 与前端。</td></tr>
+              <tr><td>ESLint</td><td>9.39.5</td><td>暂不强升 10；完整 audit 的修复会触发破坏性升级，单独迁移并跑全套 lint/test/build。</td></tr>
+              <tr><td>PGMQ</td><td>CI / 本地 / 目标项目：1.5.1</td><td>已对齐生产可用版本；真实原子提交、回滚、读取、租约与归档测试 4/4 通过。</td></tr>
+              <tr><td>Python / Node</td><td>3.12.13 / 24 LTS</td><td>统一为唯一支持线，减少本机、CI 与容器差异。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" style="margin-top:16px">
+          本次只执行同主版本安全更新，没有顺手升级 AI SDK 7、相关 provider 4、ESLint 10 或 TypeScript 7。
+          这些升级会改变 API 或 lint 行为，应各自作为可回滚的迁移，而不是混入架构收敛。
+        </div>
+      </section>
+
+      <section id="quality">
+        <div class="section-head">
+          <div>
+            <h2>质量与验证证据</h2>
+            <p>这里只记录实际执行结果。未执行的生产行为不会写成成功。</p>
+          </div>
+          <span class="status done">可执行门禁通过</span>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <h3>已通过</h3>
+            <div class="evidence">Backend: 588 passed · 1 xfailed · coverage 76.36%</div>
+            <div class="evidence">Frontend: 50 files · 284 tests passed</div>
+            <div class="evidence">Node 24.18.1 · Next.js 16.2.12 production build: success</div>
+            <div class="evidence">Ruff + ESLint: success</div>
+            <div class="evidence">PGMQ 1.5.1 real integration: 4/4 passed</div>
+            <div class="evidence">Docker: non-root · Worker import · trimmed image · /health passed</div>
+            <div class="evidence">npm audit --omit=dev: 0 vulnerabilities</div>
+          </div>
+          <div class="card">
+            <h3>新增防回归门禁</h3>
+            <ul class="compact-list">
+              <li>真实 PGMQ 镜像上的事务、读取、归档与回滚集成测试。</li>
+              <li>任务/输出更新无匹配行时 fail closed，不再吞掉数据库异常。</li>
+              <li>heartbeat 丢租约、执行超时、最大重试和 poison message 单测。</li>
+              <li>Guest 并发配额在数据库事务内强制执行。</li>
+              <li>完整 migration 链从 Cloud baseline 建库，不再由测试私造 app schema。</li>
+              <li>CI 增加 PGMQ、Docker image、前端 ESLint；Dependabot 使用 uv、npm 与 Docker。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note" style="margin-top:16px">
+          OrbStack 已启用。除干净 PGMQ 1.5.1 集成环境外，还构造了与生产一致的旧 UNIQUE
+          约束和两条空重复输出：迁移精确删除 2 条冗余 pending 行、保留 completed 内容，
+          并验证 <code>NULLS NOT DISTINCT</code>、Guest RLS、函数执行权限和真实入队。
+          显式 PGMQ 门禁在数据库不可达时现在会失败，不再以 skip 返回成功。
+        </div>
+      </section>
+
+      <section id="live">
+        <div class="section-head">
+          <div>
+            <h2>线上 Supabase 发布前快照</h2>
+            <p>2026-07-30 对目标项目完成只读核验；本节记录应用 migration 前的基线。</p>
+          </div>
+          <span class="status risk">不可直接迁移</span>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <h3>已确认</h3>
+            <ul class="compact-list">
+              <li>项目处于 <code>ACTIVE_HEALTHY</code>，Postgres 17；<code>tasks</code> 与 <code>task_outputs</code> 已启用 RLS。</li>
+              <li>目标项目可用的 PGMQ extension 是 1.5.1，但当前未安装；私有 queue 函数与表不存在。</li>
+              <li>线上 migration history 只有 13 条旧记录，与仓库 migration 文件名和基线不一致。</li>
+              <li>线上 <code>tasks</code> 尚无 <code>guest_id</code>；<code>task_outputs.content</code> 仍为 TEXT。</li>
+              <li>共有 129 个 task / 504 个 output；无孤儿 output；数据库无活动事务或锁等待。</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>迁移冲突</h3>
+            <ul class="compact-list">
+              <li>同一历史 task 有 2 条空的 pending 冗余输出；对应 completed 内容完整，迁移 retention 规则已精确演练。</li>
+              <li>49 个 pending/processing task 均为 2026-03-24 以前的历史状态；不主动批量改写，新请求按 owner + URL 安全复用。</li>
+              <li>Security Advisor 有 7 项既有 warning；本次安全修复覆盖两个可公开执行的 trigger-only SECURITY DEFINER 函数。</li>
+              <li>远端 branch API 权限校验不可用，因此以目标 PGMQ 版本的本地生产形态克隆演练替代；生产只应用单一增量迁移，不重放 baseline。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="release">
+        <div class="section-head">
+          <div>
+            <h2>生产上线清单</h2>
+            <p>本地门禁已完成；外部环境步骤在远端 CI 通过后按顺序执行。</p>
+          </div>
+          <span class="status pending">远端阶段待执行</span>
+        </div>
+        <div class="card checklist">
+          <div class="check"><b>生产形态迁移演练</b><span>已完成：保留 completed canonical row、删除 2 条空冗余行，并验证 NULL-aware 唯一约束。</span></div>
+          <div class="check"><b>验证目标 PGMQ</b><span>已完成：在 1.5.1 核验 <code>send</code>、<code>read_with_poll</code>、<code>set_vt</code> 与 <code>archive</code>。</span></div>
+          <div class="check"><b>运行当前 commit 的 CI</b><span>PGMQ 4 个集成用例、migration chain 与 Docker 非 root 镜像门禁必须实际通过。</span></div>
+          <div class="check"><b>应用生产增量 migration</b><span>只应用 queue/hardening delta；不得在既有 production 重放 Cloud baseline。</span></div>
+          <div class="check"><b>创建 Railway Worker 服务</b><span>自定义配置路径设为 <code>/railway.worker.toml</code>；初期固定 1 个 replica，并配置最小数据库角色。</span></div>
+          <div class="check"><b>部署 Railway API</b><span>确认 API 能调用私有原子提交函数；缺迁移时应返回 503，而非降级为进程内执行。</span></div>
+          <div class="check"><b>部署 Vercel 前端</b><span>确认浏览器仅走 HTTP command + Supabase Realtime，没有 Local/SSE 分支。</span></div>
+          <div class="check"><b>受控真实任务验收</b><span>核验 quota、task/output、send、claim、heartbeat、进度、Realtime、archive 与终态。</span></div>
+        </div>
+      </section>
+
+      <section id="residual">
+        <div class="section-head">
+          <div>
+            <h2>剩余风险与下一步</h2>
+            <p>不建议继续大改框架；下一阶段应把注意力放在真实部署与观测证据。</p>
+          </div>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <h3>发布阻断项</h3>
+            <ul class="compact-list">
+              <li>远端 migration history 仍保留 13 条历史记录；本次只追加可审计增量，不重写历史，后续再做 metadata repair。</li>
+              <li><code>asyncio.to_thread</code> 超时不会终止底层线程，当前也没有 attempt fencing；在完成隔离前 Worker 必须保持单副本。</li>
+              <li>生产 API/Worker 的最小数据库角色、Railway 自定义 config path 与受控真实任务尚未验证。</li>
+              <li>当前 commit 的远端 PGMQ 与 Docker CI job 尚未执行；本地证据不能替代 GitHub release gate。</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>非阻断技术债</h3>
+            <ul class="compact-list">
+              <li>完整 npm audit 仍受 ESLint/minimatch 开发链影响；production audit 为 0。</li>
+              <li>开发机默认 Node 仍为 22；本次通过 mise 在 Node 24.18.1 完成正式测试与构建。</li>
+              <li>失败任务目前以 terminal state + archive 收敛，没有独立 DLQ 浏览界面。</li>
+              <li>访客浏览器没有可安全证明身份的直接 Realtime RLS 路径；保持认证用户路径，除非引入签名 guest token 或后端广播。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>Industry Standard 对齐</h3>
+          <p>
+            本次采用的是 transactional outbox 同类原则下的数据库内原子提交边界、
+            at-least-once 消费与幂等短路，而不是追求“exactly once”口号；
+            长任务使用独立 Worker，而非 Web 进程后台线程；Next.js Route Handler 保持公开 BFF 边界，
+            Server Component 优先直接读取所属数据源；依赖使用 manifest + lock 的单一事实源；
+            Cloud 配置与开发工具共享同一数据合同。这样更接近 Supabase Queues、FastAPI 长任务建议、
+            Railway config-as-code 与现代供应链管理的共同实践。
+          </p>
+          <p>
+            参考：
+            <a href="https://supabase.com/docs/guides/queues">Supabase Queues</a> ·
+            <a href="https://supabase.com/docs/guides/queues/api">Supabase Queues API</a> ·
+            <a href="https://github.com/pgmq/pgmq">PGMQ upstream</a> ·
+            <a href="https://nextjs.org/docs/app/guides/backend-for-frontend">Next.js BFF</a> ·
+            <a href="https://fastapi.tiangolo.com/tutorial/background-tasks/">FastAPI Background Tasks</a> ·
+            <a href="https://docs.railway.com/config-as-code/reference">Railway Config Reference</a> ·
+            <a href="https://docs.astral.sh/uv/guides/integration/docker/">uv in Docker</a> ·
+            <a href="https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories">Dependabot ecosystems</a>
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <p>
+          报告路径：<code>docs/reviews/architecture-framework-review-2026-07-29.html</code><br>
+          结论基于 2026-07-30 当前工作区与实际本地验证；生产状态需按上线清单重新取证。
+        </p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

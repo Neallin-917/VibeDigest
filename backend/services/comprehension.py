@@ -77,7 +77,6 @@ class ComprehensionAgent:
         for model in self.comprehension_models:
             try:
                 llm = self._get_llm(model)
-                structured_llm = llm.with_structured_output(ComprehensionBriefResponse)
                 
                 messages = [
                     SystemMessage(content=system_prompt),

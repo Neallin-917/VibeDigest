@@ -6,7 +6,6 @@ import { SUPPORTED_LOCALES } from '@/lib/i18n'
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = SITE_URL
   const supabase = supabasePublic
-
   const generateSlug = (title: string) => {
     if (!title) return "video"
     return encodeURIComponent(title.trim().replace(/\s+/g, '-'))

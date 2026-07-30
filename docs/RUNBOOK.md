@@ -1,175 +1,116 @@
-# VibeDigest Runbook
+# VibeDigest Cloud Runbook
 
-This file owns deployment, monitoring, rollback, and incident handling. Setup and contributor workflow live elsewhere.
+This file owns deployment, monitoring, rollback, and incident handling. It does
+not own local setup or dependency versions.
 
-## Deployment
+## Production topology
 
-### Current deployment inventory
-
-Last verified: 2026-07-08.
-
-| Surface | Current state | AI management status |
+| Surface | Platform | Repository config |
 | --- | --- | --- |
-| Frontend | Vercel project `vibe-digest` (`prj_JoNad0xEVl7XnJUTrbRwl0bBuJxo`) under team `team_4UjccirhWnowbBx4gbsuugVc`; production aliases include `www.vibedigest.io` and `vibedigest.io`; production `NEXT_PUBLIC_API_URL` and `BACKEND_API_URL` point to the canonical public API `https://api.vibedigest.io`, while server-only `BACKEND_ORIGIN_URL` points to `https://vibedigest-production.up.railway.app` to avoid Cloudflare browser challenges on Vercel-to-Railway API calls | Manageable through the Vercel connector and local Vercel CLI |
-| Public domain | `vibedigest.io` uses Cloudflare nameservers; root and `www` resolve to Vercel; `https://vibedigest.io` redirects to `https://www.vibedigest.io/en` | DNS is visible through public checks; Cloudflare write access requires a Cloudflare connector, API token, or IaC |
-| Backend | Railway project `steadfast-vibrancy`; service `VibeDigest`; public API URL `https://api.vibedigest.io`; Railway service URL `https://vibedigest-production.up.railway.app`; latest deployment `b1c54cc1-3df3-4976-9fe2-81f8773d2dda` is online and `/health` returns `200` | Manageable through the Railway CLI after local `railway login` |
-| Backend API DNS | `api.vibedigest.io` is proxied by Cloudflare to Railway; public A queries return Cloudflare IPs, and the Railway verification TXT record is present | Manageable through the Cloudflare API token in local env |
-| Database | Supabase project `transcriber` (`cwdgdytqafqrqnlcdpcc`) in `ap-south-1`, status `ACTIVE_HEALTHY`; local CLI is linked; no Edge Functions | Manageable through the Supabase connector and local Supabase CLI |
+| Frontend | Vercel | `frontend/` |
+| Command API | Railway | `railway.toml` |
+| Task worker | Railway, separate service | `railway.worker.toml` |
+| Auth/data/realtime/queue | Supabase | `supabase/migrations/` |
 
-The repository also contains `docker-compose.prod.yml` for a production-style backend container behind Traefik/Cloudflare Tunnel on host port `16080`. Treat that as a self-hosted path until the current production backend host is confirmed.
+`railway.worker.toml` is not auto-discovered. Configure the Worker service
+custom config path as `/railway.worker.toml`. The API and worker use the same
+image but different start commands.
 
-### Local production-style backend
+The repository contains no local “production” deployment path. Docker Compose
+is development-only and connects to the configured Cloud development database.
 
-```bash
-make release-prod
-make start-prod
-```
+## Release order
 
-### Verify deployment
+1. Reconcile local and remote Supabase migrations on a development branch.
+2. Apply `202607290001_create_video_processing_queue.sql`.
+3. Deploy/update the Railway Worker and verify it can poll an empty queue.
+4. Deploy the Railway API.
+5. Deploy the Vercel frontend.
+6. Submit one controlled video and confirm:
+   task/output transaction, PGMQ claim, heartbeat, progress writes, Realtime
+   delivery, terminal state, archive, and completed handoff.
 
-Run the read-only ops audit first:
+Do not reverse steps 2 and 4: an API that calls missing private queue functions
+will return `503`.
 
-```bash
-make ops-audit
-```
+## Required pre-release checks
 
-For production, the audit must show:
-
-- `public API role: OK canonical api.vibedigest.io`
-- `server backend role: OK Railway origin`
-- `https://www.vibedigest.io/api/health/backend-origin: 200 ...`
-
-```bash
-docker ps
-docker logs <container_id>
-curl -fsS http://localhost:16081/health
-```
-
-If the deployment touches the frontend surface, also run:
+Before running the commands below, confirm `DEV_AUTH_BYPASS=false` and
+`MOCK_MODE=false`. Railway production startup fails closed if either developer
+bypass is enabled.
 
 ```bash
+uv sync --locked --group dev
+make lint
+make test-backend
 cd frontend && npm run build
-curl -fsSL https://vibedigest.io >/dev/null
-curl -fsSL https://www.vibedigest.io/api/health/backend-origin >/dev/null
 ```
 
-## Database and Migrations
+CI additionally runs the real PGMQ lifecycle test against
+`ghcr.io/pgmq/pg16-pgmq:v1.10.0`. Local Docker validation is optional, but a
+release must not proceed unless that CI job passes.
 
-- Supabase schema changes live under `supabase/migrations/`
-- Historical SQL artifacts also exist under `backend/sql/`
-- Apply schema changes through the agreed Supabase workflow before promoting a release
-- Before applying new migrations, compare local migration files with the remote Supabase migration list. The local SQL filenames and remote migration names may drift because older migrations predate the current `supabase/migrations/` layout.
+## Health and queue checks
 
-### Migration drift note
+- API `/health` returns `200`.
+- Worker logs show polling without repeated lease or SQL errors.
+- Queue depth and oldest message age are bounded.
+- `vibedigest_private.task_queue_handoffs` has no growing set of stale
+  `queued` records.
+- Failed tasks have a terminal sanitized error after the configured maximum
+  attempts.
+- Realtime task/output changes reach the browser without HTTP polling.
 
-As of 2026-07-06, the Supabase connector reported production migrations through `20260204004941_advisor_fixes_phase1`, while local files under `supabase/migrations/` include newer `20260331` and `202604*` SQL files. Treat this as a release blocker until reconciled.
+Never log queue message payloads, signed media URLs, access tokens, or service
+credentials.
 
-Safe reconciliation path:
+## Incident: queue submission returns 503
 
-1. Create or use a Supabase development branch.
-2. Apply local migrations there first.
-3. Compare the resulting schema and affected row counts.
-4. Only merge/apply to production after the schema diff is understood.
+1. Stop promoting new API versions.
+2. Verify the migration exists on the target Supabase project.
+3. Verify API `DATABASE_URL` can execute only the required private submission
+   functions.
+4. Confirm PGMQ extension/queue existence.
+5. Retry a controlled request. Atomic rollback means a failed submission must
+   not leave a new task, quota debit, or placeholder rows.
 
-## Monitoring
+Do not fall back to FastAPI `BackgroundTasks` or in-process execution.
 
-### Email
+## Incident: growing queue / stuck jobs
 
-- Feedback email is sent through Resend from `noreply@vibedigest.io`
-- Resend domain `vibedigest.io` is verified for sending; DNS includes verified DKIM plus `send.vibedigest.io` SPF/MX records
-
-### Error tracking
-
-- Frontend and backend errors are reported to Sentry
-- Required configuration:
-  - `SENTRY_DSN`
-  - `SENTRY_ENVIRONMENT`
-  - `NEXT_PUBLIC_SENTRY_DSN`
-  - `NEXT_PUBLIC_SENTRY_ENVIRONMENT` for browser-side event labeling
-- Environment matrix:
-  - local → `development`
-  - Railway production → `production`
-  - Vercel production → `production`
-
-### LLM observability
-
-- LangSmith is used for model tracing
-- Relevant configuration:
-  - `LANGCHAIN_TRACING_V2=true` only when the LangSmith key and project are valid
-  - `LANGCHAIN_API_KEY` or `LANGSMITH_API_KEY`
-  - `LANGCHAIN_PROJECT` or `LANGSMITH_PROJECT`
-- Shared local config keeps tracing disabled by default to prevent invalid LangSmith credentials from polluting local smoke tests.
-
-### Logs
-
-- Container logs:
-
-```bash
-docker logs -f <container_id>
-```
-
-- Local non-production logs are generated artifacts and should not be committed
+1. Check Worker replica health and the configured custom Railway config path.
+2. Inspect visibility timeout, heartbeat failures, and execution timeouts.
+3. Check provider rate limits and database connectivity.
+4. Scale worker replicas only after confirming jobs are idempotent at the
+   current stage.
+5. Do not manually archive a message until terminal task/output state is
+   confirmed.
 
 ## Rollback
 
-1. Stop the current deployment:
+### Frontend
 
-```bash
-make stop
-```
+Promote the last known-good Vercel deployment.
 
-2. Revert the image or git revision used by `docker-compose.prod.yml`
-3. Start the previous known-good version:
+### API
 
-```bash
-make start-prod
-```
+Redeploy the last known-good Railway API image/revision. If its queue contract
+differs, stop request traffic until API and migration compatibility is clear.
 
-## Incident Triage
+### Worker
 
-### LLM/provider failures
+Scale the Worker service to zero before changing an incompatible message or
+database contract, then deploy the last compatible revision and resume one
+replica first.
 
-Symptoms:
-- summarization failures
-- connection timeouts
-- provider mismatch errors
+### Database
 
-Checks:
+Prefer roll-forward migrations. PGMQ extension/table/function rollback can
+destroy delivery state and requires an explicit backup plus human approval.
+Never delete the queue as an automatic rollback step.
 
-```bash
-make verify
-make test-provider-smoke
-```
+## Secrets
 
-Then verify:
-- `OPENAI_BASE_URL` and `OPENAI_API_KEY` when using a custom OpenAI-compatible endpoint
-- `OPENROUTER_API_KEY` when using OpenRouter
-- provider routing behavior matches `AGENTS.md`
-
-### Backend container crashes
-
-Checks:
-- inspect container logs
-- confirm Supabase credentials are set
-- confirm FFmpeg is available in the image
-
-### Frontend build failures
-
-Checks:
-
-```bash
-cd frontend && npm run build
-```
-
-Then inspect:
-- missing environment variables
-- route or metadata errors
-- type errors in App Router code
-
-## Cleanup
-
-Generated local artifacts can be removed with:
-
-```bash
-make clean
-```
+Deployment and CI secrets are managed outside Git. Verify migrations and
+deployments by names, counts, permissions, and redacted mappings only. Never
+print or paste secret values into reports or logs.

@@ -8,10 +8,9 @@ from urllib.parse import urlparse
 from config import settings
 from langchain_community.chat_models import ChatLiteLLM
 from langchain_core.outputs import ChatGenerationChunk
+from openai import AsyncOpenAI, OpenAI
 
 logger = logging.getLogger(__name__)
-
-from openai import OpenAI, AsyncOpenAI
 
 # ---------------------------------------------------------------------------
 # Placeholder API key values that are acceptable in CI / mock mode.

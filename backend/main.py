@@ -2,9 +2,12 @@ import os
 from pathlib import Path
 
 from loguru import logger
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from utils.logging import configure_logging
 from utils.env_loader import load_env
+from utils.logging import configure_logging
+from utils.timing_middleware import TimingMiddleware
 
 # Load environment variables before other local imports.
 # Priority: shell env > .env.local > .env (shell vars are never overridden)
@@ -12,11 +15,8 @@ load_env()
 
 configure_logging()
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from config import settings
-from api.routes import system, tasks, webhooks, payments
+from config import settings  # noqa: E402
+from api.routes import payments, system, tasks, webhooks  # noqa: E402
 
 # Skip Sentry initialisation during pytest runs to avoid polluting the project
 # with test noise and to keep unit tests hermetic.
@@ -58,11 +58,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from utils.timing_middleware import TimingMiddleware
 app.add_middleware(TimingMiddleware)
 
-# Project Paths
-PROJECT_ROOT = Path(__file__).parent.parent
+# Runtime paths must remain writable by the non-root container user. The
+# production image copies the backend directly into /app, so walking to the
+# parent of this module would incorrectly resolve to the filesystem root.
+PROJECT_ROOT = Path(__file__).resolve().parent
 TEMP_DIR = PROJECT_ROOT / "temp"
 TEMP_DIR.mkdir(exist_ok=True)
 

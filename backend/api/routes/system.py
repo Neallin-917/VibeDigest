@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, BackgroundTasks, Header, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header
 from pydantic import BaseModel
 
 from dependencies import get_db_client, get_notifier

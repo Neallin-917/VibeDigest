@@ -8,7 +8,6 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from langchain_core.messages import BaseMessage
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import settings

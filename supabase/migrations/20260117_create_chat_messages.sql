@@ -17,6 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_message_id ON public.chat_me
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Users can manage messages of their own threads
+DROP POLICY IF EXISTS "Users can fully manage own chat messages"
+ON public.chat_messages;
 CREATE POLICY "Users can fully manage own chat messages"
 ON public.chat_messages
 FOR ALL

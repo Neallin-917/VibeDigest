@@ -1,5 +1,4 @@
 from functools import lru_cache
-import os
 import logging
 from typing import Optional
 from fastapi import Header, HTTPException, Depends
@@ -10,6 +9,7 @@ from config import settings
 from services.notifier import Notifier
 from services.supadata_client import SupadataClient
 from services.summarizer import Summarizer
+from services.task_queue import PostgresTaskQueue, TaskQueue
 from services.transcriber import Transcriber
 from services.video_processor import VideoProcessor
 
@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 @lru_cache()
 def get_db_client() -> DBClient:
     return DBClient()
+
+
+def get_task_queue(
+    db: DBClient = Depends(get_db_client),
+) -> TaskQueue:
+    return PostgresTaskQueue(db)
 
 
 @lru_cache()
@@ -60,13 +66,7 @@ async def get_current_user(
     x_guest_id: Optional[str] = Header(None, alias="X-Guest-Id"),
     db: DBClient = Depends(get_db_client),
 ) -> str:
-    """Identify user and enforce Guest Quota immediately."""
-    dev_bypass = os.getenv("DEV_AUTH_BYPASS", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
-
+    """Identify the caller; task quota is enforced atomically at submission."""
     if settings.MOCK_MODE:
         return "00000000-0000-0000-0000-000000000001"
 
@@ -83,22 +83,11 @@ async def get_current_user(
             return user_id
         raise HTTPException(status_code=401, detail="Invalid Token")
 
-    # 2. GUEST (X-Guest-Id present)
+    # 2. GUEST (X-Guest-Id present). The queue submission transaction is the
+    # only authority for quota and same-URL reuse decisions.
     if x_guest_id:
-        # Single source of truth: check guest_usage table in DB
-        count = db.get_task_count(x_guest_id)
-        if not dev_bypass and count >= 1:
-            logger.warning(f"Guest Quota Exceeded for {x_guest_id}")
-            raise HTTPException(status_code=402, detail="Guest quota exceeded")
         return x_guest_id
 
     # 3. No usable identity. Do not fall back to a shared user, because that
     # bypasses guest quota and makes task ownership ambiguous.
     raise HTTPException(status_code=401, detail="Authentication or guest identity required")
-
-
-def increment_guest_usage(guest_id: str, db: DBClient):
-    """Call this AFTER successful task creation. Persists to DB."""
-    if guest_id:
-        db.track_guest_trial(guest_id)
-        logger.info(f"Tracked guest usage for {guest_id} in DB")

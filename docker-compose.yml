@@ -18,34 +18,34 @@ services:
       - ./downloads:/app/downloads
     ports:
       # Dev uses 16081 to avoid conflict with Prod (16080)
-      - "${BACKEND_HOST_PORT:-16081}:8000"
+      - "127.0.0.1:${BACKEND_HOST_PORT:-16081}:8000"
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     # ---------------------------------------------------------
     env_file:
-      - .env
-      - .env.local
+      - path: .env
+      - path: .env.local
+        required: false
     environment:
       - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      # Inside Docker, "localhost" means the container itself — remap to host.
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL_DOCKER:-http://host.docker.internal:8317/v1}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     # No Traefik labels - Dev is NOT exposed to internet
 
-  postgres:
-    image: postgres:16
-    # container_name removed
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: langgraph
-    ports:
-      - "${POSTGRES_HOST_PORT:-15432}:5432"
-    volumes:
-      - langgraph_postgres_data:/var/lib/postgresql/data
+  worker-dev:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: transcriber-backend:dev
     restart: unless-stopped
-
-volumes:
-  langgraph_postgres_data:
+    volumes:
+      - ./backend:/app
+      - ./config/llm-provider-defaults.json:/app/llm-provider-defaults.json:ro
+      - ./temp:/app/temp
+      - ./downloads:/app/downloads
+    command: python worker.py
+    env_file:
+      - path: .env
+      - path: .env.local
+        required: false
+    environment:
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vibedigest_video_intake": {
+      "command": "node",
+      "args": [
+        "./mcp/server.mjs"
+      ],
+      "cwd": "."
+    }
+  }
+}

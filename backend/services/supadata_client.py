@@ -263,7 +263,7 @@ class SupadataClient:
                     }
                     raw_json = json.dumps(raw_payload, ensure_ascii=False)
 
-                    from .transcriber import format_markdown_from_raw_segments
+                    from .formatting import format_markdown_from_raw_segments
 
                     markdown_text = format_markdown_from_raw_segments(
                         final_segments, detected_language=detected_lang

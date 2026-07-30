@@ -132,57 +132,63 @@ export default async function RootLayout({
 }>) {
   const { lang } = await params;
   return (
-    <html lang={lang} suppressHydrationWarning>
-      <body className={cn(manrope.className, syne.variable, jakarta.variable, "text-foreground antialiased font-sans tracking-tight")} suppressHydrationWarning>
-        <Vignette />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify([
-              {
-                "@context": "https://schema.org",
-                "@type": "SoftwareApplication",
-                "name": "VibeDigest",
-                "applicationCategory": "ProductivityApplication",
-                "applicationSubCategory": "AI Video Summarizer",
-                "operatingSystem": "Web",
-                "url": "https://vibedigest.io",
-                "offers": {
-                  "@type": "Offer",
-                  "price": "0",
-                  "priceCurrency": "USD",
-                },
-                "description": "AI-powered tool to transform videos and podcasts into structured insights.",
+    <div
+      lang={lang}
+      className={cn(
+        manrope.className,
+        syne.variable,
+        jakarta.variable,
+        "min-h-screen text-foreground antialiased font-sans tracking-tight"
+      )}
+    >
+      <Vignette />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "VibeDigest",
+              "applicationCategory": "ProductivityApplication",
+              "applicationSubCategory": "AI Video Summarizer",
+              "operatingSystem": "Web",
+              "url": "https://vibedigest.io",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD",
               },
-              {
-                "@context": "https://schema.org",
-                "@type": "WebSite",
-                "name": "VibeDigest",
-                "alternateName": ["Vibe Digest", "AI Video Summarizer"],
-                "url": "https://vibedigest.io"
-              },
-              {
-                "@context": "https://schema.org",
-                "@type": "Organization",
-                "name": "VibeDigest",
-                "url": "https://vibedigest.io",
-                "logo": "https://vibedigest.io/icon.png",
-                "sameAs": [
-                  "https://twitter.com/vibedigest"
-                ]
-              }
-            ])
-          }}
-        />
-        <Providers locale={lang}>
-          {auth}
-          {children}
-        </Providers>
-        <Toaster />
-        <Analytics />
-        <SpeedInsights />
-        {gaId && <GoogleAnalytics gaId={gaId} />}
-      </body>
-    </html>
+              "description": "AI-powered tool to transform videos and podcasts into structured insights.",
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "VibeDigest",
+              "alternateName": ["Vibe Digest", "AI Video Summarizer"],
+              "url": "https://vibedigest.io"
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "VibeDigest",
+              "url": "https://vibedigest.io",
+              "logo": "https://vibedigest.io/icon.png",
+              "sameAs": [
+                "https://twitter.com/vibedigest"
+              ]
+            }
+          ])
+        }}
+      />
+      <Providers locale={lang}>
+        {auth}
+        {children}
+      </Providers>
+      <Toaster />
+      <Analytics />
+      <SpeedInsights />
+      {gaId && <GoogleAnalytics gaId={gaId} />}
+    </div>
   );
 }

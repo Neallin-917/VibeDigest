@@ -55,6 +55,7 @@ ALTER TABLE public.chat_messages
 DROP POLICY IF EXISTS "Users can manage messages of their threads" ON public.chat_messages;
 DROP POLICY IF EXISTS "Users can view messages in own threads" ON public.chat_messages;
 DROP POLICY IF EXISTS "Users can insert messages into own threads" ON public.chat_messages;
+DROP POLICY IF EXISTS "Users can fully manage own chat messages" ON public.chat_messages;
 
 CREATE POLICY "Users can fully manage own chat messages"
 ON public.chat_messages

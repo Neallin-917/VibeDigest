@@ -45,6 +45,7 @@ Thumbs.db
 temp/
 *.tmp
 *.temp
+/.tmp-baseline/
 
 # Environment variables
 # .env is tracked (shared config)
@@ -99,9 +100,11 @@ out/
 logs/security/
 
 # AI / Agent workspace artifacts
+/.codex/
 /.opencode/
 /.shared/
 /.reports/
+/.codex-ci/
 /.claude/
 /.agents/
 /.agent/
@@ -157,3 +160,4 @@ temp_backup/
 video/
 static/
 .vercel
+.env*

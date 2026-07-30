@@ -1,11 +1,10 @@
 import os
 import logging
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Any, Tuple
 import json
 import asyncio
 from config import settings
 from services.formatting import (
-    format_markdown_from_raw_segments,
     _serialize_raw_segments,
     _merge_segments_into_sentences,
     _paragraph_limits_for_language,
@@ -181,7 +180,7 @@ class Transcriber:
 
         def _do_split() -> List[Tuple[str, float]]:
             try:
-                # pydub depends on ffmpeg; scripts/start.py checks it.
+                # pydub depends on ffmpeg; the container image installs it.
                 audio = AudioSegment.from_file(audio_path)
                 duration_ms = len(audio)
                 chunks: List[Tuple[str, float]] = []

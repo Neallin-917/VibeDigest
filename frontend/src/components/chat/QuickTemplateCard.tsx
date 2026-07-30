@@ -12,7 +12,6 @@ interface QuickTemplateCardProps {
     thumbnail_url?: string
   }
   onSelect: (taskId: string) => void
-  eagerThumbnail?: boolean
   highPriorityThumbnail?: boolean
 }
 
@@ -33,7 +32,6 @@ function getPlatformFromUrl(url: string) {
 export function QuickTemplateCard({
   task,
   onSelect,
-  eagerThumbnail = false,
   highPriorityThumbnail = false,
 }: QuickTemplateCardProps) {
   const platform = getPlatformFromUrl(task.video_url)
@@ -58,7 +56,7 @@ export function QuickTemplateCard({
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             referrerPolicy="no-referrer"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            loading={eagerThumbnail ? 'eager' : 'lazy'}
+            loading="eager"
             fetchPriority={highPriorityThumbnail ? 'high' : 'auto'}
           />
         ) : (

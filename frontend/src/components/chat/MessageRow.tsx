@@ -1,7 +1,6 @@
 'use client'
 
 import React, { memo } from 'react'
-import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { isDataUIPart, isToolUIPart } from 'ai'
@@ -14,7 +13,6 @@ import type { ChatUIMessage } from '@/lib/chat-ui'
 interface MessageRowProps {
   message: ChatUIMessage
   isStreaming: boolean
-  enableMotion: boolean
   onOpenPanel?: (taskId: string) => void
   liveTaskIds?: Set<string>
 }
@@ -91,7 +89,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
   )
 }, (prev, next) => prev.text === next.text)
 
-function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel, liveTaskIds }: MessageRowProps) {
+function MessageRowComponent({ message, isStreaming, onOpenPanel, liveTaskIds }: MessageRowProps) {
   if (message.role === 'system') return null
 
   if (message.role === 'assistant') {
@@ -108,18 +106,8 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel, 
     if (!hasRenderableParts) return null
   }
 
-  const Wrapper: React.ElementType = enableMotion ? motion.div : 'div'
-  const wrapperProps = enableMotion
-    ? {
-        initial: { opacity: 0, y: 15 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.4, ease: 'easeOut' }
-      }
-    : {}
-
   return (
-    <Wrapper
-      {...wrapperProps}
+    <div
       data-streaming={isStreaming ? 'true' : 'false'}
       className={cn('flex w-full min-w-0 group', message.role === 'user' ? 'ml-auto flex-row-reverse' : '')}
     >
@@ -166,12 +154,11 @@ function MessageRowComponent({ message, isStreaming, enableMotion, onOpenPanel, 
           </div>
         </div>
       </div>
-    </Wrapper>
+    </div>
   )
 }
 
 export const MessageRow = memo(MessageRowComponent, (prev, next) => {
-  if (prev.enableMotion !== next.enableMotion) return false
   if (prev.isStreaming !== next.isStreaming) return false
   if (prev.onOpenPanel !== next.onOpenPanel) return false
   if (!areTaskIdSetsEqual(prev.liveTaskIds, next.liveTaskIds)) return false

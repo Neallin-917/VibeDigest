@@ -218,10 +218,35 @@ export function useThreadNavigation({
             if (!hasBootstrappedRef.current) {
                 setIsBootstrapping(true)
             }
-            const fetchedThreads = await refetchThreadsRef.current()
+
+            // A fresh chat does not depend on remote history. Make the input usable
+            // immediately and refresh the sidebar in the background.
+            if (!queryTaskId && !queryThreadId) {
+                const newId = uuidv4()
+                newThreadIdsRef.current.add(newId)
+
+                setActiveTaskId(null)
+                setActiveThreadId(newId)
+                setInitialMessages([])
+
+                const params = getCurrentParamsRef.current()
+                params.delete("task")
+                params.set("threadId", newId)
+                safeReplaceRef.current(params)
+
+                hasBootstrappedRef.current = true
+                setIsBootstrapping(false)
+                void refetchThreadsRef.current()
+                return
+            }
 
             if (queryTaskId) {
-                const resolvedThreadId = queryThreadId || await resolveOrCreateThreadForTaskRef.current(queryTaskId)
+                const [, resolvedThreadId] = await Promise.all([
+                    refetchThreadsRef.current(),
+                    queryThreadId
+                        ? Promise.resolve(queryThreadId)
+                        : resolveOrCreateThreadForTaskRef.current(queryTaskId),
+                ])
                 if (cancelled) return
 
                 if (!newThreadIdsRef.current.has(resolvedThreadId)) {
@@ -242,7 +267,7 @@ export function useThreadNavigation({
                 params.set("threadId", resolvedThreadId)
                 safeReplaceRef.current(params)
             } else if (queryThreadId) {
-                if (cancelled) return
+                const fetchedThreads = await refetchThreadsRef.current()
 
                 if (!fetchedThreads.some((thread) => thread.id === queryThreadId)) {
                     newThreadIdsRef.current.add(queryThreadId)
@@ -276,18 +301,6 @@ export function useThreadNavigation({
                     setActiveTaskId(null)
                     setInitialMessages([])
                 }
-            } else {
-                const newId = uuidv4()
-                newThreadIdsRef.current.add(newId)
-                if (cancelled) return
-
-                setActiveTaskId(null)
-                setActiveThreadId(newId)
-                setInitialMessages([])
-                const params = getCurrentParamsRef.current()
-                params.delete("task")
-                params.set("threadId", newId)
-                safeReplaceRef.current(params)
             }
 
             if (!cancelled) {

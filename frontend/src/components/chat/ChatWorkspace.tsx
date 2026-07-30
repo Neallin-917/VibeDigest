@@ -6,23 +6,31 @@ import { cn } from "@/lib/utils"
 import { ChatContainer } from "./ChatContainer"
 import dynamic from "next/dynamic"
 import { Loader2 } from "lucide-react"
-
-const VideoDetailPanel = dynamic(
-  () => import("./VideoDetailPanel").then((mod) => mod.VideoDetailPanel),
-  {
-    loading: () => (
-      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    )
-  }
-)
 import { MobileMenuDrawer } from "./MobileMenuDrawer"
 import { TopHeader } from "./TopHeader"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import type { ChatUIMessage } from "@/lib/chat-ui"
 import type { Thread } from "@/types"
+
+function VideoDetailLoading() {
+  const { t } = useI18n()
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex h-full w-full items-center justify-center px-6 text-sm text-muted-foreground"
+    >
+      {t("tasks.loadingTask")}
+    </div>
+  )
+}
+
+const VideoDetailPanel = dynamic(
+  () => import("./VideoDetailPanel").then((mod) => mod.VideoDetailPanel),
+  { loading: () => <VideoDetailLoading /> }
+)
 
 interface ChatWorkspaceProps {
   activeThreadId: string | null

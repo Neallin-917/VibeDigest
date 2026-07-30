@@ -7,7 +7,6 @@ import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
 import { supportsVideoEmbed } from '@/components/tasks/VideoEmbed'
 import { Button } from '@/components/ui/button'
 import { X, StickyNote, Quote, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { subscribeToTask } from '@/lib/task-live'
@@ -70,17 +69,14 @@ function KeypointCard({
   onSeek: (seconds: number) => void
 }) {
   const { t } = useI18n()
-  const [showEvidence, setShowEvidence] = useState(true)
+  const [showEvidence, setShowEvidence] = useState(false)
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: idx * 0.1 }}
+    <div
       className={cn(
-        "rounded-2xl py-4 pr-4 pl-6 group relative overflow-hidden transition-all duration-300 border backdrop-blur-2xl shadow-glass",
-        "bg-white/70 border-white/60 hover:shadow-[0_12px_30px_-18px_rgba(16,185,129,0.55)] hover:-translate-y-0.5",
-        "dark:bg-zinc-900/60 dark:border-white/10 dark:hover:bg-zinc-900/70",
+        "rounded-2xl py-4 pr-4 pl-6 group relative overflow-hidden border backdrop-blur-2xl shadow-glass",
+        "bg-white/70 border-white/60",
+        "dark:bg-zinc-900/60 dark:border-white/10",
         "before:content-[''] before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_55%)] dark:before:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_60%)] before:pointer-events-none"
       )}
     >
@@ -132,31 +128,20 @@ function KeypointCard({
             <span>{t("tasks.summaryStructured.evidenceLabel")}</span>
             {showEvidence ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
-          
-          <AnimatePresence>
-            {showEvidence && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-2">
-                    <div className="rounded-xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3 relative shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)]">
-                      {/* Decorative quote mark */}
-                    <Quote className="absolute top-2 left-2 w-4 h-4 text-slate-200 dark:text-white/5 rotate-180" />
-                    <p className="text-[13px] italic text-slate-600 dark:text-slate-400 leading-relaxed pl-2 relative z-10">
-                      &ldquo;{kp.evidence}&rdquo;
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+
+          {showEvidence && (
+            <div className="pt-2">
+              <div className="rounded-xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3 relative shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)]">
+                <Quote className="absolute top-2 left-2 w-4 h-4 text-slate-200 dark:text-white/5 rotate-180" />
+                <p className="text-[13px] italic text-slate-600 dark:text-slate-400 leading-relaxed pl-2 relative z-10">
+                  &ldquo;{kp.evidence}&rdquo;
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
-    </motion.div>
+    </div>
   )
 }
 
@@ -324,7 +309,32 @@ export function VideoDetailPanel({
     return 'video' // Default fallback
   }, [task, audioData])
 
-  if (!task) return null
+  if (!task) {
+    return (
+      <div className={cn("h-full flex flex-col overflow-hidden px-2 pt-2 pb-4", className)}>
+        <div className="flex items-center justify-between px-2 shrink-0">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <span className="p-1.5 bg-white/50 dark:bg-white/10 rounded-lg shadow-sm ring-1 ring-white dark:ring-white/20 backdrop-blur-md">
+              <StickyNote className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+            </span>
+            {t("chat.contextPanel.title")}
+          </h3>
+          {onClose && (
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 hover:bg-white/20 dark:hover:bg-white/10">
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-1 items-center justify-center px-6 text-sm text-slate-500 dark:text-slate-400"
+        >
+          {t("tasks.loadingTask")}
+        </div>
+      </div>
+    )
+  }
 
   const overviewParts = summary?.overview ? splitOverview(summary.overview) : []
 

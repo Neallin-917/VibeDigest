@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { VideoDetailPanel } from '../VideoDetailPanel'
 
 // Define mocks
@@ -52,6 +52,7 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
         "tasks.summaryStructured.tldrTitle": "TL;DR",
         "tasks.summaryStructured.sectionsTitle": "Sections",
         "tasks.summaryStructured.overviewTitle": "Overview",
+        "tasks.summaryStructured.evidenceLabel": "Evidence",
         "chat.contextPanel.noSummary": "No summary available"
       }
       return translations[key] || key
@@ -88,10 +89,11 @@ describe('VideoDetailPanel', () => {
     })
   })
 
-  it('renders loading state initially', () => {
+  it('renders a calm loading state while task data is unavailable', () => {
     mockSingle.mockResolvedValue({ data: null })
     render(<VideoDetailPanel taskId="task-123" />)
-    expect(screen.queryByText('chat.contextPanel.title')).not.toBeInTheDocument()
+    expect(screen.getByText('chat.contextPanel.title')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('tasks.loadingTask')
   })
 
   it('renders task info and video player', async () => {
@@ -129,7 +131,7 @@ describe('VideoDetailPanel', () => {
     })
   })
 
-  it('renders V4 summary fields and dynamic sections', async () => {
+  it('renders V4 summary fields and reveals evidence on demand', async () => {
     const summaryContent = {
       version: 4,
       language: 'en',
@@ -172,9 +174,14 @@ describe('VideoDetailPanel', () => {
       expect(screen.getByText('TL;DR')).toBeInTheDocument()
       expect(screen.getByText('Short take for V4.')).toBeInTheDocument()
       expect(screen.getByText('Why this matters.')).toBeInTheDocument()
-      expect(screen.getByText('Evidence quote.', { exact: false })).toBeInTheDocument()
       expect(screen.getByText('Insights')).toBeInTheDocument()
       expect(screen.getByText('Item A')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText('Evidence quote.', { exact: false })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Evidence'))
+    await waitFor(() => {
+      expect(screen.getByText('Evidence quote.', { exact: false })).toBeInTheDocument()
     })
   })
 

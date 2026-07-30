@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { createClient } from '@/lib/supabase'
@@ -137,33 +136,18 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
       <div className="text-center max-w-lg mb-8">
 
         {/* Title */}
-        <motion.h1
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-3"
-        >
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-3">
           {t('chat.welcome.title')}
-        </motion.h1>
+        </h1>
 
         {/* Subtitle */}
-        <motion.p
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-sm md:text-base text-slate-500 dark:text-slate-400 leading-relaxed"
-        >
+        <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 leading-relaxed">
           {t('chat.welcome.subtitle')}
-        </motion.p>
+        </p>
       </div>
 
       {/* Inline Chat Input - Centered, part of the content flow */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-        className="w-full max-w-3xl mb-10"
-      >
+      <div className="w-full max-w-3xl mb-10">
         <ChatInput
           variant="inline"
           onSubmit={onSubmit}
@@ -176,7 +160,7 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
             {t('auth.signInToChat')}
           </p>
         )}
-      </motion.div>
+      </div>
 
       {/* Examples Section */}
       {loading ? (
@@ -198,27 +182,16 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
           </div>
 
           {/* Grid Layout */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
-          >
-            {examples.map((task, idx) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3, delay: 0.5 + idx * 0.05 }}
-                whileHover={{ scale: 1.05, y: -2 }}
-              >
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+            {examples.map((task) => (
+              <div key={task.id}>
                 <QuickTemplateCard
                   task={task}
                   onSelect={onSelectExample}
                 />
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
 
           {/* Load More Trigger */}
           {hasMore && (

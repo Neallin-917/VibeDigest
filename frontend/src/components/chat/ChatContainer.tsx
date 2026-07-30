@@ -15,7 +15,6 @@ import { useChatScroll } from './useChatScroll'
 import { useDirectUrlSubmission } from './useDirectUrlSubmission'
 
 import { Loader2, XCircle } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { chatDataSchemas, createUserTextMessage, type ChatUIMessage } from '@/lib/chat-ui'
 
@@ -340,13 +339,11 @@ export function ChatContainer({
                 onOpenPanel={onOpenPanel}
               />
             ) : null}
-            {/* Performance: No AnimatePresence wrapper — only the newest message gets motion */}
-            {renderMessages.map((m, index) => (
+            {renderMessages.map((m) => (
               <MessageRow
                 key={m.id}
                 message={m}
                 isStreaming={false}
-                enableMotion={index === renderMessages.length - 1}
                 onOpenPanel={onOpenPanel}
                 liveTaskIds={liveTaskIdsByMessage.get(m.id)}
               />
@@ -357,7 +354,6 @@ export function ChatContainer({
                 key={streamingMessage.id}
                 message={streamingMessage}
                 isStreaming
-                enableMotion={false}
                 onOpenPanel={onOpenPanel}
                 liveTaskIds={new Set<string>()}
               />
@@ -365,7 +361,7 @@ export function ChatContainer({
 
             {/* Loading Indicator - Only show when submitted but not yet streaming (waiting for first chunk) */}
             {(status === 'submitted' || (status === 'streaming' && !hasRenderableAssistant)) && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex w-full">
+              <div className="flex w-full">
                 <div className="flex flex-col gap-2">
                   <div className="bg-white/40 dark:bg-white/5 px-5 py-3 rounded-2xl rounded-tl-sm border border-white/40 dark:border-white/5 flex items-center gap-2 w-fit">
                     <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
@@ -374,7 +370,7 @@ export function ChatContainer({
                     </span>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
 
           </div>
@@ -384,7 +380,7 @@ export function ChatContainer({
       {displayErrorMessage && (
         <div className="px-4 md:px-8 pb-4">
           <div className="max-w-3xl mx-auto">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex w-full">
+            <div className="flex w-full">
               <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 px-4 py-3 rounded-xl flex items-center gap-3">
                 <XCircle className="w-4 h-4 text-red-500" />
                 <div className="text-sm text-red-600 dark:text-red-400">
@@ -406,7 +402,7 @@ export function ChatContainer({
                   </button>
                 ) : null}
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       )}

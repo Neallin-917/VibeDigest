@@ -404,7 +404,7 @@
           <div class="card metric"><strong>1</strong><span>产品运行路径：Cloud</span></div>
           <div class="card metric"><strong>1</strong><span>Python 依赖 SSOT：pyproject + uv.lock</span></div>
           <div class="card metric"><strong>588</strong><span>后端通过测试</span></div>
-          <div class="card metric"><strong>284</strong><span>前端通过测试</span></div>
+          <div class="card metric"><strong>285</strong><span>前端通过测试</span></div>
         </div>
         <div class="card verdict" style="margin-top:16px">
           <p>
@@ -653,7 +653,7 @@
           <div class="card">
             <h3>已通过</h3>
             <div class="evidence">Backend: 588 passed · 1 xfailed · coverage 76.36%</div>
-            <div class="evidence">Frontend: 50 files · 284 tests passed</div>
+            <div class="evidence">Frontend: 50 files · 285 tests passed</div>
             <div class="evidence">Node 24.18.1 · Next.js 16.2.12 production build: success</div>
             <div class="evidence">Ruff + ESLint: success</div>
             <div class="evidence">PGMQ 1.5.1 real integration: 4/4 passed</div>
@@ -758,7 +758,11 @@
             <li>首页删除非必要评价区与大部分装饰性 JS 动画；landing client manifest 已不再包含 <code>framer-motion</code>。</li>
             <li>中文、英文、日文首页核心文案对齐；移动菜单跳转保持当前语言。</li>
             <li>社区示例的语言与加载文案由服务端显式传入，避免客户端上下文耦合；中文探索页同步完成本地化。</li>
-            <li>验证结果：ESLint 通过、50 个测试文件共 284 项通过、生产构建通过、首页视觉与移动端 E2E 2/2 通过。</li>
+            <li>新对话不再等待远端历史列表：客户端立即创建临时 thread 并开放输入，历史记录在后台刷新。</li>
+            <li>带 task 的聊天入口并行获取对话列表与目标 thread，减少一次可避免的网络瀑布。</li>
+            <li>聊天首屏与消息列表移除 <code>framer-motion</code>；摘要面板取消逐卡片动画，依据默认收起，降低首屏脚本和阅读噪音。</li>
+            <li>任务详情的骨架闪烁改为稳定的单行状态；摘要面板在数据返回前保留标题、关闭入口与可访问状态提示。</li>
+            <li>验证结果：ESLint 通过、50 个测试文件共 285 项通过、生产构建通过；聊天首屏与已有摘要在内置浏览器完成前后截图对比，无布局回退。</li>
           </ul>
         </div>
         <div class="grid two">

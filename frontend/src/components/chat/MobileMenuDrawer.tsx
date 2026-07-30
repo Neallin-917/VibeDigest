@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { BrandLogo } from '@/components/layout/BrandLogo'
+import { useProgressiveThreadList } from '@/hooks/useProgressiveThreadList'
 import type { Thread } from '@/types'
 import { ThreadActionMenu } from '@/components/layout/sidebar/ThreadActionMenu'
 
@@ -63,6 +64,16 @@ function MobileMenuDrawerComponent({
   )
   const isSelectedThreadArchived = archivedThreads.some((thread) => thread.id === currentSelectedThreadId)
   const shouldShowArchivedThreads = isArchivedOpen || isSelectedThreadArchived
+  const {
+    visibleThreads: visibleActiveThreads,
+    hasMore: hasMoreActiveThreads,
+    loadMore: loadMoreActiveThreads,
+  } = useProgressiveThreadList(activeThreads, currentSelectedThreadId)
+  const {
+    visibleThreads: visibleArchivedThreads,
+    hasMore: hasMoreArchivedThreads,
+    loadMore: loadMoreArchivedThreads,
+  } = useProgressiveThreadList(archivedThreads, currentSelectedThreadId)
   
   const handleNewChat = () => {
     onOpenChange(false)
@@ -140,13 +151,14 @@ function MobileMenuDrawerComponent({
               <div className="space-y-0.5 mt-1">
                 {activeThreads.length === 0 ? (
                    <div className="px-3 py-2 text-xs text-slate-400">
-                    {archivedThreads.length === 0 ? 'No chats yet' : (t('chat.noActiveChats') || 'No active chats')}
+                    {archivedThreads.length === 0 ? t('chat.noChats') : t('chat.noActiveChats')}
                   </div>
                 ) : (
-                  activeThreads.map(thread => (
+                  visibleActiveThreads.map(thread => (
                     <MobileThreadListItem
                       key={thread.id}
                       thread={thread}
+                      defaultTitle={t('chat.newChat')}
                       isSelected={currentSelectedThreadId === thread.id}
                       onSelectThread={onSelectThread}
                       onPrefetchThread={onPrefetchThread}
@@ -154,6 +166,16 @@ function MobileMenuDrawerComponent({
                     />
                   ))
                 )}
+
+                {hasMoreActiveThreads ? (
+                  <button
+                    type="button"
+                    onClick={loadMoreActiveThreads}
+                    className="w-full rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                  >
+                    {t('chat.loadMore')}
+                  </button>
+                ) : null}
 
                 {archivedThreads.length > 0 ? (
                   <div className="pt-3">
@@ -177,16 +199,26 @@ function MobileMenuDrawerComponent({
 
                     {shouldShowArchivedThreads ? (
                       <div className="space-y-0.5 mt-1">
-                        {archivedThreads.map((thread) => (
+                        {visibleArchivedThreads.map((thread) => (
                           <MobileThreadListItem
                             key={thread.id}
                             thread={thread}
+                            defaultTitle={t('chat.newChat')}
                             isSelected={currentSelectedThreadId === thread.id}
                             onSelectThread={onSelectThread}
                             onPrefetchThread={onPrefetchThread}
                             onUpdateThreadStatus={onUpdateThreadStatus}
                           />
                         ))}
+                        {hasMoreArchivedThreads ? (
+                          <button
+                            type="button"
+                            onClick={loadMoreArchivedThreads}
+                            className="w-full rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                          >
+                            {t('chat.loadMore')}
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -200,7 +232,7 @@ function MobileMenuDrawerComponent({
         {/* Footer - Simplified hint */}
         <div className="p-4 border-t border-slate-200/60 dark:border-white/10">
           <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
-            Tap your avatar for more options
+            {t('chat.moreOptionsHint')}
           </p>
         </div>
       </SheetContent>
@@ -212,17 +244,23 @@ export const MobileMenuDrawer = memo(MobileMenuDrawerComponent)
 
 function MobileThreadListItem({
   thread,
+  defaultTitle,
   isSelected,
   onSelectThread,
   onPrefetchThread,
   onUpdateThreadStatus,
 }: {
   thread: Thread
+  defaultTitle: string
   isSelected: boolean
   onSelectThread?: (threadId: string) => void
   onPrefetchThread?: (threadId: string) => void
   onUpdateThreadStatus?: (threadId: string, status: 'active' | 'archived') => void | Promise<void>
 }) {
+  const displayTitle = !thread.title || thread.title === 'New Chat'
+    ? defaultTitle
+    : thread.title
+
   return (
     <div
       className={cn(
@@ -243,12 +281,12 @@ function MobileThreadListItem({
           "w-4 h-4 shrink-0",
           isSelected ? "text-emerald-500" : "text-slate-400"
         )} />
-        <span className="text-sm font-medium truncate">{thread.title || 'New Chat'}</span>
+        <span className="text-sm font-medium truncate">{displayTitle}</span>
       </button>
 
       {thread.status === 'active' || thread.status === 'archived' ? (
         <ThreadActionMenu
-          threadTitle={thread.title || 'New Chat'}
+          threadTitle={displayTitle}
           status={thread.status}
           onUpdateStatus={(status) => onUpdateThreadStatus?.(thread.id, status)}
         />

@@ -120,4 +120,55 @@ describe('AppSidebar', () => {
 
     expect(onUpdateThreadStatus).toHaveBeenCalledWith('thread-archived', 'active')
   })
+
+  it('renders recent threads first and reveals older threads on demand', () => {
+    const threads = Array.from({ length: 25 }, (_, index) => ({
+      id: `thread-${index + 1}`,
+      title: `Chat ${index + 1}`,
+      updated_at: `2026-04-${String(25 - index).padStart(2, '0')}T00:00:00Z`,
+      status: 'active' as const,
+    }))
+
+    render(<AppSidebar threads={threads} />)
+
+    expect(screen.getByText('Chat 20')).toBeInTheDocument()
+    expect(screen.queryByText('Chat 21')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'chat.loadMore' }))
+
+    expect(screen.getByText('Chat 25')).toBeInTheDocument()
+  })
+
+  it('keeps a selected older thread visible before loading the full list', () => {
+    const threads = Array.from({ length: 25 }, (_, index) => ({
+      id: `thread-${index + 1}`,
+      title: `Chat ${index + 1}`,
+      updated_at: `2026-04-${String(25 - index).padStart(2, '0')}T00:00:00Z`,
+      status: 'active' as const,
+    }))
+
+    render(
+      <AppSidebar
+        threads={threads}
+        selectedThreadId="thread-25"
+      />
+    )
+
+    expect(screen.getByText('Chat 25')).toBeInTheDocument()
+    expect(screen.queryByText('Chat 21')).not.toBeInTheDocument()
+  })
+
+  it('localizes the persisted default thread title', () => {
+    render(
+      <AppSidebar
+        threads={[
+          { id: 'thread-default', title: 'New Chat', updated_at: '2026-04-19T00:00:00Z', status: 'active' },
+        ]}
+      />
+    )
+
+    expect(screen.getAllByText('chat.newChat')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Open thread actions for chat.newChat' })).toBeInTheDocument()
+    expect(screen.queryByText('New Chat')).not.toBeInTheDocument()
+  })
 })

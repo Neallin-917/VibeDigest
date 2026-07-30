@@ -92,4 +92,49 @@ describe('MobileMenuDrawer', () => {
 
     expect(onUpdateThreadStatus).toHaveBeenCalledWith('thread-archived', 'active')
   })
+
+  it('limits the initial thread list and loads older chats on demand', () => {
+    const threads = Array.from({ length: 25 }, (_, index) => ({
+      id: `thread-${index + 1}`,
+      title: `Chat ${index + 1}`,
+      updated_at: `2026-04-${String(25 - index).padStart(2, '0')}T00:00:00Z`,
+      status: 'active' as const,
+    }))
+
+    render(
+      <MobileMenuDrawer
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onNewChat={vi.fn()}
+        onOpenLibrary={vi.fn()}
+        threads={threads}
+      />
+    )
+
+    expect(screen.getByText('Chat 20')).toBeInTheDocument()
+    expect(screen.queryByText('Chat 21')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'chat.loadMore' }))
+
+    expect(screen.getByText('Chat 25')).toBeInTheDocument()
+  })
+
+  it('localizes persisted default titles and the mobile hint', () => {
+    render(
+      <MobileMenuDrawer
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onNewChat={vi.fn()}
+        onOpenLibrary={vi.fn()}
+        threads={[
+          { id: 'thread-default', title: 'New Chat', updated_at: '2026-04-19T00:00:00Z', status: 'active' },
+        ]}
+      />
+    )
+
+    expect(screen.getAllByText('chat.newChat')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Open thread actions for chat.newChat' })).toBeInTheDocument()
+    expect(screen.queryByText('New Chat')).not.toBeInTheDocument()
+    expect(screen.getByText('chat.moreOptionsHint')).toBeInTheDocument()
+  })
 })

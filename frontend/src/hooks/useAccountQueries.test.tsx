@@ -69,6 +69,24 @@ describe("account queries", () => {
         expect(mockGetUser).toHaveBeenCalledTimes(1)
     })
 
+    it("treats a missing auth session as a normal guest state", async () => {
+        mockGetUser.mockResolvedValue({
+            data: { user: null },
+            error: { name: "AuthSessionMissingError", message: "Auth session missing" },
+        })
+        const queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: 1, retryDelay: 0 } },
+        })
+
+        const { result } = renderHook(() => useCurrentUserQuery(), {
+            wrapper: createWrapper(queryClient),
+        })
+
+        await waitFor(() => expect(result.current.isSuccess).toBe(true))
+        expect(result.current.data).toBeNull()
+        expect(mockGetUser).toHaveBeenCalledTimes(1)
+    })
+
     it("reuses a fresh profile across component remounts", async () => {
         const queryClient = new QueryClient({
             defaultOptions: { queries: { retry: false } },

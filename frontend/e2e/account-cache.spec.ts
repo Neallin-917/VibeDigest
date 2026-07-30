@@ -3,6 +3,20 @@ import { expect, test } from "@playwright/test"
 import { setupApiMocks } from "./fixtures/mock-api"
 
 test.describe("Shared account state", () => {
+    test("shows the guest account action without an auth retry delay", async ({ page }, testInfo) => {
+        test.skip(
+            testInfo.project.name !== "chromium-guest",
+            "Guest account timing only applies without an authenticated session",
+        )
+
+        await setupApiMocks(page, { isAuthenticated: false })
+        await page.goto("/en")
+
+        await expect(page.getByRole("link", { name: "Sign Up" })).toBeVisible({
+            timeout: 1_500,
+        })
+    })
+
     test("reuses account and plan data from chat to pricing", async ({ page }, testInfo) => {
         test.skip(
             testInfo.project.name === "chromium-guest",

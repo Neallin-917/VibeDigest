@@ -1,7 +1,5 @@
-import { useState, useEffect, useMemo } from "react"
-import type { User } from "@supabase/supabase-js"
-import { createClient } from "@/lib/supabase"
 import { env } from "@/env"
+import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 
 /**
  * Hook to detect authentication state.
@@ -9,24 +7,17 @@ import { env } from "@/env"
  * Supports E2E test mode via VIBEDIGEST_E2E_AUTH_BYPASS cookie.
  */
 export function useAuth(): { isAuthenticated: boolean | null } {
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
-        if (typeof document !== 'undefined' && env.NEXT_PUBLIC_E2E_MOCK === '1') {
-            return document.cookie
-                .split(';')
-                .some(c => c.trim() === 'VIBEDIGEST_E2E_AUTH_BYPASS=true')
-        }
-        return null
-    })
-    const supabase = useMemo(() => createClient(), [])
+    const isE2E = env.NEXT_PUBLIC_E2E_MOCK === "1"
+    const hasE2EBypass = isE2E && typeof document !== "undefined"
+        ? document.cookie
+            .split(";")
+            .some((cookie) => cookie.trim() === "VIBEDIGEST_E2E_AUTH_BYPASS=true")
+        : false
+    const { data: user, isLoading } = useCurrentUserQuery({ enabled: !isE2E })
 
-    useEffect(() => {
-        if (env.NEXT_PUBLIC_E2E_MOCK === '1') {
-            return
-        }
-        supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
-            setIsAuthenticated(!!user)
-        })
-    }, [supabase])
+    if (isE2E) {
+        return { isAuthenticated: hasE2EBypass }
+    }
 
-    return { isAuthenticated }
+    return { isAuthenticated: isLoading ? null : Boolean(user) }
 }

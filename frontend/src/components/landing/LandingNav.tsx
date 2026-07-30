@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { motion } from "framer-motion"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Menu } from "lucide-react"
 import { LandingUserButton } from "@/components/auth/LandingUserButton"
@@ -34,7 +33,6 @@ const navItems: NavItem[] = [
 
 export function LandingNav() {
     const { locale, t } = useI18n()
-    const [activeSection] = useState<string>("hero")
     const [isScrolled, setIsScrolled] = useState(false)
 
     // Labels for navigation items
@@ -101,18 +99,9 @@ export function LandingNav() {
                                     href={`/${locale}/#${item.id}`}
                                     className={cn(
                                         "relative px-4 py-2 rounded-full text-[13px] font-medium tracking-wide transition-colors duration-200",
-                                        activeSection === item.id
-                                            ? "text-emerald-800 font-semibold dark:text-white"
-                                            : "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
+                                        "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
                                     )}
                                 >
-                                    {activeSection === item.id && (
-                                        <motion.div
-                                            layoutId="nav-pill"
-                                            className="absolute inset-0 bg-emerald-50/80 dark:bg-white/10 rounded-full -z-10"
-                                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                        />
-                                    )}
                                     {labels[item.key]}
                                 </Link>
                             )
@@ -135,7 +124,11 @@ export function LandingNav() {
                         <LandingUserButton />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <button className="p-2 -mr-2 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10 transition-colors">
+                                <button
+                                    type="button"
+                                    aria-label={t("nav.menu")}
+                                    className="p-2 -mr-2 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10 transition-colors"
+                                >
                                     <Menu className="w-5 h-5" />
                                 </button>
                             </DropdownMenuTrigger>
@@ -155,7 +148,7 @@ export function LandingNav() {
                                     </div>
                                 </div>
                                 <DropdownMenuItem asChild>
-                                    <Link href="/chat" className="cursor-pointer text-slate-700 dark:text-white/70 w-full">
+                                    <Link href={`/${locale}/chat`} className="cursor-pointer text-slate-700 dark:text-white/70 w-full">
                                         {t("auth.goToDashboard")}
                                     </Link>
                                 </DropdownMenuItem>
@@ -176,7 +169,7 @@ export function LandingNav() {
                                         >
                                             <Link
                                                 href={`/${locale}/#${item.id}`}
-                                                className={`cursor-pointer w-full ${activeSection === item.id ? "text-emerald-700 dark:text-primary" : "text-slate-700 dark:text-white/70"}`}
+                                                className="cursor-pointer w-full text-slate-700 dark:text-white/70"
                                             >
                                                 {labels[item.key]}
                                             </Link>

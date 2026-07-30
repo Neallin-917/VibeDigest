@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { TypewriterPlaceholder } from './TypewriterPlaceholder'
@@ -64,7 +63,7 @@ export function ChatInput({
         : "w-full"
     )}>
       <div className={cn("w-full", isFloating ? "max-w-3xl" : "max-w-2xl")}>
-        <motion.form
+        <form
           onSubmit={handleSubmit}
           className={cn(
             "relative rounded-[2rem] p-2 pl-6 flex items-center gap-3 ring-1 transition-all duration-300",
@@ -86,7 +85,7 @@ export function ChatInput({
               onChange={(e) => setInput(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              aria-label="Chat input"
+              aria-label={t('chat.inputLabel')}
               data-testid="chat-input"
               className={cn(
                 "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 dark:text-zinc-100",
@@ -99,40 +98,29 @@ export function ChatInput({
             />
           </div>
 
-          <motion.button
+          <button
             type={isStopMode ? "button" : "submit"}
             onClick={isStopMode ? handleStop : undefined}
             disabled={(!input.trim() && !isStopMode) || (isLoading && !isStopMode) || (disabled && !isStopMode)}
             className={cn(
-              "p-2.5 rounded-[1.2rem] shadow-sm transition-all duration-300 active:scale-95 shrink-0 mr-1",
+              "p-2.5 rounded-[1.2rem] shadow-sm transition-colors duration-200 active:scale-95 shrink-0 mr-1",
               isStopMode
                 ? "bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600"
                 : (input.trim() && !isLoading && !disabled
                   ? "bg-gradient-to-tr from-emerald-600 to-emerald-500 hover:to-emerald-400 text-white shadow-emerald-200/50 dark:shadow-none"
                   : "bg-slate-200/50 dark:bg-zinc-800/50 text-slate-400 dark:text-zinc-600 cursor-not-allowed shadow-none")
             )}
-            aria-label={isStopMode ? "Stop generation" : "Send message"}
-            whileHover={{ scale: (input.trim() || isStopMode) && (!isLoading || isStopMode) && !disabled ? 1.05 : 1 }}
-            whileTap={{ scale: 0.95 }}
+            aria-label={isStopMode ? t('chat.stopGeneration') : t('chat.sendMessage')}
           >
-            <motion.div
-              animate={{ 
-                y: (input.trim() || isStopMode) && (!isLoading || isStopMode) && !disabled ? [0, -2, 0] : 0 
-              }}
-              transition={{ 
-                duration: 0.5, 
-                repeat: (input.trim() || isStopMode) && (!isLoading || isStopMode) && !disabled ? Infinity : 0,
-                repeatType: "reverse"
-              }}
-            >
+            <div>
               {isStopMode ? (
                 <Square className="w-5 h-5 fill-current" />
               ) : (
                 <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
               )}
-            </motion.div>
-          </motion.button>
-        </motion.form>
+            </div>
+          </button>
+        </form>
 
         {/* Disclaimer - hidden on mobile for more space */}
         {!hideDisclaimer && (

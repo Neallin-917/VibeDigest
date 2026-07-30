@@ -6,6 +6,31 @@ import { TemplatesSkeleton } from "@/components/templates/TemplatesSkeleton"
 import Link from "next/link"
 import type { Metadata } from "next"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
+
+const EXPLORE_COPY = {
+    en: {
+        title: "Explore community summaries",
+        description: "Browse real examples created with VibeDigest.",
+        privacy: "Privacy Policy",
+        terms: "Terms of Service",
+        copyright: "All rights reserved.",
+    },
+    zh: {
+        title: "探索社区摘要",
+        description: "浏览使用 VibeDigest 创建的真实示例。",
+        privacy: "隐私政策",
+        terms: "服务条款",
+        copyright: "保留所有权利。",
+    },
+    ja: {
+        title: "コミュニティの要約を見る",
+        description: "VibeDigestで作成された実例を閲覧できます。",
+        privacy: "プライバシーポリシー",
+        terms: "利用規約",
+        copyright: "All rights reserved.",
+    },
+} as const
 
 const SEO_COPY: Record<string, { title: string; description: string }> = {
     en: {
@@ -55,6 +80,9 @@ export async function generateMetadata({
 
 export default async function ExplorePage({ params }: { params: Promise<{ lang: string }> }) {
     const { lang } = await params
+    const locale = isLocale(lang) ? lang : DEFAULT_LOCALE
+    const copy = EXPLORE_COPY[locale]
+
     return (
         <div className="min-h-screen bg-transparent text-slate-800 dark:text-[#F5F5F5] font-sans flex flex-col">
             <LandingNav />
@@ -74,24 +102,24 @@ export default async function ExplorePage({ params }: { params: Promise<{ lang: 
             <main className="flex-1 w-full max-w-6xl mx-auto px-6 py-24 relative z-10">
                 <div className="mb-12 text-center max-w-2xl mx-auto">
                     <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-white/70">
-                        Explore Community Summaries
+                        {copy.title}
                     </h1>
                     <p className="text-base text-slate-600 dark:text-gray-400">
-                        Discover what others are watching and summarizing with AI. Browse through thousands of processed videos.
+                        {copy.description}
                     </p>
 
                 </div>
 
                 <Suspense fallback={<TemplatesSkeleton />}>
-                    <ServerCommunityTemplates limit={100} showHeader={false} />
+                    <ServerCommunityTemplates limit={100} showHeader={false} locale={locale} />
                 </Suspense>
             </main>
 
             <footer className="py-8 text-center text-slate-500 dark:text-gray-600 text-xs border-t border-slate-200 dark:border-white/5 relative z-10 bg-white/50 dark:bg-[#0A0A0A] backdrop-blur-sm">
-                <p>© 2024 VibeDigest. All rights reserved.</p>
+                <p>© {new Date().getFullYear()} VibeDigest. {copy.copyright}</p>
                 <div className="mt-3 flex justify-center gap-5">
-                    <Link href={`/${lang}/privacy`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{lang === 'zh' ? '隐私政策' : lang === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
-                    <Link href={`/${lang}/terms`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{lang === 'zh' ? '服务条款' : lang === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
+                    <Link href={`/${locale}/privacy`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{copy.privacy}</Link>
+                    <Link href={`/${locale}/terms`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{copy.terms}</Link>
                 </div>
             </footer>
         </div>

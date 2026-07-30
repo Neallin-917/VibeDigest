@@ -5,7 +5,6 @@ import { Heading, Text } from "@/components/ui/typography"
 import { Button } from "@/components/ui/button"
 import { Mail } from "lucide-react"
 import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
-import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 export function SupportCTA() {
@@ -13,11 +12,7 @@ export function SupportCTA() {
 
     return (
         <section className="max-w-4xl mx-auto px-6 mb-20">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
+            <div
                 className={cn(
                     "backdrop-blur-xl border rounded-2xl p-10 md:p-16 text-center relative overflow-hidden group",
                     // Light mode
@@ -57,7 +52,7 @@ export function SupportCTA() {
                         </FeedbackDialog>
                     </div>
                 </div>
-            </motion.div>
+            </div>
         </section>
     )
 }

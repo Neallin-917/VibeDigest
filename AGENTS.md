@@ -65,6 +65,8 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 12. **Minimalism Heuristic**: When multiple valid UI solutions exist, prefer the one with the least visual noise, the fewest transient states, and the smallest cognitive load while preserving clarity and speed.
 13. **Cloud-only Guardrail**: Development and tests may use localhost, but must keep the production Postgres, Supabase Auth/Realtime, queue semantics, and API contracts; do not introduce an alternative storage, event, or task execution path.
 14. **Queue Integrity**: Task/output state changes and PGMQ submission must share one Postgres transaction. Queue messages contain entity IDs only, workers must renew visibility leases, and archive is allowed only after a confirmed terminal write.
+15. **Current Product Stage**: VibeDigest is still a small product. Prioritize user experience, frontend responsiveness, perceived and measured performance, and user-facing reliability. Keep baseline protections for credentials, ownership, paid usage, and data loss, but defer heavy defense-in-depth, multi-worker coordination, dedicated security infrastructure, and complex operational consoles until scale, incidents, sensitive-data requirements, or measured load justify them.
+16. **Complexity Budget**: A technical-debt fix must solve a current user problem, a production blocker, or a measured reliability/performance issue. Otherwise document the trigger for revisiting it instead of adding code now.
 
 ## Coverage Policy
 

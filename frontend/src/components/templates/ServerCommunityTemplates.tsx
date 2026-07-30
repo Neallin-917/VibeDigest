@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createTranslator, type Locale } from "@/lib/i18n"
 import { CommunityTemplates, Task } from "./CommunityTemplates"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -27,8 +28,17 @@ const toTask = (value: unknown): Task | null => {
   }
 }
 
-export async function ServerCommunityTemplates({ limit = 8, showHeader = true }: { limit?: number, showHeader?: boolean }) {
+export async function ServerCommunityTemplates({
+  limit = 8,
+  showHeader = true,
+  locale,
+}: {
+  limit?: number
+  showHeader?: boolean
+  locale: Locale
+}) {
   const supabase = await createClient()
+  const t = createTranslator(locale)
 
   // Artificial delay for testing (Uncomment to test Skeleton)
   // await new Promise(resolve => setTimeout(resolve, 3000))
@@ -55,5 +65,17 @@ export async function ServerCommunityTemplates({ limit = 8, showHeader = true }:
     .map(toTask)
     .filter((task): task is Task => Boolean(task))
 
-  return <CommunityTemplates limit={limit} showHeader={showHeader} initialTasks={initialTasks} />
+  return (
+    <CommunityTemplates
+      limit={limit}
+      showHeader={showHeader}
+      initialTasks={initialTasks}
+      locale={locale}
+      copy={{
+        loading: t("taskForm.processing"),
+        title: t("dashboard.communityExamples"),
+        hint: t("dashboard.communityExamplesHint"),
+      }}
+    />
+  )
 }

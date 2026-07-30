@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { CheckCircle2, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase"
-import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useMemo } from "react"
 
@@ -33,7 +32,6 @@ export function PricingSection() {
     const proFeatureKeys = [
         "pricing.pro.features.f1",
         "pricing.pro.features.f2",
-        "pricing.pro.features.f3",
     ] as const
 
     const topupFeatureKeys = [
@@ -76,32 +74,22 @@ export function PricingSection() {
         <section id="pricing" className="bg-noise py-20 px-6 relative scroll-mt-24">
             <div className="max-w-5xl mx-auto">
                 <div className="text-center mb-12">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.6 }}
-                    >
+                    <div>
                         <Heading as="h2" className="text-2xl md:text-4xl font-bold mb-5 font-display text-slate-900 dark:text-white">
                             {t("landing.simplePricing")}
                         </Heading>
                         <Text className="text-slate-600 dark:text-zinc-400 text-base">
                             {t("landing.simplePricingSubtitle")}
                         </Text>
-                    </motion.div>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {plans.map((plan, index) => (
-                        <motion.div
+                        <div
                             key={index}
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            whileHover={{ y: -4, scale: 1.02 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.5, delay: index * 0.1 }}
                             className={cn(
-                                "relative p-6 rounded-2xl flex flex-col backdrop-blur-xl transition-all",
+                                "relative p-6 rounded-2xl flex flex-col backdrop-blur-xl transition-colors duration-200",
                                 plan.highlight
                                     ? cn(
                                         // Light mode highlight
@@ -174,7 +162,7 @@ export function PricingSection() {
                             >
                                 {plan.cta}
                             </Button>
-                        </motion.div>
+                        </div>
                     ))}
                 </div>
             </div>

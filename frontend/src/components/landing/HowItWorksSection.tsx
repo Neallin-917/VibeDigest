@@ -3,7 +3,6 @@
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Heading, Text } from "@/components/ui/typography"
 import { Link2, Bot, FileText } from "lucide-react"
-import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 export function HowItWorksSection() {
@@ -37,19 +36,14 @@ export function HowItWorksSection() {
 
             <div className="max-w-6xl mx-auto relative z-10">
                 <div className="text-center mb-16">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.6 }}
-                    >
+                    <div>
                         <Heading as="h2" className="text-2xl md:text-4xl font-display font-bold mb-5 text-slate-900 dark:text-white">
                             {t("landing.howItWorks")}
                         </Heading>
                         <Text className="text-slate-600 dark:text-zinc-400 text-base max-w-xl mx-auto">
                             {t("landing.howItWorksSubtitle")}
                         </Text>
-                    </motion.div>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-10 relative">
@@ -57,13 +51,9 @@ export function HowItWorksSection() {
                     <div className="hidden md:block absolute top-[2rem] left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-zinc-800 to-transparent z-0" />
 
                     {steps.map((step, index) => (
-                        <motion.div
+                        <div
                             key={index}
                             className="flex flex-col items-center text-center group relative z-10"
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.5, delay: index * 0.2 }}
                         >
                             <div className={cn(
                                 "w-16 h-16 rounded-xl backdrop-blur-xl border flex items-center justify-center mb-6 relative transition-all duration-500",
@@ -89,7 +79,7 @@ export function HowItWorksSection() {
                             <Text className="text-slate-600 dark:text-zinc-400 leading-relaxed max-w-xs text-sm">
                                 {step.desc}
                             </Text>
-                        </motion.div>
+                        </div>
                     ))}
                 </div>
             </div>

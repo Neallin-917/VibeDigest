@@ -4,9 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { PlayCircle, Loader2, Sparkles } from "lucide-react"
-import { useI18n } from "@/components/i18n/I18nProvider"
 import { createClient } from "@/lib/supabase"
-import { motion } from "framer-motion"
+import type { Locale } from "@/lib/i18n"
 
 export type TaskOutput = {
     kind: string
@@ -40,8 +39,7 @@ const getPlatformFromUrl = (url: string) => {
     }
 }
 
-function TemplateCard({ task }: { task: Task }) {
-    const { locale } = useI18n()
+function TemplateCard({ task, locale }: { task: Task, locale: Locale }) {
     const platform = getPlatformFromUrl(task.video_url)
     const showAuthor = task.author && task.author !== "Unknown"
 
@@ -119,8 +117,25 @@ function TemplateCard({ task }: { task: Task }) {
     )
 }
 
-export function CommunityTemplates({ limit, showHeader = true, initialTasks = [] }: { limit?: number, showHeader?: boolean, initialTasks?: Task[] }) {
-    const { t } = useI18n()
+type CommunityTemplatesProps = {
+    limit?: number
+    showHeader?: boolean
+    initialTasks?: Task[]
+    locale: Locale
+    copy: {
+        loading: string
+        title: string
+        hint: string
+    }
+}
+
+export function CommunityTemplates({
+    limit,
+    showHeader = true,
+    initialTasks = [],
+    locale,
+    copy,
+}: CommunityTemplatesProps) {
     const [tasks, setTasks] = useState<Task[]>(initialTasks)
     const [loading, setLoading] = useState(initialTasks.length === 0)
     const supabase = useMemo(() => createClient(), [])
@@ -200,21 +215,11 @@ export function CommunityTemplates({ limit, showHeader = true, initialTasks = []
         }
     }, [limit, initialTasks.length, supabase])
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
-            }
-        }
-    }
-
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-12 text-muted-foreground/50">
+            <div className="flex items-center justify-center py-12 text-muted-foreground/70" role="status" aria-live="polite">
                 <Loader2 className="h-6 w-6 animate-spin mr-3 text-primary" />
-                <span className="text-sm font-medium tracking-wide">INITIALIZING DATABASE...</span>
+                <span className="text-sm font-medium">{copy.loading}</span>
             </div>
         )
     }
@@ -230,25 +235,20 @@ export function CommunityTemplates({ limit, showHeader = true, initialTasks = []
                     <div className="flex flex-col gap-1">
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
                             <Sparkles className="h-5 w-5 text-primary" />
-                            {t("dashboard.communityExamples") || "Community"}
+                            {copy.title}
                         </h2>
                         <span className="text-sm text-slate-500 dark:text-white/40 font-medium tracking-wide">
-                            {t("dashboard.communityExamplesHint") || "Explore what others are creating"}
+                            {copy.hint}
                         </span>
                     </div>
                 </div>
             )}
 
-            <motion.div
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-            >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {tasks.map((task) => (
-                    <TemplateCard key={task.id} task={task} />
+                    <TemplateCard key={task.id} task={task} locale={locale} />
                 ))}
-            </motion.div>
+            </div>
         </div>
     )
 }

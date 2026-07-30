@@ -1,13 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { createClient } from '@/lib/supabase'
 import { QuickTemplateCard } from './QuickTemplateCard'
 import { ChatInput } from './ChatInput'
-import { PAGINATION_CONFIG } from '@/lib/constants'
 
 interface Task {
   id: string
@@ -26,111 +25,47 @@ interface WelcomeScreenProps {
   isAuthenticated?: boolean
 }
 
-const EAGER_THUMBNAIL_COUNT = 4
+const CHAT_EXAMPLE_LIMIT = 4
 
 export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenticated = false }: WelcomeScreenProps) {
   const { t } = useI18n()
   const [examples, setExamples] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
   const [supabase] = useState(() => createClient())
-  const examplesCountRef = useRef(0)
-  const loadingRef = useRef(true)
-  const loadingMoreRef = useRef(false)
-  const hasMoreRef = useRef(true)
 
-  const fetchExamples = useCallback(async (offset = 0, append = false) => {
-    if (offset > 0) {
-      setLoadingMore(true)
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchExamples() {
+      try {
+        const { data } = await supabase
+          .from('tasks')
+          .select('id, video_url, video_title, thumbnail_url')
+          .eq('is_demo', true)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(CHAT_EXAMPLE_LIMIT)
+
+        if (!cancelled && data) {
+          setExamples(data as Task[])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to fetch examples:', error)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
     }
 
-    const limit = offset === 0 ? PAGINATION_CONFIG.initialCount : PAGINATION_CONFIG.loadMoreCount
+    void fetchExamples()
 
-    try {
-      const { data, count } = await supabase
-        .from('tasks')
-        .select('id, video_url, video_title, thumbnail_url', { count: 'exact' })
-        .eq('is_demo', true)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
-
-      if (data) {
-        const taskRows = data as Task[]
-        let nextCount = data.length
-        if (append) {
-          setExamples(prev => {
-            const existingIds = new Set(prev.map((task) => task.id))
-            const newItems = taskRows.filter((task) => !existingIds.has(task.id))
-            const nextExamples = [...prev, ...newItems]
-            nextCount = nextExamples.length
-            examplesCountRef.current = nextCount
-            return nextExamples
-          })
-        } else {
-          nextCount = taskRows.length
-          examplesCountRef.current = nextCount
-          setExamples(taskRows)
-        }
-        setHasMore(count !== null && nextCount < count)
-      }
-    } catch (error) {
-      console.error('Failed to fetch examples:', error)
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
+    return () => {
+      cancelled = true
     }
   }, [supabase])
-
-  const observerTarget = useRef<HTMLDivElement>(null)
-
-  const handleLoadMore = useCallback(() => {
-    if (document.visibilityState !== 'visible') return
-    if (!loadingMoreRef.current && hasMoreRef.current) {
-      void fetchExamples(examplesCountRef.current, true)
-    }
-  }, [fetchExamples])
-
-  useEffect(() => {
-    examplesCountRef.current = examples.length
-  }, [examples.length])
-
-  useEffect(() => {
-    loadingRef.current = loading
-  }, [loading])
-
-  useEffect(() => {
-    loadingMoreRef.current = loadingMore
-  }, [loadingMore])
-
-  useEffect(() => {
-    hasMoreRef.current = hasMore
-  }, [hasMore])
-
-  useEffect(() => {
-    // The state writes happen only after the Supabase request settles.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchExamples(0, false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMoreRef.current && !loadingMoreRef.current && !loadingRef.current) {
-          handleLoadMore()
-        }
-      },
-      { threshold: 0.5 }
-    )
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current)
-    }
-
-    return () => observer.disconnect()
-  }, [handleLoadMore])
 
   return (
     <div className="flex flex-col items-center justify-start min-h-full px-6 py-8 md:py-12">
@@ -189,20 +124,11 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
                 <QuickTemplateCard
                   task={task}
                   onSelect={onSelectExample}
-                  eagerThumbnail={index < EAGER_THUMBNAIL_COUNT}
                   highPriorityThumbnail={index === 0}
                 />
               </div>
             ))}
           </div>
-
-          {/* Load More Trigger */}
-          {hasMore && (
-            <div ref={observerTarget} className="flex justify-center mt-8 py-4 opacity-0">
-              {/* Invisible trigger for infinite scroll */}
-              <div className="h-4 w-4" />
-            </div>
-          )}
         </div>
       ) : null}
     </div>

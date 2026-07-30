@@ -10,12 +10,11 @@ const task = {
 }
 
 describe('QuickTemplateCard', () => {
-  it('promotes an above-the-fold thumbnail without preloading it', () => {
+  it('loads a visible thumbnail eagerly and promotes the leading card', () => {
     render(
       <QuickTemplateCard
         task={task}
         onSelect={vi.fn()}
-        eagerThumbnail
         highPriorityThumbnail
       />
     )
@@ -26,12 +25,12 @@ describe('QuickTemplateCard', () => {
     expect(image).toHaveAttribute('fetchpriority', 'high')
   })
 
-  it('keeps later thumbnails lazy and at automatic priority', () => {
+  it('keeps non-leading thumbnails at automatic priority', () => {
     render(<QuickTemplateCard task={task} onSelect={vi.fn()} />)
 
     const image = screen.getByRole('img', { name: task.video_title })
 
-    expect(image).toHaveAttribute('loading', 'lazy')
+    expect(image).toHaveAttribute('loading', 'eager')
     expect(image).toHaveAttribute('fetchpriority', 'auto')
   })
 })

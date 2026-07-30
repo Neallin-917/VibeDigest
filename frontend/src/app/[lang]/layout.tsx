@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Syne, Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { GoogleAnalytics } from '@next/third-parties/google';
 import "../globals.css";
 
 import { cn } from "@/lib/utils";
@@ -28,8 +27,6 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
   variable: "--font-jakarta",
 });
-
-const gaId = env.NEXT_PUBLIC_GA_ID || "";
 
 import { Viewport } from 'next'
 
@@ -188,7 +185,6 @@ export default async function RootLayout({
       <Toaster />
       <Analytics />
       <SpeedInsights />
-      {gaId && <GoogleAnalytics gaId={gaId} />}
     </div>
   );
 }

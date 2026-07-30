@@ -85,6 +85,9 @@ describe('Chat Tools', () => {
     )
 
     expect(screen.getByText('Creation failed')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Processing Error' })).toBeInTheDocument()
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Task created')).not.toBeInTheDocument()
   })
 
   it('renders preview_video output', () => {
@@ -100,6 +103,21 @@ describe('Chat Tools', () => {
     expect(screen.getByText('Cool Video')).toBeInTheDocument()
     expect(screen.getByText('10:00')).toBeInTheDocument()
     expect(screen.getByText('Test Channel')).toBeInTheDocument()
+  })
+
+  it('renders preview_video errors without success placeholders', () => {
+    render(
+      <PreviewVideoTool
+        toolCallId="1"
+        state="output-available"
+        output={{ error: 'Preview failed' }}
+      />
+    )
+
+    expect(screen.getByText('Preview failed')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Video preview Error' })).toBeInTheDocument()
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Untitled video')).not.toBeInTheDocument()
   })
 
   it('renders task outputs summary', () => {

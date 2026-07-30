@@ -73,6 +73,15 @@ the data already present in the sidebar and removes avoidable serial work:
 The fallback metadata request remains available for callers whose thread model
 does not include `task_id`; no new cache, endpoint, or state layer was added.
 
+## Current Tool-State Intervention
+
+Production evidence on commit `25b1f47` showed failed video-preview and
+task-creation cards presenting `Completed` alongside `Error`, with fallback
+success content such as an untitled video or a task-created message. These
+expected business errors now resolve to one error state and suppress success
+placeholders. The change stays inside the existing tool-card components and is
+covered at both component and browser-flow levels.
+
 ## Audit Framework
 
 The frontend is assessed across four layers:

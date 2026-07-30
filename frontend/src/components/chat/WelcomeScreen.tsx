@@ -154,7 +154,6 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
           variant="inline"
           onSubmit={onSubmit}
           isLoading={isLoading}
-          showTypewriter={true}
           hideDisclaimer={true}
         />
         {!isAuthenticated && (

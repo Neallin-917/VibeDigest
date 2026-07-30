@@ -14,10 +14,6 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
   })
 }))
 
-vi.mock('../TypewriterPlaceholder', () => ({
-  TypewriterPlaceholder: ({ visible }: any) => visible ? <div data-testid="typewriter">Typewriter</div> : null
-}))
-
 Object.defineProperty(document, 'visibilityState', {
   configurable: true,
   value: 'visible'
@@ -82,18 +78,12 @@ describe('ChatInput', () => {
     expect(onStop).toHaveBeenCalled()
   })
 
-  it('shows typewriter placeholder when enabled and empty', () => {
-    render(<ChatInput onSubmit={vi.fn()} showTypewriter={true} />)
-    expect(screen.getByTestId('typewriter')).toBeInTheDocument()
-    
-    const input = screen.getByRole('textbox')
+  it('keeps static input guidance while focused', () => {
+    render(<ChatInput onSubmit={vi.fn()} />)
+
+    const input = screen.getByPlaceholderText('Ask me anything...')
     fireEvent.focus(input)
-    expect(screen.queryByTestId('typewriter')).not.toBeInTheDocument()
-    
-    fireEvent.blur(input)
-    expect(screen.getByTestId('typewriter')).toBeInTheDocument()
-    
-    fireEvent.change(input, { target: { value: 'a' } })
-    expect(screen.queryByTestId('typewriter')).not.toBeInTheDocument()
+
+    expect(input).toHaveAttribute('placeholder', 'Ask me anything...')
   })
 })

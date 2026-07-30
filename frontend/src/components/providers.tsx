@@ -1,11 +1,37 @@
 "use client"
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js"
 import { I18nProvider } from "@/components/i18n/I18nProvider"
 import { isLocale } from "@/lib/i18n"
+import { accountKeys } from "@/hooks/useAccountQueries"
+import { createClient } from "@/lib/supabase"
 
 import { ThemeProvider } from "next-themes"
+
+function AccountSessionSync() {
+    const queryClient = useQueryClient()
+    const supabase = useMemo(() => createClient(), [])
+
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+            // useCurrentUserQuery performs the initial server-validated lookup.
+            if (event === "INITIAL_SESSION") {
+                return
+            }
+
+            queryClient.setQueryData(accountKeys.currentUser, session?.user ?? null)
+            if (!session) {
+                queryClient.removeQueries({ queryKey: accountKeys.profiles })
+            }
+        })
+
+        return () => subscription.unsubscribe()
+    }, [queryClient, supabase])
+
+    return null
+}
 
 export function Providers({ children, locale }: { children: React.ReactNode, locale?: string }) {
     const [queryClient] = useState(() => new QueryClient({
@@ -21,6 +47,7 @@ export function Providers({ children, locale }: { children: React.ReactNode, loc
 
     return (
         <QueryClientProvider client={queryClient}>
+            <AccountSessionSync />
             <ThemeProvider
                 attribute="class"
                 defaultTheme="dark"

@@ -70,6 +70,7 @@ src/app/
 | App shell | `src/components/layout/` | Navigation, sidebar, feedback |
 | Shared primitives | `src/components/ui/` | Check here before creating a component; use CVA for variants |
 | Server-state hooks | `src/hooks/` | Query keys, tasks, threads, auth-derived behavior |
+| Account session state | `src/components/providers.tsx` + `src/hooks/useAccountQueries.ts` | One auth listener updates the shared current-user/profile query cache |
 | Backend commands | `src/lib/api.ts` | Typed browser-facing API client |
 | Live task events | `src/lib/task-live.ts` | Supabase Realtime only |
 | Supabase clients | `src/lib/supabase*.ts` | Browser/public and server credential boundaries |

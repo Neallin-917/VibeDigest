@@ -5,18 +5,20 @@ import { Heading, Text } from "@/components/ui/typography"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
-import { useMemo } from "react"
+import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 
 export function PricingSection() {
     const { t, locale } = useI18n()
     const router = useRouter()
-    const supabase = useMemo(() => createClient(), [])
+    const { data: user, refetch: refetchUser } = useCurrentUserQuery()
 
     const handlePlanClick = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        const resolvedUser = user === undefined
+            ? (await refetchUser()).data
+            : user
+
+        if (!resolvedUser) {
             router.push(`/${locale}/login?next=/${locale}/settings/pricing`)
         } else {
             router.push(`/${locale}/settings/pricing`)

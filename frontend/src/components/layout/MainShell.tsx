@@ -1,17 +1,14 @@
 "use client"
 
-import React, { useEffect, useMemo } from "react"
+import React, { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js"
-import { useQueryClient } from "@tanstack/react-query"
 
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { AppSidebarProvider } from "@/components/layout/AppSidebarContext"
 import { MobileBottomNav, MobileHeader } from "@/components/layout/MobileNav"
 import { TaskNotificationListener } from "@/components/tasks/TaskNotificationListener"
 import { useI18n } from "@/components/i18n/I18nProvider"
-import { createClient } from "@/lib/supabase"
-import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 
 export function MainShell({ children }: { children: React.ReactNode }) {
   const { locale } = useI18n()
@@ -26,28 +23,8 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     pathname?.endsWith('/tasks') ||
     pathname?.includes('/explore') ||
     pathname?.endsWith('/explore')
-  const supabase = useMemo(() => createClient(), [])
-  const queryClient = useQueryClient()
   const { data: user, isLoading } = useCurrentUserQuery({ enabled: !isPublicPath })
   const isAuthenticated = Boolean(user)
-
-  // Keep the shared account cache in sync with browser auth changes.
-  useEffect(() => {
-    if (isPublicPath) {
-      return
-    }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      queryClient.setQueryData(accountKeys.currentUser, session?.user ?? null)
-      if (!session) {
-        router.replace(`/${locale}/login`)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [router, supabase, isPublicPath, locale, queryClient])
 
   useEffect(() => {
     if (!isPublicPath && !isLoading && !user) {

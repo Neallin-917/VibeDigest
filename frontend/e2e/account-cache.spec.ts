@@ -3,12 +3,27 @@ import { expect, test } from "@playwright/test"
 import { setupApiMocks } from "./fixtures/mock-api"
 
 test.describe("Shared account state", () => {
+    test("shows the guest account action without an auth retry delay", async ({ page }, testInfo) => {
+        test.skip(
+            testInfo.project.name !== "chromium-guest",
+            "Guest account timing only applies without an authenticated session",
+        )
+
+        await setupApiMocks(page, { isAuthenticated: false })
+        await page.goto("/en")
+
+        await expect(page.getByRole("link", { name: "Sign Up" })).toBeVisible({
+            timeout: 1_500,
+        })
+    })
+
     test("reuses account and plan data from chat to pricing", async ({ page }, testInfo) => {
         test.skip(
             testInfo.project.name === "chromium-guest",
             "Account cache behavior requires an authenticated session",
         )
 
+        let authRequests = 0
         let profileRequests = 0
 
         await setupApiMocks(page, { isAuthenticated: true })
@@ -43,6 +58,7 @@ test.describe("Shared account state", () => {
             path: "/",
         }])
         await page.route("**/auth/v1/user", async (route) => {
+            authRequests += 1
             await route.fulfill({
                 status: 200,
                 contentType: "application/json",
@@ -68,10 +84,15 @@ test.describe("Shared account state", () => {
             })
         })
 
-        await page.goto("/en/chat")
+        await page.goto("/en")
+
+        await expect(page.getByRole("link", { name: "Go to Dashboard" })).toBeVisible()
+        expect(authRequests).toBe(1)
+        await page.getByRole("link", { name: "Go to Dashboard" }).click()
 
         await expect(page.getByLabel("Chat input")).toBeVisible()
         await expect(page.getByRole("button", { name: "Pro", exact: true })).toBeVisible()
+        expect(authRequests).toBe(1)
         expect(profileRequests).toBe(1)
 
         await page.getByRole("button", { name: "Pro", exact: true }).click()
@@ -79,6 +100,7 @@ test.describe("Shared account state", () => {
 
         await expect(page.getByRole("heading", { name: "Plan" })).toBeVisible()
         await expect(page.getByRole("button", { name: "Manage Subscription" })).toBeVisible()
+        expect(authRequests).toBe(1)
         expect(profileRequests).toBe(1)
     })
 })

@@ -27,6 +27,10 @@ async function fetchCurrentUser(): Promise<User | null> {
     const supabase = createClient()
     const { data, error } = await supabase.auth.getUser()
 
+    if (error?.name === "AuthSessionMissingError") {
+        return null
+    }
+
     if (error) {
         throw error
     }

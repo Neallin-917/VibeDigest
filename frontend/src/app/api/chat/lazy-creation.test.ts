@@ -330,7 +330,7 @@ describe('Lazy Thread Creation', () => {
         // ASSERTION: Now we EXPECT the thread insert to happen
         expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
             id: 'lazy-finish-thread-id',
-            title: 'New Chat'
+            title: 'Finish Me'
         }))
     })
 })

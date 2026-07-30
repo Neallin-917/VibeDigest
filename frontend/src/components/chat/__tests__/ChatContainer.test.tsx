@@ -96,7 +96,7 @@ describe('ChatContainer', () => {
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
   })
 
-  it('renders ChatInput and Messages when there are messages', () => {
+  it('renders ChatInput and lazily loads messages when there are messages', async () => {
     const messages: ChatUIMessage[] = [createTextMessage('Hello', 'user', '1')]
     mockUseChat.mockReturnValue({
       messages,
@@ -109,7 +109,7 @@ describe('ChatContainer', () => {
     render(<ChatContainer />)
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument()
     expect(screen.getByTestId('chat-input')).toBeInTheDocument()
-    expect(screen.getByText('Hello')).toBeInTheDocument()
+    expect(await screen.findByText('Hello')).toBeInTheDocument()
   })
 
   it('sends message via ChatInput when authenticated', async () => {
@@ -219,7 +219,7 @@ describe('ChatContainer', () => {
     expect(mockRegenerate).toHaveBeenCalled()
   })
 
-  it('renders tool invocations correctly', () => {
+  it('renders tool invocations correctly', async () => {
     const messagesWithTools: any[] = [
         {
             id: '2',
@@ -242,8 +242,8 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer />)
     
-    expect(screen.getByTestId('tool-get-task-outputs')).toBeInTheDocument()
-    expect(screen.getByTestId('tool-unknown')).toBeInTheDocument()
+    expect(await screen.findByTestId('tool-get-task-outputs')).toBeInTheDocument()
+    expect(await screen.findByTestId('tool-unknown')).toBeInTheDocument()
     expect(screen.queryByTestId('tool-get-task-status')).not.toBeInTheDocument()
     expect(screen.queryByTestId('tool-create-task')).not.toBeInTheDocument()
   })

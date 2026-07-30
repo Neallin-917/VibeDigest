@@ -34,16 +34,23 @@ The conclusions below are grounded in these repository facts:
 | Large files | `src/lib/i18n.ts` 1417 LOC, `VideoDetailPanel.tsx` 623 LOC, `code-block.tsx` 562 LOC, `useThreadNavigation.ts` 463 LOC, `ChatContainer.tsx` 410 LOC |
 | Heavy imports observed | `framer-motion`, `react-markdown`, `shiki`, `@tanstack/react-query`, `@supabase/supabase-js`, `next/navigation`, `sonner`, Vercel analytics |
 
-## Current Verified Intervention
+## Current Verified Interventions
 
-The 2026-07-31 chat-entry pass kept raw code readable immediately and moved
-Shiki syntax highlighting behind a runtime import. This removes a rare tool
-detail dependency from the initial chat route without delaying the primary
-input or ordinary messages.
+The 2026-07-31 chat-entry passes narrowed the critical client graph in two
+stages:
 
-| Metric | Before | After | Change |
+1. Raw code remains readable immediately, while Shiki syntax highlighting is
+   loaded only when a code block needs it.
+2. Markdown and tool-message rendering is omitted from a fresh chat entry and
+   starts loading as soon as the user submits. The download runs in parallel
+   with direct-submit or chat network work, while unauthenticated users avoid
+   the download and existing conversations load the renderer automatically.
+
+| Stage | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| `/[lang]/chat` entry JavaScript, gzip | 419,553 bytes | 380,824 bytes | -38,729 bytes (-9.2%) |
+| Defer Shiki | 419,553 bytes | 380,823 bytes | -38,730 bytes (-9.2%) |
+| Defer message rendering | 380,823 bytes | 336,030 bytes | -44,793 bytes (-11.8%) |
+| Cumulative `/[lang]/chat` entry JavaScript, gzip | 419,553 bytes | 336,030 bytes | -83,523 bytes (-19.9%) |
 
 The same pass removed a submission race at route entry: pending landing/login
 messages now wait for the browser session to resolve, while every login method

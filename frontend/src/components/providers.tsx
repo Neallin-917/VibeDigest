@@ -15,12 +15,9 @@ function AccountSessionSync() {
     const supabase = useMemo(() => createClient(), [])
 
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            // useCurrentUserQuery performs the initial server-validated lookup.
-            if (event === "INITIAL_SESSION") {
-                return
-            }
-
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+            // Render the browser session immediately while useCurrentUserQuery
+            // continues its server-validated lookup in the background.
             queryClient.setQueryData(accountKeys.currentUser, session?.user ?? null)
             if (!session) {
                 queryClient.removeQueries({ queryKey: accountKeys.profiles })

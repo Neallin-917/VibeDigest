@@ -52,7 +52,43 @@ describe("Providers account session sync", () => {
         })
     })
 
-    it("keeps the shared account query in sync after the initial validated lookup", async () => {
+    it("uses the initial browser session while the validated lookup continues", async () => {
+        let resolveUserLookup: ((value: {
+            data: { user: { id: string; email: string } }
+            error: null
+        }) => void) | undefined
+        authMocks.getUser.mockReturnValue(new Promise((resolve) => {
+            resolveUserLookup = resolve
+        }))
+
+        render(
+            <Providers locale="en">
+                <AccountProbe />
+            </Providers>,
+        )
+
+        await waitFor(() => expect(authMocks.callback).toBeTypeOf("function"))
+        act(() => {
+            authMocks.callback?.("INITIAL_SESSION", {
+                user: { id: "user-1", email: "user@example.com" },
+            })
+        })
+
+        expect(await screen.findByText("user@example.com")).toBeInTheDocument()
+        expect(authMocks.getUser).toHaveBeenCalledTimes(1)
+
+        await act(async () => {
+            resolveUserLookup?.({
+                data: {
+                    user: { id: "user-1", email: "user@example.com" },
+                },
+                error: null,
+            })
+        })
+        expect(screen.getByText("user@example.com")).toBeInTheDocument()
+    })
+
+    it("keeps the shared account query in sync with later auth changes", async () => {
         render(
             <Providers locale="en">
                 <AccountProbe />

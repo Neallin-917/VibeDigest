@@ -22,7 +22,7 @@ interface ChatContainerProps {
   activeTaskId?: string | null
   threadId?: string | null
   initialMessages?: ChatUIMessage[]
-  isAuthenticated?: boolean
+  isAuthenticated?: boolean | null
   isInteractionLocked?: boolean
   onOpenPanel?: (taskId: string) => void
   onSelectExample?: (taskId: string) => void
@@ -70,7 +70,7 @@ export function ChatContainer({
   activeTaskId,
   threadId,
   initialMessages = [],
-  isAuthenticated = false,
+  isAuthenticated = null,
   isInteractionLocked = false,
   onOpenPanel,
   onSelectExample,
@@ -179,8 +179,15 @@ export function ChatContainer({
     const trimmed = content.trim()
     if (!trimmed) return false
 
-    // Auth gate: save message and redirect to login for unauthenticated users
-    if (!isAuthenticated) {
+    // The initial browser session arrives asynchronously. Queue the submission
+    // until that local session is known instead of misrouting a signed-in user.
+    if (isAuthenticated === null) {
+      localStorage.setItem('vibedigest_pending_message', trimmed)
+      return true
+    }
+
+    // Auth gate: save message and redirect to login for unauthenticated users.
+    if (isAuthenticated === false) {
       localStorage.setItem('vibedigest_pending_message', trimmed)
       handleLogin()
       return true
@@ -254,16 +261,20 @@ export function ChatContainer({
   const { scrollRef, handleScroll } = useChatScroll({ messages, status, activeTaskId })
   const showStandaloneTaskGroup = Boolean(activeTaskId && renderMessages.length === 0 && !streamingMessage)
 
-  // Handle pending landing page message
+  const handledPendingMessageRef = useRef(false)
+
+  // Handle a pending landing/login message once the browser session is known.
   useEffect(() => {
+    if (isAuthenticated === null || handledPendingMessageRef.current) return
+
     const pendingMessage = localStorage.getItem('vibedigest_pending_message')
     if (pendingMessage) {
+      handledPendingMessageRef.current = true
       localStorage.removeItem('vibedigest_pending_message')
-      // Small delay to ensure hydration
-      setTimeout(() => void handleSendMessage(pendingMessage), 100)
+      void handleSendMessage(pendingMessage)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isAuthenticated])
 
   /* handleSendMessage is already defined above */
 

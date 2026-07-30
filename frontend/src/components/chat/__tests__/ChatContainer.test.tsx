@@ -57,7 +57,7 @@ vi.mock('../WelcomeScreen', () => ({
   WelcomeScreen: ({ onSubmit, isAuthenticated }: any) => (
     <div data-testid="welcome-screen">
       <button onClick={() => onSubmit('welcome message')}>Start</button>
-      {!isAuthenticated && <span data-testid="login-hint">sign-in-hint</span>}
+      {isAuthenticated === false && <span data-testid="login-hint">sign-in-hint</span>}
     </div>
   )
 }))
@@ -131,7 +131,7 @@ describe('ChatContainer', () => {
     )
   })
 
-  it('redirects to login when unauthenticated user sends a message', () => {
+  it('redirects to login when an unauthenticated user sends a message', () => {
     const messages: ChatUIMessage[] = [createTextMessage('Prev', 'user', '1')]
     mockUseChat.mockReturnValue({
         messages,
@@ -292,6 +292,28 @@ describe('ChatContainer', () => {
             parts: [{ type: 'text', text: 'Stored Message' }],
           })
         )
+    })
+    expect(localStorage.getItem('vibedigest_pending_message')).toBeNull()
+  })
+
+  it('waits for account resolution before handling a pending message', async () => {
+    localStorage.setItem('vibedigest_pending_message', 'Stored Message')
+
+    const { rerender } = render(<ChatContainer isAuthenticated={null} />)
+
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(localStorage.getItem('vibedigest_pending_message')).toBe('Stored Message')
+
+    rerender(<ChatContainer isAuthenticated={true} />)
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: 'user',
+          parts: [{ type: 'text', text: 'Stored Message' }],
+        })
+      )
     })
     expect(localStorage.getItem('vibedigest_pending_message')).toBeNull()
   })

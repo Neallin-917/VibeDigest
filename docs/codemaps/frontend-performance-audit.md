@@ -1,6 +1,6 @@
 # Frontend Performance Audit
 
-> Last Verified: 2026-04-02
+> Last Verified: 2026-07-31
 > Scope: frontend performance audit, hotspot ranking, and implementation roadmap
 
 ## Purpose
@@ -25,7 +25,7 @@ The conclusions below are grounded in these repository facts:
 
 | Signal | Current Fact |
 | --- | --- |
-| Framework | Next.js 16.1.6 App Router + React 19 |
+| Framework | Next.js 16.2.12 App Router + React 19 |
 | Data layer | React Query + Supabase Realtime |
 | Build status | `cd frontend && npm run build` passes |
 | Route rendering | Core product routes are dynamic (`/[lang]/chat`, task detail, settings, explore) |
@@ -33,6 +33,21 @@ The conclusions below are grounded in these repository facts:
 | `use client` hotspots | `components/chat` 19, `components/ui` 9, `app/[lang]` 9, `components/tasks` 7, `components/layout` 7, `components/landing` 7 |
 | Large files | `src/lib/i18n.ts` 1417 LOC, `VideoDetailPanel.tsx` 623 LOC, `code-block.tsx` 562 LOC, `useThreadNavigation.ts` 463 LOC, `ChatContainer.tsx` 410 LOC |
 | Heavy imports observed | `framer-motion`, `react-markdown`, `shiki`, `@tanstack/react-query`, `@supabase/supabase-js`, `next/navigation`, `sonner`, Vercel analytics |
+
+## Current Verified Intervention
+
+The 2026-07-31 chat-entry pass kept raw code readable immediately and moved
+Shiki syntax highlighting behind a runtime import. This removes a rare tool
+detail dependency from the initial chat route without delaying the primary
+input or ordinary messages.
+
+| Metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `/[lang]/chat` entry JavaScript, gzip | 419,553 bytes | 380,824 bytes | -38,729 bytes (-9.2%) |
+
+The same pass removed a submission race at route entry: pending landing/login
+messages now wait for the browser session to resolve, while every login method
+preserves the intended chat destination.
 
 ## Audit Framework
 

@@ -5,7 +5,7 @@ import { ChatInput } from "@/components/chat/ChatInput"
 import { useRouter } from "next/navigation"
 import { ChevronDown, Youtube, Apple, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import {
     Dialog,
     DialogContent,
@@ -16,14 +16,17 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { isSupportedUrl } from "@/lib/urls"
-import { createClient } from "@/lib/supabase"
+import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 
 export function HeroSection() {
     const { t } = useI18n()
     const router = useRouter()
     const [showUrlHelp, setShowUrlHelp] = useState(false)
-    
-    const supabase = useMemo(() => createClient(), [])
+    const {
+        data: currentUser,
+        isPending: isAccountPending,
+        refetch: refetchCurrentUser,
+    } = useCurrentUserQuery()
 
     const handleHeroSubmit = async (text: string) => {
         // Validate URL format for any non-empty input
@@ -35,26 +38,23 @@ export function HeroSection() {
         // Save message for handoff (works for both logged in and guest)
         localStorage.setItem('vibedigest_pending_message', text)
 
-        let session = null
-        try {
-            // Check if user is logged in
-            const { data } = await supabase.auth.getSession()
-            session = data?.session
-        } catch (error) {
-            console.error('Supabase session check failed:', error)
-            // Proceed as guest if check fails
+        let user = currentUser
+        if (isAccountPending) {
+            const result = await refetchCurrentUser()
+            user = result.data ?? null
         }
 
         // Get current locale from URL or use default
         const locale = window.location.pathname.split('/')[1] || 'en'
+        const chatPath = `/${locale}/chat`
 
-        if (session) {
+        if (user) {
             // Logged in -> Go to chat
-            router.push(`/${locale}/chat`)
+            router.push(chatPath)
         } else {
             // Not logged in -> Force Login (Hard Wall)
-            // Redirect to login page with locale
-            router.push(`/${locale}/login`)
+            // Preserve the intended chat destination through every auth method.
+            router.push(`/${locale}/login?next=${encodeURIComponent(chatPath)}`)
         }
     }
 

@@ -1,3 +1,4 @@
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -17,6 +18,9 @@ pytestmark = [pytest.mark.integration, pytest.mark.pgmq]
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MIGRATIONS_DIR = PROJECT_ROOT / "supabase" / "migrations"
 AUTH_USER_ID = "00000000-0000-0000-0000-000000000001"
+CHAT_TITLE_BACKFILL_MIGRATION = (
+    MIGRATIONS_DIR / "20260730151823_backfill_default_chat_thread_titles.sql"
+)
 
 
 @pytest.fixture(scope="module")
@@ -146,6 +150,140 @@ def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
         {"job_id": jobs[0].job_id},
     )
     assert handoff == [{"status": "completed"}]
+
+
+def test_default_chat_title_backfill_is_useful_and_idempotent(pgmq_db: DBClient):
+    task_id = str(uuid4())
+    task_thread_id = str(uuid4())
+    url_thread_id = str(uuid4())
+    descriptive_thread_id = str(uuid4())
+    custom_thread_id = str(uuid4())
+    empty_thread_id = str(uuid4())
+    original_updated_at = "2026-01-02T03:04:05+00:00"
+    thread_ids = [
+        task_thread_id,
+        url_thread_id,
+        descriptive_thread_id,
+        custom_thread_id,
+        empty_thread_id,
+    ]
+
+    with pgmq_db.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                insert into public.tasks (
+                    id, user_id, video_url, video_title, status
+                ) values (
+                    cast(:task_id as uuid),
+                    cast(:user_id as uuid),
+                    :video_url,
+                    :video_title,
+                    'completed'
+                )
+                """
+            ),
+            {
+                "task_id": task_id,
+                "user_id": AUTH_USER_ID,
+                "video_url": "https://youtube.com/watch?v=task-video",
+                "video_title": "A real video title",
+            },
+        )
+        connection.execute(
+            text(
+                """
+                insert into public.chat_threads (
+                    id, user_id, task_id, title, updated_at
+                ) values
+                    (cast(:task_thread_id as uuid), cast(:user_id as uuid), cast(:task_id as uuid), 'New Chat', cast(:updated_at as timestamptz)),
+                    (cast(:url_thread_id as uuid), cast(:user_id as uuid), null, 'New Chat', cast(:updated_at as timestamptz)),
+                    (cast(:descriptive_thread_id as uuid), cast(:user_id as uuid), null, 'New Chat', cast(:updated_at as timestamptz)),
+                    (cast(:custom_thread_id as uuid), cast(:user_id as uuid), cast(:task_id as uuid), 'Keep my title', cast(:updated_at as timestamptz)),
+                    (cast(:empty_thread_id as uuid), cast(:user_id as uuid), null, 'New Chat', cast(:updated_at as timestamptz))
+                """
+            ),
+            {
+                "task_thread_id": task_thread_id,
+                "url_thread_id": url_thread_id,
+                "descriptive_thread_id": descriptive_thread_id,
+                "custom_thread_id": custom_thread_id,
+                "empty_thread_id": empty_thread_id,
+                "user_id": AUTH_USER_ID,
+                "task_id": task_id,
+                "updated_at": original_updated_at,
+            },
+        )
+        connection.execute(
+            text(
+                """
+                insert into public.chat_messages (
+                    id, thread_id, role, content, created_at
+                ) values
+                    (:url_message_id, cast(:url_thread_id as uuid), 'user', cast(:url_content as jsonb), now()),
+                    (:descriptive_message_id, cast(:descriptive_thread_id as uuid), 'user', cast(:descriptive_content as jsonb), now())
+                """
+            ),
+            {
+                "url_message_id": f"message-{uuid4()}",
+                "url_thread_id": url_thread_id,
+                "url_content": json.dumps(
+                    [{"type": "text", "text": "https://youtu.be/hyqLNX3VExQ"}]
+                ),
+                "descriptive_message_id": f"message-{uuid4()}",
+                "descriptive_thread_id": descriptive_thread_id,
+                "descriptive_content": json.dumps(
+                    [
+                        {
+                            "type": "text",
+                            "text": "请总结这期访谈 https://youtu.be/hyqLNX3VExQ",
+                        }
+                    ]
+                ),
+            },
+        )
+
+        raw_connection = connection.connection.driver_connection
+        with raw_connection.cursor() as cursor:
+            cursor.execute(CHAT_TITLE_BACKFILL_MIGRATION.read_text())
+
+        rows_after_first_run = connection.execute(
+            text(
+                """
+                select id::text as id, title, updated_at
+                from public.chat_threads
+                where id = any(cast(:thread_ids as uuid[]))
+                """
+            ),
+            {"thread_ids": thread_ids},
+        ).mappings()
+        first_run = {row["id"]: dict(row) for row in rows_after_first_run}
+
+        assert first_run[task_thread_id]["title"] == "A real video title"
+        assert first_run[url_thread_id]["title"] == "YouTube · hyqLNX3VExQ"
+        assert first_run[descriptive_thread_id]["title"] == "请总结这期访谈"
+        assert first_run[custom_thread_id]["title"] == "Keep my title"
+        assert first_run[empty_thread_id]["title"] == "New Chat"
+        assert {
+            row["updated_at"].isoformat() for row in first_run.values()
+        } == {original_updated_at}
+
+        with raw_connection.cursor() as cursor:
+            cursor.execute(CHAT_TITLE_BACKFILL_MIGRATION.read_text())
+
+        rows_after_second_run = connection.execute(
+            text(
+                """
+                select id::text as id, title, updated_at
+                from public.chat_threads
+                where id = any(cast(:thread_ids as uuid[]))
+                """
+            ),
+            {"thread_ids": thread_ids},
+        ).mappings()
+        second_run = {row["id"]: dict(row) for row in rows_after_second_run}
+
+        assert second_run == first_run
 
 
 def test_submission_rolls_back_when_queue_send_fails(pgmq_db: DBClient):

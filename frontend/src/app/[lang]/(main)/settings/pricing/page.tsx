@@ -114,7 +114,11 @@ export default function PricingPage() {
                 return
             }
 
-            const { url } = await ApiClient.createCustomerPortal(session.access_token)
+            const { url, available } = await ApiClient.createCustomerPortal(session.access_token)
+            if (!available) {
+                setActionError(t("pricing.portalUnavailable"))
+                return
+            }
             if (!url) throw new Error("Customer portal URL is missing")
             window.location.assign(url)
         } catch (error) {

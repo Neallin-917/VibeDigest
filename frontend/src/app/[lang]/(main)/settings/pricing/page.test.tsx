@@ -85,4 +85,18 @@ describe("PricingPage", () => {
             "pricing.portalError",
         )
     })
+
+    it("explains when a Pro plan has no online subscription", async () => {
+        vi.mocked(ApiClient.createCustomerPortal).mockResolvedValue({
+            url: null,
+            available: false,
+        })
+        render(<PricingPage />)
+
+        fireEvent.click(await screen.findByText("pricing.pro.manage"))
+
+        expect(await screen.findByRole("status")).toHaveTextContent(
+            "pricing.portalUnavailable",
+        )
+    })
 })

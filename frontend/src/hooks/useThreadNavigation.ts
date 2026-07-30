@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useLoadThreadPayload, usePrefetchThread, useInvalidateThreadPayload, type ThreadPayload } from "./useThreadPayload"
 import type { ChatUIMessage } from "@/lib/chat-ui"
 import type { Thread } from "@/types"
+import { preloadMessageRow } from "@/components/chat/LazyMessageRow"
 
 const THREAD_PREFETCH_LIMIT = 3
 
@@ -88,6 +89,10 @@ export function useThreadNavigation({
     const switchingThreadTitle = useMemo(
         () => threads.find((thread) => thread.id === pendingThreadId)?.title ?? null,
         [pendingThreadId, threads]
+    )
+    const getKnownTaskId = useCallback(
+        (threadId: string) => threads.find((thread) => thread.id === threadId)?.task_id,
+        [threads]
     )
 
     // Keep latestSearchParamsRef in sync
@@ -250,7 +255,7 @@ export function useThreadNavigation({
                 if (cancelled) return
 
                 if (!newThreadIdsRef.current.has(resolvedThreadId)) {
-                    const payload = await loadThreadPayloadRef.current(resolvedThreadId)
+                    const payload = await loadThreadPayloadRef.current(resolvedThreadId, queryTaskId)
                     if (cancelled) return
 
                     setActiveThreadId(resolvedThreadId)
@@ -281,7 +286,11 @@ export function useThreadNavigation({
                 }
 
                 if (!newThreadIdsRef.current.has(queryThreadId)) {
-                    const payload = await loadThreadPayloadRef.current(queryThreadId)
+                    const selectedThread = fetchedThreads.find((thread) => thread.id === queryThreadId)
+                    const payload = await loadThreadPayloadRef.current(
+                        queryThreadId,
+                        selectedThread?.task_id,
+                    )
                     if (cancelled) return
 
                     setActiveThreadId(queryThreadId)
@@ -348,9 +357,10 @@ export function useThreadNavigation({
 
         setPendingThreadId(threadId)
         setIsThreadSwitching(true)
+        void preloadMessageRow()
 
         try {
-            const payload = await loadThreadPayload(threadId)
+            const payload = await loadThreadPayload(threadId, getKnownTaskId(threadId))
 
             if (requestId !== threadSelectionRequestIdRef.current) {
                 return
@@ -367,7 +377,13 @@ export function useThreadNavigation({
             setIsThreadSwitching(false)
             toast.error('Failed to load chat history')
         }
-    }, [commitThreadSelection, loadThreadPayload, pendingThreadId, resolvedActiveThreadId])
+    }, [
+        commitThreadSelection,
+        getKnownTaskId,
+        loadThreadPayload,
+        pendingThreadId,
+        resolvedActiveThreadId,
+    ])
 
     // Handle Task Selection (from Sidebar or Workspace)
     const handleSelectTask = useCallback(async (taskId: string | null) => {
@@ -403,7 +419,7 @@ export function useThreadNavigation({
         if (isEphemeralThread) {
             setInitialMessages([])
         } else {
-            const payload = await loadThreadPayload(resolvedThreadId)
+            const payload = await loadThreadPayload(resolvedThreadId, taskId)
             setInitialMessages(payload.messages)
         }
 
@@ -417,6 +433,7 @@ export function useThreadNavigation({
 
     // Handle Chat Started (first message sent, optionally with a newly created task)
     const handleChatStarted = useCallback((threadId: string, taskId?: string) => {
+        isUserNavigatingRef.current = true
         newThreadIdsRef.current.delete(threadId)
         invalidateThreadPayload(threadId)
 
@@ -439,12 +456,11 @@ export function useThreadNavigation({
     useEffect(() => {
         if (threads.length === 0) return
 
-        const prefetchedThreadIds = threads
+        const prefetchedThreads = threads
             .filter((thread) => thread.id !== resolvedActiveThreadId)
             .slice(0, THREAD_PREFETCH_LIMIT)
-            .map((thread) => thread.id)
 
-        if (prefetchedThreadIds.length === 0) return
+        if (prefetchedThreads.length === 0) return
 
         const requestIdle = window.requestIdleCallback
             ? window.requestIdleCallback.bind(window)
@@ -457,13 +473,20 @@ export function useThreadNavigation({
             : window.clearTimeout.bind(window)
 
         const idleHandle = requestIdle(() => {
-            prefetchedThreadIds.forEach((threadId) => prefetchThreadFn(threadId))
+            prefetchedThreads.forEach((thread) => {
+                prefetchThreadFn(thread.id, thread.task_id)
+            })
         })
 
         return () => {
             cancelIdle(idleHandle)
         }
     }, [prefetchThreadFn, resolvedActiveThreadId, threads])
+
+    const prefetchThread = useCallback((threadId: string) => {
+        void preloadMessageRow()
+        prefetchThreadFn(threadId, getKnownTaskId(threadId))
+    }, [getKnownTaskId, prefetchThreadFn])
 
     return {
         activeThreadId: resolvedActiveThreadId,
@@ -479,6 +502,6 @@ export function useThreadNavigation({
         handleSelectTask,
         handleSelectExample,
         handleChatStarted,
-        prefetchThread: prefetchThreadFn,
+        prefetchThread,
     }
 }

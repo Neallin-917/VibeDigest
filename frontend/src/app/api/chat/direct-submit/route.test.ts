@@ -22,6 +22,7 @@ const {
   mockUpsert,
   mockUpsertChatState,
   mockRestoreArchivedThreadIfNeeded,
+  mockDeriveThreadTitle,
 } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
   mockGetUser: vi.fn(),
@@ -30,6 +31,7 @@ const {
   mockUpsert: vi.fn(),
   mockUpsertChatState: vi.fn(),
   mockRestoreArchivedThreadIfNeeded: vi.fn(),
+  mockDeriveThreadTitle: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -39,6 +41,7 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('../persistence', () => ({
   upsertChatState: mockUpsertChatState,
   restoreArchivedThreadIfNeeded: mockRestoreArchivedThreadIfNeeded,
+  deriveThreadTitle: mockDeriveThreadTitle,
 }))
 
 const originalFetch = global.fetch
@@ -72,6 +75,7 @@ describe('POST /api/chat/direct-submit', () => {
     })
     mockUpsertChatState.mockResolvedValue(undefined)
     mockRestoreArchivedThreadIfNeeded.mockResolvedValue(null)
+    mockDeriveThreadTitle.mockReturnValue('YouTube · hyqLNX3VExQ')
   })
 
   afterEach(() => {
@@ -223,6 +227,35 @@ describe('POST /api/chat/direct-submit', () => {
       expect.objectContaining({
         threadId: 'thread-1',
         taskIdToBind: 'task-123',
+        threadTitle: 'Archived chat',
+      })
+    )
+  })
+
+  it('assigns a useful deterministic title to a new URL conversation', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ task_id: 'task-123' }),
+    } as Response)
+
+    const req = new Request('http://localhost/api/chat/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        videoUrl: 'https://www.youtube.com/watch?v=hyqLNX3VExQ',
+        originalText: 'https://www.youtube.com/watch?v=hyqLNX3VExQ',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(200)
+    expect(mockUpsertChatState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: 'thread-1',
+        taskIdToBind: 'task-123',
+        threadTitle: 'YouTube · hyqLNX3VExQ',
       })
     )
   })

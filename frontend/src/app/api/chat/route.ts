@@ -209,8 +209,6 @@ When users provide video URLs:
             user,
             supabase,
             messages: validatedMessages,
-            openai,
-            modelName,
         });
 
         // 9. Stream response and emit task data parts for UI cards

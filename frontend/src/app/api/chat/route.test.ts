@@ -675,7 +675,7 @@ describe('POST /api/chat', () => {
         expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
             id: 'new-thread-id',
             user_id: 'test-user-id',
-            title: 'New Chat'
+            title: 'New Thread'
         }))
     })
 
@@ -726,7 +726,7 @@ describe('POST /api/chat', () => {
         expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
             id: 'new-thread-id',
             user_id: 'test-user-id',
-            title: 'New Chat',
+            title: 'Bind this thread',
             task_id: 'task-abc'
         }))
     })
@@ -1022,7 +1022,7 @@ describe('Chat Title Generation Logic', () => {
         ;(global as any).fetch = originalFetch
     })
 
-    it('SHOULD generate title if current title is "New Chat" even if messages length > 1 (Lazy Initialization)', async () => {
+    it('SHOULD derive a title if current title is "New Chat" even if messages length > 1 (Lazy Initialization)', async () => {
         const threadId = 'thread-existing-tool-calls'
         
         mockFrom.mockImplementation(((table: string) => {
@@ -1102,11 +1102,13 @@ describe('Chat Title Generation Logic', () => {
 
         await uiStreamOptions.onFinish({ messages: finalMessages })
 
-        expect(mockGenerateText).toHaveBeenCalled()
-        const genCallArgs = mockGenerateText.mock.calls[0][0]
-        expect(genCallArgs.prompt).toContain('Analyze this video')
-        expect(genCallArgs.prompt).toContain('It is processing.')
-        expect(mockUpdate).toHaveBeenCalledWith({ title: 'Generated Title' })
+        expect(mockGenerateText).not.toHaveBeenCalled()
+        expect(mockUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: 'Analyze this video',
+                status: 'active',
+            })
+        )
     })
 
     it('should NOT regenerate title if title is already customized', async () => {

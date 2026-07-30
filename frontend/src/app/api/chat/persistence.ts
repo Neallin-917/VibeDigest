@@ -1,4 +1,3 @@
-import { generateText } from 'ai';
 import type { ToolContext } from './types';
 import type { ChatUIMessage } from '@/lib/chat-ui';
 import {
@@ -15,8 +14,6 @@ type PersistenceParams = {
     user: { id: string; email?: string };
     supabase: ToolContext['supabase'];
     messages: ChatUIMessage[];
-    openai: ReturnType<typeof import('@/lib/llm-config').createProviderClient>;
-    modelName: string;
 };
 
 type UpsertChatStateParams = {
@@ -39,6 +36,80 @@ type RestorableThreadRow = {
     title: string;
     status: 'active' | 'archived' | 'deleted';
 };
+
+const THREAD_TITLE_MAX_LENGTH = 48;
+const URL_PATTERN = /https?:\/\/[^\s]+/gi;
+
+function truncateThreadTitle(value: string) {
+    const characters = Array.from(value);
+    if (characters.length <= THREAD_TITLE_MAX_LENGTH) return value;
+    return `${characters.slice(0, THREAD_TITLE_MAX_LENGTH - 1).join('')}…`;
+}
+
+function cleanThreadTitle(value: string) {
+    return truncateThreadTitle(
+        value
+            .replace(/^[\s#>*_`"'“”‘’]+|[\s#>*_`"'“”‘’]+$/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+    );
+}
+
+function getVideoUrlTitle(rawUrl: string) {
+    try {
+        const url = new URL(rawUrl);
+        const hostname = url.hostname.replace(/^www\./, '').toLowerCase();
+        const segments = url.pathname.split('/').filter(Boolean);
+        let platform = hostname;
+        let identifier = segments.at(-1) ?? '';
+
+        if (hostname === 'youtu.be' || hostname.endsWith('youtube.com')) {
+            platform = 'YouTube';
+            identifier = hostname === 'youtu.be'
+                ? (segments[0] ?? '')
+                : (url.searchParams.get('v') ?? segments.at(-1) ?? '');
+        } else if (hostname.endsWith('bilibili.com') || hostname === 'b23.tv') {
+            platform = 'Bilibili';
+            identifier = segments.find((segment) => /^(BV|av)/i.test(segment))
+                ?? segments.at(-1)
+                ?? '';
+        } else if (hostname === 'x.com' || hostname.endsWith('twitter.com')) {
+            platform = 'X';
+            const statusIndex = segments.indexOf('status');
+            identifier = statusIndex >= 0 ? (segments[statusIndex + 1] ?? '') : (segments.at(-1) ?? '');
+        } else if (hostname.endsWith('tiktok.com')) {
+            platform = 'TikTok';
+            const videoIndex = segments.indexOf('video');
+            identifier = videoIndex >= 0 ? (segments[videoIndex + 1] ?? '') : (segments.at(-1) ?? '');
+        } else if (hostname.endsWith('instagram.com')) {
+            platform = 'Instagram';
+        } else if (hostname.endsWith('vimeo.com')) {
+            platform = 'Vimeo';
+        }
+
+        const decodedIdentifier = identifier
+            ? decodeURIComponent(identifier).replace(/[?&#].*$/, '')
+            : '';
+
+        return cleanThreadTitle(
+            decodedIdentifier && decodedIdentifier !== platform
+                ? `${platform} · ${decodedIdentifier}`
+                : platform
+        );
+    } catch {
+        return '';
+    }
+}
+
+export function deriveThreadTitle(messageText: string, videoUrl?: string) {
+    const textWithoutUrls = messageText.replace(URL_PATTERN, ' ');
+    const descriptiveText = cleanThreadTitle(textWithoutUrls);
+    if (descriptiveText) return descriptiveText;
+
+    const detectedUrl = videoUrl ?? messageText.match(URL_PATTERN)?.[0];
+    const urlTitle = detectedUrl ? getVideoUrlTitle(detectedUrl) : '';
+    return urlTitle || 'New Chat';
+}
 
 export async function restoreArchivedThreadIfNeeded({
     threadId,
@@ -149,6 +220,9 @@ export async function upsertChatState({
     if (taskIdToBind) {
         threadUpdatePayload.task_id = taskIdToBind;
     }
+    if (threadTitle) {
+        threadUpdatePayload.title = threadTitle;
+    }
 
     const { error: threadUpdateError } = await supabase
         .from('chat_threads')
@@ -163,7 +237,7 @@ export async function upsertChatState({
 
 /**
  * Creates the onFinish callback for stream response persistence.
- * Handles thread lazy creation, message upsert, task binding, and title generation.
+ * Handles thread lazy creation, message upsert, task binding, and deterministic titles.
  */
 export function createOnFinishHandler(params: PersistenceParams) {
     const {
@@ -173,8 +247,6 @@ export function createOnFinishHandler(params: PersistenceParams) {
         user,
         supabase,
         messages,
-        openai,
-        modelName,
     } = params;
 
     return async ({ messages: finalMessages }: { messages: ChatUIMessage[] }) => {
@@ -189,49 +261,22 @@ export function createOnFinishHandler(params: PersistenceParams) {
             // 1. Determine Task ID binding first (from tool outputs or request)
             const createdTaskId = extractTaskIdFromCreateTaskMessages(persistableFinalMessages);
             const taskIdToBind = createdTaskId || requestTaskId;
+            const isNewChat = !threadTitle || threadTitle === 'New Chat';
+            const firstUserMsg = [...messages, ...finalMessages].find(
+                (message) => message.role === 'user' && getTextFromUIMessage(message).length > 0
+            );
+            const resolvedThreadTitle = isNewChat && firstUserMsg
+                ? deriveThreadTitle(getTextFromUIMessage(firstUserMsg))
+                : threadTitle;
+
             await upsertChatState({
                 threadId,
                 user,
                 supabase,
                 messages: persistableFinalMessages,
                 taskIdToBind,
-                threadTitle,
+                threadTitle: resolvedThreadTitle,
             });
-
-            // Title Generation
-            const isNewChat = !threadTitle || threadTitle === 'New Chat';
-
-            if (isNewChat) {
-                const firstUserMsg = [...messages, ...finalMessages].find(
-                    (m) => m.role === 'user' && getTextFromUIMessage(m).length > 0
-                );
-
-                const firstAssistantTextMsg = persistableFinalMessages.find(
-                    (m) => m.role === 'assistant' && getTextFromUIMessage(m).length > 0
-                );
-
-                if (firstUserMsg && firstAssistantTextMsg) {
-                    const userText = getTextFromUIMessage(firstUserMsg);
-                    const assistantText = getTextFromUIMessage(firstAssistantTextMsg);
-
-                    try {
-                        const { text: title } = await generateText({
-                            model: openai.chat(modelName),
-                            system: 'Generate a very concise title (3-6 words) for this chat conversation based on the first message. Do not use quotes.',
-                            prompt: `User message: ${userText}\nAssistant response: ${assistantText}`,
-                        });
-
-                        if (title) {
-                            await supabase
-                                .from('chat_threads')
-                                .update({ title: title.trim() })
-                                .eq('id', threadId);
-                        }
-                    } catch (e) {
-                        console.error('[API/Chat] Failed to generate title:', e);
-                    }
-                }
-            }
         } catch (persistError) {
             console.error('[API/Chat] Persistence Error in onFinish:', persistError);
         }

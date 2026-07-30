@@ -9,7 +9,11 @@ import {
   createUserTextMessage,
   type ChatUIMessage,
 } from '@/lib/chat-ui'
-import { restoreArchivedThreadIfNeeded, upsertChatState } from '../persistence'
+import {
+  deriveThreadTitle,
+  restoreArchivedThreadIfNeeded,
+  upsertChatState,
+} from '../persistence'
 
 const E2E_MOCK_USER = {
   id: '11111111-1111-1111-1111-111111111111',
@@ -96,7 +100,7 @@ export async function POST(req: Request) {
       })
     }
 
-    await restoreArchivedThreadIfNeeded({
+    const restoredThread = await restoreArchivedThreadIfNeeded({
       threadId: body.threadId,
       userId: user.id,
       supabase,
@@ -137,12 +141,18 @@ export async function POST(req: Request) {
     })
 
     if (env.NEXT_PUBLIC_E2E_MOCK !== '1') {
+      const shouldSetDerivedTitle =
+        !restoredThread?.title || restoredThread.title === 'New Chat'
+
       await upsertChatState({
         threadId: body.threadId,
         user: { id: user.id, email: user.email },
         supabase,
         messages,
         taskIdToBind: taskId,
+        threadTitle: shouldSetDerivedTitle
+          ? deriveThreadTitle(body.originalText, body.videoUrl)
+          : restoredThread.title,
       })
     }
 

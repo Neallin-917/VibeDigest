@@ -3,7 +3,6 @@
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Heading, Text } from "@/components/ui/typography"
 import { Badge } from "@/components/ui/badge"
-import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import {
     FileText,
@@ -21,21 +20,16 @@ interface FeatureCardProps {
     desc: string
     gradient: string
     iconColor: string
-    delay: number
     comingSoon?: boolean
     className?: string
 }
 
-function FeatureCard({ icon: Icon, title, desc, gradient, iconColor, delay, comingSoon, className = "" }: FeatureCardProps) {
+function FeatureCard({ icon: Icon, title, desc, gradient, iconColor, comingSoon, className = "" }: FeatureCardProps) {
     const { t } = useI18n()
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.5, delay, ease: "easeOut" }}
+        <div
             className={cn(
-                "group relative p-6 rounded-3xl overflow-hidden transition-all duration-500",
+                "group relative p-6 rounded-3xl overflow-hidden transition-colors duration-200",
                 // Light mode - cleaner glass
                 "bg-white/40 backdrop-blur-xl border border-white/60 shadow-lg hover:shadow-xl hover:bg-white/60",
                 // Dark mode - deep glass with glow
@@ -75,7 +69,7 @@ function FeatureCard({ icon: Icon, title, desc, gradient, iconColor, delay, comi
                     {desc}
                 </Text>
             </div>
-        </motion.div>
+        </div>
     )
 }
 
@@ -131,19 +125,14 @@ export function FeaturesSection() {
         <section id="features" className="py-20 px-6 relative scroll-mt-24">
             <div className="max-w-6xl mx-auto">
                 <div className="text-center mb-12 relative z-10">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.6 }}
-                    >
+                    <div>
                         <Heading as="h2" className="text-2xl md:text-4xl font-display font-bold mb-5 text-slate-900 dark:text-white">
                             {t("landing.featuresTitlePrefix")} <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-400 dark:to-teal-400">{t("landing.featuresTitleEmphasis")}</span>
                         </Heading>
                         <Text className="max-w-xl mx-auto text-slate-600 dark:text-zinc-400 text-base">
                             {t("landing.featuresSubtitle")}
                         </Text>
-                    </motion.div>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
@@ -151,7 +140,6 @@ export function FeaturesSection() {
                         <FeatureCard
                             key={index}
                             {...feature}
-                            delay={index * 0.1}
                         />
                     ))}
                 </div>

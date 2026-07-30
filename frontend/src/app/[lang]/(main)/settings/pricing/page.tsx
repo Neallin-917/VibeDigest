@@ -79,8 +79,6 @@ export default function PricingPage() {
 
     const freeFeatureKeys = [
         "pricing.free.features.f1",
-        "pricing.free.features.f2",
-        "pricing.free.features.f3",
         "pricing.free.features.f4",
         "pricing.free.features.f5",
     ] as const
@@ -88,7 +86,6 @@ export default function PricingPage() {
     const proFeatureKeys = [
         "pricing.pro.features.f1",
         "pricing.pro.features.f2",
-        "pricing.pro.features.f3",
     ] as const
 
     const topupFeatureKeys = [

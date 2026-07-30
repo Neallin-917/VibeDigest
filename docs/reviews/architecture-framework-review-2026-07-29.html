@@ -739,17 +739,36 @@
         <div class="section-head">
           <div>
             <h2>剩余风险与下一步</h2>
-            <p>没有遗留发布阻断项；以下为上线后应继续收敛的运维与安全债。</p>
+            <p>没有遗留发布阻断项。当前阶段优先产品体验、前端响应、性能与用户可感知的可靠性；低概率且实现繁重的加固项按规模触发，不提前堆叠。</p>
           </div>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>当前阶段的工程取舍</h3>
+          <p>
+            立即处理会造成错误状态、等待感或性能退化的问题；继续保留凭证、数据所有权、付费额度和防数据丢失等基础边界。
+            attempt fencing、API/Worker 专用数据库角色、独立 DLQ 控制台和复杂 Guest Realtime 身份体系暂不建设，
+            仅在 Worker 需要多副本、出现重复执行、安全事件、敏感数据要求或真实用户量证明其必要性时启动。
+          </p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>产品体验优化 · 2026-07-30</h3>
+          <ul class="compact-list">
+            <li>移除没有真实依据的「10,000+ 用户」与虚构人物评价，改为真实平台支持和隐私边界。</li>
+            <li>修复首页中英文混排、价格翻译键泄露、中文错字、旧年份和「秒级完成」等过度承诺。</li>
+            <li>首页删除非必要评价区与大部分装饰性 JS 动画；landing client manifest 已不再包含 <code>framer-motion</code>。</li>
+            <li>中文、英文、日文首页核心文案对齐；移动菜单跳转保持当前语言。</li>
+            <li>社区示例的语言与加载文案由服务端显式传入，避免客户端上下文耦合；中文探索页同步完成本地化。</li>
+            <li>验证结果：ESLint 通过、50 个测试文件共 284 项通过、生产构建通过、首页视觉与移动端 E2E 2/2 通过。</li>
+          </ul>
         </div>
         <div class="grid two">
           <div class="card">
             <h3>已知运行约束</h3>
             <ul class="compact-list">
               <li>远端 migration history 仍保留 13 条历史记录并追加本次增量；未重写历史，后续可做 metadata repair。</li>
-              <li><code>asyncio.to_thread</code> 超时不会终止底层线程，当前也没有 attempt fencing；在完成隔离前 Worker 必须保持单副本。</li>
-              <li>API/Worker 目前仍引用既有生产数据库连接；专用最小权限角色尚未拆分，不影响本次功能上线但应列为安全 hardening。</li>
-              <li>49 个 2026-03-24 以前的历史 pending/processing task 未批量改写；新队列不会自动接管这些旧状态。</li>
+              <li><code>asyncio.to_thread</code> 超时不会终止底层线程，当前没有 attempt fencing；产品保持单 Worker 副本，扩容到多副本前再实现隔离。</li>
+              <li>API/Worker 目前仍引用既有生产数据库连接；专用最小权限角色作为规模化加固项暂缓，不阻塞产品迭代。</li>
+              <li>49 个 2026-03-24 以前的历史 pending/processing task 已于 2026-07-30 软归档；关联内容未物理删除，当前非终态任务为 0。</li>
             </ul>
           </div>
           <div class="card">
@@ -757,9 +776,9 @@
             <ul class="compact-list">
               <li>完整 npm audit 仍受 ESLint/minimatch 开发链影响；production audit 为 0。</li>
               <li>开发机默认 Node 仍为 22；本次通过 mise 在 Node 24.18.1 完成正式测试与构建。</li>
-              <li>失败任务目前以 terminal state + archive 收敛，没有独立 DLQ 浏览界面。</li>
-              <li>访客浏览器没有可安全证明身份的直接 Realtime RLS 路径；保持认证用户路径，除非引入签名 guest token 或后端广播。</li>
-              <li>两个既有 extension 位于 public schema，Supabase 泄露密码保护未启用；均需平台级变更窗口处理。</li>
+              <li>失败任务目前以 terminal state + archive 收敛；独立 DLQ 浏览界面等出现实际运维负担后再建设。</li>
+              <li>访客浏览器没有可安全证明身份的直接 Realtime RLS 路径；先以真实 Guest 体验验证需求，不提前引入复杂身份体系。</li>
+              <li>两个既有 extension 位于 public schema，Supabase 泄露密码保护未启用；记录为平台加固项，不挤占当前体验与性能工作。</li>
             </ul>
           </div>
         </div>

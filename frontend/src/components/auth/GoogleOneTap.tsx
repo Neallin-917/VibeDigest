@@ -120,15 +120,8 @@ export function GoogleOneTap() {
                     nonce: hashedNonce,
                 })
 
-                // Show the One Tap prompt
-                window.google.accounts.id.prompt((notification) => {
-                    if (notification.isNotDisplayed()) {
-                        console.log("One Tap not displayed:", notification.getNotDisplayedReason())
-                    }
-                    if (notification.isSkippedMoment()) {
-                        console.log("One Tap skipped:", notification.getSkippedReason())
-                    }
-                })
+                // Show the prompt without relying on legacy display-moment callbacks.
+                window.google.accounts.id.prompt()
             }
 
             scriptRef.current = script

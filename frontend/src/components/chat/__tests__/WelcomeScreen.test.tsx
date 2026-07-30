@@ -44,8 +44,13 @@ vi.mock('../ChatInput', () => ({
 }))
 
 vi.mock('../QuickTemplateCard', () => ({
-  QuickTemplateCard: ({ task, onSelect }: any) => (
-    <div data-testid="template-card" onClick={() => onSelect(task.id)}>
+  QuickTemplateCard: ({ task, onSelect, eagerThumbnail, highPriorityThumbnail }: any) => (
+    <div
+      data-testid="template-card"
+      data-eager-thumbnail={String(eagerThumbnail)}
+      data-high-priority-thumbnail={String(highPriorityThumbnail)}
+      onClick={() => onSelect(task.id)}
+    >
       {task.video_title}
     </div>
   )
@@ -93,6 +98,26 @@ describe('WelcomeScreen', () => {
         expect(screen.getAllByTestId('template-card')).toHaveLength(2)
         expect(screen.getByText('Video 1')).toBeInTheDocument()
     })
+  })
+
+  it('eagerly discovers the first row and prioritizes only the first thumbnail', async () => {
+    const mockExamples = Array.from({ length: 8 }, (_, index) => ({
+      id: String(index + 1),
+      video_title: `Video ${index + 1}`,
+      video_url: `https://example.com/${index + 1}`,
+      thumbnail_url: `https://example.com/${index + 1}.jpg`,
+    }))
+
+    mockRange.mockResolvedValue({ data: mockExamples, count: 8 })
+
+    render(<WelcomeScreen onSelectExample={vi.fn()} onSubmit={vi.fn()} />)
+
+    const cards = await screen.findAllByTestId('template-card')
+
+    expect(cards.slice(0, 4).every(card => card.dataset.eagerThumbnail === 'true')).toBe(true)
+    expect(cards.slice(4).every(card => card.dataset.eagerThumbnail === 'false')).toBe(true)
+    expect(cards[0]).toHaveAttribute('data-high-priority-thumbnail', 'true')
+    expect(cards.slice(1).every(card => card.dataset.highPriorityThumbnail === 'false')).toBe(true)
   })
 
   it('loads more examples on scroll', async () => {

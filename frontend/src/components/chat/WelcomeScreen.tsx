@@ -26,6 +26,8 @@ interface WelcomeScreenProps {
   isAuthenticated?: boolean
 }
 
+const EAGER_THUMBNAIL_COUNT = 4
+
 export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenticated = false }: WelcomeScreenProps) {
   const { t } = useI18n()
   const [examples, setExamples] = useState<Task[]>([])
@@ -183,11 +185,13 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
 
           {/* Grid Layout */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-            {examples.map((task) => (
+            {examples.map((task, index) => (
               <div key={task.id}>
                 <QuickTemplateCard
                   task={task}
                   onSelect={onSelectExample}
+                  eagerThumbnail={index < EAGER_THUMBNAIL_COUNT}
+                  highPriorityThumbnail={index === 0}
                 />
               </div>
             ))}

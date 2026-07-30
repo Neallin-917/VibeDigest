@@ -42,6 +42,8 @@ const messages: Record<Locale, Messages> = {
       showSidebar: "Show sidebar",
       hideSidebar: "Hide sidebar",
       backToHome: "Back to Home",
+      lightMode: "Light mode",
+      darkMode: "Dark mode",
     },
     auth: {
       welcomeBack: "Welcome Back",
@@ -569,6 +571,8 @@ const messages: Record<Locale, Messages> = {
       showSidebar: "显示侧边栏",
       hideSidebar: "隐藏侧边栏",
       backToHome: "返回首页",
+      lightMode: "浅色模式",
+      darkMode: "深色模式",
     },
     auth: {
       welcomeBack: "欢迎回来",
@@ -1123,6 +1127,8 @@ const messages: Record<Locale, Messages> = {
       showSidebar: "サイドバーを表示",
       hideSidebar: "サイドバーを非表示",
       backToHome: "ホームに戻る",
+      lightMode: "ライトモード",
+      darkMode: "ダークモード",
     },
     chat: {
       newChat: "新しいチャット",

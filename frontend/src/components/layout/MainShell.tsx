@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { AppSidebarProvider } from "@/components/layout/AppSidebarContext"
@@ -10,6 +11,7 @@ import { MobileBottomNav, MobileHeader } from "@/components/layout/MobileNav"
 import { TaskNotificationListener } from "@/components/tasks/TaskNotificationListener"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { createClient } from "@/lib/supabase"
+import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
 
 export function MainShell({ children }: { children: React.ReactNode }) {
   const { locale } = useI18n()
@@ -24,49 +26,34 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     pathname?.endsWith('/tasks') ||
     pathname?.includes('/explore') ||
     pathname?.endsWith('/explore')
-  const [isLoading, setIsLoading] = useState(!isPublicPath)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+  const { data: user, isLoading } = useCurrentUserQuery({ enabled: !isPublicPath })
+  const isAuthenticated = Boolean(user)
 
-  // Check authentication on mount and listen for auth changes
+  // Keep the shared account cache in sync with browser auth changes.
   useEffect(() => {
     if (isPublicPath) {
       return
     }
 
-    let isActive = true
-
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!isActive) return
-
-      if (!user) {
-        // Redirect to login page if not authenticated and not on public path
-        router.replace(`/${locale}/login`)
-        return
-      }
-      setIsAuthenticated(true)
-      setIsLoading(false)
-    }
-
-    void checkAuth()
-
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      if (!isActive) return
+      queryClient.setQueryData(accountKeys.currentUser, session?.user ?? null)
       if (!session) {
         router.replace(`/${locale}/login`)
-      } else {
-        setIsAuthenticated(true)
-        setIsLoading(false)
       }
     })
 
     return () => {
-      isActive = false
       subscription.unsubscribe()
     }
-  }, [router, supabase, isPublicPath, locale])
+  }, [router, supabase, isPublicPath, locale, queryClient])
+
+  useEffect(() => {
+    if (!isPublicPath && !isLoading && !user) {
+      router.replace(`/${locale}/login`)
+    }
+  }, [isLoading, isPublicPath, locale, router, user])
 
   // Show loading spinner while checking auth (but allow public paths through)
   if (isLoading && !isPublicPath) {

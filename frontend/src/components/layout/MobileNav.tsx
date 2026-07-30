@@ -2,8 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
-import type { User } from "@supabase/supabase-js"
+import { useMemo } from "react"
 import { LogOut, Menu } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -13,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { NAV_ITEMS } from "@/components/layout/navItems"
 import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
+import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 import { BrandLogo } from "./BrandLogo"
 
 function isActiveNav(pathname: string, href: string) {
@@ -25,13 +25,10 @@ function isActiveNav(pathname: string, href: string) {
 }
 
 export function MobileHeader() {
-  const [userEmail, setUserEmail] = useState<string | null>(null)
   const supabase = useMemo(() => createClient(), [])
   const { t, locale } = useI18n()
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => setUserEmail(user?.email || null))
-  }, [supabase])
+  const { data: user } = useCurrentUserQuery()
+  const userEmail = user?.email ?? null
 
   return (
     <div className="md:hidden sticky top-0 z-40 border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/40 backdrop-blur-md">

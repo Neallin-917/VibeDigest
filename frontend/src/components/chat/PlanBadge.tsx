@@ -1,63 +1,23 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
-import { createClient } from '@/lib/supabase'
+import { useCurrentUserQuery, useProfileQuery } from '@/hooks/useAccountQueries'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-type Profile = {
-  tier: 'free' | 'pro' | string
-  usage_count: number
-  usage_limit: number
-}
-
 export function PlanBadge() {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
   const { t, locale } = useI18n()
-  const supabase = useMemo(() => createClient(), [])
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("tier, usage_count, usage_limit")
-            .eq("id", user.id)
-            .single()
-
-          if (error && error.code === 'PGRST116') {
-            // Profile not found, default to free
-            setProfile({
-              tier: 'free',
-              usage_count: 0,
-              usage_limit: 3,
-            })
-          } else if (data) {
-            setProfile(data as Profile)
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching profile:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchProfile()
-  }, [supabase])
+  const { data: user, isLoading: userLoading } = useCurrentUserQuery()
+  const { data: profile, isLoading: profileLoading } = useProfileQuery(user?.id)
 
   // Don't render until loaded
-  if (loading || !profile) {
+  if (userLoading || !user || profileLoading || !profile) {
     return null
   }
 

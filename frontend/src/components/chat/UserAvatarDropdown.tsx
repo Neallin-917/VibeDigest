@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect, useMemo } from "react"
-import type { User } from "@supabase/supabase-js"
+import { useState, useMemo } from "react"
 import { Settings, LogOut, CreditCard, Sun, Moon, MessageSquareWarning } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase"
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
 import { useI18n } from "@/components/i18n/I18nProvider"
+import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
 
 interface UserAvatarDropdownProps {
   className?: string
@@ -34,22 +35,20 @@ export function UserAvatarDropdown({
   side = "bottom"
 }: UserAvatarDropdownProps) {
   const { theme, setTheme } = useTheme()
-  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
   const { t, locale } = useI18n()
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
-      setUserEmail(user?.email || null)
-    })
-  }, [supabase])
+  const { data: user } = useCurrentUserQuery()
+  const userEmail = user?.email ?? null
 
   const handleLogout = async () => {
     if (typeof window !== 'undefined' && window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect()
     }
     await supabase.auth.signOut()
+    queryClient.setQueryData(accountKeys.currentUser, null)
+    queryClient.removeQueries({ queryKey: accountKeys.profiles })
     window.location.href = '/'
   }
 
@@ -60,6 +59,7 @@ export function UserAvatarDropdown({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button 
+            aria-label={t('chat.moreOptionsHint')}
             className={cn(
               "rounded-full bg-gradient-to-tr from-emerald-600 to-teal-600 border-2 border-white dark:border-white/20 shadow-sm hover:scale-105 transition-transform flex items-center justify-center text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:focus:ring-emerald-500/50",
               avatarSize,
@@ -91,7 +91,7 @@ export function UserAvatarDropdown({
             <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute ml-0 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="ml-6 dark:ml-0">
-              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              {theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}
             </span>
           </DropdownMenuItem>
 

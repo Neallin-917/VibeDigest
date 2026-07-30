@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import PricingPage from "./page"
@@ -16,6 +17,23 @@ const mockSupabase = {
         getSession: mockGetSession,
     },
     from: vi.fn(() => ({ select: mockSelect })),
+}
+
+function renderPricingPage() {
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+                gcTime: 0,
+            },
+        },
+    })
+
+    return render(
+        <QueryClientProvider client={queryClient}>
+            <PricingPage />
+        </QueryClientProvider>,
+    )
 }
 
 vi.mock("@/lib/supabase", () => ({
@@ -56,7 +74,7 @@ describe("PricingPage", () => {
     })
 
     it("shows a consistent Pro state from one profile request", async () => {
-        render(<PricingPage />)
+        renderPricingPage()
 
         expect(await screen.findByText("pricing.pro.subtitle")).toBeInTheDocument()
         expect(screen.getByText("pricing.active")).toBeInTheDocument()
@@ -74,7 +92,7 @@ describe("PricingPage", () => {
             new Error("Provider unavailable"),
         )
         vi.spyOn(console, "error").mockImplementation(() => {})
-        render(<PricingPage />)
+        renderPricingPage()
 
         fireEvent.click(await screen.findByText("pricing.pro.manage"))
 
@@ -91,7 +109,7 @@ describe("PricingPage", () => {
             url: null,
             available: false,
         })
-        render(<PricingPage />)
+        renderPricingPage()
 
         fireEvent.click(await screen.findByText("pricing.pro.manage"))
 

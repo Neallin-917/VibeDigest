@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Button } from "@/components/ui/button"
@@ -14,17 +14,16 @@ import { cn } from "@/lib/utils"
 import { UsageCard, type UsageProfile } from "@/components/settings/UsageCard"
 import { Heading, Text } from "@/components/ui/typography"
 import { PageContainer } from "@/components/layout/PageContainer"
+import {
+    FREE_ACCOUNT_PROFILE,
+    useCurrentUserQuery,
+    useProfileQuery,
+} from "@/hooks/useAccountQueries"
 
 // Creem Product IDs
 const PRO_MONTHLY_PRODUCT_ID = "prod_5XoWWMZN6ptDexocrwyqT0"
 const PRO_ANNUAL_PRODUCT_ID = "prod_1pLnYf7AwktcAhRhkjiJTh"
 const CREDIT_PACK_PRODUCT_ID = "prod_5VVI5ldN9dtI7tbHaST5OB"
-const FREE_PROFILE: UsageProfile = {
-    tier: "free",
-    usage_count: 0,
-    usage_limit: 3,
-    extra_credits: 0,
-}
 type BillingAction = "pro" | "topup" | "portal"
 
 export default function PricingPage() {
@@ -33,47 +32,20 @@ export default function PricingPage() {
     const [paymentMethod] = useState<'card' | 'crypto'>('card')  // Default to Creem (card)
     const [loadingAction, setLoadingAction] = useState<BillingAction | null>(null)
     const [actionError, setActionError] = useState<string | null>(null)
-    const [profile, setProfile] = useState<UsageProfile | null>(null)
-    const [profileLoading, setProfileLoading] = useState(true)
     const [supabase] = useState(() => createClient())
-
-    const fetchProfile = useCallback(async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                setProfile(FREE_PROFILE)
-                return
-            }
-
-            const { data, error } = await supabase
-                .from("profiles")
-                .select("tier, usage_count, usage_limit, extra_credits")
-                .eq("id", user.id)
-                .single()
-
-            if (error?.code === "PGRST116") {
-                setProfile(FREE_PROFILE)
-            } else if (error) {
-                console.error("Profile lookup failed:", error)
-                setProfile(null)
-                setActionError(t("pricing.profileError"))
-            } else {
-                setProfile(data as UsageProfile)
-            }
-        } catch (error) {
-            console.error("Profile lookup failed:", error)
-            setProfile(null)
-            setActionError(t("pricing.profileError"))
-        } finally {
-            setProfileLoading(false)
-        }
-    }, [supabase, t])
-
-    useEffect(() => {
-        // The state write happens after Supabase resolves, not synchronously in the effect.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        void fetchProfile()
-    }, [fetchProfile])
+    const {
+        data: user,
+        isLoading: userLoading,
+        error: userError,
+    } = useCurrentUserQuery()
+    const {
+        data: accountProfile,
+        isLoading: accountProfileLoading,
+        error: accountProfileError,
+    } = useProfileQuery(user?.id)
+    const profile = (user === null ? FREE_ACCOUNT_PROFILE : accountProfile ?? null) as UsageProfile | null
+    const profileLoading = userLoading || Boolean(user && accountProfileLoading)
+    const profileError = userError ?? accountProfileError
 
     const handleCheckout = async (priceId: string, action: Exclude<BillingAction, "portal">) => {
         setActionError(null)
@@ -131,6 +103,7 @@ export default function PricingPage() {
 
     const profileKnown = !profileLoading && profile !== null
     const isPro = profileKnown && profile.tier === 'pro'
+    const displayError = actionError ?? (profileError ? t("pricing.profileError") : null)
 
     const freeFeatureKeys = [
         "pricing.free.features.f1",
@@ -373,13 +346,13 @@ export default function PricingPage() {
                     </Card>
                 </section>
 
-                {actionError && (
+                {displayError && (
                     <p
                         role="status"
                         aria-live="polite"
                         className="text-center text-sm text-destructive"
                     >
-                        {actionError}
+                        {displayError}
                     </p>
                 )}
 

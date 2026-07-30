@@ -388,6 +388,7 @@ const messages: Record<Locale, Messages> = {
       restore: "Restore chat",
       noActiveChats: "No active chats",
       inputPlaceholder: "Paste a video URL or ask anything...",
+      inputLabel: "Chat input",
       sendMessage: "Send message",
       stopGeneration: "Stop generation",
       loadMore: "Load More",
@@ -916,6 +917,7 @@ const messages: Record<Locale, Messages> = {
       restore: "恢复对话",
       noActiveChats: "暂无活跃对话",
       inputPlaceholder: "粘贴视频链接或提问...",
+      inputLabel: "聊天输入框",
       sendMessage: "发送",
       stopGeneration: "停止生成",
       loadMore: "加载更多",
@@ -1080,6 +1082,7 @@ const messages: Record<Locale, Messages> = {
       restore: "チャットを復元",
       noActiveChats: "アクティブなチャットはありません",
       inputPlaceholder: "動画URLを貼り付けるか、質問を入力...",
+      inputLabel: "チャット入力",
       sendMessage: "送信",
       stopGeneration: "生成を停止",
       contextPanel: {

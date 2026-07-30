@@ -6,6 +6,7 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
   useI18n: () => ({
     t: (key: string) => {
         if (key === 'chat.inputPlaceholder') return 'Ask me anything...'
+        if (key === 'chat.inputLabel') return 'Chat input'
         if (key === 'chat.sendMessage') return 'Send message'
         if (key === 'chat.stopGeneration') return 'Stop generation'
         return key

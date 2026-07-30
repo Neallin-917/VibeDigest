@@ -85,7 +85,7 @@ export function ChatInput({
               onChange={(e) => setInput(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              aria-label={t('chat.inputPlaceholder')}
+              aria-label={t('chat.inputLabel')}
               data-testid="chat-input"
               className={cn(
                 "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 dark:text-zinc-100",

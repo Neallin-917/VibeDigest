@@ -404,7 +404,7 @@
           <div class="card metric"><strong>1</strong><span>产品运行路径：Cloud</span></div>
           <div class="card metric"><strong>1</strong><span>Python 依赖 SSOT：pyproject + uv.lock</span></div>
           <div class="card metric"><strong>588</strong><span>后端通过测试</span></div>
-          <div class="card metric"><strong>285</strong><span>前端通过测试</span></div>
+          <div class="card metric"><strong>288</strong><span>前端通过测试</span></div>
         </div>
         <div class="card verdict" style="margin-top:16px">
           <p>
@@ -762,7 +762,8 @@
             <li>带 task 的聊天入口并行获取对话列表与目标 thread，减少一次可避免的网络瀑布。</li>
             <li>聊天首屏与消息列表移除 <code>framer-motion</code>；摘要面板取消逐卡片动画，依据默认收起，降低首屏脚本和阅读噪音。</li>
             <li>任务详情的骨架闪烁改为稳定的单行状态；摘要面板在数据返回前保留标题、关闭入口与可访问状态提示。</li>
-            <li>验证结果：ESLint 通过、50 个测试文件共 285 项通过、生产构建通过；聊天首屏与已有摘要在内置浏览器完成前后截图对比，无布局回退。</li>
+            <li>聊天示例缩略图采用分层加载：第一排 4 张立即发现，仅第一张使用高网络优先级，其余缩略图继续懒加载；避免 LCP 候选延迟，也不让全部图片争抢首屏带宽。</li>
+            <li>验证结果：ESLint 通过、51 个测试文件共 288 项通过、生产构建通过；聊天首屏与已有摘要在内置浏览器完成前后截图对比，无布局回退，图片 DOM 属性与加载层级符合预期。</li>
           </ul>
         </div>
         <div class="grid two">
@@ -793,7 +794,9 @@
             at-least-once 消费与幂等短路，而不是追求“exactly once”口号；
             长任务使用独立 Worker，而非 Web 进程后台线程；Next.js Route Handler 保持公开 BFF 边界，
             Server Component 优先直接读取所属数据源；依赖使用 manifest + lock 的单一事实源；
-            Cloud 配置与开发工具共享同一数据合同。这样更接近 Supabase Queues、FastAPI 长任务建议、
+            Cloud 配置与开发工具共享同一数据合同；首屏图片遵循 Next.js 16 的 <code>loading</code> /
+            <code>fetchPriority</code> 语义，不使用已弃用的 <code>priority</code>，并把高优先级限定为单一
+            稳定候选。这样更接近 Supabase Queues、FastAPI 长任务建议、
             Railway config-as-code 与现代供应链管理的共同实践。
           </p>
           <p>

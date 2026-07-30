@@ -233,7 +233,7 @@ def main() -> int:
     for line in describe_backend_url_roles(merge_selected_env_values(env_paths)):
         print(line)
 
-    print_section("Local Runtime")
+    print_section("Development Runtime")
     backend_url = read_workspace_backend_url()
     backend_health_url = backend_url.rstrip("/") + "/health"
     print(f"backend health: {http_status(backend_health_url)}")
@@ -270,7 +270,7 @@ def main() -> int:
     for relative_path in [
         ".vercel/project.json",
         "railway.toml",
-        "docker-compose.prod.yml",
+        "railway.worker.toml",
         "supabase/migrations",
     ]:
         path = PROJECT_ROOT / relative_path

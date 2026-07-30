@@ -3,7 +3,7 @@
 [vibedigest.io](https://vibedigest.io)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](backend)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](backend)
 [![Next.js](https://img.shields.io/badge/next.js-16-black.svg)](frontend)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](docker-compose.yml)
 
@@ -13,8 +13,8 @@ VibeDigest is a full-stack tool for downloading videos, transcribing audio, and 
 
 ### Prerequisites
 
-- Node.js 20+
-- Python 3.10+
+- Node.js 24 LTS
+- Python 3.12
 - `uv`
 - Docker and Docker Compose
 - `make`
@@ -27,12 +27,11 @@ cp frontend/.env frontend/.env.local
 make install
 ```
 
-Fill `.env.local` with either:
+The Cloud runtime requires:
 
-- `OPENROUTER_API_KEY`, or
-- `OPENAI_BASE_URL` plus `OPENAI_API_KEY`
-
-Also set your Supabase credentials before running the backend.
+- Supabase/Postgres credentials for Auth, task state, Realtime, and PGMQ
+- OpenRouter, or an OpenAI-compatible generation endpoint
+- optional audio transcription and Supadata credentials
 
 ### Run
 
@@ -40,13 +39,18 @@ Also set your Supabase credentials before running the backend.
 make dev
 ```
 
-This starts the backend and Postgres in Docker, starts the frontend locally, and streams unified logs in one terminal. If the default ports are occupied, the dev runner scans upward and injects the resolved backend URL into the frontend.
+This starts the FastAPI command API and PGMQ-backed Python worker in Docker
+against the configured Cloud development database, then starts the Next.js
+development server and streams unified logs. It does not create a separate
+local product runtime or local database. If the default ports are occupied, the
+dev runner scans upward and injects the resolved backend URL into the frontend.
 
 For single-service debugging, keep using the lower-level commands:
 
 ```bash
 make start-dev
 make start-frontend
+make start-worker
 ```
 
 Frontend defaults to [http://localhost:3000](http://localhost:3000). Backend defaults to `http://localhost:16081`. Override with `BACKEND_HOST_PORT=17081 FRONTEND_PORT=3100 make dev`. Stop the Docker backend stack with `make dev-stop`.
@@ -56,8 +60,9 @@ Frontend defaults to [http://localhost:3000](http://localhost:3000). Backend def
 ```text
 Frontend (Next.js App Router)
   -> POST /api/process-video
-  -> Backend (FastAPI + LangGraph)
-  -> Supabase task records
+  -> FastAPI creates task + enqueues PGMQ message
+  -> Python worker runs the video/AI pipeline
+  -> Supabase Postgres stores tasks and outputs
   -> Supabase Realtime updates back to the frontend
 ```
 
@@ -68,9 +73,10 @@ The implementation details live in the codemaps under `docs/codemaps/`.
 | Command | Purpose |
 | --- | --- |
 | `make install` | Install backend and frontend dependencies |
-| `make dev` | Start Docker backend plus local frontend with unified logs |
-| `make dev-stop` | Stop the Docker backend and Postgres stack |
+| `make dev` | Start API, worker, and frontend against the Cloud development database |
+| `make dev-stop` | Stop the Docker API and worker |
 | `make start-backend` | Run FastAPI locally |
+| `make start-worker` | Run the durable task worker locally |
 | `make start-frontend` | Run Next.js locally |
 | `make test-backend` | Backend unit tests plus local smoke when prerequisites exist |
 | `make test-provider-smoke` | Verify the configured LLM provider with a real API call |
@@ -88,7 +94,7 @@ The repo uses explicit document ownership so facts are maintained in one place.
 | Fact or workflow | Source of truth |
 | --- | --- |
 | AI/project rules, document ownership, validation rules | [AGENTS.md](./AGENTS.md) |
-| Local setup and primary commands | [README.md](./README.md) |
+| Development setup and primary commands | [README.md](./README.md) |
 | Development workflow and PR expectations | [CONTRIBUTING.md](./CONTRIBUTING.md) |
 | Deployment, monitoring, rollback | [docs/RUNBOOK.md](./docs/RUNBOOK.md) |
 | Architecture and directory mappings | [docs/codemaps/architecture.md](./docs/codemaps/architecture.md) |

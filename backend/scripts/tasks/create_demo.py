@@ -81,7 +81,7 @@ def resolve_demo_user_id(db: DBClient, explicit_user_id: str | None = None) -> s
 
 
 def _load_workflow_runner() -> WorkflowRunner:
-    from services.background_tasks import run_pipeline
+    from services.job_handlers import run_pipeline
 
     return run_pipeline
 

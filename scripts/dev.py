@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Single-terminal local dev runner.
+"""Single-terminal Cloud development runner.
 
-Starts the Docker backend stack and the local Next.js frontend, then prefixes
-all logs so the development session can stay in one terminal.
+Starts the Docker API and worker against the configured Cloud development
+database, plus the Next.js development server. All logs are prefixed so the
+session can stay in one terminal.
 """
 
 from __future__ import annotations
@@ -29,11 +30,9 @@ FRONTEND_DIR = PROJECT_ROOT / "frontend"
 COMPOSE_FILE = PROJECT_ROOT / "docker-compose.yml"
 COMPOSE_PROJECT_NAME = "vibedigest-dev"
 BACKEND_SERVICE = "backend-dev"
-POSTGRES_SERVICE = "postgres"
+WORKER_SERVICE = "worker-dev"
 BACKEND_CONTAINER_PORT = 8000
-POSTGRES_CONTAINER_PORT = 5432
 DEFAULT_BACKEND_PORT = 16081
-DEFAULT_POSTGRES_PORT = 15432
 DEFAULT_FRONTEND_PORT = 3000
 DEFAULT_SCAN_LIMIT = 50
 DEFAULT_HEALTH_TIMEOUT = 90
@@ -164,13 +163,11 @@ def build_compose_env(
     *,
     base_env: Mapping[str, str],
     backend_port: int,
-    postgres_port: int,
     frontend_port: int,
 ) -> dict[str, str]:
     env = dict(base_env)
     env["COMPOSE_PROJECT_NAME"] = COMPOSE_PROJECT_NAME
     env["BACKEND_HOST_PORT"] = str(backend_port)
-    env["POSTGRES_HOST_PORT"] = str(postgres_port)
     env["FRONTEND_HOST_PORT"] = str(frontend_port)
     env["FRONTEND_URL"] = f"http://localhost:{frontend_port}"
     env["ALLOWED_ORIGINS"] = merge_allowed_origins(env.get("ALLOWED_ORIGINS"), frontend_port)
@@ -214,7 +211,7 @@ def resolve_compose_command() -> list[str]:
     if shutil.which("docker-compose"):
         return ["docker-compose"]
 
-    raise RuntimeError("Docker Compose is not available. Install Docker Desktop or docker-compose.")
+    raise RuntimeError("Docker Compose is not available. Install Docker Engine with Compose support.")
 
 
 def parse_compose_port(output: str) -> int | None:
@@ -355,8 +352,8 @@ def start_docker_log_tails(
             env=compose_env,
         ),
         start_prefixed_process(
-            "postgres",
-            [*common_args, POSTGRES_SERVICE],
+            "worker",
+            [*common_args, WORKER_SERVICE],
             cwd=PROJECT_ROOT,
             env=compose_env,
         ),
@@ -393,9 +390,9 @@ def print_docker_diagnostics(
         env=dict(compose_env),
         check=False,
     )
-    print("[docker] recent backend/postgres logs")
+    print("[docker] recent API/worker logs")
     subprocess.run(
-        [*compose_cmd, "-f", str(COMPOSE_FILE), "logs", "--tail=80", BACKEND_SERVICE, POSTGRES_SERVICE],
+        [*compose_cmd, "-f", str(COMPOSE_FILE), "logs", "--tail=80", BACKEND_SERVICE, WORKER_SERVICE],
         cwd=PROJECT_ROOT,
         env=dict(compose_env),
         check=False,
@@ -418,7 +415,7 @@ def start_compose_stack(
 ) -> tuple[bool, str]:
     code, output = run_prefixed_command(
         "docker",
-        [*compose_cmd, "-f", str(COMPOSE_FILE), "up", "--build", "-d", BACKEND_SERVICE, POSTGRES_SERVICE],
+        [*compose_cmd, "-f", str(COMPOSE_FILE), "up", "--build", "-d", BACKEND_SERVICE, WORKER_SERVICE],
         cwd=PROJECT_ROOT,
         env=compose_env,
     )
@@ -436,7 +433,6 @@ def run_dev() -> int:
     initial_compose_env["COMPOSE_PROJECT_NAME"] = COMPOSE_PROJECT_NAME
 
     backend_start = int_from_env("BACKEND_HOST_PORT", DEFAULT_BACKEND_PORT)
-    postgres_start = int_from_env("POSTGRES_HOST_PORT", DEFAULT_POSTGRES_PORT)
     frontend_start = int_from_env("FRONTEND_PORT", workspace.frontend_port)
 
     existing_backend_port = get_existing_compose_port(
@@ -445,13 +441,6 @@ def run_dev() -> int:
         service=BACKEND_SERVICE,
         container_port=BACKEND_CONTAINER_PORT,
     )
-    existing_postgres_port = get_existing_compose_port(
-        compose_cmd=compose_cmd,
-        compose_env=initial_compose_env,
-        service=POSTGRES_SERVICE,
-        container_port=POSTGRES_CONTAINER_PORT,
-    )
-
     backend_port = resolve_service_port(
         name="backend",
         requested_port=backend_start,
@@ -459,36 +448,25 @@ def run_dev() -> int:
         explicit_override=has_env_override("BACKEND_HOST_PORT"),
         scan_limit=scan_limit,
     )
-    postgres_port = resolve_service_port(
-        name="postgres",
-        requested_port=postgres_start,
-        existing_port=existing_postgres_port,
-        explicit_override=has_env_override("POSTGRES_HOST_PORT"),
-        scan_limit=scan_limit,
-    )
     frontend_port = find_available_port(frontend_start, limit=scan_limit)
 
     compose_env = build_compose_env(
         base_env=base_env,
         backend_port=backend_port,
-        postgres_port=postgres_port,
         frontend_port=frontend_port,
     )
 
-    print("[dev] Starting Docker backend stack")
+    print("[dev] Starting Docker API and worker against the configured Cloud development database")
     print(f"[dev] Backend:  http://localhost:{backend_port}")
-    print(f"[dev] Postgres: localhost:{postgres_port}")
     print(f"[dev] Frontend: http://localhost:{frontend_port}")
 
     stack_started, compose_output = start_compose_stack(compose_cmd=compose_cmd, compose_env=compose_env)
     if not stack_started and is_port_bind_error(compose_output):
-        print("[dev] Docker reported a port bind race. Retrying with the next available ports.")
+        print("[dev] Docker reported a port bind race. Retrying with the next available backend port.")
         backend_port = find_available_port(backend_port + 1, limit=scan_limit)
-        postgres_port = find_available_port(postgres_port + 1, limit=scan_limit)
         compose_env = build_compose_env(
             base_env=base_env,
             backend_port=backend_port,
-            postgres_port=postgres_port,
             frontend_port=frontend_port,
         )
         stack_started, compose_output = start_compose_stack(compose_cmd=compose_cmd, compose_env=compose_env)

@@ -138,7 +138,9 @@ class TestFindLatestTaskWithValidScript:
             progress=100,
         )
 
-        result = db_client.find_latest_task_with_valid_script(url)
+        result = db_client.find_latest_task_with_valid_script_for_owner(
+            TEST_USER_ID, None, url
+        )
         assert result is not None
         assert str(result["id"]) == task_id
 
@@ -150,7 +152,9 @@ class TestFindLatestTaskWithValidScript:
         # Script is pending, not completed
         db_client.create_task_output(task_id, TEST_USER_ID, "script")
 
-        result = db_client.find_latest_task_with_valid_script(url)
+        result = db_client.find_latest_task_with_valid_script_for_owner(
+            TEST_USER_ID, None, url
+        )
         assert result is None
 
     def test_ignores_task_with_null_script_content(self, db_client):
@@ -166,7 +170,9 @@ class TestFindLatestTaskWithValidScript:
             progress=100,
         )
 
-        result = db_client.find_latest_task_with_valid_script(url)
+        result = db_client.find_latest_task_with_valid_script_for_owner(
+            TEST_USER_ID, None, url
+        )
         assert result is None
 
     def test_returns_most_recent_task(self, db_client):
@@ -186,7 +192,9 @@ class TestFindLatestTaskWithValidScript:
                 progress=100,
             )
 
-        result = db_client.find_latest_task_with_valid_script(url)
+        result = db_client.find_latest_task_with_valid_script_for_owner(
+            TEST_USER_ID, None, url
+        )
         assert result is not None
         # Should return the MOST RECENT task
         assert str(result["id"]) == str(task2["id"])
@@ -205,7 +213,11 @@ class TestFindLatestTaskWithValidScript:
         )
 
         # Search with a different URL
-        result = db_client.find_latest_task_with_valid_script("https://youtube.com/watch?v=other")
+        result = db_client.find_latest_task_with_valid_script_for_owner(
+            TEST_USER_ID,
+            None,
+            "https://youtube.com/watch?v=other",
+        )
         assert result is None
 
 

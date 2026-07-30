@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import asyncio
+from functools import lru_cache
 from pathlib import Path
 from typing import TypedDict, Optional, List, Dict, Any, Annotated
 import operator
@@ -53,10 +54,6 @@ def _get_supadata_client():
     return get_supadata_client()
 
 
-# ComprehensionAgent is not exposed via dependencies.py yet; use lru_cache locally
-from functools import lru_cache
-
-
 @lru_cache()
 def _get_comprehension_agent():
     return ComprehensionAgent()
@@ -82,6 +79,7 @@ class VideoProcessingState(TypedDict):
     # Inputs
     task_id: str
     user_id: str
+    guest_id: Optional[str]
     video_url: str
 
     # Metadata
@@ -117,7 +115,6 @@ class VideoProcessingState(TypedDict):
 
 async def check_cache(state: VideoProcessingState) -> Dict:
     """Checks DB for existing completed tasks (deduplication)."""
-    task_id = state["task_id"]
     logger.info(f"Node: check_cache for {state['video_url']}")
     normalized_url = normalize_video_url(state["video_url"])
     updates = {
@@ -127,11 +124,18 @@ async def check_cache(state: VideoProcessingState) -> Dict:
     }
 
     try:
-        # Improved Cache Strategy: Look for ANY task with a valid script, not just fully completed ones.
-        # This allows "Resumable Workflow" (e.g. reused transcript if summarization failed previously).
-        existing_task = _get_db_client().find_latest_task_with_valid_script(
-            normalized_url
-        ) or _get_db_client().find_latest_task_with_valid_script(state["video_url"])
+        # Reuse only artifacts owned by the same authenticated user or guest.
+        # Cross-owner task_outputs are never a cache, even when the source URL is public.
+        owner_lookup = _get_db_client().find_latest_task_with_valid_script_for_owner
+        existing_task = owner_lookup(
+            state["user_id"],
+            state.get("guest_id"),
+            normalized_url,
+        ) or owner_lookup(
+            state["user_id"],
+            state.get("guest_id"),
+            state["video_url"],
+        )
 
         if existing_task:
             logger.info(f"Cache hit (Script Found): using task {existing_task['id']}")

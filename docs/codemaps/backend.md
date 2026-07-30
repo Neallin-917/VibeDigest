@@ -1,15 +1,16 @@
 # Backend Codemap
 
-> Last Verified: 2026-04-01
+> Last Verified: 2026-07-30
 > Scope: backend implementation map, not setup instructions
 
 ## Technology Stack
 
 | Layer | Technology |
 |-------|------------|
-| **Framework** | FastAPI (Python 3.10+) |
+| **Framework** | FastAPI (Python 3.12) |
 | **Orchestration** | LangGraph (StateGraph) |
-| **AI/LLM** | OpenAI API (GPT-4o, Whisper) via LiteLLM |
+| **Durable Jobs** | Supabase Queues / PGMQ + independent Python worker |
+| **AI/LLM** | Provider/model routing from `config/llm-provider-defaults.json` |
 | **Package Manager** | uv |
 | **Observability** | LangSmith, Sentry |
 
@@ -67,6 +68,7 @@ class VideoProcessingState(TypedDict):
     # === Inputs ===
     task_id: str
     user_id: str
+    guest_id: Optional[str]
     video_url: str
 
     # === Metadata ===
@@ -96,36 +98,43 @@ class VideoProcessingState(TypedDict):
 ## Module Dependency Graph
 
 ```
-main.py (FastAPI App)
+main.py (FastAPI Command API)
     │
-    ├──▶ workflow.py (LangGraph)
+    ├──▶ task_queue.py ──▶ Supabase PGMQ
+    │
+worker.py (Durable Consumer)
+    │
+    ├──▶ job_handlers.py ──▶ workflow.py (LangGraph)
     │       ├──▶ video_processor.py ──▶ yt-dlp
-    │       ├──▶ transcriber.py ──▶ OpenAI Whisper
-    │       ├──▶ summarizer.py ──▶ OpenAI GPT-4o
+    │       ├──▶ transcriber.py ──▶ configured audio provider
+    │       ├──▶ summarizer.py ──▶ configured smart/fast model aliases
     │       ├──▶ supadata_client.py ──▶ Supadata API
     │       └──▶ db_client.py ──▶ Supabase
     │
-    ├──▶ translator.py ──▶ OpenAI GPT-4o-mini
+    ├──▶ translator.py ──▶ configured fast model alias
     ├──▶ notifier.py ──▶ Email
     └──▶ config.py (Settings)
-            └──▶ .env.production + .env.local
+            └──▶ environment-owned deployment variables
 ```
 
 ## Core Modules
 
-| File | Size | Purpose | Key Exports |
-|------|------|---------|-------------|
-| `main.py` | 32KB | FastAPI app, routes, background tasks | `app`, `run_pipeline` |
-| `workflow.py` | 20KB | LangGraph state machine | `app` (compiled graph) |
-| `summarizer.py` | legacy facade | LLM summarization entrypoint | module exports |
-| `transcriber.py` | 23KB | Whisper transcription | `Transcriber` |
-| `video_processor.py` | 33KB | yt-dlp download, caption extraction | `VideoProcessor` |
-| `db_client.py` | 24KB | Supabase CRUD operations | `DBClient` |
-| `prompts.py` | 24KB | LLM prompt templates | Prompt strings |
-| `supadata_client.py` | 15KB | Supadata API client | `SupadataClient` |
-| `config.py` | 6KB | Settings, env loading | `settings` |
-| `comprehension.py` | 6KB | Chat comprehension agent | `ComprehensionAgent` |
-| `translator.py` | 6KB | Multi-language translation | `Translator` |
+| File | Purpose | Key exports |
+|------|---------|-------------|
+| `main.py` | FastAPI routes and middleware | `app` |
+| `worker.py` | PGMQ claim, heartbeat, retry, dispatch | `TaskWorker`, `serve` |
+| `services/task_queue.py` | Versioned PGMQ messages | `PostgresTaskQueue` |
+| `services/job_handlers.py` | Pipeline attempt and output retry | `run_pipeline`, `handle_retry_output` |
+| `workflow.py` | LangGraph state machine | `app` (compiled graph) |
+| `services/summarizer/` | LLM summarization | `Summarizer` |
+| `services/transcriber.py` | Audio transcription | `Transcriber` |
+| `services/video_processor.py` | yt-dlp download, caption extraction | `VideoProcessor` |
+| `db_client.py` | Postgres operations | `DBClient` |
+| `services/prompts.py` | LLM prompt templates | Prompt strings |
+| `services/supadata_client.py` | Supadata API client | `SupadataClient` |
+| `config.py` | Settings and environment validation | `settings` |
+| `services/comprehension.py` | Chat comprehension agent | `ComprehensionAgent` |
+| `services/translator.py` | Multi-language translation | `Translator` |
 
 ## Ingest Strategy (Cascade Fallback)
 
@@ -147,16 +156,14 @@ main.py (FastAPI App)
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Concurrency Control
+## Delivery and Concurrency
 
 ```python
-MAX_CONCURRENT_JOBS = 4
-processing_limiter = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
-
-async def run_pipeline(...):
-    async with processing_limiter:
-        # Only 4 pipelines run concurrently
-        await workflow_app.ainvoke(initial_state)
+FastAPI invokes a private Postgres submission function that atomically creates
+state and enqueues a versioned, ID-only message. One worker process handles one
+job at a time; throughput scales with Railway replicas. The worker renews PGMQ
+visibility, enforces an execution timeout, retries with bounded backoff, and
+archives only after terminal persistence is confirmed.
 ```
 
 ## Test Layout
@@ -171,14 +178,12 @@ backend/tests/
 ├── test_video_processor.py  # Download tests
 ├── test_comprehension.py    # Chat agent tests
 ├── test_integration.py      # E2E tests
+├── test_task_queue.py       # Queue adapter contract tests
+├── test_worker.py           # Lease/retry/timeout tests
+├── integration/
+│   └── test_pgmq_queue.py   # Real PGMQ transaction lifecycle
 └── test_transcript_guard.py # Validation tests
 ```
 
-## Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `verify_llm_*.py` | LLM connection verification |
-| `analyze_*.py` | Performance/task analysis |
-| `rerun_*.py` | Task re-execution utilities |
-| `manual_test_*.py` | Manual testing in Docker |
+Operational scripts live under `backend/scripts/`; supported entrypoints are
+documented by `Makefile` and `CONTRIBUTING.md`, not duplicated here.

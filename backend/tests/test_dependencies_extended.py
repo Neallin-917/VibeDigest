@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dependencies import get_current_user, get_db_client, increment_guest_usage
+from dependencies import get_current_user, get_db_client
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +31,6 @@ def mock_db():
     db = MagicMock()
     db.is_auth_configured.return_value = True
     db.validate_token.return_value = None  # default: invalid token
-    db.get_task_count.return_value = 0     # default: guest has 0 tasks
     return db
 
 
@@ -83,7 +82,6 @@ class TestBearerToken:
                 )
 
         assert response.status_code == 401
-
     def test_auth_misconfigured_raises_503(self, mock_db):
         mock_db.is_auth_configured.return_value = False
         with patch("dependencies.settings") as mock_settings:
@@ -104,7 +102,6 @@ class TestBearerToken:
 
 class TestGuestId:
     def test_guest_within_quota_returns_guest_id(self, mock_db):
-        mock_db.get_task_count.return_value = 0
         with patch("dependencies.settings") as mock_settings:
             mock_settings.MOCK_MODE = False
             app = _make_app(mock_db)
@@ -116,22 +113,7 @@ class TestGuestId:
 
         assert response.status_code == 200
         assert response.json()["user_id"] == "guest-xyz"
-
-    def test_guest_quota_exceeded_raises_402(self, mock_db):
-        mock_db.get_task_count.return_value = 1  # already used the free trial
-        with patch("dependencies.settings") as mock_settings, \
-             patch("dependencies.os") as mock_os:
-            mock_settings.MOCK_MODE = False
-            # DEV_AUTH_BYPASS is not set
-            mock_os.getenv.return_value = ""
-            app = _make_app(mock_db)
-            with TestClient(app) as c:
-                response = c.get(
-                    "/me",
-                    headers={"X-Guest-Id": "guest-used"},
-                )
-
-        assert response.status_code == 402
+        mock_db.get_task_count.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -147,19 +129,3 @@ class TestFallbackUser:
                 response = c.get("/me")
 
         assert response.status_code == 401
-
-
-# ---------------------------------------------------------------------------
-# increment_guest_usage
-# ---------------------------------------------------------------------------
-
-class TestIncrementGuestUsage:
-    def test_non_empty_guest_id_tracks_usage(self):
-        db = MagicMock()
-        increment_guest_usage("guest-001", db)
-        db.track_guest_trial.assert_called_once_with("guest-001")
-
-    def test_empty_guest_id_does_nothing(self):
-        db = MagicMock()
-        increment_guest_usage("", db)
-        db.track_guest_trial.assert_not_called()

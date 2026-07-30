@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 from typing import AsyncGenerator
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, AsyncMock
 
 import pytest
 from httpx import AsyncClient, ASGITransport
@@ -27,10 +27,17 @@ os.environ.setdefault("LOG_LEVEL", "WARNING")
 if os.getenv("SKIP_DB_TESTS") == "1":
     pytest.skip("DB tests disabled via SKIP_DB_TESTS=1", allow_module_level=True)
 
-from main import app
-from db_client import DBClient
-from dependencies import get_db_client, get_current_user, get_video_processor, get_coinbase_client
-from sqlalchemy import create_engine, text
+from main import app  # noqa: E402
+from db_client import DBClient  # noqa: E402
+from dependencies import (  # noqa: E402
+    get_coinbase_client,
+    get_current_user,
+    get_db_client,
+    get_task_queue,
+    get_video_processor,
+)
+from services.task_queue import GuestQuotaExceededError, TaskSubmission  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
 
 
 def _is_truthy(value: str | None) -> bool:
@@ -67,45 +74,45 @@ def postgres_container():
 @pytest.fixture(scope="session")
 def test_db(postgres_container):
     """
-    Apply schema to the test DB and return a connected engine or URL.
+    Apply the canonical Cloud baseline to the test DB.
+
+    Supabase supplies auth schema primitives in production; the fixture creates
+    only that platform contract, then executes the repository migration.
     """
     db_url = postgres_container
     engine = create_engine(db_url)
-    
-    # 1. Read Schema
-    # Use path relative to this file (backend/tests/conftest.py)
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    schema_path = os.path.join(base_dir, "sql", "full_schema_dump.txt")
-    if not os.path.exists(schema_path):
-        # Fallback or error
-        raise FileNotFoundError(f"Schema dump not found at {schema_path}")
-        
-    with open(schema_path, "r") as f:
-        schema_sql = f.read()
-        
-    # 2. Apply Schema
-    # We need to handle 'auth.users' dependency since we don't have Supabase Auth in container.
-    # So we must create a fake auth schema and users table first.
-    pre_setup_sql = """
+
+    project_root = Path(__file__).resolve().parents[2]
+    baseline_path = (
+        project_root
+        / "supabase"
+        / "migrations"
+        / "20260101000000_cloud_schema_baseline.sql"
+    )
+    baseline_sql = baseline_path.read_text()
+
+    platform_sql = """
+    DROP TABLE IF EXISTS public.chat_messages CASCADE;
+    DROP TABLE IF EXISTS public.chat_threads CASCADE;
     DROP TABLE IF EXISTS public.payment_orders CASCADE;
     DROP TABLE IF EXISTS public.task_outputs CASCADE;
     DROP TABLE IF EXISTS public.tasks CASCADE;
     DROP TABLE IF EXISTS public.profiles CASCADE;
     DROP TABLE IF EXISTS public.guest_usage CASCADE;
+    DROP TYPE IF EXISTS public.chat_thread_status CASCADE;
+    DROP TYPE IF EXISTS public.subscription_tier CASCADE;
     DROP TABLE IF EXISTS auth.users CASCADE;
     DROP SCHEMA IF EXISTS auth CASCADE;
 
-    CREATE SCHEMA IF NOT EXISTS auth;
-    CREATE TABLE IF NOT EXISTS auth.users (
+    CREATE SCHEMA auth;
+    CREATE TABLE auth.users (
         id uuid PRIMARY KEY,
         email text,
         created_at timestamptz DEFAULT now()
     );
-    -- Mock extensions if needed
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
     CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-    
-    -- Mock Supabase Roles
+
     DO $$
     BEGIN
       IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
@@ -118,129 +125,44 @@ def test_db(postgres_container):
       GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
     END
     $$;
-    
-    -- Mock Supabase auth functions used in Policies
+
     CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid AS $$
-      -- Return the generic test user ID or null
       SELECT '00000000-0000-0000-0000-000000000001'::uuid;
     $$ LANGUAGE sql STABLE;
 
     CREATE OR REPLACE FUNCTION auth.role() RETURNS text AS $$
       SELECT 'authenticated';
     $$ LANGUAGE sql STABLE;
-    
-    -- Create missing tables that policies depend on
-    CREATE TABLE IF NOT EXISTS public.profiles (
-        id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-        tier text DEFAULT 'free',
-        credits_total integer DEFAULT 30,
-        credits_used integer DEFAULT 0,
-        extra_credits integer DEFAULT 0,
-        usage_limit integer DEFAULT 100,
-        usage_count integer DEFAULT 0,
-        creem_customer_id text,
-        period_end timestamptz,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-    );
+    """
 
-    CREATE TABLE IF NOT EXISTS public.tasks (
-        id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-        user_id uuid REFERENCES auth.users(id),
-        guest_id text, -- Added for anonymous tracking
-        video_url text,
-        status text DEFAULT 'pending',
-        progress integer DEFAULT 0,
-        video_title text,
-        thumbnail_url text,
-        error_message text,
-        author text,
-        author_url text,
-        author_image_url text,
-        description text,
-        keywords text[],
-        view_count bigint,
-        upload_date timestamptz,
-        duration integer,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now(),
-        is_demo boolean DEFAULT false,
-        summary_language text
-    );
-
-    CREATE TABLE IF NOT EXISTS public.task_outputs (
-        id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-        task_id uuid REFERENCES public.tasks(id) ON DELETE CASCADE,
-        user_id uuid NOT NULL REFERENCES auth.users(id),
-        kind text,
-        locale text,
-        status text DEFAULT 'pending',
-        progress integer DEFAULT 0,
-        content jsonb,
-        error_message text,
-        attempt integer DEFAULT 0,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-    );
-
-    CREATE TABLE IF NOT EXISTS public.guest_usage (
-        guest_id text PRIMARY KEY,
-        usage_count integer DEFAULT 0,
-        updated_at timestamptz DEFAULT now()
-    );
-
-    CREATE TABLE IF NOT EXISTS public.payment_orders (
-        id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-        user_id uuid NOT NULL REFERENCES auth.users(id),
-        provider text NOT NULL,
-        provider_payment_id text,
-        amount_fiat numeric(10,2),
-        currency_fiat text DEFAULT 'USD',
-        amount_crypto numeric(20,8),
-        currency_crypto text,
-        status text DEFAULT 'pending',
-        metadata jsonb,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-    );
-
-    -- Insert Demo Task to satisfy Foreign Keys in schema dump
-    -- But first, ensure the user exists!
+    fixture_data_sql = """
     INSERT INTO auth.users (id, email)
     VALUES ('00000000-0000-0000-0000-000000000001', 'test@example.com')
     ON CONFLICT (id) DO NOTHING;
 
-    INSERT INTO public.profiles (id, tier, usage_limit, usage_count)
-    VALUES ('00000000-0000-0000-0000-000000000001', 'free', 100, 0)
-    ON CONFLICT (id) DO NOTHING;
+    UPDATE public.profiles
+       SET usage_limit = 100,
+           usage_count = 0
+     WHERE id = '00000000-0000-0000-0000-000000000001';
 
-    INSERT INTO public.tasks (id, user_id, video_url, video_title, is_demo)
+    INSERT INTO public.tasks (
+      id, user_id, video_url, video_title, is_demo
+    )
     VALUES (
-        '1e60a06c-ef37-4f82-bffd-1a5135cb45c7',
-        '00000000-0000-0000-0000-000000000001', 
-        'https://example.com/demo.mp4',
-        'Demo Task',
-        true
-    ) ON CONFLICT (id) DO NOTHING;
+      '1e60a06c-ef37-4f82-bffd-1a5135cb45c7',
+      '00000000-0000-0000-0000-000000000001',
+      'https://example.com/demo.mp4',
+      'Demo Task',
+      true
+    )
+    ON CONFLICT (id) DO NOTHING;
     """
-    
-    print("DEBUG: Connecting to DB...")
-    with engine.connect() as conn:
-        print("DEBUG: Applying pre-setup SQL...")
-        conn.execute(text(pre_setup_sql))
-        conn.commit()
-        
-        try:
-             print("DEBUG: Applying Full Schema...")
-             # text() with multiple statements works if the driver allows it. 
-             # psycopg2 usually needs autocommit or special handling, but execute() often works unless it's huge.
-             conn.execute(text(schema_sql))
-             conn.commit()
-             print("DEBUG: Schema Applied!")
-        except Exception as e:
-             print(f"DEBUG: Schema application warning/error: {e}")
 
-    print("DEBUG: test_db fixture done.")
+    with engine.begin() as conn:
+        conn.exec_driver_sql(platform_sql)
+        conn.exec_driver_sql(baseline_sql)
+        conn.exec_driver_sql(fixture_data_sql)
+
     return db_url
 
 @pytest.fixture(scope="module")
@@ -259,6 +181,26 @@ async def async_client(test_db) -> AsyncGenerator[AsyncClient, None]:
 
     # Override the dependency
     app.dependency_overrides[get_db_client] = lambda: test_db_client
+    task_queue = MagicMock()
+
+    def submit_process_video(*, video_url, user_id, guest_id):
+        if guest_id and test_db_client.get_task_count(guest_id) >= 1:
+            raise GuestQuotaExceededError("Guest quota exceeded")
+        task = test_db_client.create_task(user_id=user_id, video_url=video_url)
+        task_id = str(task["id"])
+        for kind in ("script", "summary", "comprehension_brief"):
+            test_db_client.create_task_output(task_id, user_id, kind=kind)
+        if guest_id:
+            test_db_client.track_guest_trial(guest_id)
+        return TaskSubmission(
+            task_id=task_id,
+            resolution="created",
+            message_id=1,
+        )
+
+    task_queue.submit_process_video.side_effect = submit_process_video
+    task_queue.submit_retry_output.return_value = 2
+    app.dependency_overrides[get_task_queue] = lambda: task_queue
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -266,6 +208,7 @@ async def async_client(test_db) -> AsyncGenerator[AsyncClient, None]:
 
     # Clean up
     app.dependency_overrides.pop(get_db_client, None)
+    app.dependency_overrides.pop(get_task_queue, None)
 
 
 # --- Shared API Fixtures (Task 1) ---
@@ -273,6 +216,17 @@ async def async_client(test_db) -> AsyncGenerator[AsyncClient, None]:
 @pytest.fixture
 def mock_db_client():
     return MagicMock()
+
+@pytest.fixture
+def mock_task_queue():
+    queue = MagicMock()
+    queue.submit_process_video.return_value = TaskSubmission(
+        task_id="task_123",
+        resolution="created",
+        message_id=1,
+    )
+    queue.submit_retry_output.return_value = 2
+    return queue
 
 @pytest.fixture
 def mock_user():
@@ -301,13 +255,20 @@ def mock_coinbase_client():
     return client
 
 @pytest.fixture
-async def api_client(mock_db_client, mock_video_processor, mock_coinbase_client, mock_user):
+async def api_client(
+    mock_db_client,
+    mock_video_processor,
+    mock_coinbase_client,
+    mock_task_queue,
+    mock_user,
+):
     """
     Shared AsyncClient with commonly mocked dependencies.
     Replaces local 'client' fixture in API tests.
     """
     saved_overrides = dict(app.dependency_overrides)
     app.dependency_overrides[get_db_client] = lambda: mock_db_client
+    app.dependency_overrides[get_task_queue] = lambda: mock_task_queue
     app.dependency_overrides[get_video_processor] = lambda: mock_video_processor
     app.dependency_overrides[get_coinbase_client] = lambda: mock_coinbase_client
     app.dependency_overrides[get_current_user] = lambda: mock_user

@@ -1,0 +1,40 @@
+{
+  "name": "vibedigest-video-intake",
+  "version": "0.1.0",
+  "description": "Reliable video context extraction for Codex agents using VibeDigest transcript, caption, and ASR fallback workflows.",
+  "author": {
+    "name": "VibeDigest",
+    "url": "https://vibedigest.io"
+  },
+  "homepage": "https://vibedigest.io",
+  "license": "Apache-2.0",
+  "keywords": [
+    "video",
+    "transcript",
+    "youtube",
+    "mcp",
+    "codex",
+    "agent"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "VibeDigest Video Intake",
+    "shortDescription": "Extract video metadata, transcripts, timestamps, and Markdown for agents.",
+    "longDescription": "Use VibeDigest Video Intake when Codex needs reliable video context from a URL. The plugin routes through a local MCP server and a credential-aware gateway that tries provider transcripts, direct captions, and optional ASR without storing secrets in the plugin package.",
+    "developerName": "VibeDigest",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Local MCP",
+      "Video transcript extraction"
+    ],
+    "websiteURL": "https://vibedigest.io",
+    "brandColor": "#111827",
+    "defaultPrompt": [
+      "Use VibeDigest to get the full context for this video URL.",
+      "Extract a timestamped transcript and Markdown notes from this YouTube link.",
+      "Get reliable video context before summarizing this lecture."
+    ]
+  }
+}

@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from utils.text_utils import (

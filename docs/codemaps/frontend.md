@@ -1,217 +1,102 @@
 # Frontend Codemap
 
-> Last Verified: 2026-04-02
-> Scope: frontend implementation map, not onboarding
+> Last verified: 2026-07-30
+> Scope: current Cloud UI implementation, not historical performance analysis
 
-## System Overview
+## Product boundary
 
-**VibeDigest** uses a **Chat-First Architecture** (v3.4), putting the conversational interface at the center of the user experience.
+The frontend is a Next.js App Router application deployed on Vercel. It owns
+the browser experience and small session-aware BFF routes. Postgres remains
+the task-state authority and Supabase Realtime remains the only live task
+transport.
 
-For the current performance hotspot ranking and optimization roadmap, see [frontend-performance-audit.md](./frontend-performance-audit.md).
+The data flow is intentionally singular:
 
-## Technology Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Framework** | Next.js 16 (App Router) |
-| **Language** | TypeScript |
-| **Styling** | TailwindCSS, Framer Motion |
-| **Components** | shadcn/ui |
-| **Icons** | Lucide React |
-| **Data** | Supabase Client (SSR + Client) |
-| **Testing** | Vitest (Unit), Playwright (E2E) |
-
-## Directory Structure
-
-```
-frontend/src/
-├── app/                 # Next.js App Router
-│   ├── api/             # API Routes (Backend Proxy)
-│   ├── [lang]/          # i18n Dynamic Routes
-│   └── layout.tsx       # Root Layout
-├── components/          # React Components
-│   ├── ui/              # shadcn/ui Primitives (24)
-│   ├── chat/            # Chat Interface (17)
-│   ├── tasks/           # Task Display (15)
-│   ├── landing/         # Landing Sections (7)
-│   ├── layout/          # App Layout (13)
-│   ├── auth/            # Authentication (5)
-│   └── i18n/            # Language Switcher
-├── hooks/               # Custom React Hooks
-├── lib/                 # Utilities
-│   ├── api.ts           # Backend API Client
-│   ├── i18n.ts          # Translations (141KB)
-│   ├── supabase*.ts     # Supabase Clients
-│   └── utils.ts         # Helpers
-├── types/               # TypeScript Definitions
-└── test/                # Test Setup
+```text
+Browser
+  ├── HTTP command ──> Next.js BFF ──> FastAPI ──> Postgres transaction + PGMQ
+  └── Realtime subscription <──────────────────── committed task/output changes
 ```
 
-## App Router Structure
+The browser never polls task status. `frontend/src/lib/task-live.ts` owns the
+Supabase Realtime subscription, while Postgres remains the source of truth.
 
-```
-app/
-├── layout.tsx                    # Root layout (fonts, providers)
-├── page.tsx                      # Redirect to /[lang]
-├── robots.ts                     # SEO robots.txt
-├── sitemap.ts                    # SEO sitemap.xml
-│
-├── api/                          # API Routes
-│   ├── process-video/route.ts    # Backend proxy
-│   ├── chat/route.ts             # AI chat (streaming)
-│   ├── chat/threads/             # Chat thread management
-│   ├── threads/                  # Thread CRUD
-│   └── image-proxy/route.ts      # CORS image proxy
-│
-└── [lang]/                       # Dynamic i18n routes
-    ├── layout.tsx                # Lang-specific layout
-    ├── page.tsx                  # Landing page
-    ├── login/page.tsx            # Login page
-    ├── chat/page.tsx             # Chat interface
-    ├── explore/page.tsx          # Explore tasks
-    ├── about/page.tsx            # About page
-    ├── faq/page.tsx              # FAQ page
-    ├── terms/page.tsx            # Terms of service
-    ├── privacy/page.tsx          # Privacy policy
-    │
-    ├── @auth/                    # Parallel route (modal)
-    │   ├── default.tsx
-    │   └── (.)login/page.tsx     # Intercepted login modal
-    │
-    └── (main)/                   # Authenticated routes
-        ├── layout.tsx
-        ├── settings/page.tsx     # User settings
-        ├── settings/pricing/     # Pricing page
-        ├── tasks/[id]/page.tsx   # Task detail
-        ├── tasks/[id]/[slug]/    # Task with slug
-        └── policies/             # Legal pages
-```
+## Stack
 
-## Component Library
+| Concern | Implementation |
+| --- | --- |
+| Framework | Next.js 16 App Router, React 19, TypeScript |
+| Styling | Tailwind CSS 4 |
+| UI primitives | shadcn-style local components backed by granular Radix packages |
+| Chat | Vercel AI SDK UI |
+| Auth/data | Supabase SSR and browser clients |
+| Server state | TanStack Query |
+| Unit tests | Vitest + Testing Library |
+| Browser tests | Playwright |
 
-### UI Primitives
+Exact versions belong to `frontend/package.json` and
+`frontend/package-lock.json`, not this codemap.
 
-```
-components/ui/
-├── button.tsx          ├── dialog.tsx
-├── card.tsx            ├── dropdown-menu.tsx
-├── input.tsx           ├── select.tsx
-├── textarea.tsx        ├── sheet.tsx
-├── tabs.tsx            ├── tooltip.tsx
-├── badge.tsx           ├── avatar.tsx
-├── label.tsx           ├── separator.tsx
-├── progress.tsx        ├── switch.tsx
-├── typography.tsx      ├── vignette.tsx
-├── motion-wrapper.tsx  ├── theme-toggle.tsx
-└── confirmation-modal.tsx
+## Route map
+
+```text
+src/app/
+├── layout.tsx, page.tsx              # root shell and locale redirect
+├── manifest.ts, robots.ts, sitemap.ts
+├── [lang]/
+│   ├── page.tsx                      # landing page
+│   ├── chat/                         # primary chat workspace
+│   ├── explore/                      # public task discovery
+│   ├── login/ and auth/callback/     # authentication
+│   ├── (main)/
+│   │   ├── tasks/[id]/               # task result
+│   │   ├── settings/                 # account and pricing
+│   │   └── policies/                 # authenticated legal routes
+│   └── about, faq, privacy, terms
+└── api/
+    ├── process-video/                # authenticated FastAPI proxy
+    ├── chat/                         # streamed AI chat and tools
+    ├── threads/                      # thread persistence
+    ├── image-proxy/                  # constrained media proxy
+    └── health/backend-origin/        # deployment diagnostic
 ```
 
-### Feature Components
+## Component and state ownership
 
-| Folder | Purpose | Key Components |
-|--------|---------|----------------|
-| `chat/` | Core Chat Interface | `ChatWorkspace`, `ChatContainer`, `VideoDetailPanel`, `WelcomeScreen` |
-| `tasks/` | Media & Transcript | `VideoEmbed`, `YouTubePlayer`, `TranscriptTimeline`, `AudioEmbed` |
-| `landing/` | Marketing Pages | `HeroSection`, `FeaturesSection`, `PricingSection` |
-| `layout/` | App Shell | `MainShell`, `Sidebar`, `MobileNav`, `FeedbackDialog` |
-| `auth/` | Authentication | `LoginForm`, `GoogleOneTap` |
-| `settings/` | User Preferences | `UsageCard` |
+| Area | Owner | Notes |
+| --- | --- | --- |
+| Chat workspace | `src/components/chat/` | Conversation UI and task data parts |
+| Task presentation | `src/components/tasks/` | Video/audio/transcript rendering and Realtime listener |
+| App shell | `src/components/layout/` | Navigation, sidebar, feedback |
+| Shared primitives | `src/components/ui/` | Check here before creating a component; use CVA for variants |
+| Server-state hooks | `src/hooks/` | Query keys, tasks, threads, auth-derived behavior |
+| Backend commands | `src/lib/api.ts` | Typed browser-facing API client |
+| Live task events | `src/lib/task-live.ts` | Supabase Realtime only |
+| Supabase clients | `src/lib/supabase*.ts` | Browser/public and server credential boundaries |
+| Durable chat schema | `src/lib/chat-message-boundary.ts` | Validate request, replay, and persistence boundaries |
+| Locale content | `src/lib/i18n.ts` | `en`, `zh`, and `ja` |
 
-### Chat Message Boundary
+Transient loading UI must not be persisted as an empty assistant message. Chat
+messages cross the single `chat-message-boundary.ts` validation boundary.
 
-- `src/lib/chat-ui.ts` defines the durable chat message factories and schema-aligned types.
-- `src/lib/chat-message-boundary.ts` is the single ingress/egress boundary for chat messages:
-  - request messages are validated before `/api/chat` accepts them
-  - stored history is normalized before read / replay
-  - persistence rejects any message that cannot satisfy the `UIMessage.parts` contract
-- UI-only loading states in `ChatContainer` must stay outside persisted `ChatUIMessage[]`; do not model transient placeholders as `assistant.parts = []`.
+## Rendering rules
 
-## State Management
+- Prefer Server Components for static or server-owned reads.
+- Add `"use client"` only for browser APIs, Realtime, state, or interaction.
+- Keep command routes thin: authenticate, validate, forward, normalize errors.
+- Do not reproduce backend workflow or provider fallback logic in Next.js.
+- Keep task loading calm and explicit; avoid decorative skeletons, shimmer, and
+  redundant progress surfaces.
+- Keep browser-visible errors sanitized through `safe-error.ts`.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    DATA FLOW                                │
-│                                                             │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐   │
-│  │   Server    │────▶│   Client    │────▶│   UI        │   │
-│  │   Actions   │     │   State     │     │   Render    │   │
-│  └─────────────┘     └─────────────┘     └─────────────┘   │
-│        │                   │                               │
-│        │                   │                               │
-│        ▼                   ▼                               │
-│  ┌─────────────┐     ┌─────────────┐                       │
-│  │  Supabase   │     │  Supabase   │                       │
-│  │  (Server)   │     │  Realtime   │                       │
-│  │  SSR fetch  │     │  WebSocket  │                       │
-│  └─────────────┘     └─────────────┘                       │
-└─────────────────────────────────────────────────────────────┘
+## Validation
 
-Key patterns:
-- Server Components for initial data fetch
-- Client Components for interactivity
-- Supabase Realtime for live updates (tasks)
-- React Context for theme/locale
+```bash
+cd frontend
+npm run lint
+npm run test -- --run
+npm run build
 ```
 
-## i18n Configuration
-
-| Property | Value |
-|----------|-------|
-| **Locales** | en, zh, ja |
-| **Default** | en |
-| **RTL** | none |
-| **Storage** | `localStorage` key `vd.locale` |
-| **Source** | `frontend/src/lib/i18n.ts` |
-
-### Translation Structure
-
-```typescript
-const translations = {
-  en: {
-    common: { ... },
-    landing: { ... },
-    tasks: { ... },
-    chat: { ... },
-    settings: { ... },
-  },
-  zh: { ... },
-  ja: { ... },
-}
-```
-
-## API Client (lib/api.ts)
-
-```typescript
-// Backend API wrapper
-export const api = {
-  processVideo: (url: string, lang: string) =>
-    fetch('/api/process-video', { method: 'POST', body: ... }),
-
-  previewVideo: (url: string) =>
-    fetch('/api/preview-video', { method: 'POST', body: ... }),
-
-  retryOutput: (outputId: string) =>
-    fetch('/api/retry-output', { method: 'POST', body: ... }),
-}
-```
-
-## Testing
-
-| Type | Tool | Config |
-|------|------|--------|
-| Unit | Vitest | `vitest.config.ts` |
-| E2E | Playwright | `playwright.config.ts` |
-| Coverage | Vitest V8 coverage | `frontend/coverage/` |
-
-### Test Files
-
-```
-frontend/src/
-├── components/ui/button.test.tsx
-├── components/landing/HeroSection.test.tsx
-├── components/landing/LandingNav.test.tsx
-├── components/tasks/VideoEmbed.test.tsx
-├── components/tasks/YouTubePlayer.test.tsx
-├── app/api/chat/route.test.ts
-└── e2e/                          # Playwright tests
-```
+Run these under Node 24, the runtime declared by `.nvmrc` and
+`package.json#engines`.

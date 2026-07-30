@@ -8,7 +8,7 @@ import { MessageRow } from './MessageRow'
 import { TaskDataGroup } from './TaskDataGroup'
 import { cn } from '@/lib/utils'
 import { checkHasRenderableAssistant } from '@/lib/chat-perf-utils'
-import { useRef, useEffect, useMemo, useState } from 'react'
+import { useRef, useEffect, useMemo, useState, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { extractAndNormalizeUrl } from '@/lib/url-utils'
 import { useChatScroll } from './useChatScroll'
@@ -86,26 +86,34 @@ export function ChatContainer({
   // Use lazy state initialization to generate once per component mount
   const [sessionId] = useState(() => threadId || uuidv4())
   const effectiveThreadId = threadId || sessionId
+  const prepareSendMessagesRequest = useCallback(
+    ({ messages: currentMessages }: { messages: ChatUIMessage[] }) => {
+      const lastMessage = currentMessages[currentMessages.length - 1]
+
+      return {
+        body: {
+          message: lastMessage,
+          threadId: effectiveThreadId,
+          taskId: activeTaskIdRef.current,
+        },
+      }
+    },
+    [effectiveThreadId],
+  )
+  const transport = useMemo(
+    () =>
+      // The ref is read by the send callback later, never by render/constructor.
+      // eslint-disable-next-line react-hooks/refs
+      new DefaultChatTransport({
+        api: '/api/chat',
+        prepareSendMessagesRequest,
+      }),
+    [prepareSendMessagesRequest],
+  )
 
   // 1. Setup useChat with AI SDK v6 Best Practices
   const chat = useChat<ChatUIMessage>({
-    // IMPORTANT: Use DefaultChatTransport for full v6 compatibility
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      // Optimize: Only send the new message and context, not the full history
-      // The backend will load history from DB
-      prepareSendMessagesRequest: ({ messages: currentMessages }) => {
-        const lastMessage = currentMessages[currentMessages.length - 1]
-
-        return {
-          body: {
-            message: lastMessage,
-            threadId: effectiveThreadId,     // Persist to this thread
-            taskId: activeTaskIdRef.current    // RAG context
-          }
-        }
-      }
-    }),
+    transport,
 
     // Session ID
     id: effectiveThreadId,

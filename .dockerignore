@@ -21,8 +21,19 @@ ENV/
 
 # 临时文件
 temp/
+**/temp/**
+**/downloads/**
+**/logs/**
+reports/
 *.tmp
 *.log
+
+# Tests and local artifacts are not runtime image inputs
+backend/tests/
+coverage/
+htmlcov/
+.pytest_cache/
+.ruff_cache/
 
 # IDE相关
 .vscode/

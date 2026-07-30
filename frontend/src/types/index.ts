@@ -1,14 +1,9 @@
 /**
  * Type definitions for VibeDigest frontend.
  *
- * This file re-exports generated types from backend Pydantic models
- * and defines frontend-specific types.
+ * Keep only frontend-owned view models here. Cloud API contracts are validated
+ * at their request boundaries instead of copied from a stale code generator.
  */
-
-// Re-export all generated types from Pydantic models
-export * from './generated';
-
-// Frontend-specific types (not generated from backend)
 
 export interface Task {
     id: string
@@ -28,9 +23,3 @@ export interface Thread {
     status: ThreadStatus
     task_id?: string | null
 }
-
-// Re-export hook types for convenience
-export type {
-    TaskStatus,
-    OutputKind,
-} from './generated';

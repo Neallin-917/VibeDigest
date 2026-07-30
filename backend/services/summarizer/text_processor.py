@@ -5,7 +5,7 @@ This module handles text chunking, token estimation, and paragraph organization.
 """
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 

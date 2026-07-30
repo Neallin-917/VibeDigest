@@ -1,8 +1,7 @@
 import pytest
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 import os
 from db_client import DBClient
-from sqlalchemy import text
 
 @pytest.fixture
 def mock_engine():
@@ -85,7 +84,7 @@ def test_find_latest_inflight_task(db_client_instance, mock_session):
     assert "status IN ('pending', 'processing')" in args[0].text
 
 
-def test_find_latest_task_with_valid_script_for_user(db_client_instance, mock_session):
+def test_find_latest_task_with_valid_script_for_owner(db_client_instance, mock_session):
     mock_result = MagicMock()
     mock_result.returns_rows = True
     row = MagicMock()
@@ -93,14 +92,17 @@ def test_find_latest_task_with_valid_script_for_user(db_client_instance, mock_se
     mock_result.__iter__.return_value = iter([row])
     mock_session.execute.return_value = mock_result
 
-    result = db_client_instance.find_latest_task_with_valid_script_for_user(
+    result = db_client_instance.find_latest_task_with_valid_script_for_owner(
         "u1",
+        "guest-1",
         "https://youtube.com/watch?v=abc",
     )
 
     assert result["id"] == "task_cached"
     args, _ = mock_session.execute.call_args
     assert "t.user_id = :user_id" in args[0].text
+    assert "t.guest_id = :guest_id" in args[0].text
+    assert args[1]["guest_id"] == "guest-1"
     assert "o.kind = 'script'" in args[0].text
     assert "CAST(o.content AS TEXT)" in args[0].text
     assert "'null'::jsonb" not in args[0].text
@@ -114,7 +116,9 @@ def test_find_latest_task_with_valid_script_uses_text_safe_content_check(db_clie
     mock_result.__iter__.return_value = iter([row])
     mock_session.execute.return_value = mock_result
 
-    result = db_client_instance.find_latest_task_with_valid_script(
+    result = db_client_instance.find_latest_task_with_valid_script_for_owner(
+        "u1",
+        None,
         "https://youtube.com/watch?v=abc",
     )
 
@@ -136,6 +140,13 @@ def test_get_task(db_client_instance, mock_session):
     assert result["id"] == "task_1"
 
 def test_update_task_status(db_client_instance, mock_session):
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    row = MagicMock()
+    row._mapping = {"id": "task_1"}
+    mock_result.__iter__.return_value = iter([row])
+    mock_session.execute.return_value = mock_result
+
     db_client_instance.update_task_status("task_1", status="processing", progress=50)
     
     # Verify execute called with update statement
@@ -163,13 +174,32 @@ def test_update_task_status_sanitizes_html_error(db_client_instance, mock_sessio
         '<body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>'
     )
 
-    db_client_instance.update_task_status("task_1", status="error", error=raw_html)
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    row = MagicMock()
+    row._mapping = {"id": "task_1"}
+    mock_result.__iter__.return_value = iter([row])
+    mock_session.execute.return_value = mock_result
 
+    db_client_instance.update_task_status("task_1", status="error", error=raw_html)
     args, kwargs = mock_session.execute.call_args
     params = args[1] if len(args) > 1 else kwargs.get("params", {})
     assert "blocking automated access" in params["error"]
     assert "<!DOCTYPE" not in params["error"]
     assert "challenge-platform" not in params["error"]
+
+
+def test_update_task_status_fails_closed_on_missing_row(
+    db_client_instance,
+    mock_session,
+):
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    mock_result.__iter__.return_value = iter([])
+    mock_session.execute.return_value = mock_result
+
+    with pytest.raises(LookupError, match="was not updated"):
+        db_client_instance.update_task_status("missing-task", status="processing")
 
 
 def test_update_output_status_sanitizes_html_error(db_client_instance, mock_session):
@@ -178,12 +208,51 @@ def test_update_output_status_sanitizes_html_error(db_client_instance, mock_sess
         '<body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>'
     )
 
-    db_client_instance.update_output_status("output_1", status="error", error=raw_html)
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    row = MagicMock()
+    row._mapping = {"id": "output_1"}
+    mock_result.__iter__.return_value = iter([row])
+    mock_session.execute.return_value = mock_result
 
+    db_client_instance.update_output_status("output_1", status="error", error=raw_html)
     args, kwargs = mock_session.execute.call_args
     params = args[1] if len(args) > 1 else kwargs.get("params", {})
     assert "blocking automated access" in params["error"]
     assert "<!DOCTYPE" not in params["error"]
+
+
+def test_update_output_status_fails_closed_on_missing_row(
+    db_client_instance,
+    mock_session,
+):
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    mock_result.__iter__.return_value = iter([])
+    mock_session.execute.return_value = mock_result
+
+    with pytest.raises(LookupError, match="was not updated"):
+        db_client_instance.update_output_status(
+            "missing-output",
+            status="processing",
+        )
+
+
+def test_update_task_output_by_kind_fails_closed_on_missing_row(
+    db_client_instance,
+    mock_session,
+):
+    mock_result = MagicMock()
+    mock_result.returns_rows = True
+    mock_result.__iter__.return_value = iter([])
+    mock_session.execute.return_value = mock_result
+
+    with pytest.raises(LookupError, match="was not updated"):
+        db_client_instance.update_task_output_by_kind(
+            "missing-task",
+            "script",
+            status="processing",
+        )
 
 def test_create_task_output(db_client_instance, mock_session):
     mock_result = MagicMock()

@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import sys
 from typing import Dict, Optional
 from pathlib import Path
 from pydantic import BaseModel
@@ -216,7 +217,26 @@ class Settings:
 
     def _validate_required_env(self):
         """Fail-fast: crash on startup if critical env vars are missing."""
-        if self.MOCK_MODE:
+        dev_bypass = parse_bool_env("DEV_AUTH_BYPASS", False)
+        mock_mode = parse_bool_env("MOCK_MODE", self.MOCK_MODE)
+        environment_name = (
+            os.getenv("RAILWAY_ENVIRONMENT_NAME")
+            or os.getenv("APP_ENV")
+            or os.getenv("ENVIRONMENT")
+            or ""
+        ).strip().lower()
+        is_production = bool(os.getenv("RAILWAY_PROJECT_ID")) or environment_name in {
+            "prod",
+            "production",
+        }
+        if is_production and (dev_bypass or mock_mode):
+            raise RuntimeError(
+                "DEV_AUTH_BYPASS and MOCK_MODE must be disabled in production"
+            )
+
+        if mock_mode:
+            return
+        if os.getenv("PYTEST_CURRENT_TEST") or "pytest" in sys.modules:
             return
 
         missing = []
@@ -229,7 +249,6 @@ class Settings:
         if not self.SUPABASE_SERVICE_KEY:
             missing.append("SUPABASE_SERVICE_KEY")
 
-        dev_bypass = parse_bool_env("DEV_AUTH_BYPASS", False)
         if not dev_bypass and not self.SUPABASE_JWT_SECRET:
             missing.append("SUPABASE_JWT_SECRET")
 

@@ -19,7 +19,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 | Fact | Owner |
 | --- | --- |
 | AI rules, repo guardrails, validation rules | `AGENTS.md` |
-| Local setup and core commands | `README.md` |
+| Development setup and core commands | `README.md` |
 | Development workflow and PR expectations | `CONTRIBUTING.md` |
 | Deployment, rollback, monitoring | `docs/RUNBOOK.md` |
 | Architecture and directory mapping | `docs/codemaps/*.md` |
@@ -31,20 +31,25 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 | ---------------------- | ------------------------ |
 | `make start-frontend`  | Start frontend (Next.js) |
 | `make start-backend`   | Start backend (FastAPI)  |
+| `make start-worker`    | Start durable task worker |
 | `make test-frontend`   | Run frontend unit tests  |
 | `make test-backend`    | Run backend tests        |
-| `make start-dev`       | Start backend in Docker  |
+| `make start-dev`       | Start API + worker against the dev Cloud DB |
 
 ## Architecture (TL;DR)
 
-- **Control Plane**: HTTP triggers work (`POST /api/process-video`)
-- **Data Plane**: Supabase Realtime watches work (`supabase.channel`)
+- **Primary Product**: Cloud SaaS — Next.js on Vercel, FastAPI on Railway, Supabase Auth/Postgres/Realtime.
+- **Task Execution**: FastAPI validates commands; one private Postgres transaction deduplicates/creates state and enqueues a PGMQ job. A separate Python worker owns video download, transcription, and AI processing.
+- **Product Boundary**: The only product topology is Vercel UI + Railway API/Worker + Supabase. Any alternative runtime requires a new explicit product decision and ADR.
+- **Agent Plugin Incubator**: `agent-plugin/` packages Codex Skill + MCP; credentialed video extraction lives in `backend/services/video_intake/`, never in Skill files.
+- **Control Plane**: HTTP triggers work (`POST /api/process-video`); request handlers never execute long-running pipelines in-process.
+- **Data Plane**: Supabase Realtime watches committed Postgres task/output changes (`supabase.channel`).
 - **Rule**: Frontend NEVER polls HTTP. It subscribes to database changes.
 
 ## Critical Rules
 
 1. **Python**: Always use `uv` (never raw `pip`)
-2. **Dependencies**: Runtime Python deps go in ROOT `requirements.txt`; backend-only dev/test deps go in `backend/requirements-dev.txt`; do not add authoring deps to `backend/requirements.core.txt`
+2. **Dependencies**: `pyproject.toml` is the only Python dependency manifest; `uv.lock` is the only resolved lock. Use dependency groups for dev/test tools and install with `uv sync --locked`.
 3. **Models**: Never hardcode LLM model names — use `settings.MODEL_SMART` / `settings.MODEL_FAST` and `utils.llm_router.resolve_model_for_intent`
 4. **Text provider routing**: `OPENAI_BASE_URL` present means `custom`; otherwise the app defaults to `openrouter`
 5. **Model defaults SSOT**: provider default model names live only in `config/llm-provider-defaults.json`
@@ -58,6 +63,8 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
    3. If there is a gap between your initial thought and the best practice, adopt the best practice and explicitly mention the "Industry Standard" reasoning in your final explanation.
 11. **Design Principle**: VibeDigest defaults to minimal design across the full product layer — visual style, interaction, copy, information architecture, loading states, and motion. Prefer fewer UI surfaces, fewer decisions, shorter copy, and calmer transitions. Avoid decorative complexity, skeleton screens, shimmer effects, heavy animation, multi-step transitional UI, and redundant status messaging unless a clear usability need justifies them.
 12. **Minimalism Heuristic**: When multiple valid UI solutions exist, prefer the one with the least visual noise, the fewest transient states, and the smallest cognitive load while preserving clarity and speed.
+13. **Cloud-only Guardrail**: Development and tests may use localhost, but must keep the production Postgres, Supabase Auth/Realtime, queue semantics, and API contracts; do not introduce an alternative storage, event, or task execution path.
+14. **Queue Integrity**: Task/output state changes and PGMQ submission must share one Postgres transaction. Queue messages contain entity IDs only, workers must renew visibility leases, and archive is allowed only after a confirmed terminal write.
 
 ## Coverage Policy
 

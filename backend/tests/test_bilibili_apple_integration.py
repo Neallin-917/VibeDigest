@@ -82,7 +82,7 @@ class TestBilibiliAppleIntegration(unittest.IsolatedAsyncioTestCase):
     async def test_bilibili_full_pipeline_uses_whisper(self):
         """Test Bilibili Full Pipeline (Mocked) -> Uses Whisper"""
         # Setup Mocks
-        self.mock_db.find_latest_task_with_valid_script.return_value = (
+        self.mock_db.find_latest_task_with_valid_script_for_owner.return_value = (
             None  # Cache miss
         )
         self.mock_vp.extract_info_only.return_value = {

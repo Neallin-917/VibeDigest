@@ -17,7 +17,7 @@ class VideoProcessor:
 
     def __init__(self):
         # Lazy import for test environments to avoid heavy deps at import time.
-        # A conservative desktop UA helps with providers that block default agents.
+        # A conservative browser UA helps with providers that block default agents.
         self._default_user_agent = os.getenv(
             "YTDLP_USER_AGENT",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "

@@ -6,14 +6,14 @@ export const metadata: Metadata = {
   description: "AI-powered video summarization and chat",
 };
 
-/**
- * Root layout — kept minimal since the real HTML shell is in [lang]/layout.tsx.
- * Fonts, analytics, and structured data are handled by the locale-specific layout.
- */
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
+    </html>
+  );
 }

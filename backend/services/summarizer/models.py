@@ -4,7 +4,7 @@ Pydantic models for the Summarizer service.
 These models define the structured output schemas for content classification
 and summary generation.
 """
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 

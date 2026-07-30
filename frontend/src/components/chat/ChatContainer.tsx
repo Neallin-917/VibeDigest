@@ -17,6 +17,7 @@ import { Loader2, XCircle } from 'lucide-react'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { chatDataSchemas, createUserTextMessage, type ChatUIMessage } from '@/lib/chat-ui'
 import { LazyMessageRow as MessageRow, preloadMessageRow } from './LazyMessageRow'
+import type { ChatExample } from '@/lib/chat-examples'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -27,6 +28,7 @@ interface ChatContainerProps {
   onOpenPanel?: (taskId: string) => void
   onSelectExample?: (taskId: string) => void
   onChatStarted?: (threadId: string, taskId?: string) => void
+  initialExamples?: Promise<ChatExample[]> | null
 }
 
 function isAuthRequiredError(err: unknown) {
@@ -74,7 +76,8 @@ export function ChatContainer({
   isInteractionLocked = false,
   onOpenPanel,
   onSelectExample,
-  onChatStarted
+  onChatStarted,
+  initialExamples = null
 }: ChatContainerProps) {
 
   const { t, locale } = useI18n()
@@ -336,6 +339,7 @@ export function ChatContainer({
             onSubmit={handleSubmit}
             isLoading={isLoading}
             isAuthenticated={isAuthenticated}
+            initialExamples={initialExamples}
           />
         ) : (
           <div className="max-w-3xl mx-auto w-full space-y-8">

@@ -8,8 +8,13 @@ import { AppSidebarProvider } from "@/components/layout/AppSidebarContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useThreadsQuery } from "@/hooks/useThreadsQuery"
 import { useThreadNavigation } from "@/hooks/useThreadNavigation"
+import type { ChatExample } from "@/lib/chat-examples"
 
-function ChatPageContent() {
+function ChatPageContent({
+    initialExamples,
+}: {
+    initialExamples: Promise<ChatExample[]> | null
+}) {
     const { isAuthenticated } = useAuth()
     const { threads, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery()
     const nav = useThreadNavigation({ threads, refetchThreads })
@@ -56,6 +61,7 @@ function ChatPageContent() {
                         onChatStarted={nav.handleChatStarted}
                         threads={threads}
                         onUpdateThreadStatus={handleUpdateThreadStatus}
+                        initialExamples={initialExamples}
                     />
                 )}
             </div>
@@ -63,10 +69,14 @@ function ChatPageContent() {
     )
 }
 
-export function ChatPageClient() {
+export function ChatPageClient({
+    initialExamples = null,
+}: {
+    initialExamples?: Promise<ChatExample[]> | null
+}) {
     return (
         <Suspense fallback={<div className="h-screen w-full bg-background" />}>
-            <ChatPageContent />
+            <ChatPageContent initialExamples={initialExamples} />
         </Suspense>
     )
 }

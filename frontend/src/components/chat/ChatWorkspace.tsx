@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import type { ChatUIMessage } from "@/lib/chat-ui"
 import type { Thread } from "@/types"
+import type { ChatExample } from "@/lib/chat-examples"
 
 function VideoDetailLoading() {
   const { t } = useI18n()
@@ -49,6 +50,7 @@ interface ChatWorkspaceProps {
   onChatStarted?: (threadId: string, taskId?: string) => void
   threads?: Thread[]
   onUpdateThreadStatus?: (threadId: string, status: 'active' | 'archived') => void | Promise<void>
+  initialExamples?: Promise<ChatExample[]> | null
 }
 
 
@@ -67,7 +69,8 @@ export function ChatWorkspace({
   onSelectExample,
   onChatStarted,
   threads,
-  onUpdateThreadStatus
+  onUpdateThreadStatus,
+  initialExamples = null
 }: ChatWorkspaceProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -269,6 +272,7 @@ export function ChatWorkspace({
               onOpenPanel={openPanelForTask}
               onSelectExample={onSelectExample || openPanelForTask}
               onChatStarted={onChatStarted}
+              initialExamples={initialExamples}
             />
           </div>
         </div>

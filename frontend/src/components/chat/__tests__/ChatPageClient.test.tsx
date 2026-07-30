@@ -274,8 +274,9 @@ describe('ChatPageClient', () => {
 
     renderWithQueryClient(<ChatPageClient />)
 
+    expect(screen.getByTestId('workspace')).toBeInTheDocument()
+
     await waitFor(() => {
-      expect(screen.getByTestId('workspace')).toBeInTheDocument()
       expect(screen.getByTestId('workspace')).not.toHaveAttribute('data-thread-id', '')
     })
 

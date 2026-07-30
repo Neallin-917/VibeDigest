@@ -1464,6 +1464,7 @@ const messages: Record<Locale, Messages> = {
         bug: "バグ報告",
         feature: "機能要望",
         complaint: "苦情",
+        support: "サポート依頼",
         other: "その他",
       },
     },

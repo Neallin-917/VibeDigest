@@ -60,13 +60,17 @@ export class ApiClient {
         });
     }
 
-    static async submitFeedback(data: { category: string; message: string; contact_email?: string }, token: string) {
+    static async submitFeedback(data: { category: string; message: string; contact_email?: string }, token?: string) {
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        }
+        if (token) {
+            headers.Authorization = `Bearer ${token}`
+        }
+
         return this.request("/api/feedback", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
+            headers,
             body: JSON.stringify(data)
         });
     }

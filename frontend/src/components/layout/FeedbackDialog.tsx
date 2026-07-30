@@ -25,6 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { MessageSquare, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface FeedbackDialogProps {
     children?: React.ReactNode
@@ -61,33 +62,13 @@ export function FeedbackDialog({
         try {
             const { data: { session } } = await supabase.auth.getSession()
 
-            if (!session?.access_token) {
-                // If not logged in, we can arguably still allow feedback without auth token if backend permits,
-                // or require login. For now, assuming auth is needed as per original code.
-                // However, for "Contact Support", user might be a visitor. 
-                // Let's keep original logic for now but if this fails for visitors we might need to adjust backend.
-                // Assuming original code implies auth is required or session check was strict.
-                // If "Contact Support" is for visitors, this check might return null.
-                // Let's proceed with existing logic, but note potential issue if support is for landing page visitors.
-                // Original code has `console.error("No session found")` and returns.
-                // If this is for landing page visitors, we should probably allow anon.
-                // But let's stick to refactoring UI first.
-
-                // Note: If session is missing, we might want to handle it gracefully or allow anon submission if backend supports.
-                // For now, logging error as before.
-                if (!session) {
-                    // proceeding without token might be rejected by backend RLS if not set up for anon
-                    console.warn("No session found, attempting submission without token (backend might reject)")
-                }
-            }
-
             await ApiClient.submitFeedback(
                 {
                     category,
                     message,
                     contact_email: contactEmail || undefined,
                 },
-                session?.access_token || ""
+                session?.access_token
             )
 
             // Reset form
@@ -95,12 +76,11 @@ export function FeedbackDialog({
             setCategory(defaultCategory)
             setContactEmail("")
             setOpen(false)
-
-            alert(t("feedback.success"))
+            toast.success(t("feedback.success"))
 
         } catch (error) {
             console.error(error)
-            alert(t("feedback.error"))
+            toast.error(t("feedback.error"))
         } finally {
             setLoading(false)
         }

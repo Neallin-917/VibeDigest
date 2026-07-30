@@ -127,7 +127,10 @@ async def test_create_customer_portal(api_client, mock_db_client):
         response = await api_client.post("/api/customer-portal")
 
     assert response.status_code == 200
-    assert response.json()["url"] == "https://creem.io/portal/session"
+    assert response.json() == {
+        "url": "https://creem.io/portal/session",
+        "available": True,
+    }
     mock_ac_instance.post.assert_awaited_once_with(
         "https://api.creem.io/v1/customers/billing",
         headers={"x-api-key": "test-key", "Content-Type": "application/json"},
@@ -143,8 +146,8 @@ async def test_create_customer_portal_without_customer(api_client, mock_db_clien
     with patch("api.routes.payments.CREEM_API_KEY", "test-key"):
         response = await api_client.post("/api/customer-portal")
 
-    assert response.status_code == 404
-    assert "No billing account" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json() == {"url": None, "available": False}
 
 
 @pytest.mark.asyncio
@@ -164,6 +167,26 @@ async def test_create_customer_portal_provider_error(api_client, mock_db_client)
         response = await api_client.post("/api/customer-portal")
 
     assert response.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_create_customer_portal_stale_customer(api_client, mock_db_client):
+    mock_db_client.get_profile.return_value = {"creem_customer_id": "cust_stale"}
+    mock_response = MagicMock(status_code=404)
+
+    mock_ac_instance = AsyncMock()
+    mock_ac_instance.post.return_value = mock_response
+    mock_ac_instance.__aenter__.return_value = mock_ac_instance
+    mock_ac_instance.__aexit__.return_value = None
+
+    with (
+        patch("api.routes.payments.CREEM_API_KEY", "test-key"),
+        patch("api.routes.payments.httpx.AsyncClient", return_value=mock_ac_instance),
+    ):
+        response = await api_client.post("/api/customer-portal")
+
+    assert response.status_code == 200
+    assert response.json() == {"url": None, "available": False}
 
 
 @pytest.mark.asyncio

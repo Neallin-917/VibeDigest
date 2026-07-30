@@ -157,7 +157,7 @@ async def create_customer_portal(
     profile = db.get_profile(user_id)
     customer_id = profile.get("creem_customer_id") if profile else None
     if not customer_id:
-        raise HTTPException(status_code=404, detail="No billing account found")
+        return {"url": None, "available": False}
 
     try:
         async with httpx.AsyncClient() as client:
@@ -176,6 +176,10 @@ async def create_customer_portal(
             status_code=503, detail="Payment service temporarily unavailable"
         ) from e
 
+    if response.status_code == 404:
+        logger.warning("Creem customer no longer exists for user %s", user_id)
+        return {"url": None, "available": False}
+
     if response.status_code != 200:
         logger.error(
             "Creem customer portal creation failed with status %s",
@@ -187,4 +191,4 @@ async def create_customer_portal(
     if not portal_url:
         raise HTTPException(status_code=502, detail="Unable to open billing portal")
 
-    return {"url": portal_url}
+    return {"url": portal_url, "available": True}

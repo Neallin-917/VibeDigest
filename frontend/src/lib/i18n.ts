@@ -257,6 +257,7 @@ const messages: Record<Locale, Messages> = {
       authRequired: "Please sign in again to continue.",
       checkoutError: "We couldn’t open checkout. Please try again or contact support.",
       portalError: "We couldn’t open subscription management. Please try again or contact support.",
+      portalUnavailable: "This plan has no online subscription to manage. Contact support if you need to change it.",
       paymentMethod: "Payment Method",
       card: "Credit Card",
       crypto: "USDC",
@@ -789,6 +790,7 @@ const messages: Record<Locale, Messages> = {
       authRequired: "登录状态已失效，请重新登录后继续。",
       checkoutError: "暂时无法打开付款页面，请稍后重试或联系支持。",
       portalError: "暂时无法打开订阅管理，请稍后重试或联系支持。",
+      portalUnavailable: "当前方案没有可在线管理的订阅，如需调整请联系支持。",
       paymentMethod: "支付方式",
       card: "信用卡",
       crypto: "USDC",
@@ -1358,6 +1360,7 @@ const messages: Record<Locale, Messages> = {
       authRequired: "続行するには再度ログインしてください。",
       checkoutError: "決済ページを開けませんでした。しばらくしてから再試行するか、サポートにご連絡ください。",
       portalError: "サブスクリプション管理を開けませんでした。しばらくしてから再試行するか、サポートにご連絡ください。",
+      portalUnavailable: "このプランにはオンラインで管理できるサブスクリプションがありません。変更が必要な場合はサポートにご連絡ください。",
       policies: {
         refund: "返金ポリシー",
         terms: "利用規約"

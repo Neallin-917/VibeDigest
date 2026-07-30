@@ -25,6 +25,21 @@ describe('ChatInput', () => {
     expect(screen.getByPlaceholderText('Ask me anything...')).toBeInTheDocument()
   })
 
+  it('supports narrower guidance and an accessible label', () => {
+    render(
+      <ChatInput
+        onSubmit={vi.fn()}
+        placeholder="Paste a video URL..."
+        inputLabel="Video URL"
+      />
+    )
+
+    expect(screen.getByLabelText('Video URL')).toHaveAttribute(
+      'placeholder',
+      'Paste a video URL...'
+    )
+  })
+
   it('updates input value', () => {
     render(<ChatInput onSubmit={vi.fn()} />)
     const input = screen.getByPlaceholderText('Ask me anything...') as HTMLInputElement

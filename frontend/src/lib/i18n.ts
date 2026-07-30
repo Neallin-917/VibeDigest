@@ -261,7 +261,8 @@ const messages: Record<Locale, Messages> = {
     taskForm: {
       title: "New Transcription",
       subtitle: "Paste a video URL to generate an AI summary.",
-      urlPlaceholder: "Enter YouTube, Apple Podcasts, Bilibili, Xiaoyuzhou link...",
+      urlInputLabel: "Video or podcast URL",
+      urlPlaceholder: "Paste a video or podcast URL...",
       processing: "Processing...",
       generate: "AI Summary",
       summary: "Summary",
@@ -782,7 +783,8 @@ const messages: Record<Locale, Messages> = {
     taskForm: {
       title: "新建转写",
       subtitle: "粘贴视频链接以生成 AI 摘要。",
-      urlPlaceholder: "输入 YouTube, Apple Podcasts, Bilibili, 小宇宙 链接...",
+      urlInputLabel: "视频或播客链接",
+      urlPlaceholder: "粘贴视频或播客链接...",
       processing: "处理中",
       generate: "AI 总结",
       summary: "摘要",
@@ -1328,7 +1330,8 @@ const messages: Record<Locale, Messages> = {
     taskForm: {
       title: "新規文字起こし",
       subtitle: "URLを貼り付けてAI要約を生成します。",
-      urlPlaceholder: "YouTube, Apple Podcasts, Bilibili, Xiaoyuzhouのリンクを入力...",
+      urlInputLabel: "動画またはポッドキャストのURL",
+      urlPlaceholder: "動画またはポッドキャストのURLを貼り付け...",
       processing: "処理中...",
       generate: "生成",
       pleaseLogin: "先にログインしてください！",

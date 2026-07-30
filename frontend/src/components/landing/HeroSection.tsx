@@ -114,6 +114,8 @@ export function HeroSection() {
                         <ChatInput 
                             variant="inline"
                             onSubmit={handleHeroSubmit}
+                            placeholder={t("taskForm.urlPlaceholder")}
+                            inputLabel={t("taskForm.urlInputLabel")}
                             hideDisclaimer={true}
                         />
                     </div>

@@ -85,7 +85,7 @@ export function ChatInput({
               className={cn(
                 "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 dark:text-zinc-100",
                 "py-3.5 text-[15px] font-medium tracking-wide",
-                "placeholder-slate-400/80 dark:placeholder-zinc-500"
+                "placeholder-slate-500 dark:placeholder-zinc-400"
               )}
               placeholder={placeholder ?? t('chat.inputPlaceholder') ?? "Ask anything or paste a URL..."}
               disabled={disabled}

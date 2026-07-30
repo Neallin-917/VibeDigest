@@ -3,9 +3,6 @@ import hmac
 import hashlib
 import json
 from unittest.mock import MagicMock, patch
-from main import app
-from dependencies import get_db_client
-from httpx import AsyncClient, ASGITransport
 
 @pytest.mark.asyncio
 async def test_creem_webhook_valid(api_client, mock_db_client):
@@ -48,6 +45,28 @@ async def test_creem_webhook_invalid_signature(api_client):
         )
         assert response.status_code == 400
         assert "Invalid signature" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_creem_webhook_missing_signature(api_client):
+    with patch("api.routes.webhooks.CREEM_WEBHOOK_SECRET", "test_secret"):
+        response = await api_client.post("/api/webhook/creem", content=b"{}")
+
+    assert response.status_code == 400
+    assert "Missing signature" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_creem_webhook_missing_secret(api_client):
+    response = await api_client.post(
+        "/api/webhook/creem",
+        content=b"{}",
+        headers={"creem-signature": "signature"},
+    )
+
+    assert response.status_code == 503
+    assert "verification unavailable" in response.json()["detail"]
+
 
 @pytest.mark.asyncio
 async def test_coinbase_webhook(api_client, mock_db_client):
@@ -185,4 +204,3 @@ async def test_creem_webhook_invalid_json(api_client):
         )
         assert response.status_code == 400
         assert "Invalid JSON" in response.json()["detail"]
-

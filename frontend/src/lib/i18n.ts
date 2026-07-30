@@ -212,7 +212,7 @@ const messages: Record<Locale, Messages> = {
     },
     pricing: {
       title: "Plan",
-      subtitle: "You’re currently on a free plan. Select any of the plans or top-up options that fits your needs.",
+      subtitle: "Review your current usage, plan, and available top-up options.",
       free: {
         title: "Basic",
         price: "Free",
@@ -225,6 +225,7 @@ const messages: Record<Locale, Messages> = {
       },
       pro: {
         title: "Pro",
+        subtitle: "You’re on Pro. Review usage, add credits, or manage your subscription here.",
         price: "$9.99",
         annualPrice: "$8.33",
         unit: "/ month",
@@ -249,6 +250,13 @@ const messages: Record<Locale, Messages> = {
         button: "Buy Credits"
       },
       currentPlan: "Current plan",
+      active: "Active",
+      included: "Included",
+      loadingPlan: "Checking plan…",
+      profileError: "We couldn’t load your current plan. Please refresh and try again.",
+      authRequired: "Please sign in again to continue.",
+      checkoutError: "We couldn’t open checkout. Please try again or contact support.",
+      portalError: "We couldn’t open subscription management. Please try again or contact support.",
       paymentMethod: "Payment Method",
       card: "Credit Card",
       crypto: "USDC",
@@ -736,7 +744,7 @@ const messages: Record<Locale, Messages> = {
     },
     pricing: {
       title: "方案",
-      subtitle: "您当前使用的是免费方案。请选择适合您的方案或充值包。",
+      subtitle: "查看当前用量、方案与可用充值包。",
       free: {
         title: "基础版",
         price: "免费",
@@ -749,6 +757,7 @@ const messages: Record<Locale, Messages> = {
       },
       pro: {
         title: "专业版",
+        subtitle: "你正在使用专业版，可在这里查看用量、充值或管理订阅。",
         price: "$9.99",
         annualPrice: "$8.33",
         unit: "/ 月",
@@ -773,6 +782,13 @@ const messages: Record<Locale, Messages> = {
         button: "购买点数"
       },
       currentPlan: "当前方案",
+      active: "生效中",
+      included: "已包含",
+      loadingPlan: "正在确认方案…",
+      profileError: "暂时无法读取当前方案，请刷新页面后重试。",
+      authRequired: "登录状态已失效，请重新登录后继续。",
+      checkoutError: "暂时无法打开付款页面，请稍后重试或联系支持。",
+      portalError: "暂时无法打开订阅管理，请稍后重试或联系支持。",
       paymentMethod: "支付方式",
       card: "信用卡",
       crypto: "USDC",
@@ -1297,7 +1313,7 @@ const messages: Record<Locale, Messages> = {
     },
     pricing: {
       title: "プラン",
-      subtitle: "現在、無料プランをご利用中です。ニーズに合ったプランやチャージオプションを選択してください。",
+      subtitle: "現在の利用状況、プラン、チャージオプションを確認できます。",
       free: {
         title: "ベーシック",
         price: "無料",
@@ -1310,6 +1326,7 @@ const messages: Record<Locale, Messages> = {
       },
       pro: {
         title: "プロ",
+        subtitle: "プロプランをご利用中です。利用状況の確認、チャージ、サブスクリプション管理ができます。",
         price: "$9.99",
         annualPrice: "$8.33",
         unit: "/ 月",
@@ -1333,7 +1350,18 @@ const messages: Record<Locale, Messages> = {
         },
         button: "クレジットを購入"
       },
-      currentPlan: "現在のプラン"
+      currentPlan: "現在のプラン",
+      active: "利用中",
+      included: "含まれています",
+      loadingPlan: "プランを確認中…",
+      profileError: "現在のプランを読み込めませんでした。ページを再読み込みしてお試しください。",
+      authRequired: "続行するには再度ログインしてください。",
+      checkoutError: "決済ページを開けませんでした。しばらくしてから再試行するか、サポートにご連絡ください。",
+      portalError: "サブスクリプション管理を開けませんでした。しばらくしてから再試行するか、サポートにご連絡ください。",
+      policies: {
+        refund: "返金ポリシー",
+        terms: "利用規約"
+      }
     },
     taskForm: {
       title: "新規文字起こし",

@@ -1,8 +1,12 @@
-import { render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PricingSection } from "./PricingSection"
 
 const mockPush = vi.fn()
+const mockGetUser = vi.fn()
 
 vi.mock("next/navigation", () => ({
     useRouter: () => ({ push: mockPush }),
@@ -11,7 +15,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/supabase", () => ({
     createClient: () => ({
         auth: {
-            getUser: vi.fn(),
+            getUser: mockGetUser,
         },
     }),
 }))
@@ -52,15 +56,63 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
     }),
 }))
 
+function renderPricingSection() {
+    const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+    })
+
+    function Wrapper({ children }: { children: ReactNode }) {
+        return (
+            <QueryClientProvider client={queryClient}>
+                {children}
+            </QueryClientProvider>
+        )
+    }
+
+    return render(<PricingSection />, { wrapper: Wrapper })
+}
+
 describe("PricingSection", () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mockGetUser.mockResolvedValue({
+            data: { user: null },
+            error: null,
+        })
     })
 
     it("uses a plan-neutral Pro action for both visitors and existing subscribers", () => {
-        render(<PricingSection />)
+        renderPricingSection()
 
         expect(screen.getByRole("button", { name: "View plan" })).toBeInTheDocument()
         expect(screen.queryByRole("button", { name: "Upgrade" })).not.toBeInTheDocument()
+    })
+
+    it("reuses the landing account lookup across plan actions", async () => {
+        const user = userEvent.setup()
+        renderPricingSection()
+
+        await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1))
+
+        await user.click(screen.getByRole("button", { name: "View plan" }))
+        await user.click(screen.getByRole("button", { name: "Buy credits" }))
+
+        expect(mockGetUser).toHaveBeenCalledTimes(1)
+        expect(mockPush).toHaveBeenNthCalledWith(1, "/en/login?next=/en/settings/pricing")
+        expect(mockPush).toHaveBeenNthCalledWith(2, "/en/login?next=/en/settings/pricing")
+    })
+
+    it("routes a signed-in visitor directly to plan management", async () => {
+        const user = userEvent.setup()
+        mockGetUser.mockResolvedValue({
+            data: { user: { id: "user-1", email: "user@example.com" } },
+            error: null,
+        })
+        renderPricingSection()
+
+        await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1))
+        await user.click(screen.getByRole("button", { name: "View plan" }))
+
+        expect(mockPush).toHaveBeenCalledWith("/en/settings/pricing")
     })
 })

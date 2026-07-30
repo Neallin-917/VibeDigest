@@ -1,7 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useRef } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase"
+import { useI18n } from "@/components/i18n/I18nProvider"
+import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
 import { toast } from "sonner"
 import { env } from "@/env"
 
@@ -51,10 +54,15 @@ async function generateNonce(): Promise<{ rawNonce: string; hashedNonce: string 
 
 export function GoogleOneTap() {
     const supabase = useMemo(() => createClient(), [])
+    const queryClient = useQueryClient()
+    const { t } = useI18n()
+    const { data: user, isPending } = useCurrentUserQuery()
     const initializedRef = useRef(false)
     const scriptRef = useRef<HTMLScriptElement | null>(null)
 
     useEffect(() => {
+        if (isPending || user) return
+
         // Prevent double initialization in React Strict Mode
         if (initializedRef.current) return
         initializedRef.current = true
@@ -65,14 +73,7 @@ export function GoogleOneTap() {
             return
         }
 
-        // Check if user is already logged in
-        const checkAuthAndInitialize = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                // Already logged in, don't show One Tap
-                return
-            }
-
+        const initializeOneTap = async () => {
             // Generate nonce for token verification
             const { rawNonce, hashedNonce } = await generateNonce()
 
@@ -86,19 +87,19 @@ export function GoogleOneTap() {
 
                     if (error) {
                         console.error("One Tap sign-in error:", error.message)
-                        toast.error(`Sign in failed: ${error.message}`)
+                        toast.error(t("auth.signInFailed", { error: error.message }))
                         return
                     }
 
                     if (data.session) {
-                        console.log("One Tap sign-in successful")
-                        toast.success("Signed in successfully!")
-                        window.location.reload()
+                        queryClient.setQueryData(accountKeys.currentUser, data.user)
+                        window.google?.accounts.id.cancel()
+                        toast.success(t("auth.signInSuccess"))
                     }
                 } catch (err) {
                     const message = err instanceof Error ? err.message : "An unexpected error occurred."
                     console.error("One Tap error:", err)
-                    toast.error(`Sign in failed: ${message}`)
+                    toast.error(t("auth.signInFailed", { error: message }))
                 }
             }
 
@@ -128,7 +129,7 @@ export function GoogleOneTap() {
             document.body.appendChild(script)
         }
 
-        checkAuthAndInitialize()
+        void initializeOneTap()
 
         // Cleanup runs when component unmounts
         return () => {
@@ -140,7 +141,7 @@ export function GoogleOneTap() {
                 scriptRef.current = null
             }
         }
-    }, [supabase])
+    }, [isPending, queryClient, supabase, t, user])
 
     // This component doesn't render anything visually
     return null

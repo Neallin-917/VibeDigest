@@ -302,7 +302,7 @@ export function ChatWorkspace({
             width: activeTaskId && isPanelOpen ? panelWidth : 0
           }}
         >
-          {activeTaskId && isPanelOpen && (
+          {!isMobile && activeTaskId && isPanelOpen && (
             <VideoDetailPanel
               key={activeTaskId}
               taskId={activeTaskId}
@@ -336,7 +336,7 @@ export function ChatWorkspace({
       >
         <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] border-t border-slate-200 dark:border-white/20 bg-white dark:bg-zinc-900 [&>button]:hidden">
           <SheetTitle className="sr-only">{t('chat.videoDetails')}</SheetTitle>
-          {activeTaskId && isPanelOpen && (
+          {isMobile && activeTaskId && isPanelOpen && (
             <VideoDetailPanel
               key={activeTaskId}
               taskId={activeTaskId}

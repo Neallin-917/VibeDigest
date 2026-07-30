@@ -41,29 +41,25 @@ function ChatPageContent({
                     onUpdateThreadStatus={handleUpdateThreadStatus}
                 />
 
-                {nav.isBootstrapping ? (
-                    <div className="flex-1 h-screen bg-background" />
-                ) : (
-                    <ChatWorkspace
-                        activeThreadId={nav.activeThreadId}
-                        selectedThreadId={nav.selectedThreadId}
-                        activeTaskId={nav.activeTaskId}
-                        isThreadSwitching={nav.isThreadSwitching}
-                        switchingThreadTitle={nav.switchingThreadTitle}
-                        taskSelectionNonce={nav.taskSelectionNonce}
-                        initialMessages={nav.initialMessages}
-                        isAuthenticated={isAuthenticated}
-                        onNewChat={nav.handleNewChat}
-                        onSelectThread={nav.handleSelectThread}
-                        onSelectTask={nav.handleSelectTask}
-                        onSelectExample={nav.handleSelectExample}
-                        onThreadCreated={refetchThreads}
-                        onChatStarted={nav.handleChatStarted}
-                        threads={threads}
-                        onUpdateThreadStatus={handleUpdateThreadStatus}
-                        initialExamples={initialExamples}
-                    />
-                )}
+                <ChatWorkspace
+                    activeThreadId={nav.activeThreadId}
+                    selectedThreadId={nav.selectedThreadId}
+                    activeTaskId={nav.activeTaskId}
+                    isThreadSwitching={nav.isThreadSwitching || nav.isBootstrapping}
+                    switchingThreadTitle={nav.switchingThreadTitle}
+                    taskSelectionNonce={nav.taskSelectionNonce}
+                    initialMessages={nav.initialMessages}
+                    isAuthenticated={isAuthenticated}
+                    onNewChat={nav.handleNewChat}
+                    onSelectThread={nav.handleSelectThread}
+                    onSelectTask={nav.handleSelectTask}
+                    onSelectExample={nav.handleSelectExample}
+                    onThreadCreated={refetchThreads}
+                    onChatStarted={nav.handleChatStarted}
+                    threads={threads}
+                    onUpdateThreadStatus={handleUpdateThreadStatus}
+                    initialExamples={initialExamples}
+                />
             </div>
         </AppSidebarProvider>
     )

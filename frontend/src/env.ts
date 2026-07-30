@@ -35,7 +35,6 @@ export const env = createEnv({
     
     // Third Party
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
-    NEXT_PUBLIC_GA_ID: z.string().optional(),
     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: z.string().optional(),
     NEXT_PUBLIC_BING_SITE_VERIFICATION: z.string().optional(),
     
@@ -65,7 +64,6 @@ export const env = createEnv({
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-    NEXT_PUBLIC_GA_ID: process.env.NEXT_PUBLIC_GA_ID,
     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
     NEXT_PUBLIC_BING_SITE_VERIFICATION: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION,
     NEXT_PUBLIC_E2E_MOCK: process.env.NEXT_PUBLIC_E2E_MOCK,

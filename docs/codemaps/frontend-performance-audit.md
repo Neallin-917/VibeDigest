@@ -82,6 +82,19 @@ expected business errors now resolve to one error state and suppress success
 placeholders. The change stays inside the existing tool-card components and is
 covered at both component and browser-flow levels.
 
+## Current Analytics Intervention
+
+A 2026-07-31 mobile Lighthouse baseline on production measured performance at
+`67` for the landing route and `68` for the fresh chat route. Both routes
+downloaded the `gtag.js` payload even though Vercel Analytics and Speed Insights
+already owned product traffic and real-user performance measurement.
+
+The duplicate Google Analytics integration and its public environment contract
+were removed. This removes roughly `167 KiB` of third-party transfer from every
+route in the measured production build while preserving the existing product
+analytics and Web Vitals surfaces. Google One Tap remains unchanged because its
+authentication benefit should not be traded away without conversion evidence.
+
 ## Audit Framework
 
 The frontend is assessed across four layers:

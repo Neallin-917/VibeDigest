@@ -74,9 +74,9 @@
     - 设置域名验证。
     - 监控索引覆盖率 (Coverage) 和核心网页指标 (Core Web Vitals)。
     - ⚠️ **待验证**: 代码中有 `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`，需确认已在 GSC 设置。
-- [x] **Google Analytics 4 (GA4)**
-    - 追踪转化事件 (Sign up, Subscription)。
-    - ✅ **已完成**: `layout.tsx` 中已集成 `@next/third-parties/google` 的 `GoogleAnalytics`。
+- [x] **轻量产品分析与 Web Vitals**
+    - 使用 Vercel Analytics 与 Speed Insights 跟踪访问趋势和真实用户性能。
+    - ✅ **已完成**: 移除重复的全站 GA4 脚本，避免为当前阶段增加第二条客户端采集链路。
 - [ ] **Bing Webmaster Tools**
     - 不要忽略 Bing，尤其在美国市场有一定份额。
     - ⚠️ **待验证**: 代码中有 `NEXT_PUBLIC_BING_SITE_VERIFICATION`，需确认已在 Bing 设置。

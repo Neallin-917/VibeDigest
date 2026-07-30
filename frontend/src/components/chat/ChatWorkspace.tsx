@@ -40,7 +40,7 @@ interface ChatWorkspaceProps {
   switchingThreadTitle?: string | null
   taskSelectionNonce?: number
   initialMessages: ChatUIMessage[]
-  isAuthenticated?: boolean
+  isAuthenticated?: boolean | null
   onNewChat: () => void
   onSelectThread: (threadId: string) => void
   onSelectTask: (taskId: string | null) => void
@@ -60,7 +60,7 @@ export function ChatWorkspace({
   switchingThreadTitle = null,
   taskSelectionNonce = 0,
   initialMessages,
-  isAuthenticated = false,
+  isAuthenticated = null,
   onNewChat,
   onSelectThread,
   onSelectTask,

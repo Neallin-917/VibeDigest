@@ -47,7 +47,7 @@ function ChatPageContent() {
                         switchingThreadTitle={nav.switchingThreadTitle}
                         taskSelectionNonce={nav.taskSelectionNonce}
                         initialMessages={nav.initialMessages}
-                        isAuthenticated={isAuthenticated ?? false}
+                        isAuthenticated={isAuthenticated}
                         onNewChat={nav.handleNewChat}
                         onSelectThread={nav.handleSelectThread}
                         onSelectTask={nav.handleSelectTask}

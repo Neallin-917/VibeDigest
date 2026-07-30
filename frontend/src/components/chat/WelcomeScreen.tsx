@@ -22,12 +22,12 @@ interface WelcomeScreenProps {
   /** Loading state for input */
   isLoading?: boolean
   /** Whether the user is authenticated */
-  isAuthenticated?: boolean
+  isAuthenticated?: boolean | null
 }
 
 const CHAT_EXAMPLE_LIMIT = 4
 
-export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenticated = false }: WelcomeScreenProps) {
+export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenticated = null }: WelcomeScreenProps) {
   const { t } = useI18n()
   const [examples, setExamples] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +91,7 @@ export function WelcomeScreen({ onSelectExample, onSubmit, isLoading, isAuthenti
           isLoading={isLoading}
           hideDisclaimer={true}
         />
-        {!isAuthenticated && (
+        {isAuthenticated === false && (
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
             {t('auth.signInToChat')}
           </p>

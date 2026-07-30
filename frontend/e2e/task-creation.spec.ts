@@ -25,7 +25,7 @@ test.describe('Landing Page Acquisition Flow', () => {
         await page.goto('/en')
 
         // Find the URL input on landing page (use first() to avoid strict mode if multiple exist)
-        const urlInput = page.getByLabel(/Chat input/i).first()
+        const urlInput = page.getByLabel(/Video or podcast URL/i).first()
         await expect(urlInput).toBeVisible()
 
         // Type a valid URL
@@ -51,7 +51,7 @@ test.describe('Landing Page Acquisition Flow', () => {
     test('should show error for invalid URL format', async ({ page }) => {
         await page.goto('/en')
 
-        const urlInput = page.getByLabel(/Chat input/i).first()
+        const urlInput = page.getByLabel(/Video or podcast URL/i).first()
         await urlInput.fill('not-a-valid-url')
 
         const generateBtn = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).first()

@@ -114,7 +114,6 @@ export function HeroSection() {
                         <ChatInput 
                             variant="inline"
                             onSubmit={handleHeroSubmit}
-                            showTypewriter={true}
                             hideDisclaimer={true}
                         />
                     </div>

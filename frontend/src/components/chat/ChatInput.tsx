@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
-import { TypewriterPlaceholder } from './TypewriterPlaceholder'
 
 interface ChatInputProps {
   onSubmit: (text: string) => void
@@ -12,8 +11,6 @@ interface ChatInputProps {
   isLoading?: boolean
   error?: string
   disabled?: boolean
-  /** Show typewriter animation in placeholder */
-  showTypewriter?: boolean
   /** 
    * Layout variant:
    * - "floating": Absolute positioned at bottom (default, for chat mode)
@@ -29,7 +26,6 @@ export function ChatInput({
   onStop,
   isLoading, 
   disabled, 
-  showTypewriter = false,
   variant = "floating",
   hideDisclaimer = false
 }: ChatInputProps) {
@@ -48,9 +44,6 @@ export function ChatInput({
     e.preventDefault()
     onStop?.()
   }
-
-  // Show typewriter only when: enabled, no input, and not focused
-  const showTypewriterPlaceholder = showTypewriter && !input && !isFocused
 
   const isFloating = variant === "floating"
   const isStopMode = isLoading && !!onStop
@@ -75,11 +68,7 @@ export function ChatInput({
             isFocused && "ring-emerald-500/30 shadow-[0_0_0_4px_rgba(16,185,129,0.1)] dark:ring-emerald-500/20 dark:shadow-[0_0_0_4px_rgba(16,185,129,0.05)]"
           )}
         >
-          {/* Input container with typewriter overlay */}
-          <div className="relative flex-1 min-w-0">
-            {/* Typewriter placeholder overlay */}
-            <TypewriterPlaceholder visible={showTypewriterPlaceholder} />
-            
+          <div className="flex-1 min-w-0">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -90,10 +79,9 @@ export function ChatInput({
               className={cn(
                 "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 dark:text-zinc-100",
                 "py-3.5 text-[15px] font-medium tracking-wide",
-                // Hide native placeholder when typewriter is active
-                showTypewriterPlaceholder ? "placeholder-transparent" : "placeholder-slate-400/80 dark:placeholder-zinc-500"
+                "placeholder-slate-400/80 dark:placeholder-zinc-500"
               )}
-              placeholder={showTypewriter ? "" : (t('chat.inputPlaceholder') || "Ask anything or paste a URL...")}
+              placeholder={t('chat.inputPlaceholder') || "Ask anything or paste a URL..."}
               disabled={disabled}
             />
           </div>

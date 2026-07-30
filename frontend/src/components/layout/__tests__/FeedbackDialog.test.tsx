@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { FeedbackDialog } from '../FeedbackDialog'
 import { ApiClient } from '@/lib/api'
+import { toast } from 'sonner'
 
 const mockGetSession = vi.fn()
 const mockSupabase = {
@@ -20,17 +21,18 @@ vi.mock('@/lib/api', () => ({
     }
 }))
 
+vi.mock('sonner', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(),
+    }
+}))
+
 vi.mock('@/components/i18n/I18nProvider', () => ({
     useI18n: () => ({
         t: (key: string) => key
     })
 }))
-
-const mockAlert = vi.fn()
-Object.defineProperty(window, 'alert', {
-    writable: true,
-    value: mockAlert
-})
 
 describe('FeedbackDialog', () => {
     beforeEach(() => {
@@ -81,7 +83,8 @@ describe('FeedbackDialog', () => {
             }, 'valid-token')
         })
 
-        expect(mockAlert).toHaveBeenCalledWith('feedback.success')
+        expect(toast.success).toHaveBeenCalledWith('feedback.success')
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
     it('handles submission error', async () => {
@@ -99,12 +102,12 @@ describe('FeedbackDialog', () => {
             expect(ApiClient.submitFeedback).toHaveBeenCalled()
         })
 
-        expect(mockAlert).toHaveBeenCalledWith('feedback.error')
+        expect(toast.error).toHaveBeenCalledWith('feedback.error')
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
 
     it('handles missing session gracefully', async () => {
         mockGetSession.mockResolvedValue({ data: { session: null } })
-        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
         render(<FeedbackDialog />)
         
@@ -119,9 +122,7 @@ describe('FeedbackDialog', () => {
                 category: 'bug',
                 message: 'Msg',
                 contact_email: undefined
-            }, "")
+            }, undefined)
         })
-        
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('No session found'))
     })
 })

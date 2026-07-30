@@ -119,7 +119,7 @@ describe('ApiClient', () => {
     })
 
     describe('submitFeedback', () => {
-        it('sends correct request', async () => {
+        it('sends an authenticated request when a token is available', async () => {
             fetchSpy.mockResolvedValueOnce({
                 ok: true,
                 json: async () => ({}),
@@ -132,7 +132,29 @@ describe('ApiClient', () => {
                 expect.stringContaining('/api/feedback'),
                 expect.objectContaining({
                     method: 'POST',
-                    body: JSON.stringify(feedbackData)
+                    body: JSON.stringify(feedbackData),
+                    headers: expect.objectContaining({
+                        Authorization: `Bearer ${mockToken}`
+                    })
+                })
+            )
+        })
+
+        it('omits the authorization header for anonymous feedback', async () => {
+            fetchSpy.mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({}),
+            } as Response)
+
+            await ApiClient.submitFeedback({ category: 'support', message: 'Need help' })
+
+            expect(fetchSpy).toHaveBeenCalledWith(
+                expect.stringContaining('/api/feedback'),
+                expect.objectContaining({
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 })
             )
         })

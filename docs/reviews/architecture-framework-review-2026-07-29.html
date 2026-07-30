@@ -388,7 +388,7 @@
           <span class="pill">仓库整改：已完成</span>
           <span class="pill">本地与远端门禁：已通过</span>
           <span class="pill">生产发布：已完成</span>
-          <span class="pill">生产 commit：1984fca</span>
+          <span class="pill">架构收敛基线：1984fca</span>
         </div>
       </header>
 
@@ -706,7 +706,7 @@
             <ul class="compact-list">
               <li>GitHub PR #34 的 backend、frontend、PGMQ、Docker、E2E 与 Vercel checks 全部通过。</li>
               <li>Railway API deployment <code>f666d427</code> 与 Worker deployment <code>85cfe006</code> 均为 SUCCESS。</li>
-              <li>Vercel Production deployment <code>vibe-digest-931s8hpks</code> 为 READY，三端 commit 均为 <code>1984fca</code>。</li>
+              <li>Vercel Production 基线 deployment <code>vibe-digest-931s8hpks</code> 为 READY，三端架构收敛基线均为 <code>1984fca</code>；后续体验优化沿同一 <code>main</code> 自动发布，并逐次核对 deployment metadata 中的实际 commit。</li>
               <li>Railway watch patterns 已限制为后端、共享配置、锁文件与各自 config；文档变更不触发无意义的 API/Worker 重建。</li>
               <li>公网 API 与前端 backend-origin 探针均 healthy；中文首页 canonical、H1、lang 与移动端横向溢出检查通过。</li>
               <li>真实任务 <code>f4b5cd2d</code> 47 秒完成，6/6 输出成功，进度 100%，队列 0，handoff 为 completed。</li>

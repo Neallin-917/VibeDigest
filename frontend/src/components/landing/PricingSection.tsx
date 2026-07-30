@@ -56,7 +56,7 @@ export function PricingSection() {
             price: t("pricing.pro.price"),
             desc: t("pricing.pro.desc"),
             features: proFeatureKeys.map(k => t(k)),
-            cta: t("pricing.pro.button"),
+            cta: t("landing.viewPlan"),
             highlight: true
         },
         {
@@ -85,9 +85,9 @@ export function PricingSection() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {plans.map((plan, index) => (
+                    {plans.map((plan) => (
                         <div
-                            key={index}
+                            key={plan.key}
                             className={cn(
                                 "relative p-6 rounded-2xl flex flex-col backdrop-blur-xl transition-colors duration-200",
                                 plan.highlight

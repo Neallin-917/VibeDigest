@@ -138,8 +138,7 @@ describe('ChatWorkspace', () => {
 
     render(<ChatWorkspace {...defaultProps} activeTaskId="task-1" />)
     expect(await screen.findByTestId('sheet')).toBeInTheDocument()
-    // Both panels exist in DOM, but desktop is hidden via CSS class
-    expect(screen.getAllByTestId('video-panel')).toHaveLength(2)
+    expect(screen.getAllByTestId('video-panel')).toHaveLength(1)
   })
 
   it('handles panel closing', async () => {

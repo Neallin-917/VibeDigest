@@ -125,6 +125,41 @@ describe('ChatPageClient', () => {
     })
   })
 
+  it('keeps the task workspace visible while resolving its thread', async () => {
+    currentSearchParams = new URLSearchParams('task=task-a')
+    let resolveThreads!: (response: Response) => void
+    let resolveTaskThreads!: (response: Response) => void
+    const threadsResponse = new Promise<Response>((resolve) => {
+      resolveThreads = resolve
+    })
+    const taskThreadsResponse = new Promise<Response>((resolve) => {
+      resolveTaskThreads = resolve
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return threadsResponse
+      if (url === '/api/threads?taskId=task-a') return taskThreadsResponse
+      if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithQueryClient(<ChatPageClient />)
+
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', 'task-a')
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'true')
+
+    resolveThreads(jsonResponse([]))
+    resolveTaskThreads(jsonResponse([
+      { id: 'thread-a', title: 'A', updated_at: '2026-02-06T00:00:00Z' },
+    ]))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'false')
+    })
+  })
+
   it('reuses the latest thread when entering with task and no threadId', async () => {
     currentSearchParams = new URLSearchParams('task=task-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -489,6 +524,9 @@ describe('ChatPageClient', () => {
     })
 
     fetchMock.mockClear()
+    await waitFor(() => {
+      expect(window.requestIdleCallback).toHaveBeenCalled()
+    })
     runIdleCallbacks()
 
     await waitFor(() => {

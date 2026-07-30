@@ -95,6 +95,32 @@ test.describe('Complete Task Workflow (Mocked)', () => {
     })
   })
 
+  test('shows the task workspace while its thread is still resolving', async ({ page }) => {
+    let releaseThreadLookup!: () => void
+    const threadLookupGate = new Promise<void>((resolve) => {
+      releaseThreadLookup = resolve
+    })
+
+    await page.route(/\/api\/threads\?taskId=mock-task-123$/, async (route) => {
+      await threadLookupGate
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      })
+    })
+
+    await page.goto('/en/chat?task=mock-task-123')
+
+    await expect(page.getByText('Processing plan')).toBeVisible({ timeout: 1500 })
+    await expect(page.getByLabel(/Chat input/i)).toBeDisabled()
+
+    releaseThreadLookup()
+
+    await expect(page).toHaveURL(/threadId=/, { timeout: 10000 })
+    await expect(page.getByLabel(/Chat input/i)).toBeEnabled()
+  })
+
   test('user can submit a video and see the completed results', async ({ page }) => {
     page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
 

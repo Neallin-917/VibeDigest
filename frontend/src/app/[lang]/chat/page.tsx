@@ -15,8 +15,8 @@ export default async function ChatPage({
     searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
     const params = await searchParams
-    const isFreshChat = !params.task && !params.threadId
-    const initialExamples = isFreshChat ? getChatExamples() : null
+    const shouldLoadExamples = !params.task
+    const initialExamples = shouldLoadExamples ? getChatExamples() : null
 
     return <ChatPageClient initialExamples={initialExamples} />
 }

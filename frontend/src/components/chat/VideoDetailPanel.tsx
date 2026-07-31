@@ -320,7 +320,13 @@ export function VideoDetailPanel({
             {t("chat.contextPanel.title")}
           </h3>
           {onClose && (
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 hover:bg-white/20 dark:hover:bg-white/10">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              aria-label={t("chat.closeVideoDetails")}
+              className="hover:bg-white/20 dark:hover:bg-white/10"
+            >
               <X className="w-4 h-4" />
             </Button>
           )}
@@ -350,7 +356,13 @@ export function VideoDetailPanel({
           {t("chat.contextPanel.title")}
         </h3>
         {onClose && (
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 hover:bg-white/20 dark:hover:bg-white/10">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label={t("chat.closeVideoDetails")}
+            className="hover:bg-white/20 dark:hover:bg-white/10"
+          >
             <X className="w-4 h-4" />
           </Button>
         )}

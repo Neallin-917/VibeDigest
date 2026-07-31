@@ -417,6 +417,7 @@ const messages: Record<Locale, Messages> = {
       openingChat: "Opening chat...",
       openingThread: "Opening {title}",
       videoDetails: "Video details",
+      closeVideoDetails: "Close video details",
       directSubmit: {
         unavailable: "Unable to process this video right now.",
         invalidResponse: "Unable to create a task for this URL.",
@@ -977,6 +978,7 @@ const messages: Record<Locale, Messages> = {
       openingChat: "正在打开对话...",
       openingThread: "正在打开「{title}」",
       videoDetails: "视频详情",
+      closeVideoDetails: "关闭视频详情",
       directSubmit: {
         unavailable: "暂时无法处理这个视频，请稍后重试。",
         invalidResponse: "暂时无法为这个链接创建任务。",
@@ -1162,6 +1164,7 @@ const messages: Record<Locale, Messages> = {
       openingChat: "チャットを開いています...",
       openingThread: "「{title}」を開いています",
       videoDetails: "動画の詳細",
+      closeVideoDetails: "動画の詳細を閉じる",
       directSubmit: {
         unavailable: "現在この動画を処理できません。しばらくしてからお試しください。",
         invalidResponse: "このURLのタスクを作成できませんでした。",

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
-import { createTranslator, type Locale } from "@/lib/i18n"
+import type { Locale } from "@/lib/i18n"
+import { createTranslator } from "@/lib/i18n-server"
 import { CommunityTemplates, Task } from "./CommunityTemplates"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { useEffect, useMemo, useState } from 'react'
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js"
 import { I18nProvider } from "@/components/i18n/I18nProvider"
-import { isLocale } from "@/lib/i18n"
+import type { Locale, Messages } from "@/lib/i18n"
 import { accountKeys } from "@/hooks/useAccountQueries"
 import { createClient } from "@/lib/supabase"
 
@@ -30,7 +30,15 @@ function AccountSessionSync() {
     return null
 }
 
-export function Providers({ children, locale }: { children: React.ReactNode, locale?: string }) {
+export function Providers({
+    children,
+    locale,
+    messages,
+}: {
+    children: React.ReactNode
+    locale: Locale
+    messages: Messages
+}) {
     const [queryClient] = useState(() => new QueryClient({
         defaultOptions: {
             queries: {
@@ -40,8 +48,6 @@ export function Providers({ children, locale }: { children: React.ReactNode, loc
             },
         },
     }))
-    const safeLocale = locale && isLocale(locale) ? locale : undefined
-
     return (
         <QueryClientProvider client={queryClient}>
             <AccountSessionSync />
@@ -50,7 +56,7 @@ export function Providers({ children, locale }: { children: React.ReactNode, loc
                 defaultTheme="dark"
                 disableTransitionOnChange
             >
-                <I18nProvider locale={safeLocale}>
+                <I18nProvider locale={locale} messages={messages}>
                     {children}
                 </I18nProvider>
             </ThemeProvider>

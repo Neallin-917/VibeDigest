@@ -31,8 +31,8 @@ The conclusions below are grounded in these repository facts:
 | Route rendering | Core product routes are dynamic (`/[lang]/chat`, task detail, settings, explore) |
 | Client surface | `73` files use `"use client"` |
 | `use client` hotspots | `components/chat` 19, `components/ui` 9, `app/[lang]` 9, `components/tasks` 7, `components/layout` 7, `components/landing` 7 |
-| Large files | `src/lib/i18n.ts` 1417 LOC, `VideoDetailPanel.tsx` 623 LOC, `code-block.tsx` 562 LOC, `useThreadNavigation.ts` 463 LOC, `ChatContainer.tsx` 410 LOC |
-| Heavy imports observed | `framer-motion`, `react-markdown`, `shiki`, `@tanstack/react-query`, `@supabase/supabase-js`, `next/navigation`, `sonner`, Vercel analytics |
+| Large files | Locale content remains large but is isolated in the server-only import graph; current interactive hotspots include `VideoDetailPanel.tsx`, `useThreadNavigation.ts`, and `ChatContainer.tsx` |
+| Heavy imports observed | `react-markdown`, `shiki`, AI SDK, `@tanstack/react-query`, `@supabase/supabase-js`, `next/navigation`, `sonner`, Vercel analytics; `framer-motion` exists only in an unused landing module |
 
 ## Current Verified Interventions
 
@@ -125,6 +125,33 @@ route in the measured production build while preserving the existing product
 analytics and Web Vitals surfaces. Google One Tap remains unchanged because its
 authentication benefit should not be traded away without conversion evidence.
 
+## Current Locale-Payload Intervention
+
+The locale provider previously imported one module containing the English,
+Chinese, and Japanese dictionaries. Because the provider is a client boundary,
+every localized route downloaded and parsed all three dictionaries.
+
+The server now selects and completes only the requested locale before passing
+that serializable dictionary to the provider. Japanese keeps the existing
+English fallback behavior through a server-side merge; the browser receives one
+complete dictionary and no additional request or translation loading state was
+introduced.
+
+Measured on the Chinese landing route with gzip transfer:
+
+| Payload | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Initial scripts | 449,823 bytes | 427,146 bytes | -22,677 bytes (-5.0%) |
+| HTML + streamed server data | 17,872 bytes | 30,487 bytes | +12,615 bytes |
+| Combined initial transfer | 467,695 bytes | 457,633 bytes | -10,062 bytes (-2.2%) |
+
+The previous shared translation chunk was 77,377 raw bytes / 27,931 gzip
+bytes. The optimized client chunks contain none of the three locale
+dictionaries, so the browser also avoids parsing and constructing that
+three-locale object. A locale-structure test prevents accidental loss of
+fallback keys. Same-viewport production/local screenshots confirmed no visible
+change.
+
 ## Audit Framework
 
 The frontend is assessed across four layers:
@@ -167,7 +194,7 @@ Priority rules:
 | Shell | Global client boundary is wider than necessary because providers, toaster, theme, and analytics sit below `[lang]/layout.tsx` and participate in every route | P0 |
 | Route | Chat is the dominant product path and also the densest client-render surface; landing is secondary and mostly first-load/animation focused | P0 |
 | Feature | Chat and Video Detail are the highest-cost interactive areas; thread navigation is the highest state-complexity area | P0 |
-| Infra | Large inline i18n payload and mixed concerns around markdown/rendering/subscription infra create avoidable bundle and maintenance pressure | P1 |
+| Infra | The all-locale client payload is resolved; markdown/rendering/subscription infra remains the meaningful optimization surface | P1 |
 
 ## Route Matrix
 
@@ -197,7 +224,7 @@ Priority rules:
 | First-load cost | 4 | Chat route is dynamic and client-heavy; sidebar, workspace, drawers, header, sheet, and transport logic load on the core route |
 | Interaction cost | 5 | Streaming messages, scroll management, message list rendering, panel toggling, and mobile/desktop branching all share one interactive surface |
 | Sustained cost | 4 | Active chat sessions maintain message history, query state, and task selection state over time |
-| Bundle cost | 4 | Pulls in `@ai-sdk/react`, `framer-motion`, `react-markdown`, UI components, and navigation hooks |
+| Bundle cost | 4 | Pulls in `@ai-sdk/react`, deferred `react-markdown`, UI components, and navigation hooks |
 | Engineering complexity | 5 | State spans URL, thread, task, auth, initial hydration, direct URL submission, panel opening, and message rendering |
 
 **Trigger scenarios**
@@ -366,7 +393,7 @@ Priority rules:
 
 **Responsibility**
 
-- Installs QueryClient, theme provider, i18n provider, toaster, analytics, speed insights, GA, fonts, and shell decorations
+- Installs QueryClient, theme provider, i18n provider, toaster, analytics, speed insights, fonts, and shell decorations
 
 **Risk profile**
 
@@ -413,59 +440,57 @@ Priority rules:
 
 - `P1`
 
-### P1. `lib/i18n.ts`
+### Completed. Locale Payload Boundary
 
-**Module:** `src/lib/i18n.ts`
+**Modules:** `src/lib/i18n.ts`, `src/lib/i18n-messages.ts`, `src/lib/i18n-server.ts`
 
 **Responsibility**
 
-- Holds locale config and the full translation object for all supported locales
+- Keeps client-safe locale helpers separate from server-owned dictionaries
+- Selects and completes one locale before crossing the client boundary
 
 **Risk profile**
 
 | Dimension | Score | Notes |
 | --- | --- | --- |
-| First-load cost | 4 | Shared locale data participates in provider-backed UI and can inflate client-side work |
+| First-load cost | 2 | One selected dictionary remains in the streamed server payload; all-locale client JavaScript is gone |
 | Interaction cost | 1 | Minimal runtime interaction cost after load |
 | Sustained cost | 2 | Mostly memory residency and object traversal |
-| Bundle cost | 4 | One 1417-line module centralizes all locale content |
-| Engineering complexity | 4 | Large monolithic file increases merge conflicts and makes route-level splitting harder |
+| Bundle cost | 1 | Locale dictionaries no longer participate in the client JavaScript graph |
+| Engineering complexity | 2 | Content remains centralized, while runtime ownership and client/server boundaries are explicit |
 
 **Trigger scenarios**
 
-- Any route that consumes `I18nProvider`
-- Any component that reads translated strings on the client
+- Any route under the locale layout
 
 **Resource cost shape**
 
-- Larger module payload
-- Memory residency of all locale dictionaries together
+- One selected dictionary in the streamed server payload
 
 **Current design complexity**
 
-- Locale content and locale infrastructure are co-located
-- Difficult to split or lazy-load without explicit structure changes
+- Locale content is still one large authoring file, but it is server-owned
+- The product has only three locales, so per-domain splitting is not justified by current measurements
 
 **Optimization direction**
 
-- Split locale dictionaries by locale and possibly by route domain
-- Keep type-safe accessors, but move content out of a single monolith
+- Keep the current boundary
+- Revisit route-domain splitting only if another locale or measured payload growth creates a user-visible regression
 
 **Expected benefit**
 
-- Lower bundle pressure
-- Better maintainability
-- Easier future server-first translation loading
+- 5.0% less initial script transfer on the measured Chinese landing route
+- No client parse or memory cost for unselected locales
 
 **Difficulty**
 
-- Medium, because the logic is simple but the migration touches many call sites
+- Completed with a small provider contract change and locale-structure coverage
 
 **Rank**
 
-- `P1`
+- `Completed`
 
-### P1. Landing Animation Group
+### P2. Landing Client Boundary
 
 **Modules:** `HeroSection`, `FeaturesSection`, `HowItWorksSection`, `PricingSection`, `TestimonialsSection`, `SupportCTA`, `LandingNav`, `CommunityTemplates`
 
@@ -477,10 +502,10 @@ Priority rules:
 
 | Dimension | Score | Notes |
 | --- | --- | --- |
-| First-load cost | 4 | Several landing components are client components and import `framer-motion` |
+| First-load cost | 3 | Several mostly static landing sections remain client components because they consume the i18n context |
 | Interaction cost | 2 | Interaction density is low after initial load |
 | Sustained cost | 1 | Minimal long-lived cost |
-| Bundle cost | 3 | Motion and client nav logic accumulate across sections |
+| Bundle cost | 2 | Current landing code does not load `framer-motion`; the only import is in an unused testimonials component |
 | Engineering complexity | 2 | Simpler than chat and task flows |
 
 **Trigger scenarios**
@@ -490,30 +515,29 @@ Priority rules:
 
 **Resource cost shape**
 
-- Animation-driven hydration and initial JS cost
-- Decorative effects competing with acquisition latency
+- Hydration of mostly static translated sections
 
 **Current design complexity**
 
-- Multiple isolated animated sections instead of one focused interactive boundary
+- The visible landing page is visually calm and current mobile production/local captures match
+- Refactoring translations into props could shrink hydration further, but current measured benefit has not yet justified touching several components
 
 **Optimization direction**
 
-- Reduce client-only sections on landing pages
-- Prefer CSS or server-rendered static presentation where possible
-- Keep only the interactions that materially change conversion or clarity
+- Revisit only if Lighthouse/RUM shows landing hydration or responsiveness as a current user problem
+- Do not remove the unused testimonials dependency solely for bundle size; it is not in the current route graph
 
 **Expected benefit**
 
-- Faster landing-page startup and less mobile overhead
+- Potentially lower hydration cost, pending a measured trigger
 
 **Difficulty**
 
-- Low to medium
+- Medium relative to the currently unproven gain
 
 **Rank**
 
-- `P1`
+- `P2`
 
 ### P2. Settings, Auth, and Secondary Routes
 
@@ -555,11 +579,7 @@ These areas should be treated as design-heavy optimization work rather than tact
    - cache invalidation
    - fallback thread handling
 
-4. i18n packaging
-   - one monolithic translation file
-   - currently easy to use, but costly to split later
-
-5. Global shell boundary
+4. Global shell boundary
    - provider lifetime
    - analytics integrations
    - root-level client state and hydration footprint
@@ -577,13 +597,12 @@ These are the first modules to optimize because they sit on the core product pat
 ### P1
 
 - Global shell boundary
-- `lib/i18n.ts`
-- Landing animation group
 
 These are meaningful but should follow once the chat path is decomposed and the highest-value runtime work is underway.
 
 ### P2
 
+- Landing client boundary, only after a measured trigger
 - Settings, auth, and secondary non-core route refinements
 
 ## Roadmap
@@ -593,14 +612,14 @@ These are meaningful but should follow once the chat path is decomposed and the 
 - Shrink unnecessary client boundaries around shell and route entry points
 - Identify global dependencies that do not need to participate in every route
 - Reduce first-entry cost on the chat route by deferring non-critical client subtrees
-- Audit landing-page motion and remove decorative interactivity that does not justify hydration
+- Preserve the current calm landing experience; optimize only measured route cost
 
 ### Phase 2: Medium-Risk Structural Work
 
 - Split chat orchestration from rendering and transport concerns
 - Split `VideoDetailPanel` into subscription, parsing, and presentational sections
 - Clarify thread navigation state ownership and query cache policy
-- Break `i18n.ts` into a structure that supports smaller loading surfaces
+- Keep locale content server-owned and add no further split until payload growth justifies it
 
 ### Phase 3: Governance and Long-Term Control
 
@@ -618,7 +637,7 @@ When implementation begins, measure these before and after:
 | Chat route entry | route JS, hydration time, first input delay, sidebar ready time |
 | Thread switching | time to visible title, time to messages rendered, duplicate fetch count |
 | Video panel open | panel open latency, subscription setup time, summary parse time |
-| Landing load | initial JS, LCP, CLS, motion-related scripting cost |
+| Landing load | initial JS, LCP, CLS, hydration and interaction latency |
 | Global shell | provider count, root client bundle size, analytics/script cost |
 
 ## Decision Summary

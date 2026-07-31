@@ -9,6 +9,8 @@ import { Providers } from "@/components/providers";
 import { Vignette } from "@/components/ui/vignette";
 import { buildLocalizedPath, getOpenGraphLocale, SITE_URL } from "@/lib/seo";
 import { env } from "@/env";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n";
+import { getMessages } from "@/lib/i18n-server";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -128,9 +130,11 @@ export default async function RootLayout({
   params: Promise<{ lang: string }>;
 }>) {
   const { lang } = await params;
+  const locale = isLocale(lang) ? lang : DEFAULT_LOCALE;
+  const messages = getMessages(locale);
   return (
     <div
-      lang={lang}
+      lang={locale}
       className={cn(
         manrope.className,
         syne.variable,
@@ -178,7 +182,7 @@ export default async function RootLayout({
           ])
         }}
       />
-      <Providers locale={lang}>
+      <Providers locale={locale} messages={messages}>
         {auth}
         {children}
       </Providers>

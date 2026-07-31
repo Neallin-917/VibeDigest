@@ -87,6 +87,22 @@ warmed while each direct chat opening avoids three speculative message reads.
 This follows the Next.js resource-usage guidance to prefer intent-triggered
 prefetching when automatic prefetch would download data the user may never use.
 
+## Current Example-Opening Intervention
+
+An authenticated production click on the primary welcome example showed the
+right summary panel becoming useful after roughly 1.2 seconds while the left
+conversation stayed blank for roughly 3.4 seconds. The task request was not the
+main bottleneck: the navigation switched `ChatContainer` to an empty thread
+before its persisted messages were ready, and the lazy message renderer did not
+start loading until those messages arrived.
+
+Task selection now starts loading the message renderer immediately and commits
+the target thread plus its persisted messages together. The existing welcome
+or conversation surface remains visible until the replacement is renderable,
+while the independently loaded summary panel can still open as soon as its task
+data is ready. No skeleton, duplicate progress card, or additional state layer
+was introduced.
+
 ## Current Tool-State Intervention
 
 Production evidence on commit `25b1f47` showed failed video-preview and

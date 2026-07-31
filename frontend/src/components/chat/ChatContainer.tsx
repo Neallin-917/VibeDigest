@@ -328,10 +328,10 @@ export function ChatContainer({
         className={cn(
           'flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 custom-scrollbar',
           status === 'streaming' ? 'scroll-auto' : 'scroll-smooth',
-          (messages.length > 0 || !!activeTaskId) ? 'pb-44 md:pb-56' : '',
+          messages.length > 0 ? 'pb-44 md:pb-56' : '',
         )}
       >
-        {messages.length === 0 && !activeTaskId ? (
+        {messages.length === 0 ? (
           <WelcomeScreen
             onSelectExample={onSelectExample || (() => { })}
             onSubmit={handleSubmit}
@@ -412,7 +412,7 @@ export function ChatContainer({
         </div>
       )}
 
-      {(messages.length > 0 || activeTaskId) && (
+      {messages.length > 0 && (
         <ChatInput
           variant="floating"
           onSubmit={handleSubmit}

@@ -1,12 +1,11 @@
 "use client"
 
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react"
+import React, { createContext, useCallback, useEffect, useMemo } from "react"
 
 import {
-  DEFAULT_LOCALE,
-  getBestLocaleFromNavigator,
   isLocale,
   type Locale,
+  type Messages,
   createTranslator,
   COOKIE_NAME,
 } from "@/lib/i18n"
@@ -21,37 +20,22 @@ type I18nContextValue = {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
-export function I18nProvider({ children, locale: initialLocale }: { children: React.ReactNode, locale?: Locale }) {
-  // Initialize with server-provided locale if available, effectively synching URL and UI
-  const [locale, setLocaleState] = useState<Locale>(initialLocale || DEFAULT_LOCALE)
-
-  // Load persisted locale after mount (client-only)
+export function I18nProvider({
+  children,
+  locale,
+  messages,
+}: {
+  children: React.ReactNode
+  locale: Locale
+  messages: Messages
+}) {
   useEffect(() => {
-    let cancelled = false
     try {
-      // Priority: 1. URL/Server (initialLocale passed prop) -> handled by useState default
-      // 2. localStorage (user preference) - BUT only if we didn't get a specific URL locale?
-      // Actually, standard behavior: URL overrides everything.
-      // If we are at /zh, we show Chinese.
-      // We should update localStorage to match the current URL locale if it differs.
-
-      if (initialLocale && isLocale(initialLocale)) {
-        window.localStorage.setItem(STORAGE_KEY, initialLocale)
-      } else {
-        // Fallback logic if no prop provided (legacy support)
-        const stored = window.localStorage.getItem(STORAGE_KEY)
-        const next = isLocale(stored) ? stored : getBestLocaleFromNavigator(window.navigator.language)
-        Promise.resolve().then(() => {
-          if (!cancelled && !initialLocale) setLocaleState(next)
-        })
-      }
+      window.localStorage.setItem(STORAGE_KEY, locale)
     } catch {
       // ignore
     }
-    return () => {
-      cancelled = true
-    }
-  }, [initialLocale])
+  }, [locale])
 
   // Sync document attributes
   useEffect(() => {
@@ -86,7 +70,7 @@ export function I18nProvider({ children, locale: initialLocale }: { children: Re
     window.location.assign(`${nextPath}${search}${hash}`)
   }, [])
 
-  const t = useMemo(() => createTranslator(locale), [locale])
+  const t = useMemo(() => createTranslator(messages), [messages])
 
   const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t])
 
@@ -98,4 +82,3 @@ export function useI18n() {
   if (!ctx) throw new Error("useI18n must be used within <I18nProvider>")
   return ctx
 }
-

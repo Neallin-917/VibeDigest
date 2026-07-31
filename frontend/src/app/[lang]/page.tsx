@@ -11,7 +11,8 @@ import { Suspense } from "react"
 import Link from "next/link"
 import type { Metadata } from "next"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
-import { createTranslator, DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
+import { createTranslator } from "@/lib/i18n-server"
 
 // HowTo schema step data per locale (mirrors i18n but accessible at server level)
 const HOW_TO_STEPS: Record<string, { name: string; text: string }[]> = {

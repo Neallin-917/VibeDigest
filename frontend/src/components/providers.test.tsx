@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { Providers } from "./providers"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import type { Messages } from "@/lib/i18n"
+
+const messages: Messages = {}
 
 const authMocks = vi.hoisted(() => ({
     callback: undefined as
@@ -62,7 +65,7 @@ describe("Providers account session sync", () => {
         }))
 
         render(
-            <Providers locale="en">
+            <Providers locale="en" messages={messages}>
                 <AccountProbe />
             </Providers>,
         )
@@ -90,7 +93,7 @@ describe("Providers account session sync", () => {
 
     it("keeps the shared account query in sync with later auth changes", async () => {
         render(
-            <Providers locale="en">
+            <Providers locale="en" messages={messages}>
                 <AccountProbe />
             </Providers>,
         )

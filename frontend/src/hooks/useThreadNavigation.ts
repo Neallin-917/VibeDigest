@@ -7,8 +7,6 @@ import type { ChatUIMessage } from "@/lib/chat-ui"
 import type { Thread } from "@/types"
 import { preloadMessageRow } from "@/components/chat/LazyMessageRow"
 
-const THREAD_PREFETCH_LIMIT = 3
-
 interface UseThreadNavigationOptions {
     threads: Thread[]
     refetchThreads: () => Promise<Thread[]>
@@ -34,7 +32,7 @@ export interface ThreadNavigationState {
 /**
  * Core navigation state machine for thread management.
  * Manages URL sync, thread selection, new chat creation, task resolution,
- * and idle prefetching.
+ * and intent-based thread prefetching.
  *
  * Extracted from ChatPageClient to reduce its size from 600+ to ~80 lines.
  */
@@ -453,37 +451,6 @@ export function useThreadNavigation({
         safeReplace(params)
         refetchThreads()
     }, [invalidateThreadPayload, refetchThreads, getCurrentParams, safeReplace])
-
-    // Idle prefetch for top threads
-    useEffect(() => {
-        if (threads.length === 0) return
-
-        const prefetchedThreads = threads
-            .filter((thread) => thread.id !== resolvedActiveThreadId)
-            .slice(0, THREAD_PREFETCH_LIMIT)
-
-        if (prefetchedThreads.length === 0) return
-
-        const requestIdle = window.requestIdleCallback
-            ? window.requestIdleCallback.bind(window)
-            : ((callback: IdleRequestCallback) => window.setTimeout(
-                () => callback({ didTimeout: false, timeRemaining: () => 0 } as IdleDeadline),
-                120
-            ))
-        const cancelIdle = window.cancelIdleCallback
-            ? window.cancelIdleCallback.bind(window)
-            : window.clearTimeout.bind(window)
-
-        const idleHandle = requestIdle(() => {
-            prefetchedThreads.forEach((thread) => {
-                prefetchThreadFn(thread.id, thread.task_id)
-            })
-        })
-
-        return () => {
-            cancelIdle(idleHandle)
-        }
-    }, [prefetchThreadFn, resolvedActiveThreadId, threads])
 
     const prefetchThread = useCallback((threadId: string) => {
         void preloadMessageRow()

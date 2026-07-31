@@ -73,6 +73,20 @@ the data already present in the sidebar and removes avoidable serial work:
 The fallback metadata request remains available for callers whose thread model
 does not include `task_id`; no new cache, endpoint, or state layer was added.
 
+## Current Intent-Based Prefetch Intervention
+
+Production measurements on 2026-07-31 showed a completed demo taking
+3.7–5.3 seconds to become ready across five direct openings. Each opening also
+fetched message payloads for the active thread plus the three most recent
+unrelated threads, creating four message reads before the user expressed any
+navigation intent.
+
+Automatic idle prefetching was removed. Desktop and mobile thread items still
+prefetch on pointer hover and keyboard focus, so likely navigation remains
+warmed while each direct chat opening avoids three speculative message reads.
+This follows the Next.js resource-usage guidance to prefer intent-triggered
+prefetching when automatic prefetch would download data the user may never use.
+
 ## Current Tool-State Intervention
 
 Production evidence on commit `25b1f47` showed failed video-preview and

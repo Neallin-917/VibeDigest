@@ -169,7 +169,14 @@ export function parseCurrentSummary(content: unknown): CurrentSummary | null {
   }
 }
 
-export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(outputs: T[]): T | null {
+function normalizeLocale(value?: string | null): string {
+  return value?.trim().toLowerCase().replace(/_/g, '-') ?? ''
+}
+
+export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(
+  outputs: T[],
+  preferredLocale?: string | null
+): T | null {
   const validOutputs = outputs.filter(
     (output) =>
       output.kind === 'summary' &&
@@ -179,6 +186,25 @@ export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(out
 
   if (validOutputs.length === 0) {
     return null
+  }
+
+  const normalizedPreference = normalizeLocale(preferredLocale)
+  if (normalizedPreference) {
+    const exactMatch = validOutputs.find(
+      (output) => normalizeLocale(output.locale) === normalizedPreference
+    )
+    if (exactMatch) {
+      return exactMatch
+    }
+
+    const preferredLanguage = normalizedPreference.split('-')[0]
+    const languageMatch = validOutputs.find((output) => {
+      const locale = normalizeLocale(output.locale)
+      return locale !== '' && locale.split('-')[0] === preferredLanguage
+    })
+    if (languageMatch) {
+      return languageMatch
+    }
   }
 
   const canonical = validOutputs.find(

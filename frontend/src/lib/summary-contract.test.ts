@@ -124,6 +124,84 @@ describe('summary-contract', () => {
     )
   })
 
+  it('selects a localized summary using exact or base-language locale matching', () => {
+    const picked = pickPreferredSummaryOutput(
+      [
+        {
+          kind: 'summary',
+          status: 'completed',
+          locale: null,
+          content: JSON.stringify(validSummary),
+        },
+        {
+          kind: 'summary',
+          status: 'completed',
+          locale: 'zh',
+          content: JSON.stringify({ ...validSummary, language: 'zh' }),
+        },
+      ],
+      'zh-CN'
+    )
+
+    expect(picked).toEqual(
+      expect.objectContaining({
+        locale: 'zh',
+      })
+    )
+  })
+
+  it('falls back to the canonical summary when the requested locale is unavailable', () => {
+    const picked = pickPreferredSummaryOutput(
+      [
+        {
+          kind: 'summary',
+          status: 'completed',
+          locale: 'zh',
+          content: JSON.stringify({ ...validSummary, language: 'zh' }),
+        },
+        {
+          kind: 'summary',
+          status: 'completed',
+          locale: null,
+          content: JSON.stringify(validSummary),
+        },
+      ],
+      'ja'
+    )
+
+    expect(picked).toEqual(
+      expect.objectContaining({
+        locale: null,
+      })
+    )
+  })
+
+  it('ignores an invalid localized summary before falling back', () => {
+    const picked = pickPreferredSummaryOutput(
+      [
+        {
+          kind: 'summary',
+          status: 'completed',
+          locale: 'zh',
+          content: 'legacy text summary',
+        },
+        {
+          kind: 'summary',
+          status: 'completed',
+          locale: null,
+          content: JSON.stringify(validSummary),
+        },
+      ],
+      'zh'
+    )
+
+    expect(picked).toEqual(
+      expect.objectContaining({
+        locale: null,
+      })
+    )
+  })
+
   it('builds markdown and excerpt only from valid V4 summaries', () => {
     const markdown = buildSummaryMarkdownFromContent(JSON.stringify(validSummary))
     const excerpt = buildSummaryExcerptFromContent(JSON.stringify(validSummary), 60)

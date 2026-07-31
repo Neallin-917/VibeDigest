@@ -71,7 +71,7 @@ describe('WelcomeScreen', () => {
     expect(screen.getByText('Video 1')).toBeInTheDocument()
   })
 
-  it('prioritizes every above-the-fold thumbnail candidate', async () => {
+  it('prioritizes only the leading thumbnail candidate', async () => {
     const mockExamples = Array.from({ length: 4 }, (_, index) => ({
       id: String(index + 1),
       video_title: `Video ${index + 1}`,
@@ -90,7 +90,10 @@ describe('WelcomeScreen', () => {
     const cards = await screen.findAllByTestId('template-card')
 
     expect(cards).toHaveLength(4)
-    expect(cards.every(card => card.dataset.highPriorityThumbnail === 'true')).toBe(true)
+    expect(cards[0]).toHaveAttribute('data-high-priority-thumbnail', 'true')
+    expect(
+      cards.slice(1).every(card => card.dataset.highPriorityThumbnail === 'false')
+    ).toBe(true)
   })
 
   it('handles example selection', async () => {

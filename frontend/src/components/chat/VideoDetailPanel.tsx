@@ -151,7 +151,7 @@ export function VideoDetailPanel({
   className
 }: VideoDetailPanelProps) {
   const [task, setTask] = useState<Task | null>(null)
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [summary, setSummary] = useState<CurrentSummary | null>(null)
   const [mediaController, setMediaController] = useState<MediaController | null>(null)
   const [audioData, setAudioData] = useState<{ audioUrl: string, coverUrl?: string } | null>(null)
@@ -231,7 +231,7 @@ export function VideoDetailPanel({
 
       if (outputs) {
         const taskOutputs = outputs as SummaryOutputCandidate[]
-        const summaryOut = pickPreferredSummaryOutput(taskOutputs)
+        const summaryOut = pickPreferredSummaryOutput(taskOutputs, locale)
         setSummary(summaryOut ? parseCurrentSummary(summaryOut.content) : null)
 
         const audioOut = taskOutputs.find((output) => output.kind === 'audio')
@@ -295,7 +295,7 @@ export function VideoDetailPanel({
       unsubscribeTask()
       void supabase.removeChannel(channel)
     }
-  }, [taskId, supabase])
+  }, [taskId, supabase, locale])
 
   // Determine media type based on task URL and available audio data
   const mediaType: 'video' | 'audio' = useMemo(() => {

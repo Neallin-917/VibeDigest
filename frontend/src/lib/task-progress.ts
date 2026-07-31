@@ -36,13 +36,10 @@ export function getResolvedTaskProgress(status: TaskLifecycleStatus, progress?: 
 
 export function getTaskPlanState(snapshot: TaskSnapshot) {
   const resolvedProgress = getResolvedTaskProgress(snapshot.status, snapshot.progress)
-  const activeStepIndex =
-    snapshot.status === 'failed'
-      ? -1
-      : STEP_THRESHOLDS.reduce(
-          (acc, step, idx) => (resolvedProgress >= step.minProgress ? idx : acc),
-          0
-        )
+  const activeStepIndex = STEP_THRESHOLDS.reduce(
+    (acc, step, idx) => (resolvedProgress >= step.minProgress ? idx : acc),
+    0
+  )
 
   const completedCount =
     snapshot.status === 'completed'
@@ -53,7 +50,8 @@ export function getTaskPlanState(snapshot: TaskSnapshot) {
     let state: TaskPlanStepState = 'pending'
 
     if (snapshot.status === 'failed') {
-      state = index <= Math.max(activeStepIndex, 0) ? 'complete' : 'failed'
+      if (index < activeStepIndex) state = 'complete'
+      else if (index === activeStepIndex) state = 'failed'
     } else if (snapshot.status === 'completed' || index < activeStepIndex) {
       state = 'complete'
     } else if (index === activeStepIndex) {

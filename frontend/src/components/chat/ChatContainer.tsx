@@ -30,6 +30,8 @@ interface ChatContainerProps {
   initialExamples?: Promise<ChatExample[]> | null
 }
 
+const NO_TASK_IDS = new Set<string>()
+
 function isAuthRequiredError(err: unknown) {
   if (!err) return false
 
@@ -235,7 +237,7 @@ export function ChatContainer({
     status === 'streaming' && lastMessage?.role === 'assistant' ? lastMessage : null
   const historyMessages = streamingMessage ? messages.slice(0, -1) : messages
   const renderMessages = historyMessages
-  const liveTaskIdsByMessage = useMemo(() => {
+  const latestTaskIdsByMessage = useMemo(() => {
     const latestTaskMessageIds = new Map<string, string>()
 
     renderMessages.forEach(message => {
@@ -347,7 +349,8 @@ export function ChatContainer({
                 message={m}
                 isStreaming={false}
                 onOpenPanel={onOpenPanel}
-                liveTaskIds={liveTaskIdsByMessage.get(m.id)}
+                liveTaskIds={latestTaskIdsByMessage.get(m.id)}
+                visibleTaskIds={latestTaskIdsByMessage.get(m.id) ?? NO_TASK_IDS}
               />
             ))}
 
@@ -357,7 +360,7 @@ export function ChatContainer({
                 message={streamingMessage}
                 isStreaming
                 onOpenPanel={onOpenPanel}
-                liveTaskIds={new Set<string>()}
+                liveTaskIds={NO_TASK_IDS}
               />
             ) : null}
 

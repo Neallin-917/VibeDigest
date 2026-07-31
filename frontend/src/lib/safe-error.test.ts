@@ -15,4 +15,13 @@ describe('safe-error', () => {
   it('normalizes backend terminal error status for UI components', () => {
     expect(normalizeTaskStatus('error')).toBe('failed')
   })
+
+  it('replaces provider internals with the caller-facing fallback', () => {
+    const message = sanitizeErrorMessage(
+      'litellm.BadGatewayError: OpenAIException - unknown provider for model claude-sonnet-4-6',
+      '暂时无法处理这个视频，请稍后重试。'
+    )
+
+    expect(message).toBe('暂时无法处理这个视频，请稍后重试。')
+  })
 })

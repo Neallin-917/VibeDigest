@@ -37,7 +37,7 @@ function mapTaskRow(row: Record<string, unknown>, fallbackTaskId: string): TaskS
     videoTitle: typeof row.video_title === 'string' ? row.video_title : undefined,
     thumbnailUrl: typeof row.thumbnail_url === 'string' ? row.thumbnail_url : undefined,
     videoUrl: typeof row.video_url === 'string' ? row.video_url : undefined,
-    errorMessage: typeof row.error_message === 'string' ? sanitizeErrorMessage(row.error_message) : undefined,
+    errorMessage: typeof row.error_message === 'string' ? row.error_message : undefined,
   }
 }
 
@@ -97,7 +97,9 @@ function TaskStatusCard({
   const normalizedSnapshot = {
     ...snapshot,
     status: normalizeTaskStatus(snapshot.status),
-    errorMessage: snapshot.errorMessage ? sanitizeErrorMessage(snapshot.errorMessage) : undefined,
+    errorMessage: snapshot.errorMessage
+      ? sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
+      : undefined,
   }
   const title = snapshot.videoTitle?.trim()
   const displayTitle =

@@ -15,6 +15,7 @@ interface MessageRowProps {
   isStreaming: boolean
   onOpenPanel?: (taskId: string) => void
   liveTaskIds?: Set<string>
+  visibleTaskIds?: Set<string>
 }
 
 function areTaskIdSetsEqual(prev?: Set<string>, next?: Set<string>) {
@@ -27,6 +28,14 @@ function areTaskIdSetsEqual(prev?: Set<string>, next?: Set<string>) {
   }
 
   return true
+}
+
+function shouldRenderDataPart(part: ChatUIMessage['parts'][number], visibleTaskIds?: Set<string>) {
+  if (!visibleTaskIds || !isDataUIPart(part)) return true
+  if (!('data' in part) || typeof part.data !== 'object' || part.data === null) return true
+
+  const taskId = 'taskId' in part.data ? part.data.taskId : null
+  return typeof taskId !== 'string' || visibleTaskIds.has(taskId)
 }
 
 const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
@@ -89,7 +98,13 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
   )
 }, (prev, next) => prev.text === next.text)
 
-function MessageRowComponent({ message, isStreaming, onOpenPanel, liveTaskIds }: MessageRowProps) {
+function MessageRowComponent({
+  message,
+  isStreaming,
+  onOpenPanel,
+  liveTaskIds,
+  visibleTaskIds,
+}: MessageRowProps) {
   if (message.role === 'system') return null
 
   if (message.role === 'assistant') {
@@ -100,7 +115,7 @@ function MessageRowComponent({ message, isStreaming, onOpenPanel, liveTaskIds }:
       }
       if (typedPart.type === 'text') return Boolean(typedPart.text?.trim())
       if (isToolUIPart(part)) return shouldRenderToolPart(part)
-      if (isDataUIPart(part)) return true
+      if (isDataUIPart(part)) return shouldRenderDataPart(part, visibleTaskIds)
       return false
     })
     if (!hasRenderableParts) return null
@@ -150,7 +165,9 @@ function MessageRowComponent({ message, isStreaming, onOpenPanel, liveTaskIds }:
                   return null
                 })
               : null}
-            {message.parts && message.parts.length > 0 ? renderDataParts(message.parts, liveTaskIds, onOpenPanel) : null}
+            {message.parts && message.parts.length > 0
+              ? renderDataParts(message.parts, liveTaskIds, onOpenPanel, visibleTaskIds)
+              : null}
           </div>
         </div>
       </div>
@@ -162,6 +179,7 @@ export const MessageRow = memo(MessageRowComponent, (prev, next) => {
   if (prev.isStreaming !== next.isStreaming) return false
   if (prev.onOpenPanel !== next.onOpenPanel) return false
   if (!areTaskIdSetsEqual(prev.liveTaskIds, next.liveTaskIds)) return false
+  if (!areTaskIdSetsEqual(prev.visibleTaskIds, next.visibleTaskIds)) return false
 
   // If streaming, always re-render to show updates
   if (next.isStreaming) return false

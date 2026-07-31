@@ -18,7 +18,8 @@ function getTaskId(part: ChatUIMessagePart) {
 export function renderDataParts(
   parts: ChatUIMessagePart[],
   liveTaskIds?: Set<string>,
-  onOpenPanel?: (taskId: string) => void
+  onOpenPanel?: (taskId: string) => void,
+  visibleTaskIds?: Set<string>
 ) {
   const buckets = new Map<string, TaskDataBucket>()
 
@@ -26,6 +27,7 @@ export function renderDataParts(
     if (!isDataUIPart(part)) return
     const taskId = getTaskId(part)
     if (!taskId) return
+    if (visibleTaskIds && !visibleTaskIds.has(taskId)) return
 
     const bucket = buckets.get(taskId) ?? {
       showPlan: false,

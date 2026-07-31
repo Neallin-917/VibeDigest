@@ -96,6 +96,13 @@ describe('ChatContainer', () => {
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
   })
 
+  it('keeps the welcome surface visible while a selected task has no messages yet', () => {
+    render(<ChatContainer activeTaskId="selected-task" />)
+
+    expect(screen.getByTestId('welcome-screen')).toBeInTheDocument()
+    expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
+  })
+
   it('renders ChatInput and lazily loads messages when there are messages', async () => {
     const messages: ChatUIMessage[] = [createTextMessage('Hello', 'user', '1')]
     mockUseChat.mockReturnValue({

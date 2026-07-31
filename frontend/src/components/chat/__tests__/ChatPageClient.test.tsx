@@ -251,6 +251,57 @@ describe('ChatPageClient', () => {
     expect(replaceMock).toHaveBeenCalledWith('/en/chat?task=task-b&threadId=thread-b', { scroll: false })
   })
 
+  it('keeps the current chat visible while selected task history and renderer load', async () => {
+    currentSearchParams = new URLSearchParams('task=task-a')
+    let resolveTaskBMessages!: (response: Response) => void
+    const taskBMessagesResponse = new Promise<Response>((resolve) => {
+      resolveTaskBMessages = resolve
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads?taskId=task-a') {
+        return jsonResponse([{ id: 'thread-a', title: 'A', updated_at: '2026-02-06T00:00:00Z' }])
+      }
+      if (url === '/api/threads?taskId=task-b') {
+        return jsonResponse([{ id: 'thread-b', title: 'B', updated_at: '2026-02-06T00:00:00Z' }])
+      }
+      if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
+      if (url === '/api/chat/threads/thread-b/messages') return taskBMessagesResponse
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithQueryClient(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+    })
+    loadMessageRowMock.mockClear()
+
+    fireEvent.click(screen.getByText('Select Task B'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/chat/threads/thread-b/messages')
+    })
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', 'task-b')
+    expect(loadMessageRowMock).toHaveBeenCalledTimes(1)
+
+    resolveTaskBMessages(jsonResponse([
+      {
+        id: 'm2',
+        role: 'user',
+        parts: [{ type: 'text', text: 'Thread B' }],
+        metadata: { createdAt: '2026-02-06T00:00:00Z' },
+      },
+    ]))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-b')
+    })
+  })
+
   it('does not call replace when URL is already synchronized', async () => {
     currentSearchParams = new URLSearchParams('task=task-a&threadId=thread-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

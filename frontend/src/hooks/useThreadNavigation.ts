@@ -388,7 +388,7 @@ export function useThreadNavigation({
     // Handle Task Selection (from Sidebar or Workspace)
     const handleSelectTask = useCallback(async (taskId: string | null) => {
         isUserNavigatingRef.current = true
-        threadSelectionRequestIdRef.current += 1
+        const requestId = ++threadSelectionRequestIdRef.current
         setPendingThreadId(null)
         setIsThreadSwitching(false)
 
@@ -406,23 +406,34 @@ export function useThreadNavigation({
 
         setTaskSelectionNonce((prev) => prev + 1)
         setActiveTaskId(taskId)
+        void preloadMessageRow()
         params.set('task', taskId)
 
         const resolvedThreadId = await resolveOrCreateThreadForTask(taskId)
+        if (requestId !== threadSelectionRequestIdRef.current) {
+            return
+        }
+
         const isEphemeralThread = newThreadIdsRef.current.has(resolvedThreadId)
         newThreadIdsRef.current.delete(resolvedThreadId)
 
-        setActiveThreadId(resolvedThreadId)
-        params.set('threadId', resolvedThreadId)
-        safeReplace(params)
-
         if (isEphemeralThread) {
+            setActiveThreadId(resolvedThreadId)
             setInitialMessages([])
         } else {
             const payload = await loadThreadPayload(resolvedThreadId, taskId)
-            setInitialMessages(payload.messages)
+            if (requestId !== threadSelectionRequestIdRef.current) {
+                return
+            }
+
+            startTransition(() => {
+                setActiveThreadId(resolvedThreadId)
+                setInitialMessages(payload.messages)
+            })
         }
 
+        params.set('threadId', resolvedThreadId)
+        safeReplace(params)
         refetchThreads()
     }, [refetchThreads, getCurrentParams, loadThreadPayload, resolveOrCreateThreadForTask, resolvedActiveThreadId, safeReplace])
 

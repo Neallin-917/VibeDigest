@@ -95,7 +95,7 @@ test.describe('Complete Task Workflow (Mocked)', () => {
     })
   })
 
-  test('shows the task workspace while its thread is still resolving', async ({ page }) => {
+  test('keeps the welcome surface usable while the task thread is resolving', async ({ page }) => {
     let releaseThreadLookup!: () => void
     const threadLookupGate = new Promise<void>((resolve) => {
       releaseThreadLookup = resolve
@@ -113,8 +113,9 @@ test.describe('Complete Task Workflow (Mocked)', () => {
     await page.goto('/en/chat?task=mock-task-123')
 
     await expect(page.getByText('Opening chat...')).toBeVisible({ timeout: 1500 })
+    await expect(page.locator('h1')).toContainText(/digest today/i)
     await expect(page.getByText('Processing plan')).toBeHidden()
-    await expect(page.getByLabel(/Chat input/i)).toBeDisabled()
+    await expect(page.getByLabel(/Chat input/i)).toBeEnabled()
 
     releaseThreadLookup()
 

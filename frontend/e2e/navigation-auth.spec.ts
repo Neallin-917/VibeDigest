@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { setupApiMocks } from './fixtures/mock-api';
+import { ChatPage } from './pages/ChatPage';
 
 test.describe('Navigation & Auth Flows', () => {
 
@@ -79,18 +80,16 @@ test.describe('Navigation & Auth Flows', () => {
         });
 
         test('Chat Page: Sending a message redirects to Login', async ({ page }) => {
+            const chatPage = new ChatPage(page);
+
             await page.goto('/en/chat');
-            await expect(page.getByLabel(/Chat input/i)).toBeVisible();
+            await expect(chatPage.chatInput).toBeVisible();
 
             // Type a message in the chat input
-            const chatInput = page.getByLabel(/Chat input/i).first();
-            await expect(chatInput).toBeVisible();
-            await chatInput.fill('Tell me about this video');
+            await chatPage.fillMessage('Tell me about this video');
 
             // Click send
-            const sendButton = page.getByRole('button', { name: /Send message|发送/i }).filter({ visible: true }).first();
-            await expect(sendButton).toBeEnabled();
-            await sendButton.click();
+            await chatPage.submitButton.click();
 
             // Should be redirected to login
             await page.waitForURL(/\/login/, { timeout: 30000 });

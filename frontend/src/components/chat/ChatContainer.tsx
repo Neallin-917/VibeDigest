@@ -4,7 +4,6 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isDataUIPart } from 'ai'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
-import { TaskDataGroup } from './TaskDataGroup'
 import { cn } from '@/lib/utils'
 import { checkHasRenderableAssistant } from '@/lib/chat-perf-utils'
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react'
@@ -266,12 +265,6 @@ export function ChatContainer({
   }, [renderMessages])
 
   const { scrollRef, handleScroll } = useChatScroll({ messages, status, activeTaskId })
-  const showStandaloneTaskGroup = Boolean(
-    activeTaskId &&
-    !isInteractionLocked &&
-    renderMessages.length === 0 &&
-    !streamingMessage
-  )
 
   const handledPendingMessageRef = useRef(false)
 
@@ -348,19 +341,6 @@ export function ChatContainer({
           />
         ) : (
           <div className="max-w-3xl mx-auto w-full space-y-8">
-            {showStandaloneTaskGroup ? (
-              <TaskDataGroup
-                taskStatus={{
-                  taskId: activeTaskId!,
-                  status: 'pending',
-                  progress: 0,
-                }}
-                showProgress
-                showPlan
-                live
-                onOpenPanel={onOpenPanel}
-              />
-            ) : null}
             {renderMessages.map((m) => (
               <MessageRow
                 key={m.id}

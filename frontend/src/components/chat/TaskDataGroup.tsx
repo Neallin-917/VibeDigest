@@ -123,6 +123,7 @@ function TaskStatusCard({
           : t('chat.tools.status.statusQueued')
 
   const plan = getTaskPlanState(normalizedSnapshot)
+  const showDetailedProgress = normalizedSnapshot.status !== 'completed'
 
   const getStepCopy = (key: TaskPlanStepKey) => {
     switch (key) {
@@ -177,7 +178,7 @@ function TaskStatusCard({
           </div>
         </div>
 
-        {showProgress ? (
+        {showProgress && showDetailedProgress ? (
           <div className="space-y-2">
             <div>
               <div className="text-sm font-semibold text-zinc-100">{t('chat.tools.status.processingPlan')}</div>
@@ -191,7 +192,7 @@ function TaskStatusCard({
           </div>
         ) : null}
 
-        {showPlan ? (
+        {showPlan && showDetailedProgress ? (
           <div className="space-y-4">
             {plan.steps.map((step, index) => {
               const copy = getStepCopy(step.key)

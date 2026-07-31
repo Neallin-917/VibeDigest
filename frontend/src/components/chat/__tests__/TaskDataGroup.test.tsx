@@ -51,7 +51,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 describe('TaskDataGroup', () => {
-  it('shows a completion CTA and opens the result panel', () => {
+  it('keeps completed tasks compact and opens the result panel', () => {
     const onOpenPanel = vi.fn()
 
     render(
@@ -68,10 +68,32 @@ describe('TaskDataGroup', () => {
       />
     )
 
+    expect(screen.queryByText('Processing plan')).not.toBeInTheDocument()
+    expect(screen.queryByText('Queued desc')).not.toBeInTheDocument()
+
     const button = screen.getByText('View summary')
     expect(button.className).toContain('bg-zinc-100')
     fireEvent.click(button)
     expect(onOpenPanel).toHaveBeenCalledWith('task-123')
+  })
+
+  it('keeps progress details visible while a task is processing', () => {
+    render(
+      <TaskDataGroup
+        taskStatus={{
+          taskId: 'task-123',
+          status: 'processing',
+          progress: 40,
+          videoTitle: 'Active task',
+        }}
+        showProgress
+        showPlan
+      />
+    )
+
+    expect(screen.getByText('Processing plan')).toBeInTheDocument()
+    expect(screen.getByText('Queued desc')).toBeInTheDocument()
+    expect(screen.queryByText('View summary')).not.toBeInTheDocument()
   })
 
   it('renders backend error status as failed without raw HTML details', () => {

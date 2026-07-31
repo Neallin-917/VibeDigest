@@ -266,7 +266,12 @@ export function ChatContainer({
   }, [renderMessages])
 
   const { scrollRef, handleScroll } = useChatScroll({ messages, status, activeTaskId })
-  const showStandaloneTaskGroup = Boolean(activeTaskId && renderMessages.length === 0 && !streamingMessage)
+  const showStandaloneTaskGroup = Boolean(
+    activeTaskId &&
+    !isInteractionLocked &&
+    renderMessages.length === 0 &&
+    !streamingMessage
+  )
 
   const handledPendingMessageRef = useRef(false)
 

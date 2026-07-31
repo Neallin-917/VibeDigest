@@ -538,4 +538,26 @@ describe('ChatContainer', () => {
 
     expect(screen.getByText('Send')).toBeDisabled()
   })
+
+  it('does not show speculative queued progress while a task-linked chat is opening', () => {
+    render(
+      <ChatContainer
+        activeTaskId="completed-demo-task"
+        isInteractionLocked={true}
+      />
+    )
+
+    expect(screen.queryByText('chat.tools.status.videoTask')).not.toBeInTheDocument()
+  })
+
+  it('keeps standalone live progress for a newly submitted task', () => {
+    render(
+      <ChatContainer
+        activeTaskId="new-task"
+        isInteractionLocked={false}
+      />
+    )
+
+    expect(screen.getByText('chat.tools.status.videoTask')).toBeInTheDocument()
+  })
 })

@@ -112,7 +112,8 @@ test.describe('Complete Task Workflow (Mocked)', () => {
 
     await page.goto('/en/chat?task=mock-task-123')
 
-    await expect(page.getByText('Processing plan')).toBeVisible({ timeout: 1500 })
+    await expect(page.getByText('Opening chat...')).toBeVisible({ timeout: 1500 })
+    await expect(page.getByText('Processing plan')).toBeHidden()
     await expect(page.getByLabel(/Chat input/i)).toBeDisabled()
 
     releaseThreadLookup()

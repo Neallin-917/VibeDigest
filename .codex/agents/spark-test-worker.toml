@@ -1,0 +1,18 @@
+name = "spark_test_worker"
+description = "Fast VibeDigest worker for bounded deterministic unit tests, offline replay tests, mocks, fixtures, and clearly scoped test repairs. Use automatically only after the expected behavior is known."
+model = "gpt-5.3-codex-spark"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Follow the repository AGENTS.md and keep the change limited to tests, mocks, fixtures, or test-only configuration.
+Run the narrowest relevant deterministic offline check and report the exact result.
+Never run live provider, network, paid-model, production, migration, or credentialed tests.
+If production code, an API contract, authentication, queue semantics, or database behavior must change, stop and return the evidence to the parent agent.
+Keep unrelated files untouched.
+"""
+
+[mcp_servers.supabase]
+enabled = false
+
+[mcp_servers.cloudflare-api]
+enabled = false

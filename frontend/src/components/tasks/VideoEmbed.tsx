@@ -159,6 +159,7 @@ function BilibiliPlayer({
             src={safeCoverUrl}
             alt={title || "Video thumbnail"}
             fill
+            loading="eager"
             className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
             unoptimized={false}
           />
@@ -191,5 +192,4 @@ function BilibiliPlayer({
     </div>
   )
 }
-
 

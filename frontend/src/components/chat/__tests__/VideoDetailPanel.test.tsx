@@ -53,7 +53,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
         "tasks.summaryStructured.sectionsTitle": "Sections",
         "tasks.summaryStructured.overviewTitle": "Overview",
         "tasks.summaryStructured.evidenceLabel": "Evidence",
-        "chat.contextPanel.noSummary": "No summary available"
+        "chat.contextPanel.noSummary": "No summary available",
+        "chat.closeVideoDetails": "Close video details"
       }
       return translations[key] || key
     },
@@ -94,6 +95,18 @@ describe('VideoDetailPanel', () => {
     render(<VideoDetailPanel taskId="task-123" />)
     expect(screen.getByText('chat.contextPanel.title')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('tasks.loadingTask')
+  })
+
+  it('provides a full-size, named close target', () => {
+    const onClose = vi.fn()
+
+    render(<VideoDetailPanel taskId="task-123" onClose={onClose} />)
+
+    const closeButton = screen.getByRole('button', { name: 'Close video details' })
+    expect(closeButton).toHaveClass('h-11', 'w-11')
+
+    fireEvent.click(closeButton)
+    expect(onClose).toHaveBeenCalledOnce()
   })
 
   it('renders task info and video player', async () => {

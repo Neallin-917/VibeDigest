@@ -48,6 +48,7 @@ describe("YouTubePlayer", () => {
         const img = screen.getByAltText("Test Video")
         expect(img).toBeInTheDocument()
         expect(img.getAttribute('src')).toContain("test.jpg")
+        expect(img).toHaveAttribute("loading", "eager")
     })
 
     it("switches to player when cover is clicked", async () => {

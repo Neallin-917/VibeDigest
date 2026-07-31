@@ -39,6 +39,17 @@ describe('VideoEmbed', () => {
             expect(iframe).toHaveAttribute('src', expect.stringContaining('bvid=BVtest'))
         })
 
+        it('loads an opened Bilibili cover eagerly', () => {
+            render(
+                <VideoEmbed
+                    videoUrl="https://www.bilibili.com/video/BVtest"
+                    coverUrl="/cover.jpg"
+                    title="Bilibili cover"
+                />
+            )
+            expect(screen.getByAltText('Bilibili cover')).toHaveAttribute('loading', 'eager')
+        })
+
         it('renders null for unknown links', () => {
             const { container } = render(<VideoEmbed videoUrl="https://example.com" />)
             expect(container).toBeEmptyDOMElement()

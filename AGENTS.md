@@ -68,6 +68,20 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 15. **Current Product Stage**: VibeDigest is still a small product. Prioritize user experience, frontend responsiveness, perceived and measured performance, and user-facing reliability. Keep baseline protections for credentials, ownership, paid usage, and data loss, but defer heavy defense-in-depth, multi-worker coordination, dedicated security infrastructure, and complex operational consoles until scale, incidents, sensitive-data requirements, or measured load justify them.
 16. **Complexity Budget**: A technical-debt fix must solve a current user problem, a production blocker, or a measured reliability/performance issue. Otherwise document the trigger for revisiting it instead of adding code now.
 
+## Codex Model Routing
+
+- Users describe the task normally and do not need to select a model or request delegation.
+- The primary agent owns intent, risk classification, acceptance criteria, architectural decisions, and the final verified result.
+- The primary agent may automatically delegate bounded work when it materially improves speed or keeps noisy evidence out of the main context:
+  - `spark_explorer`: read-only code-path tracing, log triage, diff mapping, and evidence gathering.
+  - `spark_test_worker`: deterministic unit/offline replay tests, mocks, fixtures, and test-only repairs.
+  - `spark_ui_worker`: small targeted frontend, copy, styling, accessibility, type, lint, and component fixes after expected behavior is clear.
+- Prefer parallel delegation for independent read-heavy work. Use at most one write-capable agent at a time unless file ownership is provably disjoint.
+- Never delegate architecture, cross-boundary contracts, authentication or ownership, queue transactions or leases, database migrations or production data, paid-provider validation, secrets, deployment, rollback, security-sensitive decisions, or final high-risk review to a Spark agent.
+- A Spark agent must stop and return evidence when scope becomes ambiguous, validation requires a live or paid service, or the task crosses a prohibited boundary. The primary agent then continues with a stronger model.
+- The primary agent reviews delegated changes and runs the repository-required verification before declaring success.
+- If a named Spark agent or model is unavailable, fall back to the current model or a built-in agent without blocking the task.
+
 ## Coverage Policy
 
 - Repo enforcement: backend global coverage gate is `65%`

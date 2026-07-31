@@ -13,6 +13,7 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.tools.status.statusQueued') return 'Queued'
       if (key === 'chat.tools.status.processingPlan') return 'Processing plan'
       if (key === 'chat.tools.status.processingPlanDesc') return 'Live task progress'
+      if (key === 'chat.directSubmit.unavailable') return 'Unable to process this video right now.'
       if (key === 'chat.tools.status.progressCount') {
         return `${values?.completed as number}/${values?.total as number}`
       }
@@ -114,5 +115,25 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument()
     expect(screen.getByText(/blocking automated access/)).toBeInTheDocument()
     expect(screen.queryByText(/<!DOCTYPE/)).not.toBeInTheDocument()
+  })
+
+  it('shows real failed progress without exposing provider internals', () => {
+    render(
+      <TaskDataGroup
+        taskStatus={{
+          taskId: 'task-123',
+          status: 'error' as never,
+          progress: 100,
+          errorMessage:
+            'litellm.BadGatewayError: OpenAIException - unknown provider for model claude-sonnet-4-6',
+        }}
+        showProgress
+        showPlan
+      />
+    )
+
+    expect(screen.getByText('4/5')).toBeInTheDocument()
+    expect(screen.getByText('Unable to process this video right now.')).toBeInTheDocument()
+    expect(screen.queryByText(/litellm/i)).not.toBeInTheDocument()
   })
 })

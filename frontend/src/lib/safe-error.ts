@@ -32,6 +32,10 @@ function looksLikeAntiBotChallenge(value: string) {
   return /cloudflare|challenge-platform|cf-chl|cdn-cgi|just a moment|challenge-error-text/i.test(value)
 }
 
+function looksLikeInternalProviderError(value: string) {
+  return /\b(?:litellm|badgatewayerror|openai(?:exception|error)|anthropic(?:exception|error)|unknown provider for model|traceback|stack trace)\b/i.test(value)
+}
+
 function tryParseJsonMessage(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
@@ -53,6 +57,8 @@ export function sanitizeErrorMessage(input: unknown, fallback = DEFAULT_ERROR_ME
   if (looksLikeHtml(raw)) {
     return looksLikeAntiBotChallenge(raw) ? UPSTREAM_BLOCKED_MESSAGE : UPSTREAM_HTML_MESSAGE
   }
+
+  if (looksLikeInternalProviderError(raw)) return fallback
 
   const compact = raw.replace(/\s+/g, ' ')
   if (compact.length <= MAX_MESSAGE_LENGTH) return compact

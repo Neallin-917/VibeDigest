@@ -593,4 +593,43 @@ describe('ChatContainer', () => {
 
     expect(await screen.findByText('chat.tools.status.videoTask')).toBeInTheDocument()
   })
+
+  it('renders only the latest status card when history repeats the same task', async () => {
+    const taskParts = [
+      {
+        type: 'data-task-status',
+        id: 'task-status-repeated-task',
+        data: { taskId: 'repeated-task', status: 'pending', progress: 0 },
+      },
+      {
+        type: 'data-task-progress',
+        id: 'task-progress-repeated-task',
+        data: { taskId: 'repeated-task' },
+      },
+      {
+        type: 'data-task-plan',
+        id: 'task-plan-repeated-task',
+        data: { taskId: 'repeated-task' },
+      },
+    ] as ChatUIMessage['parts']
+    const messages: ChatUIMessage[] = [
+      { id: 'assistant-old', role: 'assistant', parts: taskParts },
+      createTextMessage('retry the same URL', 'user', 'user-retry'),
+      { id: 'assistant-latest', role: 'assistant', parts: taskParts },
+    ]
+
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(<ChatContainer activeTaskId="repeated-task" />)
+
+    expect(await screen.findAllByText('chat.tools.status.videoTask')).toHaveLength(1)
+  })
 })

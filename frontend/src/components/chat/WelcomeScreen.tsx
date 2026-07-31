@@ -60,12 +60,12 @@ function WelcomeExamples({
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-        {examples.map((task) => (
+        {examples.map((task, index) => (
           <div key={task.id}>
             <QuickTemplateCard
               task={task}
               onSelect={onSelectExample}
-              highPriorityThumbnail
+              highPriorityThumbnail={index === 0}
             />
           </div>
         ))}

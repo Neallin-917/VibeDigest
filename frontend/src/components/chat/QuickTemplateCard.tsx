@@ -56,7 +56,7 @@ export function QuickTemplateCard({
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             referrerPolicy="no-referrer"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            loading="eager"
+            loading={highPriorityThumbnail ? 'eager' : 'lazy'}
             fetchPriority={highPriorityThumbnail ? 'high' : 'auto'}
           />
         ) : (

@@ -539,25 +539,51 @@ describe('ChatContainer', () => {
     expect(screen.getByText('Send')).toBeDisabled()
   })
 
-  it('does not show speculative queued progress while a task-linked chat is opening', () => {
+  it('does not invent task progress from an active task id alone', () => {
     render(
       <ChatContainer
         activeTaskId="completed-demo-task"
-        isInteractionLocked={true}
       />
     )
 
     expect(screen.queryByText('chat.tools.status.videoTask')).not.toBeInTheDocument()
   })
 
-  it('keeps standalone live progress for a newly submitted task', () => {
-    render(
-      <ChatContainer
-        activeTaskId="new-task"
-        isInteractionLocked={false}
-      />
-    )
+  it('renders real task progress from persisted message data', async () => {
+    const messages: ChatUIMessage[] = [{
+      id: 'assistant-task-progress',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'data-task-status',
+          id: 'task-status-new-task',
+          data: { taskId: 'new-task', status: 'pending', progress: 0 },
+        } as any,
+        {
+          type: 'data-task-progress',
+          id: 'task-progress-new-task',
+          data: { taskId: 'new-task' },
+        } as any,
+        {
+          type: 'data-task-plan',
+          id: 'task-plan-new-task',
+          data: { taskId: 'new-task' },
+        } as any,
+      ],
+    }]
 
-    expect(screen.getByText('chat.tools.status.videoTask')).toBeInTheDocument()
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(<ChatContainer activeTaskId="new-task" />)
+
+    expect(await screen.findByText('chat.tools.status.videoTask')).toBeInTheDocument()
   })
 })

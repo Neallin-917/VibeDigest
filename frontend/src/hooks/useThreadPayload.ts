@@ -69,8 +69,8 @@ export function useThreadPayload(threadId: string | null, options?: { enabled?: 
 }
 
 /**
- * Returns a prefetch function for eagerly loading thread payloads.
- * Replaces manual prefetchThread + idle callback pattern.
+ * Returns a prefetch function for loading thread payloads after user intent
+ * such as pointer hover or keyboard focus.
  */
 export function usePrefetchThread() {
     const queryClient = useQueryClient()

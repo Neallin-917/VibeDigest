@@ -501,7 +501,7 @@ describe('ChatPageClient', () => {
     expect(threadBMessageFetches).toHaveLength(1)
   })
 
-  it('prefetches the top recent threads during idle time', async () => {
+  it('does not prefetch unrelated threads without user intent', async () => {
     currentSearchParams = new URLSearchParams('threadId=thread-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
@@ -524,20 +524,12 @@ describe('ChatPageClient', () => {
     })
 
     fetchMock.mockClear()
-    await waitFor(() => {
-      expect(window.requestIdleCallback).toHaveBeenCalled()
-    })
     runIdleCallbacks()
 
-    await waitFor(() => {
-      const prefetchedThreadIds = fetchMock.mock.calls
-        .map(([url]) => url.toString())
-        .filter((url) => url.endsWith('/messages'))
-        .map((url) => url.match(/\/api\/chat\/threads\/(.+)\/messages$/)?.[1])
-        .filter(Boolean)
-
-      expect(prefetchedThreadIds).toEqual(['thread-b', 'thread-c', 'thread-d'])
-    })
+    const backgroundMessageFetches = fetchMock.mock.calls.filter(
+      ([url]) => url.toString().endsWith('/messages')
+    )
+    expect(backgroundMessageFetches).toHaveLength(0)
   })
 
   it('lands on last selected thread when rapidly switching', async () => {

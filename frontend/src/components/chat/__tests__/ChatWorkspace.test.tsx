@@ -132,6 +132,16 @@ describe('ChatWorkspace', () => {
     expect(screen.queryByTestId('sheet')).not.toBeInTheDocument()
   })
 
+  it('keeps the chat pane shrinkable while the detail panel is open', async () => {
+    render(<ChatWorkspace {...defaultProps} activeTaskId="task-1" />)
+
+    await screen.findByTestId('video-panel')
+
+    const chatContainer = screen.getByTestId('chat-container')
+    expect(chatContainer.closest('main')).toHaveClass('min-w-0')
+    expect(chatContainer.parentElement?.parentElement).toHaveClass('min-w-0')
+  })
+
   it('renders sheet on mobile when task is selected', async () => {
     Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 500 })
     window.dispatchEvent(new Event('resize'))

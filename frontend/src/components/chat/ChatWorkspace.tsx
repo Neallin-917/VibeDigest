@@ -231,7 +231,7 @@ export function ChatWorkspace({
 
 
   return (
-    <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-transparent">
+    <div className="flex-1 min-w-0 flex flex-col h-screen relative overflow-hidden bg-transparent">
       {/* Background Blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none dark:hidden -z-10">
         <div className="blob blob-1"></div>
@@ -254,11 +254,11 @@ export function ChatWorkspace({
       />
 
       {/* Main Layout: Chat + Details */}
-      <main className="relative flex-1 flex m-3 lg:m-4 overflow-hidden gap-0"> {/* gap-0 because handle adds spacing if needed */}
+      <main className="relative flex-1 min-w-0 flex m-3 lg:m-4 overflow-hidden gap-0"> {/* gap-0 because handle adds spacing if needed */}
 
         {/* Chat Area */}
         <div className={cn(
-          "flex-1 flex flex-col min-h-0 glass-panel relative z-10",
+          "flex-1 min-w-0 flex flex-col min-h-0 glass-panel relative z-10",
         )}>
           <div className="flex-1 flex flex-col min-w-0 min-h-0 relative h-full">
             <ChatContainer

@@ -45,7 +45,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
-            { toolCallId: 'tc1', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc1', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({
@@ -66,7 +66,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
-            { toolCallId: 'tc2', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc2', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({
@@ -87,7 +87,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
-            { toolCallId: 'tc3', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc3', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({
@@ -108,7 +108,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=hyqLNX3VExQ' },
-            { toolCallId: 'tc-cloudflare', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc-cloudflare', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({
@@ -130,7 +130,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
-            { toolCallId: 'tc4', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc4', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({
@@ -163,7 +163,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=new' },
-            { toolCallId: 'tc5', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc5', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({
@@ -180,7 +180,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
-            { toolCallId: 'tc6', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc6', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({ error: 'Authentication required' });
@@ -194,7 +194,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'not a url at all' },
-            { toolCallId: 'tc7', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc7', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({
@@ -223,7 +223,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'garbage input' },
-            { toolCallId: 'tc8', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc8', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -242,7 +242,7 @@ describe('createCreateTaskTool', () => {
         const tool = createCreateTaskTool(ctx);
         const result = await tool.execute!(
             { video_url: 'https://www.youtube.com/watch?v=test' },
-            { toolCallId: 'tc9', messages: [], abortSignal: undefined as any },
+            { toolCallId: 'tc9', messages: [], abortSignal: undefined as any, context: {} },
         );
 
         expect(result).toMatchObject({

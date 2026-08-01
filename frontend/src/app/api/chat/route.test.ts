@@ -295,7 +295,7 @@ describe('POST /api/chat', () => {
 
         // Verify system prompt contains default instruction
         const callArgs = mockStreamText.mock.calls[0][0]
-        expect(callArgs.system).toContain('You are VibeDigest Assistant')
+        expect(callArgs.instructions).toContain('You are VibeDigest Assistant')
         expect(callArgs.model.id).toBe('openrouter/auto')
     })
 
@@ -621,11 +621,11 @@ describe('POST /api/chat', () => {
         await POST(req)
 
         const callArgs = mockStreamText.mock.calls[0][0]
-        expect(callArgs.system).toContain('CURRENT VIDEO CONTEXT')
-        expect(callArgs.system).toContain('Test Video')
-        expect(callArgs.system).toContain('## Summary')
-        expect(callArgs.system).toContain('## In Brief')
-        expect(callArgs.system).toContain('This is a summary.')
+        expect(callArgs.instructions).toContain('CURRENT VIDEO CONTEXT')
+        expect(callArgs.instructions).toContain('Test Video')
+        expect(callArgs.instructions).toContain('## Summary')
+        expect(callArgs.instructions).toContain('## In Brief')
+        expect(callArgs.instructions).toContain('This is a summary.')
     })
 
     it('persists new thread if it does not exist', async () => {

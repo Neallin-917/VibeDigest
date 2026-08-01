@@ -27,7 +27,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     };
 }
 
-const EXECUTE_OPTS = { toolCallId: 'tc1', messages: [], abortSignal: undefined as any };
+const EXECUTE_OPTS = { toolCallId: 'tc1', messages: [], abortSignal: undefined as any, context: {} };
 
 describe('createPreviewVideoTool', () => {
     beforeEach(() => {

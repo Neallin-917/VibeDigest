@@ -43,7 +43,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     };
 }
 
-const execOpts = { toolCallId: 'tc1', messages: [], abortSignal: undefined as any };
+const execOpts = { toolCallId: 'tc1', messages: [], abortSignal: undefined as any, context: {} };
 
 describe('createGetTaskStatusTool – retry logic', () => {
     beforeEach(() => {

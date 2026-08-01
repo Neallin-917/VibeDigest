@@ -4,7 +4,7 @@ import {
     createUIMessageStreamResponse,
     streamText,
     convertToModelMessages,
-    stepCountIs,
+    isStepCount,
     validateUIMessages,
 } from 'ai';
 import { createProviderClient } from '@/lib/llm-config';
@@ -219,11 +219,11 @@ When users provide video URLs:
             execute: ({ writer }) => {
                 const result = streamText({
                     model: openai.chat(modelName),
-                    system: systemPrompt,
+                    instructions: systemPrompt,
                     messages: coreMessages,
-                    stopWhen: stepCountIs(5),
+                    stopWhen: isStepCount(5),
                     tools,
-                    onStepFinish: ({ toolResults }) => {
+                    onStepEnd: ({ toolResults }) => {
                         toolResults.forEach((toolResult) => {
                             if (!('toolName' in toolResult) || !('output' in toolResult)) return;
 

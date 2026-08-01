@@ -10,6 +10,7 @@ import { X, StickyNote, Quote, ChevronDown, ChevronUp, Sparkles } from 'lucide-r
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { subscribeToTask } from '@/lib/task-live'
+import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
 import {
   parseCurrentSummary,
   pickPreferredSummaryOutput,
@@ -151,6 +152,7 @@ export function VideoDetailPanel({
   className
 }: VideoDetailPanelProps) {
   const [task, setTask] = useState<Task | null>(null)
+  const [embeddedVideoTitle, setEmbeddedVideoTitle] = useState<string | undefined>()
   const { t, locale } = useI18n()
   const [summary, setSummary] = useState<CurrentSummary | null>(null)
   const [mediaController, setMediaController] = useState<MediaController | null>(null)
@@ -343,6 +345,11 @@ export function VideoDetailPanel({
   }
 
   const overviewParts = summary?.overview ? splitOverview(summary.overview) : []
+  const displayTitle = getTaskDisplayTitle(
+    isUsableTaskTitle(task.video_title) ? task.video_title : embeddedVideoTitle,
+    task.video_url,
+    t('chat.tools.status.videoTask')
+  )
 
   return (
     <div className={cn("h-full flex flex-col gap-5 overflow-hidden px-2 pt-2 pb-4", className)}>
@@ -375,12 +382,13 @@ export function VideoDetailPanel({
         <VideoPlayer
           mediaType={mediaType}
           videoUrl={task.video_url}
-          title={task.video_title}
+          title={displayTitle}
           coverUrl={task.thumbnail_url}
           audioUrl={audioData?.audioUrl}
           audioCoverUrl={audioData?.coverUrl}
           sourceUrl={task.video_url}
           onMediaReady={setMediaController}
+          onTitleResolved={setEmbeddedVideoTitle}
         />
 
         {summary?.tl_dr && (

@@ -8,6 +8,7 @@ type OnReady = (ctrl: { seek: (seconds: number) => void }) => void
 type YTPlayer = {
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void
   playVideo: () => void
+  getVideoData?: () => { title?: string }
   destroy?: () => void
 }
 
@@ -85,11 +86,13 @@ export function YouTubePlayer({
   title,
   coverUrl,
   onReady,
+  onTitleResolved,
 }: {
   videoId: string
   title?: string
   coverUrl?: string
   onReady?: OnReady
+  onTitleResolved?: (title: string) => void
 }) {
   const id = useId()
   const containerId = useMemo(() => `yt-${videoId}-${id}`, [videoId, id])
@@ -163,15 +166,20 @@ export function YouTubePlayer({
             ...(typeof window !== "undefined" ? { origin: window.location.origin } : {}),
           },
           events: {
-            onReady: () => {
+            onReady: (event) => {
               if (disposed) return
-              playerRef.current = player
+              const readyPlayer = event.target
+              playerRef.current = readyPlayer
               setIsReady(true)
+              const resolvedTitle = readyPlayer.getVideoData?.().title?.trim()
+              if (resolvedTitle) {
+                onTitleResolved?.(resolvedTitle)
+              }
               // Handle pending seek from facade mode
               if (pendingSeekRef.current !== null) {
                 try {
-                  player.seekTo(pendingSeekRef.current, true)
-                  player.playVideo()
+                  readyPlayer.seekTo(pendingSeekRef.current, true)
+                  readyPlayer.playVideo()
                 } catch {
                   // ignore
                 }
@@ -198,7 +206,7 @@ export function YouTubePlayer({
       }
       playerRef.current = null
     }
-  }, [containerId, videoId, isPlaying, coverUrl])
+  }, [containerId, videoId, isPlaying, coverUrl, onTitleResolved])
 
   if (coverUrl && !isPlaying) {
     return (

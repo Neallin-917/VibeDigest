@@ -6,6 +6,7 @@ import Image from "next/image"
 import { YouTubePlayer } from "@/components/tasks/YouTubePlayer"
 
 type OnReady = (ctrl: { seek: (seconds: number) => void }) => void
+type OnTitleResolved = (title: string) => void
 
 function getBilibiliVideoId(inputUrl: string): { bvid?: string; aid?: string; page?: string } | null {
   try {
@@ -85,11 +86,13 @@ export function VideoEmbed({
   title,
   coverUrl,
   onReady,
+  onTitleResolved,
 }: {
   videoUrl: string
   title?: string
   coverUrl?: string
   onReady?: OnReady
+  onTitleResolved?: OnTitleResolved
 }) {
   const bilibili = getBilibiliVideoId(videoUrl)
   if (bilibili?.bvid || bilibili?.aid) return <BilibiliPlayer bilibili={bilibili} title={title} coverUrl={coverUrl} onReady={onReady} />
@@ -98,7 +101,15 @@ export function VideoEmbed({
   if (!youtubeId) return null
 
   // Use IFrame Player API for seek support.
-  return <YouTubePlayer videoId={youtubeId} title={title} coverUrl={coverUrl} onReady={onReady} />
+  return (
+    <YouTubePlayer
+      videoId={youtubeId}
+      title={title}
+      coverUrl={coverUrl}
+      onReady={onReady}
+      onTitleResolved={onTitleResolved}
+    />
+  )
 }
 
 function BilibiliPlayer({
@@ -192,4 +203,3 @@ function BilibiliPlayer({
     </div>
   )
 }
-

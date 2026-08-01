@@ -13,6 +13,7 @@ interface VideoPlayerProps {
   audioCoverUrl?: string
   sourceUrl?: string
   onMediaReady?: (ctrl: { seek: (seconds: number) => void }) => void
+  onTitleResolved?: (title: string) => void
   className?: string
 }
 
@@ -25,6 +26,7 @@ export function VideoPlayer({
   audioCoverUrl,
   sourceUrl,
   onMediaReady,
+  onTitleResolved,
   className
 }: VideoPlayerProps) {
   return (
@@ -51,6 +53,7 @@ export function VideoPlayer({
             title={title}
             coverUrl={coverUrl}
             onReady={onMediaReady}
+            onTitleResolved={onTitleResolved}
           />
         )}
       </div>

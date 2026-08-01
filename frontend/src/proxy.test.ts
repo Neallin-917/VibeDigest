@@ -104,6 +104,23 @@ describe('proxy', () => {
         })
     })
 
+    describe('public chat — skip server Auth work', () => {
+        it('should render a localized chat page without calling updateSession', async () => {
+            const response = await proxy(makeRequest('/zh/chat'))
+
+            expect(response.status).toBe(200)
+            expect(mockUpdateSession).not.toHaveBeenCalled()
+        })
+
+        it('should redirect a non-localized chat page without calling updateSession', async () => {
+            const response = await proxy(makeRequest('/chat'))
+
+            expect(response.status).toBe(307)
+            expect(response.headers.get('location')).toContain('/en/chat')
+            expect(mockUpdateSession).not.toHaveBeenCalled()
+        })
+    })
+
     describe('i18n routing — non-locale paths redirect', () => {
         it('should redirect non-locale paths to detected locale', async () => {
             const response = await proxy(makeRequest('/history'))

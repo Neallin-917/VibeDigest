@@ -32,11 +32,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 1. Initialize session and refresh cookies
-  const { response, user } = await updateSession(request)
-
-  // API routes: session cookies are already refreshed in 'response'
+  // API routes need refreshed session cookies before their handlers validate ownership.
   if (pathname.startsWith('/api')) {
+    const { response } = await updateSession(request)
     return response
   }
 
@@ -45,6 +43,23 @@ export async function proxy(request: NextRequest) {
   const locale = pathLocale || DEFAULT_LOCALE
   let pathWithoutLocale = pathLocale ? '/' + pathParts.slice(2).join('/') : pathname
   if (!pathWithoutLocale.startsWith('/')) pathWithoutLocale = '/' + pathWithoutLocale
+
+  // Chat renders from public examples and resolves the browser session after
+  // hydration. Avoid an extra remote Auth round-trip before this public page
+  // can render; API routes still refresh cookies and validate the user.
+  if (pathWithoutLocale === '/chat') {
+    if (!pathLocale) {
+      const detectedLocale = getLocale(request)
+      const newUrl = new URL(`/${detectedLocale}${pathname}`, request.url)
+      request.nextUrl.searchParams.forEach((v, k) => newUrl.searchParams.set(k, v))
+      return NextResponse.redirect(newUrl)
+    }
+
+    return NextResponse.next()
+  }
+
+  // Initialize the session before any route that requires server-side auth.
+  const { response, user } = await updateSession(request)
 
   if (!pathLocale) {
     const detectedLocale = getLocale(request)

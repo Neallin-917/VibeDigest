@@ -91,7 +91,7 @@ export function WelcomeScreen({
   return (
     <div className="flex flex-col items-center justify-start min-h-full px-6 py-8 md:py-12">
       {/* Hero Section */}
-      <div className="text-center max-w-lg mb-8">
+      <div className="w-full text-center max-w-lg mb-8">
 
         {/* Title */}
         <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-3">

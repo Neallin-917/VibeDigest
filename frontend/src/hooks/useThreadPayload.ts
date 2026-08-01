@@ -10,19 +10,12 @@ export interface ThreadPayload {
 }
 
 async function fetchThreadMessages(threadId: string): Promise<ChatUIMessage[]> {
-    try {
-        const res = await fetch(`/api/chat/threads/${threadId}/messages`)
-        if (res.status === 401) {
-            return []
-        }
-        if (res.ok) {
-            return await res.json() as ChatUIMessage[]
-        }
-        return []
-    } catch (error) {
-        console.error('Failed to load thread messages', error)
-        return []
+    const res = await fetch(`/api/chat/threads/${threadId}/messages`)
+    if (!res.ok) {
+        throw new Error(`Failed to load thread messages (${res.status})`)
     }
+
+    return await res.json() as ChatUIMessage[]
 }
 
 async function fetchThreadPayload(

@@ -151,7 +151,7 @@ function TaskStatusCard({
   }
 
   return (
-    <Card className="w-full overflow-hidden border border-white/10 bg-zinc-950/70 shadow-none">
+    <Card className="w-full overflow-hidden border border-border bg-surface-raised shadow-sm">
       <div className="space-y-4 p-4">
         <div className="flex items-start gap-3">
           {snapshot.thumbnailUrl ? (
@@ -163,10 +163,10 @@ function TaskStatusCard({
             />
           ) : null}
           <div className="min-w-0 flex-1 space-y-2">
-            <h3 className="line-clamp-2 text-sm font-medium leading-6 text-zinc-100">
+            <h3 className="line-clamp-2 text-sm font-medium leading-6 text-foreground">
               {displayTitle}
             </h3>
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               {getStatusIcon(normalizedSnapshot.status)}
               <span>{statusLabel}</span>
             </div>
@@ -176,14 +176,14 @@ function TaskStatusCard({
         {showProgress && showDetailedProgress ? (
           <div className="space-y-2">
             <div>
-              <div className="text-sm font-semibold text-zinc-100">{t('chat.tools.status.processingPlan')}</div>
-              <div className="text-xs text-zinc-400">{t('chat.tools.status.processingPlanDesc')}</div>
+              <div className="text-sm font-semibold text-foreground">{t('chat.tools.status.processingPlan')}</div>
+              <div className="text-xs text-muted-foreground">{t('chat.tools.status.processingPlanDesc')}</div>
             </div>
-            <div className="flex items-center justify-between text-xs text-zinc-400">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{t('chat.tools.status.progressCount', { completed: plan.completedCount, total: plan.totalCount })}</span>
               <span>{plan.progressPercent}%</span>
             </div>
-            <Progress value={plan.progressPercent} className="h-1.5 bg-white/10" />
+            <Progress value={plan.progressPercent} className="h-1.5 bg-muted" />
           </div>
         ) : null}
 
@@ -198,12 +198,12 @@ function TaskStatusCard({
                     className={cn(
                       'mt-0.5 flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium',
                       step.state === 'complete'
-                        ? 'border-emerald-400/80 bg-emerald-500/15 text-emerald-300'
+                        ? 'border-success/30 bg-success/10 text-success'
                         : step.state === 'current'
-                          ? 'border-cyan-400/80 bg-cyan-500/10 text-cyan-300'
+                          ? 'border-processing/30 bg-processing/10 text-processing'
                           : step.state === 'failed'
-                            ? 'border-red-400/60 bg-red-500/10 text-red-300'
-                            : 'border-white/10 bg-white/5 text-zinc-500'
+                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                            : 'border-border bg-surface-subtle text-muted-foreground'
                     )}
                   >
                     {index + 1}
@@ -212,12 +212,12 @@ function TaskStatusCard({
                     <div
                       className={cn(
                         'text-sm font-medium',
-                        step.state === 'pending' ? 'text-zinc-500' : 'text-zinc-100'
+                        step.state === 'pending' ? 'text-muted-foreground' : 'text-foreground'
                       )}
                     >
                       {copy.label}
                     </div>
-                    <div className="text-sm leading-6 text-zinc-400">{copy.description}</div>
+                    <div className="text-sm leading-6 text-muted-foreground">{copy.description}</div>
                   </div>
                 </div>
               )
@@ -226,7 +226,7 @@ function TaskStatusCard({
         ) : null}
 
         {normalizedSnapshot.errorMessage ? (
-          <div className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {normalizedSnapshot.errorMessage}
           </div>
         ) : null}
@@ -236,7 +236,7 @@ function TaskStatusCard({
             <Button
               onClick={() => onOpenPanel(snapshot.taskId)}
               size="sm"
-              className="h-9 bg-zinc-100 px-4 text-xs font-medium text-zinc-950 hover:bg-zinc-200"
+              className="h-9 px-4 text-xs font-medium"
             >
               {t('chat.tools.status.viewSummary')}
             </Button>

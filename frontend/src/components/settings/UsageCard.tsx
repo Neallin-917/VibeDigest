@@ -30,7 +30,7 @@ export function UsageCard({
     const isPro = profile.tier === 'pro'
 
     return (
-        <Card className={cn("border-white/10 bg-white/5 backdrop-blur-lg", className)}>
+        <Card className={cn("border-border bg-surface-raised shadow-sm", className)}>
             <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -48,21 +48,21 @@ export function UsageCard({
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 pt-1">
-                        <div className="p-3 rounded-lg border border-white/10 bg-white/5 space-y-1">
+                        <div className="p-3 rounded-lg border border-border bg-surface-subtle space-y-1">
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
                                 <Database className="h-3 w-3" />
                                 {t("dashboard.usage.plan") || "Plan"}
                             </div>
-                            <div className={`font-semibold capitalize text-sm ${isPro ? 'text-emerald-400' : 'text-white'}`}>
+                            <div className={`font-semibold capitalize text-sm ${isPro ? 'text-success' : 'text-foreground'}`}>
                                 {profile.tier}
                             </div>
                         </div>
-                        <div className="p-3 rounded-lg border border-white/10 bg-white/5 space-y-1">
+                        <div className="p-3 rounded-lg border border-border bg-surface-subtle space-y-1">
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
-                                <Zap className="h-3 w-3 text-blue-400" />
+                                <Zap className="h-3 w-3 text-processing" />
                                 {t("dashboard.usage.extra") || "Extra"}
                             </div>
-                            <div className="font-semibold text-blue-400 text-sm">
+                            <div className="font-semibold text-processing text-sm">
                                 {profile.extra_credits}
                             </div>
                         </div>

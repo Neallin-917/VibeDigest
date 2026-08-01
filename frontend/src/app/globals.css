@@ -7,38 +7,33 @@
 :root {
   --radius: 0.75rem;
 
-  /* Diabrowser Light Mode Aesthetic */
-  /* Off-white background: slightly warmer tone */
-  --background: oklch(0.97 0 0);
-  /* Soft Black foreground: #111 approx equivalent */
-  --foreground: oklch(0.145 0 0);
-
-  /* Card: Glassmorphic white */
-  --card: oklch(1 0 0 / 0.8);
-  --card-foreground: oklch(0.145 0 0);
-
+  /* Light surfaces: calm neutrals with one emerald product accent. */
+  --background: oklch(0.975 0.004 180);
+  --foreground: oklch(0.22 0.012 240);
+  --card: oklch(1 0 0 / 0.92);
+  --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.48 0.13 165);
+  --primary-foreground: oklch(0.99 0.004 165);
+  --secondary: oklch(0.945 0.006 190);
+  --secondary-foreground: oklch(0.29 0.02 190);
+  --muted: oklch(0.955 0.005 210);
+  --muted-foreground: oklch(0.49 0.018 230);
+  --accent: oklch(0.93 0.025 166);
+  --accent-foreground: oklch(0.29 0.09 165);
+  --destructive: oklch(0.5 0.18 27);
+  --destructive-foreground: oklch(0.99 0.004 27);
+  --border: oklch(0.89 0.009 210);
+  --input: oklch(0.86 0.01 210);
+  --ring: oklch(0.48 0.13 165 / 0.28);
 
-  /* Primary: Strong Black for actions */
-  --primary: oklch(0.145 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.034 264.665);
-
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.55 0 0);
-
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.145 0 0);
-
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-
-  --border: oklch(0.92 0 0);
-  --input: oklch(0.92 0 0);
-  --ring: oklch(0.145 0 0 / 0.1);
+  /* Component-level surfaces prevent dark-mode fragments in light UI. */
+  --surface: oklch(1 0 0 / 0.9);
+  --surface-raised: oklch(1 0 0);
+  --surface-subtle: oklch(0.958 0.006 200);
+  --success: oklch(0.46 0.125 165);
+  --processing: oklch(0.49 0.11 225);
 
   /* Keeping charts for compatibility */
   --chart-1: oklch(0.646 0.222 41.116);
@@ -67,16 +62,16 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.145 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.21 0.006 285.885);
+  --primary: oklch(0.78 0.14 165);
+  --primary-foreground: oklch(0.19 0.025 165);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.274 0.006 286.033);
   --muted-foreground: oklch(0.705 0.015 286.067);
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --destructive: oklch(0.68 0.18 27);
+  --destructive-foreground: oklch(0.2 0.03 27);
   --border: oklch(0.274 0.006 286.033);
   --input: oklch(0.274 0.006 286.033);
   --ring: oklch(0.442 0.017 285.786);
@@ -88,31 +83,17 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.274 0.006 286.033);
   --sidebar-ring: oklch(0.442 0.017 285.786);
+  --surface: oklch(0.19 0.006 286 / 0.9);
+  --surface-raised: oklch(0.21 0.006 286);
+  --surface-subtle: oklch(0.25 0.007 286);
+  --success: oklch(0.76 0.14 165);
+  --processing: oklch(0.75 0.11 225);
 }
 
-/* Light Mode Background - Professional Day */
+/* Light mode keeps the workspace quiet so surface hierarchy does the work. */
 body:not(.dark) {
-  /* Subtle, sophisticated gradient - ultra light grey/blue tint */
-  background:
-    radial-gradient(
-      circle at 15% 50%,
-      rgba(240, 245, 255, 0.8) 0%,
-      transparent 25%
-    ),
-    radial-gradient(
-      circle at 85% 30%,
-      rgba(240, 255, 245, 0.6) 0%,
-      transparent 25%
-    ),
-    linear-gradient(to bottom, #f8fafc, #f1f5f9),
-    radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.03) 1px, transparent 0); /* Subtle grid dots */
-  background-attachment: fixed;
-  background-size:
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    40px 40px; /* Grid spacing */
-  color: #27272a;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 /* Dark Mode Background - Deep Space with Dot Grid */
@@ -232,6 +213,11 @@ body:not(.dark) {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-success: var(--success);
+  --color-processing: var(--processing);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -367,7 +353,11 @@ body:not(.dark) {
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors;
+    @apply bg-border rounded-full hover:bg-muted-foreground/50 transition-colors;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-white/15 hover:bg-white/25;
   }
 
   /* Landing Page Glass Containers - Enhanced Light Mode */

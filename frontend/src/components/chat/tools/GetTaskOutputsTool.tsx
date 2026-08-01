@@ -19,22 +19,22 @@ export function GetTaskOutputsTool({
   return (
     <Tool
       defaultOpen={state === 'output-available' || state === 'output-error'}
-      className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
+      className="mb-0 overflow-hidden border-border bg-surface-raised shadow-sm"
     >
       <ToolHeader
         type="tool-get_task_outputs"
         state={state}
         title="Retrieved results"
-        className="text-zinc-100"
+        className="text-foreground"
       />
-      <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
+      <ToolContent className="border-t border-border bg-transparent text-foreground">
         <ToolOutput
           output={
             output ? (
               <div className="space-y-2 text-sm">
                 <div>{t('chat.tools.outputs.retrieved', { count: output.count || 0 })}</div>
                 {output.outputs?.length ? (
-                  <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-400">
+                  <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
                     {output.outputs.map(item => (
                       <li key={`${item.kind}-${item.status}`}>{item.kind}</li>
                     ))}

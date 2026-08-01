@@ -73,7 +73,7 @@ describe('TaskDataGroup', () => {
     expect(screen.queryByText('Queued desc')).not.toBeInTheDocument()
 
     const button = screen.getByText('View summary')
-    expect(button.className).toContain('bg-zinc-100')
+    expect(button.className).toContain('bg-primary')
     fireEvent.click(button)
     expect(onOpenPanel).toHaveBeenCalledWith('task-123')
   })

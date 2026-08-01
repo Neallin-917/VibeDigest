@@ -25,29 +25,29 @@ export function CreateTaskTool({
   return (
     <Tool
       defaultOpen={displayState === 'output-available' || displayState === 'output-error'}
-      className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
+      className="mb-0 overflow-hidden border-border bg-surface-raised shadow-sm"
     >
       <ToolHeader
         type="tool-create_task"
         state={displayState}
         title="Processing"
-        className="text-zinc-100"
+        className="text-foreground"
       />
-      <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
+      <ToolContent className="border-t border-border bg-transparent text-foreground">
         <ToolOutput
           output={
             successfulOutput ? (
               <div className="space-y-3 text-sm">
                 <div>{successfulOutput.message || t('chat.tools.create.success')}</div>
                 {successfulOutput.videoUrl ? (
-                  <div className="break-all text-xs text-zinc-400">{successfulOutput.videoUrl}</div>
+                  <div className="break-all text-xs text-muted-foreground">{successfulOutput.videoUrl}</div>
                 ) : null}
                 {successfulOutput.taskId && onViewClick ? (
                   <Button
                     onClick={() => onViewClick(successfulOutput.taskId!)}
                     variant="outline"
                     size="sm"
-                    className="h-7 border-white/10 bg-transparent text-xs text-zinc-200 hover:bg-white/5"
+                    className="h-7 text-xs"
                   >
                     <ExternalLink className="mr-1 size-3" />
                     {t('chat.tools.create.viewProgress')}

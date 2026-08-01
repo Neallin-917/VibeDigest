@@ -28,22 +28,22 @@ export function GetTaskStatusTool({
   return (
     <Tool
       defaultOpen={state === 'output-available' || state === 'output-error'}
-      className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
+      className="mb-0 overflow-hidden border-border bg-surface-raised shadow-sm"
     >
       <ToolHeader
         type="tool-get_task_status"
         state={state}
         title="Task status"
-        className="text-zinc-100"
+        className="text-foreground"
       />
-      <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
+      <ToolContent className="border-t border-border bg-transparent text-foreground">
         <ToolOutput
           output={
             output
               ? (
                   <div className="space-y-2 text-sm">
                     <div>Latest status: {statusLabel}</div>
-                    <div className="text-xs text-zinc-400">taskId: {output.taskId}</div>
+                    <div className="text-xs text-muted-foreground">taskId: {output.taskId}</div>
                   </div>
                 )
               : undefined

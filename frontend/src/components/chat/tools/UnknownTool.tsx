@@ -17,16 +17,16 @@ export function UnknownTool({
   return (
     <Tool
       defaultOpen={state === 'output-available' || state === 'output-error'}
-      className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
+      className="mb-0 overflow-hidden border-border bg-surface-raised shadow-sm"
     >
       <ToolHeader
         type="dynamic-tool"
         state={state}
         toolName={toolName}
         title={toolName}
-        className="text-zinc-100"
+        className="text-foreground"
       />
-      <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
+      <ToolContent className="border-t border-border bg-transparent text-foreground">
         <ToolOutput output={output} errorText={errorText} />
       </ToolContent>
     </Tool>

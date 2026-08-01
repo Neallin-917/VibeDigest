@@ -283,7 +283,7 @@ export function ChatWorkspace({
         {/* Resizer Handle (Desktop Only) */}
         {activeTaskId && isPanelOpen && (
           <div
-            className="hidden lg:flex w-4 cursor-col-resize items-center justify-center hover:bg-white/5 transition-colors z-20"
+            className="hidden lg:flex w-4 cursor-col-resize items-center justify-center hover:bg-accent transition-colors z-20"
             onMouseDown={startResizing}
           >
             <div className="w-1 h-8 rounded-full bg-slate-300 dark:bg-white/20" />

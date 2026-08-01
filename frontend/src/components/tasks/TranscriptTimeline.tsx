@@ -132,7 +132,7 @@ export function TranscriptTimeline({
             type="button"
             onClick={() => onSeek(b.start)}
             disabled={!canSeek}
-            className="w-full text-left rounded-xl border border-white/10 bg-black/20 hover:bg-black/30 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 transition-colors"
+            className="w-full text-left rounded-xl border border-border bg-surface-raised hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 transition-colors"
             title={canSeek ? `Seek to ${formatSeconds(b.start)}` : undefined}
           >
             <div className="flex items-baseline gap-3">
@@ -149,7 +149,7 @@ export function TranscriptTimeline({
             type="button"
             variant="secondary"
             size="sm"
-            className="bg-black/20 border border-white/10 hover:bg-black/30"
+            className="border-border bg-surface-raised hover:bg-accent"
             onClick={() => setVisibleCount((n) => Math.min(n + 120, blocks.length))}
           >
             Load more
@@ -159,5 +159,4 @@ export function TranscriptTimeline({
     </div>
   )
 }
-
 

@@ -22,15 +22,15 @@ export function PreviewVideoTool({
   return (
     <Tool
       defaultOpen={displayState === 'output-available' || displayState === 'output-error'}
-      className="mb-0 overflow-hidden border-white/10 bg-zinc-950/70"
+      className="mb-0 overflow-hidden border-border bg-surface-raised shadow-sm"
     >
       <ToolHeader
         type="tool-preview_video"
         state={displayState}
         title="Video preview"
-        className="text-zinc-100"
+        className="text-foreground"
       />
-      <ToolContent className="border-t border-white/10 bg-transparent text-zinc-200">
+      <ToolContent className="border-t border-border bg-transparent text-foreground">
         <ToolOutput
           output={
             successfulOutput ? (
@@ -46,10 +46,10 @@ export function PreviewVideoTool({
                 <div className="space-y-1 text-sm">
                   <div>{successfulOutput.title || t('chat.tools.preview.untitled')}</div>
                   {successfulOutput.channel ? (
-                    <div className="text-xs text-zinc-400">{successfulOutput.channel}</div>
+                    <div className="text-xs text-muted-foreground">{successfulOutput.channel}</div>
                   ) : null}
                   {successfulOutput.duration ? (
-                    <div className="text-xs text-zinc-400">{successfulOutput.duration}</div>
+                    <div className="text-xs text-muted-foreground">{successfulOutput.duration}</div>
                   ) : null}
                 </div>
               </div>

@@ -122,7 +122,8 @@ describe('ChatWorkspace', () => {
       />
     )
 
-    expect(screen.getByText('Opening chat...')).toBeInTheDocument()
+    expect(screen.getByText('Opening Thread B')).toBeInTheDocument()
+    expect(screen.getByLabelText('Opening Thread B')).toBeInTheDocument()
     expect(screen.getByTestId('chat-container')).toHaveAttribute('data-locked', 'true')
   })
 

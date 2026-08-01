@@ -19,6 +19,7 @@ class MockPlayer {
     seekTo = mockSeekTo
     playVideo = mockPlayVideo
     destroy = mockDestroy
+    getVideoData = () => ({ title: 'Resolved player title' })
 }
 
 // Reset window before each test
@@ -84,6 +85,15 @@ describe("YouTubePlayer", () => {
         const ctrl = onReady.mock.calls[0][0]
         expect(ctrl).toHaveProperty('seek')
         expect(typeof ctrl.seek).toBe('function')
+    })
+
+    it("reports the title provided by the YouTube player", async () => {
+        const onTitleResolved = vi.fn()
+        render(<YouTubePlayer {...defaultProps} onTitleResolved={onTitleResolved} />)
+
+        await waitFor(() => {
+            expect(onTitleResolved).toHaveBeenCalledWith('Resolved player title')
+        })
     })
 
     it("handles seek command", () => {

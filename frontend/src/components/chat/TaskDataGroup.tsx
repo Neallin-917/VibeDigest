@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { subscribeToTask } from '@/lib/task-live'
+import { getTaskDisplayTitle } from '@/lib/task-display-title'
 
 type TaskDataGroupProps = {
   taskStatus?: ChatUIDataParts['task-status']
@@ -101,19 +102,11 @@ function TaskStatusCard({
       ? sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
       : undefined,
   }
-  const title = snapshot.videoTitle?.trim()
-  const displayTitle =
-    title && title.toLowerCase() !== 'unknown'
-      ? title
-      : snapshot.videoUrl
-        ? (() => {
-            try {
-              return new URL(snapshot.videoUrl).hostname
-            } catch {
-              return t('chat.tools.status.videoTask')
-            }
-          })()
-        : t('chat.tools.status.videoTask')
+  const displayTitle = getTaskDisplayTitle(
+    snapshot.videoTitle,
+    snapshot.videoUrl,
+    t('chat.tools.status.videoTask')
+  )
 
   const statusLabel =
     normalizedSnapshot.status === 'completed'

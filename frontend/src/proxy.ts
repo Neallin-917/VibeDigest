@@ -8,6 +8,14 @@ const DEFAULT_LOCALE = "en"
 
 const PROTECTED_ROUTES = ['/history', '/settings']
 const PUBLIC_ROUTES = ['/login', '/auth', '/register', '/faq', '/explore', '/terms', '/privacy', '/about', '/chat']
+const CHAT_HISTORY_MESSAGES_PATH = /^\/api\/chat\/threads\/[^/]+\/messages$/
+
+function isAuthenticatedChatHistoryRead(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  return request.method === 'GET' && (
+    pathname === '/api/chat/threads' || CHAT_HISTORY_MESSAGES_PATH.test(pathname)
+  )
+}
 
 function getLocale(request: NextRequest): string {
   const headers = { 'accept-language': request.headers.get('accept-language') || '' }
@@ -32,8 +40,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // API routes need refreshed session cookies before their handlers validate ownership.
+  // The two history reads below validate the user and thread ownership in their
+  // route handlers. Skipping this duplicate Auth round-trip keeps reopening a
+  // conversation responsive while all other API paths retain session refresh.
   if (pathname.startsWith('/api')) {
+    if (isAuthenticatedChatHistoryRead(request)) {
+      return NextResponse.next()
+    }
+
     const { response } = await updateSession(request)
     return response
   }

@@ -36,11 +36,12 @@ vi.mock('@formatjs/intl-localematcher', () => ({
 
 import { proxy } from './proxy'
 
-function makeRequest(path: string, options?: { headers?: Record<string, string> }): NextRequest {
-    const url = new URL(path, 'http://localhost:3000')
-    return new NextRequest(url, {
-        headers: options?.headers,
-    })
+function makeRequest(path: string, options?: { headers?: Record<string, string>, method?: string }): NextRequest {
+  const url = new URL(path, 'http://localhost:3000')
+  return new NextRequest(url, {
+    headers: options?.headers,
+    method: options?.method,
+  })
 }
 
 describe('proxy', () => {
@@ -91,7 +92,7 @@ describe('proxy', () => {
             expect(mockUpdateSession).toHaveBeenCalledTimes(1)
         })
 
-        it('should return the response from updateSession', async () => {
+    it('should return the response from updateSession', async () => {
             const customResponse = new NextResponse('refreshed', { status: 200 })
             mockUpdateSession.mockResolvedValue({
                 response: customResponse,
@@ -100,9 +101,29 @@ describe('proxy', () => {
             })
 
             const response = await proxy(makeRequest('/api/chat'))
-            expect(response).toBe(customResponse)
-        })
+      expect(response).toBe(customResponse)
     })
+
+    it('should pass through the authenticated chat-history list without a duplicate session refresh', async () => {
+        const response = await proxy(makeRequest('/api/chat/threads'))
+
+        expect(response.status).toBe(200)
+        expect(mockUpdateSession).not.toHaveBeenCalled()
+    })
+
+    it('should pass through an authenticated chat-history message read without a duplicate session refresh', async () => {
+        const response = await proxy(makeRequest('/api/chat/threads/thread-123/messages'))
+
+        expect(response.status).toBe(200)
+        expect(mockUpdateSession).not.toHaveBeenCalled()
+    })
+
+    it('should still refresh a non-read request to the same API namespace', async () => {
+        await proxy(makeRequest('/api/chat/threads', { method: 'POST' }))
+
+        expect(mockUpdateSession).toHaveBeenCalledTimes(1)
+    })
+  })
 
     describe('public chat — skip server Auth work', () => {
         it('should render a localized chat page without calling updateSession', async () => {

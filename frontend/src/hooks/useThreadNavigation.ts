@@ -246,6 +246,12 @@ export function useThreadNavigation({
             }
 
             if (queryTaskId) {
+                // A restored URL already identifies both the task and its thread.
+                // Start the messages request now instead of waiting for the sidebar
+                // refresh, which is independent and often slower for long histories.
+                const initialPayloadPromise = queryThreadId
+                    ? loadThreadPayloadRef.current(queryThreadId, queryTaskId)
+                    : null
                 const [, resolvedThreadId] = await Promise.all([
                     refetchThreadsRef.current(),
                     queryThreadId
@@ -255,7 +261,9 @@ export function useThreadNavigation({
                 if (cancelled) return
 
                 if (!newThreadIdsRef.current.has(resolvedThreadId)) {
-                    const payload = await loadThreadPayloadRef.current(resolvedThreadId, queryTaskId)
+                    const payload = initialPayloadPromise && resolvedThreadId === queryThreadId
+                        ? await initialPayloadPromise
+                        : await loadThreadPayloadRef.current(resolvedThreadId, queryTaskId)
                     if (cancelled) return
 
                     setActiveThreadId(resolvedThreadId)

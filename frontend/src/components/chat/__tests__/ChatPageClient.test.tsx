@@ -160,6 +160,37 @@ describe('ChatPageClient', () => {
     })
   })
 
+  it('loads an explicitly linked history payload while the sidebar list is still refreshing', async () => {
+    currentSearchParams = new URLSearchParams('task=task-a&threadId=thread-a')
+    let resolveThreads!: (response: Response) => void
+    const threadsResponse = new Promise<Response>((resolve) => {
+      resolveThreads = resolve
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/chat/threads') return threadsResponse
+      if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithQueryClient(<ChatPageClient />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/chat/threads/thread-a/messages')
+    })
+
+    resolveThreads(jsonResponse([
+      { id: 'thread-a', task_id: 'task-a', title: 'A', updated_at: '2026-02-06T00:00:00Z' },
+    ]))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', 'task-a')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'false')
+    })
+  })
+
   it('reuses the latest thread when entering with task and no threadId', async () => {
     currentSearchParams = new URLSearchParams('task=task-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

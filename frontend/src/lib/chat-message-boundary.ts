@@ -3,6 +3,7 @@ import type { ChatUIMessage, StoredChatMessageRow } from '@/lib/chat-ui'
 type ChatMessageFailureReason =
   | 'missing-id'
   | 'invalid-role'
+  | 'system-role-not-allowed'
   | 'parts-not-array'
   | 'parts-empty'
   | 'part-missing-type'
@@ -23,8 +24,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function isValidRole(role: unknown): role is ChatUIMessage['role'] {
-  return role === 'user' || role === 'assistant' || role === 'system'
+function isValidRole(role: unknown): role is 'user' | 'assistant' {
+  return role === 'user' || role === 'assistant'
 }
 
 function getFailureReason(candidate: {
@@ -33,6 +34,7 @@ function getFailureReason(candidate: {
   parts: unknown
 }): ChatMessageFailureReason | null {
   if (typeof candidate.id !== 'string' || candidate.id.length === 0) return 'missing-id'
+  if (candidate.role === 'system') return 'system-role-not-allowed'
   if (!isValidRole(candidate.role)) return 'invalid-role'
   if (!Array.isArray(candidate.parts)) return 'parts-not-array'
   if (candidate.parts.length === 0) return 'parts-empty'

@@ -5,27 +5,31 @@ import { resolveProvider, type SupportedProvider } from './llm-model-registry';
 // Define debug fetch once
 const AI_SDK_DEBUG = env.AI_SDK_DEBUG === '1';
 
+function getRequestOrigin(input: RequestInfo | URL): string {
+    const rawUrl = typeof input === 'string'
+        ? input
+        : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+    try {
+        return new URL(rawUrl).origin;
+    } catch {
+        return 'unknown';
+    }
+}
+
 const debugFetch: typeof fetch = async (input, init) => {
+    const origin = getRequestOrigin(input);
     if (AI_SDK_DEBUG) {
-        try {
-            const url = typeof input === 'string' ? input : input.toString();
-            console.log('[AI SDK] Request URL:', url);
-            if (init?.body) {
-                console.log('[AI SDK] Request body:', init.body.toString());
-            }
-        } catch (e) {
-            console.warn('[AI SDK] Failed to log request:', e);
-        }
+        console.info('[AI SDK] Request', {
+            method: init?.method ?? 'GET',
+            origin,
+        });
     }
     const response = await fetch(input, init);
     if (AI_SDK_DEBUG && !response.ok) {
-        try {
-            const text = await response.clone().text();
-            console.log('[AI SDK] Response status:', response.status);
-            console.log('[AI SDK] Response body:', text);
-        } catch (e) {
-            console.warn('[AI SDK] Failed to log response:', e);
-        }
+        console.warn('[AI SDK] Response error', { origin, status: response.status });
     }
     return response;
 };

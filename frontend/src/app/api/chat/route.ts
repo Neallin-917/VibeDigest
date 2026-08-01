@@ -2,19 +2,21 @@ import {
     createIdGenerator,
     createUIMessageStream,
     createUIMessageStreamResponse,
-    streamText,
     convertToModelMessages,
     isStepCount,
+    pruneMessages,
+    toUIMessageStream,
+    ToolLoopAgent,
     validateUIMessages,
 } from 'ai';
 import { createProviderClient } from '@/lib/llm-config';
 import { getProviderModelDefaults, resolveProvider, resolveProviderModel } from '@/lib/llm-model-registry';
 import { env } from '@/env';
-import type { RequestPayload, ChatMessageRow, ModelTier, ResolvedModel, PreviewCache, ToolContext } from './types';
+import type { RequestPayload, ChatMessageRow, ModelTier, ResolvedModel, PreviewCache } from './types';
 import { getTextFromUIMessage, extractUrl, isUsableTaskId, getErrorMessage, getErrorStack } from './utils';
 import { verifyAuth, isAuthError } from './auth';
 import { buildRagContext } from './rag';
-import { buildAllTools, buildTools } from './tools';
+import { chatTools, createChatToolsContext, getActiveChatTools } from './tools';
 import { createOnFinishHandler, restoreArchivedThreadIfNeeded } from './persistence';
 import {
     chatDataSchemas,
@@ -29,6 +31,12 @@ import {
 import { writeTaskDataParts } from './task-data-parts';
 
 const SHORT_QUERY_CHAR_LIMIT = 200;
+const CHAT_TIMEOUT = {
+    totalMs: 25_000,
+    stepMs: 10_000,
+    firstChunkMs: 8_000,
+    chunkMs: 8_000,
+} as const;
 
 function resolveModel(tier: ModelTier): ResolvedModel {
     const provider = resolveProvider(env.OPENAI_BASE_URL);
@@ -41,6 +49,11 @@ function resolveModel(tier: ModelTier): ResolvedModel {
 }
 
 export const maxDuration = 30;
+
+function getSafeStreamingError(error: unknown): string {
+    console.error('[API/Chat] Stream error:', error);
+    return 'The AI service is temporarily unavailable. Please try again.';
+}
 
 export async function POST(req: Request) {
     try {
@@ -178,29 +191,32 @@ When users provide video URLs:
 
         // 7. Build tools with shared context
         let previewCache: PreviewCache = null;
-        const toolContext: ToolContext = {
+        const toolsContext = createChatToolsContext({
             supabase,
             user,
             accessToken,
             messages,
-            previewCache,
+            threadId,
+            getPreviewCache: () => previewCache,
             setPreviewCache: (cache: PreviewCache) => {
                 previewCache = cache;
-                toolContext.previewCache = cache;
             },
-            threadId,
-        };
-        const allTools = buildAllTools(toolContext);
-        const tools = buildTools(allTools, allowVideoTools);
+        });
+        const activeTools = getActiveChatTools(allowVideoTools);
 
         // 8. Validate UI messages and convert to model messages
         const validatedMessages = await validateUIMessages<ChatUIMessage>({
             messages,
             metadataSchema: messageMetadataSchema,
             dataSchemas: chatDataSchemas,
-            tools: allTools,
+            tools: chatTools,
         });
-        const coreMessages = await convertToModelMessages(validatedMessages);
+        const modelMessages = pruneMessages({
+            messages: await convertToModelMessages(validatedMessages),
+            reasoning: 'all',
+            toolCalls: 'before-last-2-messages',
+            emptyMessages: 'remove',
+        });
 
         const onFinish = createOnFinishHandler({
             threadId,
@@ -216,14 +232,27 @@ When users provide video URLs:
             originalMessages: validatedMessages,
             generateId: createIdGenerator({ prefix: 'msg', size: 16 }),
             onFinish,
-            execute: ({ writer }) => {
-                const result = streamText({
+            onError: getSafeStreamingError,
+            execute: async ({ writer }) => {
+                const agent = new ToolLoopAgent({
                     model: openai.chat(modelName),
                     instructions: systemPrompt,
-                    messages: coreMessages,
                     stopWhen: isStepCount(5),
-                    tools,
-                    onStepEnd: ({ toolResults }) => {
+                    tools: chatTools,
+                    activeTools,
+                    toolsContext,
+                    timeout: CHAT_TIMEOUT,
+                    onStepEnd: ({ finishReason, performance, stepNumber, toolResults, usage }) => {
+                        console.info('[API/Chat] AI step completed', {
+                            finishReason,
+                            inputTokens: usage.inputTokens,
+                            outputTokens: usage.outputTokens,
+                            responseTimeMs: performance.responseTimeMs,
+                            stepNumber,
+                            timeToFirstOutputMs: performance.timeToFirstOutputMs,
+                            tools: toolResults.map((toolResult) => toolResult.toolName),
+                        });
+
                         toolResults.forEach((toolResult) => {
                             if (!('toolName' in toolResult) || !('output' in toolResult)) return;
 
@@ -275,7 +304,18 @@ When users provide video URLs:
                     },
                 });
 
-                writer.merge(result.toUIMessageStream());
+                const result = await agent.stream({
+                    messages: modelMessages,
+                    abortSignal: req.signal,
+                });
+
+                writer.merge(
+                    toUIMessageStream({
+                        stream: result.stream,
+                        tools: chatTools,
+                        onError: getSafeStreamingError,
+                    })
+                );
             },
         });
 

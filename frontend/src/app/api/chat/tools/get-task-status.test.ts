@@ -6,7 +6,7 @@ vi.mock('@/lib/backend-url', () => ({
     SERVER_BACKEND_URL: 'http://test-backend:8000',
 }));
 
-import { createGetTaskStatusTool } from './get-task-status';
+import { getTaskStatusTool } from './get-task-status';
 import type { ToolContext } from '../types';
 
 // Mock fetch globally
@@ -44,6 +44,23 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
 }
 
 const execOpts = { toolCallId: 'tc1', messages: [], abortSignal: undefined as any, context: {} };
+
+type GetTaskStatusExecute = NonNullable<typeof getTaskStatusTool.execute>;
+
+function createGetTaskStatusTool(context: ToolContext): { execute: GetTaskStatusExecute } {
+    const execute: GetTaskStatusExecute = (input, options) =>
+        getTaskStatusTool.execute!(input, {
+            ...options,
+            context: {
+                supabase: context.supabase,
+                user: context.user,
+                accessToken: context.accessToken,
+                getPreviewCache: () => context.previewCache,
+            },
+        });
+
+    return { execute };
+}
 
 describe('createGetTaskStatusTool – retry logic', () => {
     beforeEach(() => {

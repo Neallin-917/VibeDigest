@@ -54,9 +54,17 @@ vi.mock('ai', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...(actual as any),
-    streamText: mockStreamText,
+    ToolLoopAgent: class {
+      constructor(options: unknown) {
+        mockStreamText(options)
+      }
+
+      stream = vi.fn().mockResolvedValue({ stream: new ReadableStream() })
+    },
     convertToModelMessages: mockConvertToModelMessages,
+    pruneMessages: vi.fn(({ messages }) => messages),
     validateUIMessages: mockValidateUIMessages,
+    toUIMessageStream: vi.fn(() => new ReadableStream()),
     createUIMessageStream: mockCreateUIMessageStream,
     createUIMessageStreamResponse: mockCreateUIMessageStreamResponse,
     generateText: mockGenerateText,
@@ -115,19 +123,17 @@ describe('POST /api/chat archive restore', () => {
     mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
     mockConvertToModelMessages.mockResolvedValue([])
     mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
-      void execute({
+      void Promise.resolve(execute({
         writer: {
           write: vi.fn(),
           merge: vi.fn(),
           onError: vi.fn(),
         },
-      })
+      })).catch(() => undefined)
       return { options }
     })
     mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
-    mockStreamText.mockReturnValue({
-      toUIMessageStream: vi.fn().mockReturnValue(new ReadableStream()),
-    })
+    mockStreamText.mockImplementation(() => undefined)
     mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
   })
 

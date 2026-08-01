@@ -6,7 +6,7 @@ vi.mock('@/lib/backend-url', () => ({
     SERVER_BACKEND_URL: 'http://test-backend:8000',
 }));
 
-import { createPreviewVideoTool } from './preview-video';
+import { previewVideoTool } from './preview-video';
 import type { ToolContext } from '../types';
 import type { ChatUIMessage } from '@/lib/chat-ui';
 
@@ -28,6 +28,15 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
 }
 
 const EXECUTE_OPTS = { toolCallId: 'tc1', messages: [], abortSignal: undefined as any, context: {} };
+
+type PreviewVideoExecute = NonNullable<typeof previewVideoTool.execute>;
+
+function createPreviewVideoTool(context: ToolContext): { execute: PreviewVideoExecute } {
+    const execute: PreviewVideoExecute = (input, options) =>
+        previewVideoTool.execute!(input, { ...options, context });
+
+    return { execute };
+}
 
 describe('createPreviewVideoTool', () => {
     beforeEach(() => {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { tool } from 'ai';
-import type { ToolContext } from '../types';
+import { getTaskOutputsToolContextSchema } from './context';
 
 export const taskOutputsSchema = z.object({
     taskId: z.string().describe('The ID of the task'),
@@ -10,12 +10,13 @@ export const taskOutputsSchema = z.object({
         .describe('Specific output kinds to retrieve. If not provided, returns all completed outputs.'),
 });
 
-export function createGetTaskOutputsTool(ctx: ToolContext) {
-    return tool({
-        description: 'Get the processed content (transcript, summary) for a specific task',
-        inputSchema: taskOutputsSchema,
-        execute: async ({ taskId, kinds }: z.infer<typeof taskOutputsSchema>) => {
-            const { data: task, error: taskError } = await ctx.supabase
+export const getTaskOutputsTool = tool({
+    description: 'Get the processed content (transcript, summary) for a specific task',
+    inputSchema: taskOutputsSchema,
+    contextSchema: getTaskOutputsToolContextSchema,
+    execute: async ({ taskId, kinds }: z.infer<typeof taskOutputsSchema>, { context }) => {
+            const { supabase, user } = context;
+            const { data: task, error: taskError } = await supabase
                 .from('tasks')
                 .select('user_id, is_demo')
                 .eq('id', taskId)
@@ -24,11 +25,11 @@ export function createGetTaskOutputsTool(ctx: ToolContext) {
             if (taskError || !task) {
                 return { error: 'Task not found', taskId };
             }
-            if (task.user_id !== ctx.user?.id && !task.is_demo) {
+            if (task.user_id !== user?.id && !task.is_demo) {
                 return { error: 'Access denied', taskId };
             }
 
-            let query = ctx.supabase
+            let query = supabase
                 .from('task_outputs')
                 .select('*')
                 .eq('task_id', taskId)
@@ -47,6 +48,5 @@ export function createGetTaskOutputsTool(ctx: ToolContext) {
                 outputs: data || [],
                 count: data?.length || 0,
             };
-        },
-    });
-}
+    },
+});

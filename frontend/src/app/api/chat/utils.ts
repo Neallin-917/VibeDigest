@@ -36,7 +36,7 @@ export function getErrorStack(error: unknown): string | undefined {
     return undefined;
 }
 
-/** Helper to extract text from UIMessage (AI SDK v6 Best Practice) */
+/** Helper to extract text from an AI SDK UIMessage. */
 export function getTextFromUIMessage(message: ChatUIMessage): string {
     return (message.parts || [])
         .filter((part) => part.type === 'text')

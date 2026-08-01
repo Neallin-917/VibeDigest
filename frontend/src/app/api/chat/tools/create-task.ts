@@ -3,7 +3,7 @@ import { tool } from 'ai';
 import { SERVER_BACKEND_URL } from '@/lib/backend-url';
 import { sanitizeErrorMessage } from '@/lib/safe-error';
 import { extractUrl, findLastUrlInMessages } from '../utils';
-import type { ToolContext } from '../types';
+import { createTaskToolContextSchema } from './context';
 
 export const createTaskSchema = z.object({
     video_url: z
@@ -32,25 +32,26 @@ async function readBackendErrorDetails(response: Response) {
     return sanitizeErrorMessage(`Backend returned status ${response.status}`);
 }
 
-export function createCreateTaskTool(ctx: ToolContext) {
-    return tool({
-        description:
-            "Start video processing (transcribe+summarize). IMPORTANT: Pass URL in 'video_url' parameter ONLY.",
-        inputSchema: createTaskSchema,
-        execute: async (args: z.infer<typeof createTaskSchema>) => {
-            console.log('[API/Chat] create_task args:', JSON.stringify(args));
+export const createTaskTool = tool({
+    description:
+        "Start video processing (transcribe+summarize). IMPORTANT: Pass URL in 'video_url' parameter ONLY.",
+    inputSchema: createTaskSchema,
+    contextSchema: createTaskToolContextSchema,
+    execute: async (args: z.infer<typeof createTaskSchema>, { context, abortSignal }) => {
+            const { supabase, user, accessToken, messages, threadId } = context;
+            console.log('[API/Chat] create_task invoked');
 
             // Enforce 1:1 Thread-Task relationship
-            if (ctx.threadId) {
-                const { data: thread } = await ctx.supabase
+            if (threadId) {
+                const { data: thread } = await supabase
                     .from('chat_threads')
                     .select('task_id')
-                    .eq('id', ctx.threadId)
+                    .eq('id', threadId)
                     .single();
 
                 if (thread?.task_id) {
                     console.log(
-                        `[API/Chat] Thread ${ctx.threadId} already has task ${thread.task_id}, blocking new task creation`
+                        `[API/Chat] Thread ${threadId} already has task ${thread.task_id}, blocking new task creation`
                     );
                     return {
                         error: 'This conversation is already discussing a video. Please click "New Chat" to discuss a different video.',
@@ -65,28 +66,26 @@ export function createCreateTaskTool(ctx: ToolContext) {
 
             if (!cleanUrl) {
                 console.log('[API/Chat] No valid URL in args, checking history...');
-                cleanUrl = findLastUrlInMessages(ctx.messages);
+                cleanUrl = findLastUrlInMessages(messages);
                 if (cleanUrl) fallbackSource = 'message_history';
             }
 
             if (fallbackSource) {
-                console.warn(
-                    `[API/Chat] URL fallback: source=${fallbackSource}, tool=create_task, args=${JSON.stringify(args)}`
-                );
+                console.warn('[API/Chat] URL fallback used', { source: fallbackSource, tool: 'create_task' });
             }
 
             if (!cleanUrl) {
-                console.error('[API/Chat] Invalid URL in create_task:', JSON.stringify(args));
+                console.error('[API/Chat] Invalid URL in create_task');
                 return {
                     error: 'No valid URL found in input or history. Please provide a valid YouTube URL.',
                 };
             }
 
-            if (!ctx.user?.id) {
+            if (!user?.id) {
                 return { error: 'Authentication required' };
             }
 
-            if (!ctx.accessToken) {
+            if (!accessToken) {
                 return {
                     error: 'SESSION_EXPIRED',
                     user_action: 'sign_in_required',
@@ -99,9 +98,10 @@ export function createCreateTaskTool(ctx: ToolContext) {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        Authorization: `Bearer ${ctx.accessToken}`,
+                        Authorization: `Bearer ${accessToken}`,
                     },
                     body: new URLSearchParams({ video_url: cleanUrl }),
+                    signal: abortSignal,
                 });
                 if (!response.ok) {
                     const details = await readBackendErrorDetails(response);
@@ -138,6 +138,5 @@ export function createCreateTaskTool(ctx: ToolContext) {
                     details: error instanceof Error ? error.message : 'Unknown error',
                 };
             }
-        },
-    });
-}
+    },
+});

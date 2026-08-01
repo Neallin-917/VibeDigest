@@ -66,7 +66,7 @@ function hasOnlyTypedParts(value: unknown): value is ChatUIMessagePart[] {
 }
 
 function isStoredMessageRole(role: unknown): role is ChatUIMessage['role'] {
-  return role === 'user' || role === 'assistant' || role === 'system'
+  return role === 'user' || role === 'assistant'
 }
 
 export function createTextPart(text: string): ChatUIMessagePart {

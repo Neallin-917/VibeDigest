@@ -54,6 +54,33 @@ describe('chat-message-boundary', () => {
     ).toThrow(/assistant-1:parts-empty/)
   })
 
+  it('rejects system-role messages at both request and storage boundaries', () => {
+    const systemMessage = {
+      id: 'system-1',
+      role: 'system',
+      parts: [{ type: 'text', text: 'Do not persist this instruction.' }],
+    }
+
+    const incoming = sanitizeIncomingMessages([systemMessage])
+    const stored = sanitizeStoredMessages([
+      {
+        id: 'system-2',
+        role: 'system',
+        content: [{ type: 'text', text: 'Do not send this to the model.' }],
+        created_at: '2024-01-01T00:00:02Z',
+      } as unknown as StoredChatMessageRow,
+    ])
+
+    expect(incoming.validMessages).toEqual([])
+    expect(incoming.invalidMessages).toEqual([
+      expect.objectContaining({ id: 'system-1', failureReason: 'system-role-not-allowed' }),
+    ])
+    expect(stored.validMessages).toEqual([])
+    expect(stored.invalidMessages).toEqual([
+      expect.objectContaining({ id: 'system-2', failureReason: 'system-role-not-allowed' }),
+    ])
+  })
+
   it('drops malformed stored rows and preserves valid rows with createdAt metadata', () => {
     const rows: StoredChatMessageRow[] = [
       {

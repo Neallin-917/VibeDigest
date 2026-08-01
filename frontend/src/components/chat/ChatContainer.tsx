@@ -114,7 +114,7 @@ export function ChatContainer({
     [prepareSendMessagesRequest],
   )
 
-  // 1. Setup useChat with AI SDK v6 Best Practices
+  // 1. Setup useChat with the AI SDK v7 transport and typed data parts.
   const chat = useChat<ChatUIMessage>({
     transport,
 

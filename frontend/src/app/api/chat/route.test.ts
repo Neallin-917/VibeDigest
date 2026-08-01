@@ -95,10 +95,18 @@ vi.mock('ai', async (importOriginal) => {
     const actual = await importOriginal()
     return {
         ...(actual as any),
-        streamText: mockStreamText,
+        ToolLoopAgent: class {
+            constructor(options: unknown) {
+                mockStreamText(options)
+            }
+
+            stream = vi.fn().mockResolvedValue({ stream: new ReadableStream() })
+        },
         convertToModelMessages: mockConvertToModelMessages,
+        pruneMessages: vi.fn(({ messages }) => messages),
         validateUIMessages: mockValidateUIMessages,
         generateText: mockGenerateText,
+        toUIMessageStream: vi.fn(() => new ReadableStream()),
         createUIMessageStream: mockCreateUIMessageStream,
         createUIMessageStreamResponse: mockCreateUIMessageStreamResponse,
     }
@@ -217,13 +225,13 @@ describe('POST /api/chat', () => {
         mockUpsert.mockResolvedValue({ error: null })
         mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
         mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
-            void execute({
+            void Promise.resolve(execute({
                 writer: {
                     write: vi.fn(),
                     merge: vi.fn(),
                     onError: vi.fn(),
                 },
-            })
+            })).catch(() => undefined)
             return { options }
         })
         mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
@@ -244,11 +252,7 @@ describe('POST /api/chat', () => {
             })
         })
 
-        // Default: Mock streamText response
-        mockStreamText.mockReturnValue({
-            toUIMessageStream: vi.fn().mockReturnValue(new ReadableStream()),
-        })
-
+        mockStreamText.mockImplementation(() => undefined)
         mockConvertToModelMessages.mockResolvedValue([])
         mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
     })
@@ -276,7 +280,7 @@ describe('POST /api/chat', () => {
         expect(await res.json()).toEqual(expect.objectContaining({ error: 'Unauthorized' }))
     })
 
-    it('calls streamText with correct model and messages', async () => {
+    it('configures a bounded ToolLoopAgent with the resolved model', async () => {
         // Setup: Thread lookup returns nothing (new thread)
         mockEq.mockReturnValue({ single: mockSingle.mockResolvedValue({ data: null, error: { code: 'PGRST116' } }) })
 
@@ -297,6 +301,13 @@ describe('POST /api/chat', () => {
         const callArgs = mockStreamText.mock.calls[0][0]
         expect(callArgs.instructions).toContain('You are VibeDigest Assistant')
         expect(callArgs.model.id).toBe('openrouter/auto')
+        expect(callArgs.activeTools).toEqual(['get_task_status', 'get_task_outputs'])
+        expect(callArgs.timeout).toEqual({
+            totalMs: 25_000,
+            stepMs: 10_000,
+            firstChunkMs: 8_000,
+            chunkMs: 8_000,
+        })
     })
 
     it('validates persisted tool messages before converting them for the model', async () => {
@@ -787,7 +798,7 @@ describe('POST /api/chat', () => {
         expect(body.details).toContain('credentials are missing or invalid')
     })
 
-    it('returns 502 when LLM provider is unreachable', async () => {
+    it('returns a stream response with a safe error mapper when the LLM provider is unreachable', async () => {
         mockStreamText.mockImplementation(() => {
             throw new Error('Failed after 3 attempts. Last error: Cannot connect to API: connect ECONNREFUSED 127.0.0.1:8045')
         })
@@ -802,13 +813,13 @@ describe('POST /api/chat', () => {
 
         const res = await POST(req)
 
-        expect(res.status).toBe(502)
-        const body = await res.json()
-        expect(body.error).toBe('LLM Service Unavailable')
-        expect(body.details).toContain('Cannot connect to the AI model endpoint')
+        expect(res.status).toBe(200)
+        expect(getLastUIStreamOptions().onError(new Error('ECONNREFUSED'))).toBe(
+            'The AI service is temporarily unavailable. Please try again.'
+        )
     })
 
-    it('returns 502 when LLM connection times out', async () => {
+    it('does not expose LLM connection details in streamed errors', async () => {
         mockStreamText.mockImplementation(() => {
             throw new Error('ETIMEDOUT: connection timed out to 10.0.0.1:443')
         })
@@ -823,9 +834,10 @@ describe('POST /api/chat', () => {
 
         const res = await POST(req)
 
-        expect(res.status).toBe(502)
-        const body = await res.json()
-        expect(body.error).toBe('LLM Service Unavailable')
+        expect(res.status).toBe(200)
+        expect(getLastUIStreamOptions().onError(new Error('ETIMEDOUT: connection timed out'))).not.toContain(
+            'ETIMEDOUT'
+        )
     })
 
     it('uses smart model for long follow-up with taskId', async () => {
@@ -981,19 +993,17 @@ describe('Chat Title Generation Logic', () => {
             return chain
         })
         mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
-            void execute({
+            void Promise.resolve(execute({
                 writer: {
                     write: vi.fn(),
                     merge: vi.fn(),
                     onError: vi.fn(),
                 },
-            })
+            })).catch(() => undefined)
             return { options }
         })
         mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
-        mockStreamText.mockReturnValue({
-            toUIMessageStream: vi.fn().mockReturnValue(new ReadableStream()),
-        })
+        mockStreamText.mockImplementation(() => undefined)
         mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
         mockConvertToModelMessages.mockResolvedValue([])
         mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)

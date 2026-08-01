@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import { SERVER_BACKEND_URL } from '@/lib/backend-url';
 import { extractUrl, findLastUrlInMessages } from '../utils';
-import type { ToolContext } from '../types';
+import { previewVideoToolContextSchema } from './context';
 
 export const previewVideoSchema = z.object({
     video_url: z
@@ -12,37 +12,36 @@ export const previewVideoSchema = z.object({
         ),
 });
 
-export function createPreviewVideoTool(ctx: ToolContext) {
-    return tool({
-        description:
-            "Fetch video metadata (title, thumbnail, duration). IMPORTANT: Pass URL in 'video_url' parameter ONLY.",
-        inputSchema: previewVideoSchema,
-        execute: async (args: z.infer<typeof previewVideoSchema>) => {
-            console.log('[API/Chat] preview_video args:', JSON.stringify(args));
+export const previewVideoTool = tool({
+    description:
+        "Fetch video metadata (title, thumbnail, duration). IMPORTANT: Pass URL in 'video_url' parameter ONLY.",
+    inputSchema: previewVideoSchema,
+    contextSchema: previewVideoToolContextSchema,
+    execute: async (args: z.infer<typeof previewVideoSchema>, { context, abortSignal }) => {
+            const { accessToken, messages, setPreviewCache } = context;
+            console.log('[API/Chat] preview_video invoked');
 
             let fallbackSource: string | null = null;
             let cleanUrl = extractUrl(args.video_url);
 
             if (!cleanUrl) {
                 console.log('[API/Chat] No valid URL in args, checking history...');
-                cleanUrl = findLastUrlInMessages(ctx.messages);
+                cleanUrl = findLastUrlInMessages(messages);
                 if (cleanUrl) fallbackSource = 'message_history';
             }
 
             if (fallbackSource) {
-                console.warn(
-                    `[API/Chat] URL fallback: source=${fallbackSource}, tool=preview_video, args=${JSON.stringify(args)}`
-                );
+                console.warn('[API/Chat] URL fallback used', { source: fallbackSource, tool: 'preview_video' });
             }
 
             if (!cleanUrl) {
-                console.error('[API/Chat] Invalid URL in preview_video:', JSON.stringify(args));
+                console.error('[API/Chat] Invalid URL in preview_video');
                 return {
                     error: 'No valid URL found in input or history. Please provide a valid YouTube URL.',
                 };
             }
 
-            if (!ctx.accessToken) {
+            if (!accessToken) {
                 return {
                     error: 'SESSION_EXPIRED',
                     user_action: 'sign_in_required',
@@ -55,9 +54,10 @@ export function createPreviewVideoTool(ctx: ToolContext) {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        Authorization: `Bearer ${ctx.accessToken}`,
+                        Authorization: `Bearer ${accessToken}`,
                     },
                     body: new URLSearchParams({ url: cleanUrl }),
+                    signal: abortSignal,
                 });
                 const data = await response.json();
                 if (!response.ok) {
@@ -82,7 +82,7 @@ export function createPreviewVideoTool(ctx: ToolContext) {
                     };
                 }
                 if (data?.title || data?.thumbnail) {
-                    ctx.setPreviewCache({
+                    setPreviewCache({
                         url: cleanUrl,
                         title: data.title,
                         thumbnail: data.thumbnail,
@@ -95,6 +95,5 @@ export function createPreviewVideoTool(ctx: ToolContext) {
                     details: error instanceof Error ? error.message : 'Unknown error',
                 };
             }
-        },
-    });
-}
+    },
+});

@@ -6,7 +6,7 @@ vi.mock('@/lib/backend-url', () => ({
     SERVER_BACKEND_URL: 'http://test-backend:8000',
 }));
 
-import { createCreateTaskTool } from './create-task';
+import { createTaskTool } from './create-task';
 import type { ToolContext } from '../types';
 import type { ChatUIMessage } from '@/lib/chat-ui';
 
@@ -33,6 +33,15 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
         threadId: undefined,
         ...overrides,
     };
+}
+
+type CreateTaskExecute = NonNullable<typeof createTaskTool.execute>;
+
+function createCreateTaskTool(context: ToolContext): { execute: CreateTaskExecute } {
+    const execute: CreateTaskExecute = (input, options) =>
+        createTaskTool.execute!(input, { ...options, context });
+
+    return { execute };
 }
 
 describe('createCreateTaskTool', () => {

@@ -3,19 +3,20 @@ import { tool } from 'ai';
 import { SERVER_BACKEND_URL } from '@/lib/backend-url';
 import { normalizeTaskStatus, sanitizeErrorMessage } from '@/lib/safe-error';
 import { extractUrl } from '../utils';
-import type { ToolContext } from '../types';
+import { getTaskStatusToolContextSchema } from './context';
 
 export const taskStatusSchema = z.object({
     taskId: z.string().describe('The ID of the task to check'),
 });
 
-export function createGetTaskStatusTool(ctx: ToolContext) {
-    return tool({
-        description: 'Get the current processing status and progress of a video task',
-        inputSchema: taskStatusSchema,
-        execute: async ({ taskId }: z.infer<typeof taskStatusSchema>) => {
+export const getTaskStatusTool = tool({
+    description: 'Get the current processing status and progress of a video task',
+    inputSchema: taskStatusSchema,
+    contextSchema: getTaskStatusToolContextSchema,
+    execute: async ({ taskId }: z.infer<typeof taskStatusSchema>, { context, abortSignal }) => {
+            const { supabase, user, accessToken, getPreviewCache } = context;
             // 1. Try Direct Database Access (Fastest)
-            const { data } = await ctx.supabase
+            const { data } = await supabase
                 .from('tasks')
                 .select('*')
                 .eq('id', taskId)
@@ -24,15 +25,14 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
             // Helper: build response from a DB row
             const buildResponse = (row: typeof data) => {
                 if (!row) return null;
-                if (row.user_id !== ctx.user?.id && !row.is_demo) {
+                if (row.user_id !== user?.id && !row.is_demo) {
                     return { error: 'Access denied', taskId };
                 }
                 const normalizedTaskUrl = extractUrl(row.video_url || '');
-                const canUsePreview = Boolean(
-                    ctx.previewCache && normalizedTaskUrl && ctx.previewCache.url === normalizedTaskUrl
-                );
-                const previewTitle = canUsePreview ? ctx.previewCache?.title : undefined;
-                const previewThumbnail = canUsePreview ? ctx.previewCache?.thumbnail : undefined;
+                const previewCache = getPreviewCache();
+                const canUsePreview = Boolean(previewCache && normalizedTaskUrl && previewCache.url === normalizedTaskUrl);
+                const previewTitle = canUsePreview ? previewCache?.title : undefined;
+                const previewThumbnail = canUsePreview ? previewCache?.thumbnail : undefined;
                 const normalizedTitle =
                     row.video_title && row.video_title !== 'Unknown'
                         ? row.video_title
@@ -59,7 +59,7 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
             // 1b. Retry after 500ms (handles race with create_task write propagation)
             if (!data) {
                 await new Promise(r => setTimeout(r, 500));
-                const { data: retryData } = await ctx.supabase
+                const { data: retryData } = await supabase
                     .from('tasks')
                     .select('*')
                     .eq('id', taskId)
@@ -72,13 +72,14 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
             }
 
             // 2. Fallback: Try Backend API
-            if (ctx.user?.id && ctx.accessToken) {
+            if (user?.id && accessToken) {
                 try {
                     console.warn(`[API/Chat] Task ${taskId} not found in DB, trying Backend API fallback...`);
                     const response = await fetch(`${SERVER_BACKEND_URL}/api/tasks/${taskId}/status`, {
                         headers: {
-                            Authorization: `Bearer ${ctx.accessToken}`,
+                            Authorization: `Bearer ${accessToken}`,
                         },
+                        signal: abortSignal,
                     });
 
                     if (response.ok) {
@@ -105,6 +106,5 @@ export function createGetTaskStatusTool(ctx: ToolContext) {
             }
 
             return { error: 'Task not found', taskId };
-        },
-    });
-}
+    },
+});

@@ -90,19 +90,13 @@ async def main():
         else:
             print("❌ Summary Missing!")
             
-        if "classification_result" in final_state:
-             print("✅ Classification Generated!")
-             print(f"🏷️  Category: {final_state['classification_result'].get('category')}")
-        else:
-             print("❌ Classification Missing!")
-             
         # Check DB Persistence
         print("\n🔍 Verifying DB Persistence...")
         outputs = db.get_task_outputs(task_id)
         kinds = [o['kind'] for o in outputs]
         print(f"💾 Saved Outputs: {kinds}")
         
-        expected = {'script', 'classification', 'summary'}
+        expected = {'script', 'summary'}
         if expected.issubset(set(kinds)):
              print("✅ DB Persistence Verified (All Expected Outputs Found)")
         else:

@@ -6,14 +6,11 @@ but validates internal decision logic, error handling, and state transitions.
 """
 
 import json
-import os
 import pytest
-from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock, AsyncMock, patch
 from uuid import uuid4
 
-import workflow
 from workflow import (
     check_cache,
     ingest,
@@ -44,9 +41,7 @@ def _make_state(**overrides) -> VideoProcessingState:
         "transcript_text": None,
         "transcript_raw": None,
         "transcript_lang": "",
-        "classification_result": None,
         "final_summary_json": None,
-        "comprehension_brief_json": None,
         "cache_hit": False,
         "is_youtube": True,
         "errors": [],
@@ -100,12 +95,9 @@ def _patch_workflow_deps():
     mock_transcriber = AsyncMock()
 
     mock_summarizer = MagicMock()
-    mock_summarizer.classify_content = AsyncMock()
     mock_summarizer.summarize = AsyncMock()
     mock_summarizer.optimize_transcript = AsyncMock()
     mock_summarizer.fast_clean_transcript = MagicMock(side_effect=lambda x: x)
-
-    mock_comprehension = AsyncMock()
 
     patches = {
         "_get_db_client": mock_db,
@@ -113,7 +105,6 @@ def _patch_workflow_deps():
         "_get_video_processor": mock_vp,
         "_get_transcriber": mock_transcriber,
         "_get_summarizer": mock_summarizer,
-        "_get_comprehension_agent": mock_comprehension,
     }
 
     started = []
@@ -151,11 +142,6 @@ def mock_transcriber(_patch_workflow_deps):
 @pytest.fixture
 def mock_summarizer(_patch_workflow_deps):
     return _patch_workflow_deps["_get_summarizer"]
-
-
-@pytest.fixture
-def mock_comprehension(_patch_workflow_deps):
-    return _patch_workflow_deps["_get_comprehension_agent"]
 
 
 # ===================================================================
@@ -546,7 +532,7 @@ class TestIngest:
             video_url="https://www.xiaoyuzhoufm.com/episode/abc",
             is_youtube=False,
         )
-        result = await ingest(state)
+        await ingest(state)
 
         # Audio output should be persisted
         audio_calls = [
@@ -578,7 +564,7 @@ class TestIngest:
 # ===================================================================
 
 class TestCognition:
-    """Test cognition node: classification, summarization, comprehension."""
+    """Test the single default cognition step: summary generation."""
 
     @pytest.mark.asyncio
     async def test_no_transcript_returns_error(self):
@@ -597,77 +583,27 @@ class TestCognition:
         assert "too short" in result["errors"][0].lower()
 
     @pytest.mark.asyncio
-    async def test_parallel_all_succeed(self, mock_summarizer, mock_comprehension):
-        """All three cognitive tasks succeed → all outputs present."""
+    async def test_summary_succeeds(self, mock_summarizer):
+        """A valid transcript produces the single user-facing summary."""
         transcript = "Long enough transcript for analysis to proceed. " * 10
-        mock_summarizer.classify_content.return_value = MockModel({"category": "Tech"})
         mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Great summary"))
-        mock_comprehension.generate_comprehension_brief.return_value = '{"insights": []}'
 
         state = _make_state(transcript_text=transcript)
+        result = await cognition(state)
 
-        with patch.object(workflow.settings, "COGNITION_SEQUENTIAL", False):
-            result = await cognition(state)
-
-        assert result["classification_result"] == {"category": "Tech"}
         assert result["final_summary_json"]["overview"] == "Great summary"
-        assert result["comprehension_brief_json"] is not None
         assert "errors" not in result or len(result.get("errors", [])) == 0
+        mock_summarizer.summarize.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_sequential_mode(self, mock_summarizer, mock_comprehension):
-        """COGNITION_SEQUENTIAL=True → runs sequentially, classification passed to summarizer."""
-        transcript = "Sequential test transcript with enough length. " * 10
-        mock_summarizer.classify_content.return_value = MockModel({"category": "Education"})
-        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Edu summary"))
-        mock_comprehension.generate_comprehension_brief.return_value = '{"brief": "ok"}'
-
-        state = _make_state(transcript_text=transcript)
-
-        with patch.object(workflow.settings, "COGNITION_SEQUENTIAL", True), \
-             patch.object(workflow.settings, "COGNITION_DELAY", 0):
-            result = await cognition(state)
-
-        assert result["classification_result"] == {"category": "Education"}
-        # Verify classification result was passed to summarize
-        summarize_call = mock_summarizer.summarize.call_args
-        assert summarize_call.kwargs.get("existing_classification") == MockModel({"category": "Education"}).model_dump() or \
-               summarize_call.kwargs.get("existing_classification") is not None
-
-    @pytest.mark.asyncio
-    async def test_classification_fails_summary_succeeds(self, mock_db, mock_summarizer, mock_comprehension):
-        """Classification raises exception → summary still runs, error recorded."""
-        transcript = "Partial failure test transcript enough text. " * 10
-        mock_summarizer.classify_content.side_effect = Exception("LLM timeout")
-        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Still works"))
-        mock_comprehension.generate_comprehension_brief.return_value = '{"brief": "ok"}'
-
-        state = _make_state(transcript_text=transcript)
-
-        with patch.object(workflow.settings, "COGNITION_SEQUENTIAL", False):
-            result = await cognition(state)
-
-        # Summary should still succeed
-        assert result["final_summary_json"]["overview"] == "Still works"
-        # Classification error should be recorded
-        assert any("LLM timeout" in e for e in result.get("errors", []))
-        # Classification result should not be set (None is passed to summarize)
-        assert result.get("classification_result") is None
-
-    @pytest.mark.asyncio
-    async def test_summary_fails_classification_succeeds(self, mock_db, mock_summarizer, mock_comprehension):
-        """Summary raises exception → classification still present, error recorded, DB updated."""
+    async def test_summary_failure_marks_summary_output_error(self, mock_db, mock_summarizer):
+        """A summary error is recorded and its output becomes terminally failed."""
         transcript = "Summary failure test with enough content here. " * 10
-        mock_summarizer.classify_content.return_value = MockModel({"category": "News"})
         mock_summarizer.summarize.side_effect = Exception("Token limit exceeded")
-        mock_comprehension.generate_comprehension_brief.return_value = '{"brief": "ok"}'
 
         state = _make_state(transcript_text=transcript)
+        result = await cognition(state)
 
-        with patch.object(workflow.settings, "COGNITION_SEQUENTIAL", False):
-            result = await cognition(state)
-
-        assert result["classification_result"] == {"category": "News"}
         assert any("Token limit" in e for e in result.get("errors", []))
         # Summary DB output should be marked as error
         error_calls = [
@@ -675,41 +611,6 @@ class TestCognition:
             if c.args[1] == OutputKind.SUMMARY.value and c.kwargs.get("status") == TaskStatus.ERROR
         ]
         assert len(error_calls) > 0
-
-    @pytest.mark.asyncio
-    async def test_comprehension_fails_others_succeed(self, mock_db, mock_summarizer, mock_comprehension):
-        """Comprehension brief fails → others still present, error recorded."""
-        transcript = "Comprehension failure scenario test content. " * 10
-        mock_summarizer.classify_content.return_value = MockModel({"category": "Tech"})
-        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("Summary ok"))
-        mock_comprehension.generate_comprehension_brief.side_effect = Exception("Model unavailable")
-
-        state = _make_state(transcript_text=transcript)
-
-        with patch.object(workflow.settings, "COGNITION_SEQUENTIAL", False):
-            result = await cognition(state)
-
-        assert result["classification_result"] == {"category": "Tech"}
-        assert result["final_summary_json"]["overview"] == "Summary ok"
-        assert any("Model unavailable" in e for e in result.get("errors", []))
-
-    @pytest.mark.asyncio
-    async def test_all_cognition_tasks_fail(self, mock_summarizer, mock_comprehension):
-        """All three tasks fail → all errors collected."""
-        transcript = "Total failure scenario with sufficient length. " * 10
-        mock_summarizer.classify_content.side_effect = Exception("Classify error")
-        mock_summarizer.summarize.side_effect = Exception("Summarize error")
-        mock_comprehension.generate_comprehension_brief.side_effect = Exception("Comprehension error")
-
-        state = _make_state(transcript_text=transcript)
-
-        with patch.object(workflow.settings, "COGNITION_SEQUENTIAL", False):
-            result = await cognition(state)
-
-        errors = result.get("errors", [])
-        assert len(errors) >= 2  # At least classify + summarize errors
-        assert result.get("classification_result") is None
-        assert result.get("final_summary_json") is None
 
 
 # ===================================================================

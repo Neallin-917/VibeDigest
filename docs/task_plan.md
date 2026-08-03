@@ -143,7 +143,7 @@ graph TD
 
 **Smart Skip Rule**:
 - If `len(transcript) < 500` chars:
-  - Skip `classify_content` (use default)
+  - The current product no longer runs standalone classification.
   - Use fallback summary
 
 **Graceful Degradation**:

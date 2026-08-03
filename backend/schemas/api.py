@@ -49,19 +49,6 @@ class TaskStatusResponse(BaseModel):
         }
 
 
-class VideoPreviewResponse(BaseModel):
-    """Response from POST /api/tasks/preview-video."""
-
-    title: str = Field(..., description="Video title")
-    thumbnail: str = Field(default="", description="Thumbnail URL")
-    duration: float = Field(default=0, description="Video duration in seconds")
-    author: str = Field(default="Unknown", description="Channel/author name")
-    url: str = Field(..., description="Normalized video URL")
-    description: Optional[str] = Field(None, description="Video description")
-    upload_date: Optional[str] = Field(None, description="Upload date string")
-    view_count: Optional[int] = Field(None, description="View count")
-
-
 class TaskOutputResponse(BaseModel):
     """Individual task output response."""
 

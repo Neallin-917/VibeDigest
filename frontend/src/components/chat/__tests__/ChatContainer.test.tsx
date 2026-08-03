@@ -64,10 +64,8 @@ vi.mock('../WelcomeScreen', () => ({
 
 vi.mock('../tools', () => ({
   GetTaskStatusTool: () => <div data-testid="tool-get-task-status" />,
-  CreateTaskTool: () => <div data-testid="tool-create-task" />,
   GetTaskOutputsTool: () => <div data-testid="tool-get-task-outputs" />,
   UnknownTool: () => <div data-testid="tool-unknown" />,
-  PreviewVideoTool: () => <div data-testid="tool-preview-video" />,
 }))
 
 describe('ChatContainer', () => {
@@ -234,7 +232,6 @@ describe('ChatContainer', () => {
             parts: [
                 { type: 'tool-get_task_status', toolCallId: '1', state: 'output-available', input: {}, output: {} },
                 { type: 'tool-get_task_outputs', toolCallId: '2', state: 'output-available', input: {}, output: {} },
-                { type: 'tool-create_task', toolCallId: '3', state: 'output-available', input: {}, output: { taskId: 't1', videoUrl: 'url' } },
                 { type: 'tool-foo', toolCallId: '4', state: 'output-available', input: {}, output: {} },
             ]
         }
@@ -252,39 +249,6 @@ describe('ChatContainer', () => {
     expect(await screen.findByTestId('tool-get-task-outputs')).toBeInTheDocument()
     expect(await screen.findByTestId('tool-unknown')).toBeInTheDocument()
     expect(screen.queryByTestId('tool-get-task-status')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('tool-create-task')).not.toBeInTheDocument()
-  })
-
-  it('triggers onOpenPanel when create_task completes', async () => {
-    const onOpenPanel = vi.fn()
-    const messages: any[] = [
-        {
-            id: '2',
-            role: 'assistant',
-            parts: [
-                { 
-                    type: 'tool-create_task', 
-                    toolCallId: '3', 
-                    state: 'output-available', 
-                    input: {}, 
-                    output: { taskId: 'new-task-id', videoUrl: 'url' } 
-                }
-            ]
-        }
-    ]
-
-    mockUseChat.mockReturnValue({
-        messages,
-        setMessages: mockSetMessages,
-        status: 'idle',
-        sendMessage: mockSendMessage,
-    } as any)
-
-    render(<ChatContainer onOpenPanel={onOpenPanel} />)
-    
-    await waitFor(() => {
-        expect(onOpenPanel).toHaveBeenCalledWith('new-task-id')
-    })
   })
 
   it('handles pending message from localStorage when authenticated', async () => {

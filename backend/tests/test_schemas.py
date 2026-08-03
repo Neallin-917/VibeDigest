@@ -1,13 +1,10 @@
 """Tests for Pydantic schemas."""
 
-import pytest
 from datetime import datetime
-from pydantic import ValidationError
 
 from schemas.api import (
     TaskCreateResponse,
     TaskStatusResponse,
-    VideoPreviewResponse,
     TaskOutputResponse,
     RetryOutputResponse,
     ErrorResponse,
@@ -53,32 +50,6 @@ class TestTaskStatusResponse:
         assert response.video_title is None
         assert response.error is None
         assert response.duration is None
-
-
-class TestVideoPreviewResponse:
-    """Tests for VideoPreviewResponse schema."""
-
-    def test_valid_response(self):
-        """Test creating a valid response."""
-        response = VideoPreviewResponse(
-            title="Test Video",
-            thumbnail="https://example.com/thumb.jpg",
-            duration=300.0,
-            author="Test Author",
-            url="https://youtube.com/watch?v=123",
-        )
-        assert response.title == "Test Video"
-        assert response.duration == 300.0
-
-    def test_defaults(self):
-        """Test default values."""
-        response = VideoPreviewResponse(
-            title="Video",
-            url="https://example.com",
-        )
-        assert response.thumbnail == ""
-        assert response.duration == 0
-        assert response.author == "Unknown"
 
 
 class TestTaskOutputResponse:

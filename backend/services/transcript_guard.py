@@ -116,6 +116,10 @@ class TranscriptGuard:
                 json_text = extract_first_json_object(raw_text) or raw_text
                 return TranscriptValidation(**json.loads(json_text))
 
+            if settings.LLM_RUNTIME == "codex_local":
+                raise ValueError(
+                    "Codex local runtime requires JSON response_format parsing"
+                )
             structured_llm = llm.with_structured_output(TranscriptValidation)
             result = await structured_llm.ainvoke(messages)
             if result is None:

@@ -13,11 +13,6 @@ are used for:
 from constants import OutputKind, TaskStatus
 
 # Re-export models from services
-from services.comprehension import (
-    InsightItem,
-    TargetAudience,
-    ComprehensionBriefResponse,
-)
 from services.summarizer import (
     ContentClassification,
     KeyPoint,
@@ -31,7 +26,6 @@ from services.transcript_guard import TranscriptValidation
 from .api import (
     TaskCreateResponse,
     TaskStatusResponse,
-    VideoPreviewResponse,
     TaskOutputResponse,
     RetryOutputResponse,
 )
@@ -40,10 +34,6 @@ __all__ = [
     # Enums
     "OutputKind",
     "TaskStatus",
-    # Comprehension models
-    "InsightItem",
-    "TargetAudience",
-    "ComprehensionBriefResponse",
     # Summary models
     "ContentClassification",
     "KeyPoint",
@@ -55,7 +45,6 @@ __all__ = [
     # API Response models
     "TaskCreateResponse",
     "TaskStatusResponse",
-    "VideoPreviewResponse",
     "TaskOutputResponse",
     "RetryOutputResponse",
 ]

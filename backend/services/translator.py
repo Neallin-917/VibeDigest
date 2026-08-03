@@ -17,9 +17,13 @@ class Translator:
     def __init__(self):
         self.language_map = LANGUAGE_MAP
         provider_key = (
-            os.getenv("OPENAI_API_KEY")
-            if settings.LLM_PROVIDER == "custom"
-            else os.getenv("OPENROUTER_API_KEY")
+            "codex-local"
+            if settings.LLM_RUNTIME == "codex_local"
+            else (
+                os.getenv("OPENAI_API_KEY")
+                if settings.LLM_PROVIDER in {"openai", "custom"}
+                else os.getenv("OPENROUTER_API_KEY")
+            )
         )
 
         if provider_key:

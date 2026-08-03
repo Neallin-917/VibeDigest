@@ -10,7 +10,7 @@
 | **Framework** | FastAPI (Python 3.12) |
 | **Orchestration** | LangGraph (StateGraph) |
 | **Durable Jobs** | Supabase Queues / PGMQ + independent Python worker |
-| **AI/LLM** | Provider/model routing from `config/llm-provider-defaults.json` |
+| **AI/LLM** | `create_chat_model` port; API providers in production and an optional trusted-local Codex app-server adapter |
 | **Package Manager** | uv |
 | **Observability** | LangSmith, Sentry |
 
@@ -85,9 +85,8 @@ class VideoProcessingState(TypedDict):
     transcript_lang: str
     transcript_source: Optional[str]    # "supadata" | "vtt" | "whisper"
 
-    # === AI Outputs ===
-    classification_result: Optional[Dict]
-    final_summary_json: Optional[str]
+    # === AI Output ===
+    final_summary_json: Optional[Dict]
 
     # === Control ===
     cache_hit: bool
@@ -133,7 +132,6 @@ worker.py (Durable Consumer)
 | `services/prompts.py` | LLM prompt templates | Prompt strings |
 | `services/supadata_client.py` | Supadata API client | `SupadataClient` |
 | `config.py` | Settings and environment validation | `settings` |
-| `services/comprehension.py` | Chat comprehension agent | `ComprehensionAgent` |
 | `services/translator.py` | Multi-language translation | `Translator` |
 
 ## Ingest Strategy (Cascade Fallback)

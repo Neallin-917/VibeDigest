@@ -16,8 +16,8 @@ backend_path = Path(__file__).parents[2]
 sys.path.insert(0, str(backend_path))
 
 
-async def test_preview_endpoint():
-    """Test the new preview-video endpoint."""
+async def test_video_metadata_extraction():
+    """Exercise the worker's metadata extractor outside the command API."""
     try:
         from services.video_processor import VideoProcessor
 
@@ -27,13 +27,13 @@ async def test_preview_endpoint():
         processor = VideoProcessor()
         test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
-        print(f"✅ Testing preview for: {test_url}")
+        print(f"✅ Testing metadata extraction for: {test_url}")
         info = await processor.extract_info_only(test_url)
 
         if info:
-            print(f"✅ Preview success: {info.get('title', 'Unknown')}")
+            print(f"✅ Metadata extraction success: {info.get('title', 'Unknown')}")
         else:
-            print("❌ Preview failed - no info returned")
+            print("❌ Metadata extraction failed - no info returned")
 
     except ImportError as e:
         print(f"❌ Import error: {e}")
@@ -61,8 +61,8 @@ async def main():
     print("🚀 Testing backend after cleanup...")
     print()
 
-    print("1. Testing video preview functionality:")
-    await test_preview_endpoint()
+    print("1. Testing worker metadata extraction:")
+    await test_video_metadata_extraction()
     print()
 
     print("2. Testing database connection:")

@@ -36,39 +36,6 @@ describe('checkHasRenderableAssistant', () => {
     expect(checkHasRenderableAssistant(messages)).toBe(false)
   })
 
-  it('returns true when assistant only contains preview_video tool parts', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        { type: 'tool-preview_video', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
-      ]),
-    ]
-    expect(checkHasRenderableAssistant(messages)).toBe(true)
-  })
-
-  it('returns false when create_task is only a hidden success-state tool', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        { type: 'tool-create_task', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
-      ]),
-    ]
-    expect(checkHasRenderableAssistant(messages)).toBe(false)
-  })
-
-  it('returns false when create_task has taskId in output', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        {
-          type: 'tool-create_task',
-          toolCallId: 'tc1',
-          state: 'result',
-          args: {},
-          output: { taskId: 'task-123' },
-        } as any,
-      ]),
-    ]
-    expect(checkHasRenderableAssistant(messages)).toBe(false)
-  })
-
   it('returns false for hidden get_task_status success tool', () => {
     const messages: ChatUIMessage[] = [
       msg('assistant', [
@@ -82,21 +49,6 @@ describe('checkHasRenderableAssistant', () => {
       ]),
     ]
     expect(checkHasRenderableAssistant(messages)).toBe(false)
-  })
-
-  it('returns true for create_task error tool', () => {
-    const messages: ChatUIMessage[] = [
-      msg('assistant', [
-        {
-          type: 'tool-create_task',
-          toolCallId: 'tc1',
-          state: 'output-error',
-          args: {},
-          output: { error: 'Creation failed' },
-        } as any,
-      ]),
-    ]
-    expect(checkHasRenderableAssistant(messages)).toBe(true)
   })
 
   it('returns false when assistant text is only whitespace', () => {
@@ -162,7 +114,7 @@ describe('partsAreEqual', () => {
   it('returns false when part type changes', () => {
     const prev: ChatUIMessage['parts'] = [{ type: 'text', text: 'x' }]
     const next: ChatUIMessage['parts'] = [
-      { type: 'tool-create_task', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
+      { type: 'tool-get_task_status', toolCallId: 'tc1', state: 'result', args: {}, output: {} } as any,
     ]
     expect(partsAreEqual(prev, next)).toBe(false)
   })

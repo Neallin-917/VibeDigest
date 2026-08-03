@@ -59,7 +59,8 @@ Frontend defaults to [http://localhost:3000](http://localhost:3000). Backend def
 
 ```text
 Frontend (Next.js App Router)
-  -> POST /api/process-video
+  -> POST /api/chat/direct-submit
+  -> FastAPI POST /api/process-video
   -> FastAPI creates task + enqueues PGMQ message
   -> Python worker runs the video/AI pipeline
   -> Supabase Postgres stores tasks and outputs

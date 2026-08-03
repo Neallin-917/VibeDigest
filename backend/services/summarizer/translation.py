@@ -57,7 +57,7 @@ class SummaryTranslator:
         src_obj = self._validate_summary_json_v1(
             src_obj, str(src_obj.get("language") or "unknown")
         )
-        if not self.config.api_key:
+        if not self.config.is_llm_available:
             return json.dumps(src_obj, ensure_ascii=False)
 
         tgt = normalize_lang_code(target_language)

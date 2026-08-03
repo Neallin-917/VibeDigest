@@ -5,44 +5,14 @@ from dependencies import (
     get_current_user,
     get_db_client,
     get_task_queue,
-    get_video_processor,
 )
 from fastapi import APIRouter, Body, Depends, Form, Header, HTTPException
 from services.task_queue import GuestQuotaExceededError, TaskQueue
-from services.video_processor import VideoProcessor
 from utils.url import normalize_video_url
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 GUEST_DATABASE_USER_ID = "00000000-0000-0000-0000-000000000001"
-
-
-@router.post("/preview-video")
-async def preview_video(
-    url: str = Form(...),
-    user_id: str = Depends(get_current_user),
-    video_processor: VideoProcessor = Depends(get_video_processor),
-):
-    """Get video metadata without full processing."""
-    try:
-        logger.info("Preview video request received for URL: %s", url)
-        normalized_url = normalize_video_url(url)
-        if not normalized_url:
-            raise HTTPException(status_code=400, detail="Invalid video URL")
-
-        info = await video_processor.extract_info_only(normalized_url)
-        return {
-            "title": info.get("title", "Unknown"),
-            "thumbnail": info.get("thumbnail", ""),
-            "duration": info.get("duration", 0),
-            "author": info.get("author", "Unknown"),
-            "url": normalized_url,
-        }
-    except HTTPException:
-        raise  # 不 re-wrap 已经是 HTTPException 的错误（如 "Invalid video URL"）
-    except Exception as exc:
-        logger.warning("Preview video failed: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/process-video")

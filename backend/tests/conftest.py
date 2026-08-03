@@ -188,7 +188,7 @@ async def async_client(test_db) -> AsyncGenerator[AsyncClient, None]:
             raise GuestQuotaExceededError("Guest quota exceeded")
         task = test_db_client.create_task(user_id=user_id, video_url=video_url)
         task_id = str(task["id"])
-        for kind in ("script", "summary", "comprehension_brief"):
+        for kind in ("script", "summary"):
             test_db_client.create_task_output(task_id, user_id, kind=kind)
         if guest_id:
             test_db_client.track_guest_trial(guest_id)

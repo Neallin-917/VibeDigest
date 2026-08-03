@@ -12,7 +12,6 @@ load_env()
 
 from db_client import DBClient  # noqa: E402
 from workflow import app as workflow_app  # noqa: E402
-from config import settings  # noqa: E402
 
 # Configure Logging to stdout
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -24,7 +23,6 @@ async def run_test():
     
     logger.info("--- Starting Manual Test ---")
     logger.info(f"Video URL: {video_url}")
-    logger.info(f"Config: Sequential={settings.COGNITION_SEQUENTIAL}, Delay={settings.COGNITION_DELAY}")
 
     # 1. Get a valid user
     logger.info("Fetching a valid user ID from profiles...")
@@ -49,7 +47,6 @@ async def run_test():
         # 3. Create Outputs (Mimic main.py)
         db.create_task_output(task_id, user_id, kind="script")
         db.create_task_output(task_id, user_id, kind="summary")
-        db.create_task_output(task_id, user_id, kind="comprehension_brief")
         
         # 4. Prepare State
         state = {

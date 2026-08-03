@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 
@@ -54,11 +53,7 @@ def generate_railway_vars():
             ):  # LOG_FILE might be okay if path exists, but usually stick to stdout in prod
                 continue
 
-        # 4. Skip Rate Limiting specific to Dev
-        if key.startswith("COGNITION_"):
-            continue
-
-        # 5. Output the rest (Secrets, Keys, External DSNs)
+        # 4. Output the rest (Secrets, Keys, External DSNs)
         print(f"{key}={value}")
 
     print("--- COPY ABOVE THIS LINE ---")

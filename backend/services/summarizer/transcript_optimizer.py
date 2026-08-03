@@ -69,8 +69,8 @@ class TranscriptOptimizer:
         )
 
         try:
-            if not self.config.api_key:
-                logger.warning("OpenAI API unavailable, returning improved transcript")
+            if not self.config.is_llm_available:
+                logger.warning("Text LLM unavailable, returning improved transcript")
                 return remove_timestamps_and_meta(raw_transcript)
 
             preprocessed = remove_timestamps_and_meta(raw_transcript)

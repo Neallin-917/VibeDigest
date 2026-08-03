@@ -14,7 +14,7 @@ from utils.env_loader import load_env
 load_env()
 
 from config import settings
-from workflow import cognition, VideoProcessingState, summarizer, comprehension_agent
+from workflow import cognition, VideoProcessingState, summarizer
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -30,13 +30,9 @@ async def run_benchmark(model_override: str = None, name_suffix: str = ""):
         
         if hasattr(summarizer, "config"):
             summarizer.config.summary_models = [model_override]
-            summarizer.config.classifier_model = model_override
             summarizer.config.transcript_model = model_override
             summarizer.summary_models = [model_override]
         
-        if hasattr(comprehension_agent, "comprehension_models"):
-            comprehension_agent.comprehension_models = [model_override]
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"run_{timestamp}_{model_override or 'default'}"
     if name_suffix:
@@ -85,9 +81,7 @@ async def run_benchmark(model_override: str = None, name_suffix: str = ""):
             "transcript_text": transcript,
             "transcript_raw": "",
             "transcript_lang": "zh",
-            "classification_result": None,
             "final_summary_json": None,
-            "comprehension_brief_json": None,
             "cache_hit": False,
             "is_youtube": True,
             "errors": [],
@@ -109,7 +103,6 @@ async def run_benchmark(model_override: str = None, name_suffix: str = ""):
                 "title": metadata.get("title"),
                 "status": "SUCCESS",
                 "elapsed": round(elapsed, 2),
-                "category": results.get("classification_result", {}).get("category", "N/A")
             })
             print(f"   ✅ Done ({elapsed:.2f}s)")
             

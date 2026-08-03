@@ -1,8 +1,7 @@
 """
-Summarizer package for text summarization and content classification.
+Summarizer package for structured text summarization.
 
 This package provides:
-- Content classification (form, structure, goal)
 - Multi-language summary generation
 - Transcript optimization
 - Timestamp-based keypoint matching

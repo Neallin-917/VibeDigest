@@ -7,15 +7,17 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from utils.logging import configure_logging
-from utils.env_utils import parse_bool_env
+from utils.env_utils import parse_bool_env, parse_int_env
 
 configure_logging()
 
 
 def _load_provider_defaults() -> Dict[str, Dict[str, str]]:
     candidates = [
-        Path(__file__).resolve().parent / "llm-provider-defaults.json",
         Path(__file__).resolve().parent.parent / "config" / "llm-provider-defaults.json",
+        # The Docker image copies the shared source to this location. Keep it
+        # only as the packaged-runtime fallback, never as a local override.
+        Path(__file__).resolve().parent / "llm-provider-defaults.json",
     ]
 
     registry_path = next((c for c in candidates if c.exists()), None)
@@ -94,17 +96,28 @@ class Settings:
     # Chat Agent Model
     MOCK_MODE: bool = parse_bool_env("MOCK_MODE", False)
 
-    # Cognition Rate Limiting (Local/Dev)
-    # Default to FALSE (parallel) for production performance.
-    # Set COGNITION_SEQUENTIAL=true for debugging or rate-limited environments.
-    COGNITION_SEQUENTIAL: bool = parse_bool_env("COGNITION_SEQUENTIAL", False)
-    COGNITION_DELAY: float = float(os.getenv("COGNITION_DELAY") or "0.0")
-
     # LLM Configuration
+    #
+    # ``api`` retains the cloud-product runtime. ``codex_local`` is deliberately
+    # limited to trusted local development, where the Python Codex SDK reuses a
+    # developer's local Codex login through the app-server.
+    LLM_RUNTIME: str = (os.getenv("LLM_RUNTIME") or "api").strip().lower()
+    LLM_PROVIDER_ENV: Optional[str] = (
+        os.getenv("LLM_PROVIDER") or None
+    )
     OPENAI_BASE_URL: Optional[str] = os.getenv("OPENAI_BASE_URL")
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     OPENROUTER_BASE_URL: Optional[str] = os.getenv("OPENROUTER_BASE_URL")
     _llm_provider_override: Optional[str] = None
+
+    CODEX_LOCAL_BINARY: Optional[str] = os.getenv("CODEX_LOCAL_BINARY") or None
+    CODEX_LOCAL_WORKDIR: Optional[str] = os.getenv("CODEX_LOCAL_WORKDIR") or None
+    CODEX_LOCAL_TIMEOUT_SECONDS: int = parse_int_env(
+        "CODEX_LOCAL_TIMEOUT_SECONDS", 120, min_value=10, max_value=900
+    )
+    CODEX_LOCAL_MAX_CONCURRENCY: int = parse_int_env(
+        "CODEX_LOCAL_MAX_CONCURRENCY", 1, min_value=1, max_value=4
+    )
 
     # Audio Configuration (Transcription)
     # Allows separating transcription provider (e.g. Official OpenAI) from generation provider (e.g. Local LLM)
@@ -119,8 +132,12 @@ class Settings:
 
     @property
     def LLM_PROVIDER(self) -> str:
+        if self.LLM_RUNTIME == "codex_local":
+            return "codex_local"
         if self._llm_provider_override:
             return self._llm_provider_override
+        if self.LLM_PROVIDER_ENV:
+            return self.LLM_PROVIDER_ENV.strip().lower()
         return "custom" if self.OPENAI_BASE_URL else "openrouter"
 
     @LLM_PROVIDER.setter
@@ -229,6 +246,29 @@ class Settings:
             "prod",
             "production",
         }
+        if self.LLM_RUNTIME not in {"api", "codex_local"}:
+            raise RuntimeError(
+                "LLM_RUNTIME must be 'api' or 'codex_local'. "
+                f"Received: {self.LLM_RUNTIME!r}"
+            )
+        if self.LLM_PROVIDER_ENV and self.LLM_PROVIDER_ENV.strip().lower() not in (
+            self._PROVIDER_DEFAULTS
+        ):
+            raise RuntimeError(
+                "LLM_PROVIDER must name a configured provider: "
+                f"{', '.join(self._PROVIDER_DEFAULTS)}."
+            )
+        if (
+            self.LLM_RUNTIME == "api"
+            and (self.LLM_PROVIDER_ENV or "").strip().lower() == "codex_local"
+        ):
+            raise RuntimeError(
+                "LLM_PROVIDER=codex_local requires LLM_RUNTIME=codex_local"
+            )
+        if is_production and self.LLM_RUNTIME == "codex_local":
+            raise RuntimeError(
+                "LLM_RUNTIME=codex_local is only allowed on trusted local development machines"
+            )
         if is_production and (dev_bypass or mock_mode):
             raise RuntimeError(
                 "DEV_AUTH_BYPASS and MOCK_MODE must be disabled in production"
@@ -252,7 +292,9 @@ class Settings:
         if not dev_bypass and not self.SUPABASE_JWT_SECRET:
             missing.append("SUPABASE_JWT_SECRET")
 
-        has_llm_key = bool(self.OPENAI_API_KEY or os.getenv("OPENROUTER_API_KEY"))
+        has_llm_key = self.LLM_RUNTIME == "codex_local" or bool(
+            self.OPENAI_API_KEY or os.getenv("OPENROUTER_API_KEY")
+        )
         if not has_llm_key:
             missing.append("OPENAI_API_KEY or OPENROUTER_API_KEY")
 

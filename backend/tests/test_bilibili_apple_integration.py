@@ -10,7 +10,6 @@ from yt_dlp.utils import DownloadError
 # Add backend to path
 sys.path.append(os.path.join(os.getcwd(), "backend"))
 
-import workflow
 from workflow import VideoProcessingState, build_graph
 from services.video_processor import VideoProcessor
 from utils.url import normalize_video_url
@@ -35,7 +34,6 @@ class TestBilibiliAppleIntegration(unittest.IsolatedAsyncioTestCase):
         self.mock_transcriber = AsyncMock()
 
         self.mock_summarizer = MagicMock()
-        self.mock_summarizer.classify_content = AsyncMock()
         self.mock_summarizer.summarize = AsyncMock()
         self.mock_summarizer.optimize_transcript = AsyncMock()
         self.mock_summarizer.fast_clean_transcript = MagicMock(side_effect=lambda x: x)
@@ -103,9 +101,6 @@ class TestBilibiliAppleIntegration(unittest.IsolatedAsyncioTestCase):
             "zh",
         )
         self.mock_summarizer.optimize_transcript.return_value = "Optimized Transcript"
-        self.mock_summarizer.classify_content.return_value = {
-            "category": "Entertainment"
-        }  # Simple dict return
         self.mock_summarizer.summarize.return_value = {
             "overview": "Summary",
             "keypoints": [],
@@ -129,9 +124,7 @@ class TestBilibiliAppleIntegration(unittest.IsolatedAsyncioTestCase):
                 "transcript_text": None,
                 "transcript_raw": None,
                 "transcript_lang": "",
-                "classification_result": None,
                 "final_summary_json": None,
-                "comprehension_brief_json": None,
                 "audio_path": None,
                 "direct_audio_url": None,
                 "transcript_source": None,

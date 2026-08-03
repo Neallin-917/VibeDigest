@@ -38,6 +38,14 @@ describe('llm routing contract', () => {
         ).toBe('gemini-3-flash-preview');
     });
 
+    it('selects the standard OpenAI API models when explicitly configured', () => {
+        const provider = resolveProvider(undefined, 'openai');
+
+        expect(provider).toBe('openai');
+        expect(resolveProviderModel(provider, 'smart')).toBe('gpt-5.6-sol');
+        expect(resolveProviderModel(provider, 'fast')).toBe('gpt-5.6-terra');
+    });
+
     it('always prefers alias overrides over provider defaults', () => {
         const provider = resolveProvider('http://localhost:8317/v1');
 

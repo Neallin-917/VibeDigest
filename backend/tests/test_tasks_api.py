@@ -1,37 +1,13 @@
-from unittest.mock import patch
-
 import pytest
 from dependencies import (
     get_current_user,
     get_db_client,
     get_task_queue,
-    get_video_processor,
 )
 from fastapi import HTTPException as FastAPIHTTPException
 from httpx import ASGITransport, AsyncClient
 from main import app
 from services.task_queue import GuestQuotaExceededError, TaskSubmission
-
-
-@pytest.mark.asyncio
-async def test_preview_video(api_client, mock_video_processor):
-    response = await api_client.post(
-        "/api/preview-video",
-        data={"url": "https://youtube.com/watch?v=123"},
-    )
-    assert response.status_code == 200
-    assert response.json()["title"] == "Test Video"
-    mock_video_processor.extract_info_only.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_preview_video_invalid_url(api_client, mock_video_processor):
-    with patch("api.routes.tasks.normalize_video_url", return_value=None):
-        response = await api_client.post(
-            "/api/preview-video",
-            data={"url": "invalid"},
-        )
-    assert response.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -155,7 +131,6 @@ async def test_process_video_reuses_completed_task(
 @pytest.mark.asyncio
 async def test_process_video_quota_exceeded(
     mock_db_client,
-    mock_video_processor,
     mock_coinbase_client,
 ):
     def quota_exceeded():
@@ -163,7 +138,6 @@ async def test_process_video_quota_exceeded(
 
     saved = dict(app.dependency_overrides)
     app.dependency_overrides[get_db_client] = lambda: mock_db_client
-    app.dependency_overrides[get_video_processor] = lambda: mock_video_processor
     app.dependency_overrides[get_current_user] = quota_exceeded
     try:
         transport = ASGITransport(app=app)
@@ -333,14 +307,12 @@ async def test_get_task_status_not_owner(api_client, mock_db_client):
 @pytest.mark.asyncio
 async def test_authenticated_user_can_create_task(
     mock_db_client,
-    mock_video_processor,
     mock_coinbase_client,
     mock_task_queue,
 ):
     saved = dict(app.dependency_overrides)
     app.dependency_overrides[get_db_client] = lambda: mock_db_client
     app.dependency_overrides[get_task_queue] = lambda: mock_task_queue
-    app.dependency_overrides[get_video_processor] = lambda: mock_video_processor
     app.dependency_overrides[get_current_user] = lambda: "auth-user-id"
     try:
         transport = ASGITransport(app=app)

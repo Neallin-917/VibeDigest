@@ -9,6 +9,13 @@ describe('llm-model-registry', () => {
         });
     });
 
+    it('returns the GPT-5.6 role defaults for the OpenAI API provider', () => {
+        expect(getProviderModelDefaults('openai')).toEqual({
+            smart: 'gpt-5.6-sol',
+            fast: 'gpt-5.6-terra',
+        });
+    });
+
     it('returns shared defaults for custom provider', () => {
         expect(getProviderModelDefaults('custom')).toEqual({
             smart: 'gemini-3-pro-preview',
@@ -32,9 +39,13 @@ describe('llm-model-registry', () => {
         expect(resolveProvider(undefined)).toBe('openrouter');
     });
 
+    it('honours an explicit API provider instead of inferring from a base URL', () => {
+        expect(resolveProvider(undefined, 'openai')).toBe('openai');
+    });
+
     it('throws for unsupported providers', () => {
         expect(() => getProviderModelDefaults('anthropic')).toThrow(
-            "Unsupported provider: 'anthropic'. Expected one of: openrouter, custom."
+            "Unsupported provider: 'anthropic'. Expected one of: openai, openrouter, custom."
         );
     });
 });

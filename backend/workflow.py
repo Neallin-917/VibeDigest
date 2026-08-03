@@ -1,8 +1,6 @@
 import json
 import logging
 import os
-import asyncio
-from functools import lru_cache
 from pathlib import Path
 from typing import TypedDict, Optional, List, Dict, Any, Annotated
 import operator
@@ -11,7 +9,6 @@ from urllib.parse import urlparse
 from langgraph.graph import StateGraph, END
 
 # Import existing instances/classes
-from config import settings
 from constants import OutputKind, TaskStatus
 from dependencies import (
     get_db_client,
@@ -20,7 +17,6 @@ from dependencies import (
     get_summarizer,
     get_supadata_client,
 )
-from services.comprehension import ComprehensionAgent
 from services.summarizer.validation import parse_summary_payload_v4
 from utils.url import normalize_video_url
 from utils.language_utils import normalize_lang_code
@@ -53,10 +49,6 @@ def _get_summarizer():
 def _get_supadata_client():
     return get_supadata_client()
 
-
-@lru_cache()
-def _get_comprehension_agent():
-    return ComprehensionAgent()
 
 # --- Progress Helpers ---
 
@@ -95,9 +87,7 @@ class VideoProcessingState(TypedDict):
     transcript_raw: Optional[str]  # JSON with segments
     transcript_lang: str
 
-    classification_result: Optional[Dict]
     final_summary_json: Optional[str]
-    comprehension_brief_json: Optional[str]
 
     # Processing Control
     cache_hit: bool
@@ -182,10 +172,6 @@ async def check_cache(state: VideoProcessingState) -> Dict:
                                         updates["transcript_lang"] = str(detected_lang)
                             except Exception:
                                 pass
-                        elif k == OutputKind.CLASSIFICATION:
-                            updates["classification_result"] = (
-                                json.loads(val) if val else None
-                            )
                     except Exception as e:
                         logger.warning(f"Failed to copy output {k}: {e}")
 
@@ -359,7 +345,6 @@ async def ingest(state: VideoProcessingState) -> Dict:
         OutputKind.SCRIPT,
         OutputKind.SCRIPT_RAW,
         OutputKind.SUMMARY,
-        OutputKind.CLASSIFICATION,
     ]
 
     host = urlparse(video_url).hostname or ""
@@ -486,63 +471,12 @@ async def ingest(state: VideoProcessingState) -> Dict:
 # --- Cognition Helpers ---
 
 
-async def _run_classify(
-    transcript_text: str,
-    task_id: str,
-    video_url: str,
-    user_id: str,
-    transcript_source: Optional[str],
-):
-    try:
-        logger.info("Cognition: Starting classification...")
-        _advance_task_progress(task_id, 82)
-
-        # Ensure Output Exists (in case Ingest was skipped via Cache Hit)
-        _get_db_client().ensure_task_outputs(task_id, user_id, [OutputKind.CLASSIFICATION.value])
-
-        trace_meta = build_trace_config(
-            run_name="Task Process",
-            task_id=str(task_id),
-            user_id=str(user_id),
-            stage="cognition",
-            source=str(transcript_source or "unknown"),
-            metadata={"video_url": video_url},
-        )
-        classification = await _get_summarizer().classify_content(
-            transcript_text, trace_metadata=trace_meta
-        )
-
-        if not classification:
-            raise ValueError("Classification returned empty payload")
-
-        if isinstance(classification, dict):
-            content_str = json.dumps(classification, ensure_ascii=False)
-        elif hasattr(classification, "model_dump_json"):
-            content_str = classification.model_dump_json()
-        else:
-            content_str = json.dumps(classification, ensure_ascii=False)
-
-        _get_db_client().update_task_output_by_kind(
-            task_id,
-            OutputKind.CLASSIFICATION.value,
-            content=content_str,
-            status=TaskStatus.COMPLETED,
-            progress=100,
-        )
-
-        return classification
-    except Exception as e:
-        logger.error(f"Cognition: Classification failed: {e}")
-        return e
-
-
 async def _run_summarize(
     transcript_text: str,
     task_id: str,
     user_id: str,
     transcript_language: Optional[str],
     transcript_source: Optional[str],
-    classification_result: Optional[Dict[str, Any]] = None,
 ):
     try:
         logger.info("Cognition: Starting summarization...")
@@ -562,7 +496,6 @@ async def _run_summarize(
             transcript_text,
             target_language=source_language,
             trace_metadata=trace_meta,
-            existing_classification=classification_result,
         )
 
         payload = parse_summary_payload_v4(summary)
@@ -593,57 +526,8 @@ async def _run_summarize(
         return e
 
 
-async def _run_comprehension(
-    transcript_text: str,
-    task_id: str,
-    user_id: str,
-    transcript_language: Optional[str],
-    transcript_source: Optional[str],
-):
-    try:
-        logger.info("Cognition: Starting comprehension brief...")
-        _advance_task_progress(task_id, 90)
-
-        trace_meta = build_trace_config(
-            run_name="Task Process",
-            task_id=str(task_id),
-            user_id=str(user_id),
-            stage="cognition",
-            source=str(transcript_source or "unknown"),
-            metadata={"node": "cognition_comprehension"},
-        )
-
-        target_language = normalize_lang_code(transcript_language or "unknown")
-        brief = await _get_comprehension_agent().generate_comprehension_brief(
-            transcript_text,
-            target_language=target_language,
-            trace_config=trace_meta,
-        )
-
-        _get_db_client().update_task_output_by_kind(
-            task_id,
-            OutputKind.COMPREHENSION_BRIEF.value,
-            content=brief,
-            status=TaskStatus.COMPLETED,
-            progress=100,
-        )
-
-        return brief
-    except Exception as e:
-        logger.error(f"Cognition: Comprehension brief failed: {e}")
-        _get_db_client().update_task_output_by_kind(
-            task_id,
-            OutputKind.COMPREHENSION_BRIEF.value,
-            status=TaskStatus.ERROR,
-            progress=100,
-            content="",
-            error=str(e),
-        )
-        return e
-
-
 async def cognition(state: VideoProcessingState) -> Dict:
-    """Unified Cognition Node: Transcript -> Insights."""
+    """Generate the single user-facing summary from a transcript."""
     logger.info("Node: cognition")
 
     transcript_text = state.get("transcript_text")
@@ -659,101 +543,15 @@ async def cognition(state: VideoProcessingState) -> Dict:
 
     _advance_task_progress(task_id, 80)
 
-    # Debug Log for Verification (Print for Docker visibility)
-    mode_msg = f"Cognition Execution Mode: Sequential={settings.COGNITION_SEQUENTIAL}, Delay={settings.COGNITION_DELAY}"
-    logger.warning(mode_msg)
-    print(mode_msg, flush=True)
+    summary_res = await _run_summarize(
+        transcript_text,
+        task_id,
+        state["user_id"],
+        transcript_language=state.get("transcript_lang"),
+        transcript_source=state.get("transcript_source"),
+    )
 
-    # Execute Parallel or Sequential based on config
-    if settings.COGNITION_SEQUENTIAL:
-        logger.info(f"Cognition: Sequential mode enabled (Delay: {settings.COGNITION_DELAY}s)")
-
-        # 1. Classify
-        classification_res = await _run_classify(
-            transcript_text,
-            task_id,
-            state["video_url"],
-            state["user_id"],
-            state.get("transcript_source"),
-        )
-
-        # Delay if configured
-        if settings.COGNITION_DELAY > 0:
-            logger.info(f"Cognition: Sleeping for {settings.COGNITION_DELAY}s by configuration...")
-            await asyncio.sleep(settings.COGNITION_DELAY)
-
-        # 2. Summarize
-        # PASS CLASSIFICATION RESULT TO AVOID REDUNDANT LLM CALLS
-        classification_input = (
-            classification_res if not isinstance(classification_res, Exception) else None
-        )
-        summary_res = await _run_summarize(
-            transcript_text,
-            task_id,
-            state["user_id"],
-            transcript_language=state.get("transcript_lang"),
-            transcript_source=state.get("transcript_source"),
-            classification_result=classification_input,
-        )
-
-        comprehension_res = await _run_comprehension(
-            transcript_text,
-            task_id,
-            state["user_id"],
-            transcript_language=state.get("transcript_lang"),
-            transcript_source=state.get("transcript_source"),
-        )
-
-        # Unify results format for processing below
-        results: List[Any] = [classification_res, summary_res, comprehension_res]
-    else:
-        # Optimized Parallel: classify first, then summarize+comprehension in parallel.
-        # This lets summarization leverage classification data while still being concurrent.
-        classification_res = await _run_classify(
-            transcript_text,
-            task_id,
-            state["video_url"],
-            state["user_id"],
-            state.get("transcript_source"),
-        )
-
-        classification_input = (
-            classification_res if not isinstance(classification_res, Exception) else None
-        )
-
-        summary_res, comprehension_res = await asyncio.gather(
-            _run_summarize(
-                transcript_text,
-                task_id,
-                state["user_id"],
-                transcript_language=state.get("transcript_lang"),
-                transcript_source=state.get("transcript_source"),
-                classification_result=classification_input,
-            ),
-            _run_comprehension(
-                transcript_text,
-                task_id,
-                state["user_id"],
-                transcript_language=state.get("transcript_lang"),
-                transcript_source=state.get("transcript_source"),
-            ),
-            return_exceptions=True,
-        )
-        results = [classification_res, summary_res, comprehension_res]
-
-    updates = {}
-    classification_res, summary_res, comprehension_res = results[0], results[1], results[2]
-
-    # Process Classification
-    if isinstance(classification_res, Exception):
-        logger.error(f"Classify Error: {classification_res}")
-        updates["errors"] = [str(classification_res)]
-    else:
-        updates["classification_result"] = (
-            classification_res.model_dump()
-            if hasattr(classification_res, "model_dump")
-            else classification_res
-        )
+    updates: Dict[str, Any] = {}
 
     # Process Summary
     if isinstance(summary_res, Exception):
@@ -768,16 +566,6 @@ async def cognition(state: VideoProcessingState) -> Dict:
             if hasattr(summary_res, "model_dump")
             else summary_res
         )
-
-    # Process Comprehension Brief
-    if isinstance(comprehension_res, Exception):
-        logger.error(f"Comprehension Error: {comprehension_res}")
-        err = str(comprehension_res)
-        if "errors" not in updates:
-            updates["errors"] = []
-        updates["errors"].append(err)
-    elif comprehension_res:
-        updates["comprehension_brief_json"] = comprehension_res
 
     return updates
 

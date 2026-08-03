@@ -41,7 +41,7 @@ export type ProviderConfig = {
 }
 
 function isSupportedProvider(providerName: string): providerName is SupportedProvider {
-    return providerName === 'openrouter' || providerName === 'custom';
+    return providerName === 'openai' || providerName === 'openrouter' || providerName === 'custom';
 }
 
 export function getProviderConfig(providerName: SupportedProvider): ProviderConfig {
@@ -51,8 +51,14 @@ export function getProviderConfig(providerName: SupportedProvider): ProviderConf
             apiKey: env.OPENROUTER_API_KEY || '',
             requiredKeyEnv: 'OPENROUTER_API_KEY',
         }
-        : {
+        : providerName === 'custom'
+            ? {
             baseURL: env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+            apiKey: env.OPENAI_API_KEY || '',
+            requiredKeyEnv: 'OPENAI_API_KEY',
+            }
+            : {
+            baseURL: 'https://api.openai.com/v1',
             apiKey: env.OPENAI_API_KEY || '',
             requiredKeyEnv: 'OPENAI_API_KEY',
         };
@@ -81,7 +87,7 @@ export function getProviderConfig(providerName: SupportedProvider): ProviderConf
 }
 
 export function createProviderClient(providerName: string) {
-    const resolvedProvider = resolveProvider(env.OPENAI_BASE_URL);
+    const resolvedProvider = resolveProvider(env.OPENAI_BASE_URL, env.LLM_PROVIDER);
     const activeProvider = isSupportedProvider(providerName) ? providerName : resolvedProvider;
     const config = getProviderConfig(activeProvider);
     return createOpenAI(config);

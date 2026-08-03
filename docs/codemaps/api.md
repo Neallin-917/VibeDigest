@@ -41,10 +41,6 @@ transaction.
 Response: `{"message":"Retry queued"}`. Queue failure returns `503` without a
 partial pending state.
 
-### `POST /api/preview-video`
-
-Returns normalized metadata only. It does not create or enqueue a task.
-
 ### `GET /api/tasks/{task_id}/status`
 
 Returns current task state after bearer or guest ownership validation. The

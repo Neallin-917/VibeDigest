@@ -56,8 +56,8 @@ contracts used in production.
 
 ## Request Flow
 
-1. The frontend authenticates with Supabase and sends
-   `POST /api/process-video`.
+1. The frontend sends the URL to Next's `POST /api/chat/direct-submit`, which
+   forwards its authenticated command to FastAPI's canonical `POST /api/process-video`.
 2. FastAPI validates the URL and identity. A private Postgres function then
    deduplicates, consumes guest quota, creates task/output state, and calls
    `pgmq.send` in one transaction.

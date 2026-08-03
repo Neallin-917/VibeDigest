@@ -1,4 +1,12 @@
 {
+  "openai": {
+    "smart": "gpt-5.6-sol",
+    "fast": "gpt-5.6-terra"
+  },
+  "codex_local": {
+    "smart": "gpt-5.6-sol",
+    "fast": "gpt-5.6-terra"
+  },
   "openrouter": {
     "smart": "openrouter/auto",
     "fast": "openrouter/auto"

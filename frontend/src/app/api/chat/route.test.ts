@@ -323,10 +323,10 @@ describe('POST /api/chat', () => {
                 role: 'assistant',
                 content: [
                     {
-                        type: 'tool-create_task',
+                        type: 'tool-get_task_status',
                         toolCallId: 'tc-1',
                         state: 'output-available',
-                        input: { video_url: 'https://example.com/video' },
+                        input: { taskId: 'task-1' },
                         output: { taskId: 'task-1' },
                     },
                 ],
@@ -369,8 +369,6 @@ describe('POST /api/chat', () => {
             expect(tools).toEqual(expect.objectContaining({
                 get_task_status: expect.any(Object),
                 get_task_outputs: expect.any(Object),
-                create_task: expect.any(Object),
-                preview_video: expect.any(Object),
             }))
 
             return messages
@@ -394,7 +392,7 @@ describe('POST /api/chat', () => {
                 role: 'assistant',
                 parts: [
                     expect.objectContaining({
-                        type: 'tool-create_task',
+                        type: 'tool-get_task_status',
                         toolCallId: 'tc-1',
                     }),
                 ],
@@ -405,7 +403,7 @@ describe('POST /api/chat', () => {
         const uiStreamOptions = getLastUIStreamOptions()
         expect(uiStreamOptions.originalMessages[1].parts[0]).toEqual(
             expect.objectContaining({
-                type: 'tool-create_task',
+                type: 'tool-get_task_status',
                 toolCallId: 'tc-1',
             })
         )
@@ -907,44 +905,6 @@ describe('POST /api/chat', () => {
         // For more rigor, we'd set up the mockFrom to differentiate 'chat_messages' table calls.
     })
 
-    it('backfills thread task_id from create_task tool output in onFinish', async () => {
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('create task for this video'),
-                threadId: 'thread-123'
-            })
-        })
-
-        await POST(req)
-
-        const uiStreamOptions = getLastUIStreamOptions()
-
-        mockInsert.mockClear()
-        mockUpdate.mockClear()
-        mockSingle.mockResolvedValue({ data: null })
-
-        const finalMessages = [
-            {
-                id: 'assistant-1',
-                role: 'assistant',
-                parts: [
-                    {
-                        type: 'tool-create_task',
-                        output: { taskId: 'task-created-1' }
-                    }
-                ],
-                metadata: { createdAt: new Date().toISOString() }
-            }
-        ]
-
-        await uiStreamOptions.onFinish({ messages: finalMessages })
-
-        expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-            updated_at: expect.any(String),
-            task_id: 'task-created-1'
-        }))
-    })
 })
 
 describe('Chat Title Generation Logic', () => {
@@ -1057,10 +1017,10 @@ describe('Chat Title Generation Logic', () => {
                                         role: 'assistant',
                                         content: [
                                             {
-                                                type: 'tool-create_task',
+                                                type: 'tool-get_task_status',
                                                 toolCallId: 'tc-1',
                                                 state: 'output-available',
-                                                input: { video_url: 'https://example.com/video' },
+                                                input: { taskId: 'task-existing' },
                                                 output: { taskId: 'task-existing' }
                                             }
                                         ],
@@ -1098,10 +1058,10 @@ describe('Chat Title Generation Logic', () => {
                 role: 'assistant',
                 parts: [
                     {
-                        type: 'tool-create_task',
+                        type: 'tool-get_task_status',
                         toolCallId: 'tc-1',
                         state: 'output-available',
-                        input: { video_url: 'https://example.com/video' },
+                        input: { taskId: 'task-existing' },
                         output: { taskId: 'task-existing' }
                     }
                 ]

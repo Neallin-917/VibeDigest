@@ -39,12 +39,6 @@ async def test_summarize(summarizer: Summarizer):
     assert len(result.strip()) > 0, "summarize() returned blank content"
 
 
-async def test_classify_content(summarizer: Summarizer):
-    """classify_content() should return a non-empty result."""
-    result = await summarizer.classify_content(_TRANSCRIPT)
-    assert result, "classify_content() returned empty result"
-
-
 async def test_optimize_transcript(summarizer: Summarizer):
     """optimize_transcript() should return a non-empty string."""
     result = await summarizer.optimize_transcript(_TRANSCRIPT)

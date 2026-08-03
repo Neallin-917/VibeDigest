@@ -284,39 +284,6 @@ class TestSummarizeWithMockedLLM:
                 await sum_no_key.summarize("Some transcript", "zh")
 
 
-class TestClassifyContentWithMockedLLM:
-    """Test classify_content with mocked structured output."""
-
-    @pytest.mark.asyncio
-    async def test_classify_returns_dict(self, summarizer):
-        # Mock the classifier's classify_content directly
-        mock_result = {
-            "content_form": "tutorial",
-            "info_structure": "sequential",
-            "cognitive_goal": "execute",
-            "confidence": 0.85,
-        }
-
-        with patch.object(summarizer._classifier, 'classify_content', new=AsyncMock(return_value=mock_result)):
-            result = await summarizer.classify_content("Test transcript")
-            assert isinstance(result, dict)
-            assert result["content_form"] == "tutorial"
-            assert result["info_structure"] == "sequential"
-
-    @pytest.mark.asyncio
-    async def test_classify_fallback_on_error(self, summarizer):
-        # Test that the classifier returns defaults when an error occurs
-        # Mock the classifier's internal call to raise an exception
-        from services.summarizer.config import get_llm
-
-        with patch('services.summarizer.classifier.get_llm', side_effect=Exception("API Error")):
-            result = await summarizer.classify_content("Test")
-            # Should fallback to defaults
-            assert result["content_form"] == "casual"
-            assert result["info_structure"] == "thematic"
-            assert result["confidence"] == 0.0
-
-
 # --- PYDANTIC MODEL TESTS ---
 
 class TestPydanticModels:

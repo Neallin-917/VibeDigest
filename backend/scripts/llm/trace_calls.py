@@ -87,50 +87,26 @@ async def run_trace(auto_mode: bool):
         "metadata": {"source": "trace_script"}
     }
     
-    results = {}
-
-    # --- STEP 1: Classification ---
-    print(f"\n{Colors.BOLD}--- STEP 1: Classification ---{Colors.RESET}")
+    # --- STEP 1: Summarize ---
+    print(f"\n{Colors.BOLD}--- STEP 1: Summarize ---{Colors.RESET}")
     if not auto_mode:
         input(f"{Colors.YELLOW}Press Enter to execute Step 1...{Colors.RESET}")
     
-    log_step(1, "classify_content", "START")
+    log_step(1, "summarize", "START")
     start_time = time.time()
     
     try:
-        classification = await summarizer.classify_content(SAMPLE_TRANSCRIPT, trace_metadata=trace_meta)
-        elapsed = time.time() - start_time
-        log_step(1, "classify_content", "SUCCESS")
-        log_info(f"Took {elapsed:.2f}s")
-        log_info(f"Result: {classification}")
-        results["classification"] = classification
-    except Exception as e:
-        log_step(1, "classify_content", "ERROR")
-        log_error(str(e))
-        return
-
-    # --- STEP 2: Summarize ---
-    print(f"\n{Colors.BOLD}--- STEP 2: Summarize ---{Colors.RESET}")
-    if not auto_mode:
-        input(f"{Colors.YELLOW}Press Enter to execute Step 2...{Colors.RESET}")
-    
-    log_step(2, "summarize", "START")
-    start_time = time.time()
-    
-    try:
-        # Properly passing existing_classification to avoid re-classification (fixing the bug the original script was debugging)
         summary = await summarizer.summarize(
             SAMPLE_TRANSCRIPT,
             target_language="zh",
             trace_metadata=trace_meta,
-            existing_classification=results["classification"]
         )
         elapsed = time.time() - start_time
-        log_step(2, "summarize", "SUCCESS")
+        log_step(1, "summarize", "SUCCESS")
         log_info(f"Took {elapsed:.2f}s")
         log_info(f"Result Length: {len(summary)} chars")
     except Exception as e:
-        log_step(2, "summarize", "ERROR")
+        log_step(1, "summarize", "ERROR")
         log_error(str(e))
 
 if __name__ == "__main__":

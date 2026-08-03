@@ -1,7 +1,8 @@
 import os
-from unittest.mock import patch, ANY
+from unittest.mock import patch
 import pytest
 from config import settings
+from utils.codex_local_chat_model import CodexLocalChatModel
 from utils.openai_client import create_chat_model
 
 
@@ -78,3 +79,14 @@ class TestLLMSwitching:
              patch.object(settings, "MOCK_MODE", False):
             with pytest.raises(ValueError, match="Unsupported provider"):
                 create_chat_model("llama3")
+
+    def test_codex_local_runtime_uses_the_local_runner_without_api_key(self):
+        with patch.object(settings, "LLM_RUNTIME", "codex_local"), \
+             patch.object(settings, "CODEX_LOCAL_TIMEOUT_SECONDS", 90), \
+             patch.object(settings, "CODEX_LOCAL_MAX_CONCURRENCY", 1), \
+             patch.object(settings, "CODEX_LOCAL_BINARY", None), \
+             patch.object(settings, "CODEX_LOCAL_WORKDIR", None):
+            model = create_chat_model("gpt-5.6-terra")
+
+        assert isinstance(model, CodexLocalChatModel)
+        assert model.model_name == "gpt-5.6-terra"

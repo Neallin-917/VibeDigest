@@ -72,8 +72,11 @@ unrecorded request fails instead of falling back to a real provider.
   `LLM Live Validation` workflow
 
 Routing rules:
-- `OPENAI_BASE_URL` present -> custom provider mode
-- `OPENAI_BASE_URL` absent -> OpenRouter mode
+- `LLM_RUNTIME=api` uses an explicit `LLM_PROVIDER` when configured. The
+  backwards-compatible fallback is `custom` when `OPENAI_BASE_URL` is present,
+  otherwise OpenRouter.
+- `LLM_RUNTIME=codex_local` is a manual, trusted-machine path only; it must
+  never be selected by CI or hosted environments.
 
 ### LLM test markers
 
@@ -99,6 +102,15 @@ developer shell or CI job.
   OpenAI-compatible inference endpoint. Product tests use mocks/replay by
   default and explicit provider credentials only in environment-scoped live
   validation.
+
+### Local Codex development boundary
+
+The backend can use `LLM_RUNTIME=codex_local` during a manual local debugging
+session. It runs the local Codex app-server through the Python SDK with an
+ephemeral, read-only, no-approval thread. This is intentionally not an E2E or
+CI transport: Codex usage limits and agent semantics are different from the
+production API. The Next.js chat route retains its standard API transport so
+its application-owned tool protocol is identical in local and hosted runs.
 
 ### Quality evaluation policy
 

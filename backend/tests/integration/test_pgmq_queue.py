@@ -121,7 +121,6 @@ def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
     assert {row["kind"] for row in output_rows} == {
         "script",
         "summary",
-        "comprehension_brief",
     }
 
     jobs = queue.read(

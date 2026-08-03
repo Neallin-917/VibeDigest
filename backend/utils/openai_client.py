@@ -26,7 +26,7 @@ _PLACEHOLDER_KEY_PATTERNS: tuple[str, ...] = (
     "placeholder",
 )
 
-_SUPPORTED_TEXT_PROVIDERS: tuple[str, ...] = ("openrouter", "custom")
+_SUPPORTED_TEXT_PROVIDERS: tuple[str, ...] = ("openai", "openrouter", "custom")
 
 
 def _ensure_supported_provider(provider: str) -> None:
@@ -86,7 +86,12 @@ def _resolve_api_key(provider: str) -> Optional[str]:
 
 def _validate_text_provider_config(provider: str) -> None:
     _ensure_supported_provider(provider)
-    base_url = settings.OPENROUTER_BASE_URL if provider == "openrouter" else settings.OPENAI_BASE_URL
+    if provider == "openrouter":
+        base_url = settings.OPENROUTER_BASE_URL
+    elif provider == "custom":
+        base_url = settings.OPENAI_BASE_URL
+    else:
+        base_url = None
     _validate_base_url(provider, base_url)
     _resolve_api_key(provider)
 
@@ -311,6 +316,23 @@ def create_chat_model(
     Unified factory for all providers.
     """
     import litellm
+
+    if settings.LLM_RUNTIME == "codex_local":
+        from utils.codex_local_chat_model import CodexLocalChatModel
+
+        return CodexLocalChatModel(
+            model_name=model_name,
+            temperature=(
+                temperature
+                if temperature is not None
+                else settings.get_temperature(model_name)
+            ),
+            max_tokens=kwargs.get("max_tokens", settings.DEFAULT_MAX_TOKENS),
+            timeout_seconds=settings.CODEX_LOCAL_TIMEOUT_SECONDS,
+            max_concurrency=settings.CODEX_LOCAL_MAX_CONCURRENCY,
+            codex_binary=settings.CODEX_LOCAL_BINARY,
+            working_directory=settings.CODEX_LOCAL_WORKDIR,
+        )
 
     # Validate API key at model-creation time so failures are caught early
     # (fail-fast) rather than at first LLM call mid-pipeline.

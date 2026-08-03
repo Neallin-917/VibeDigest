@@ -70,56 +70,6 @@ export interface GetTaskStatusToolProps extends BaseToolPartProps<TaskStatusInpu
   onViewClick?: (taskId: string) => void
 }
 
-// ============================================================================
-// create_task Types
-// ============================================================================
-
-export interface CreateTaskInput {
-  video_url?: string
-  videoUrl?: string
-  url?: string
-}
-
-export interface CreateTaskOutput {
-  taskId?: string
-  status?: string
-  message?: string
-  videoUrl?: string
-  error?: string
-  details?: string | Record<string, unknown>
-}
-
-export interface CreateTaskToolProps extends BaseToolPartProps {
-  input?: CreateTaskInput
-  output?: CreateTaskOutput
-  onViewClick?: (taskId: string) => void
-}
-
-// ============================================================================
-// preview_video Types
-// ============================================================================
-
-export interface PreviewVideoInput {
-  video_url?: string
-  videoUrl?: string
-  url?: string
-}
-
-export interface PreviewVideoOutput {
-  title?: string
-  thumbnail?: string
-  duration?: string
-  channel?: string
-  error?: string
-  details?: string | Record<string, unknown>
-}
-
-export interface PreviewVideoToolProps extends BaseToolPartProps {
-  input?: PreviewVideoInput
-  output?: PreviewVideoOutput
-}
-
-// ============================================================================
 // get_task_outputs Types
 // ============================================================================
 

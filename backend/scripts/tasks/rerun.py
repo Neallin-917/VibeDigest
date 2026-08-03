@@ -13,7 +13,7 @@ import sys
 import os
 import argparse
 import logging
-from typing import List, cast
+from typing import cast
 
 # Setup path to import backend
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -23,7 +23,6 @@ load_env()
 
 from db_client import DBClient
 from workflow import app, VideoProcessingState
-from config import settings
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -58,7 +57,6 @@ async def run_single_task(task_id: str, db: DBClient):
         "transcript_text": None,
         "transcript_raw": None,
         "transcript_lang": "",
-        "classification_result": None,
         "final_summary_json": None,
         "cache_hit": False,
         "is_youtube": True,

@@ -4,7 +4,8 @@ VibeDigest separates commands from observed state.
 
 ## Control Plane
 
-- The frontend calls `POST /api/process-video`.
+- The frontend calls `POST /api/chat/direct-submit`; that BFF route forwards the
+  authenticated command to FastAPI's canonical `POST /api/process-video`.
 - FastAPI validates identity and input, creates or reuses a task, and enqueues a
   durable PGMQ job.
 - The response contains a task id. It is not the final result.

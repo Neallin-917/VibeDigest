@@ -287,41 +287,6 @@ export function ChatContainer({
 
   const handleSubmit = (text: string) => handleSendMessage(text)
 
-  // Auto-open panel when a task is created
-  const lastAutoOpenedTaskId = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!onOpenPanel || messages.length === 0) return
-
-    const lastMessage = messages[messages.length - 1]
-    if (lastMessage.role !== 'assistant' || !lastMessage.parts) return
-
-    // Check for create_task tool output
-    for (const part of lastMessage.parts) {
-      // Identify tool name
-      let toolName = ''
-      const p = part as { type: string; toolName?: string; output?: { taskId?: string }; input?: object };
-      if (p.type === 'dynamic-tool') {
-        toolName = p.toolName || ''
-      } else if (p.type && p.type.startsWith('tool-')) {
-        toolName = p.type.replace('tool-', '')
-      }
-
-      if (toolName === 'create_task' && (p as { output?: { taskId?: string } }).output && (p as { output?: { taskId?: string } }).output?.taskId) {
-        const newTaskId = (p as { output?: { taskId: string } }).output?.taskId
-
-        // Only trigger if we haven't already opened this specific task
-        // AND if it's not the currently active task (to avoid redundant calls)
-        // Note: The 1:1 Thread-Task enforcement in the backend already prevents
-        // multiple tasks in one thread, making this guard sufficient
-        if (newTaskId && newTaskId !== lastAutoOpenedTaskId.current && newTaskId !== activeTaskId) {
-          lastAutoOpenedTaskId.current = newTaskId
-          onOpenPanel(newTaskId)
-        }
-      }
-    }
-  }, [messages, onOpenPanel, activeTaskId])
-
   return (
     <div className="flex flex-col h-full min-h-0 relative">
       <div

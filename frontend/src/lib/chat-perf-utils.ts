@@ -28,7 +28,6 @@ function shouldCountToolPart(part: ToolPart) {
       typeof (output as { error?: unknown }).error === 'string')
 
   switch (toolName) {
-    case 'create_task':
     case 'get_task_status':
       return hasError
     default:

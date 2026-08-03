@@ -1,9 +1,7 @@
 import { getToolName, isToolUIPart } from 'ai'
 import {
-  CreateTaskTool,
   GetTaskOutputsTool,
   GetTaskStatusTool,
-  PreviewVideoTool,
   UnknownTool,
 } from './tools'
 import type { ChatUIMessagePart } from '@/lib/chat-ui'
@@ -24,7 +22,6 @@ export function shouldRenderToolPart(part: ChatUIMessagePart) {
       typeof (output as { error?: unknown }).error === 'string')
 
   switch (toolName) {
-    case 'create_task':
     case 'get_task_status':
       return hasError
     default:
@@ -36,7 +33,6 @@ export function shouldRenderToolPart(part: ChatUIMessagePart) {
 export function renderToolPart(
   part: ChatUIMessagePart,
   index: number,
-  onOpenPanel?: (taskId: string) => void
 ) {
   if (!isToolUIPart(part) || !shouldRenderToolPart(part)) {
     return null
@@ -67,45 +63,6 @@ export function renderToolPart(
             video_url?: string
             error_message?: string
             error?: string
-          } | undefined}
-          errorText={errorText}
-        />
-      )
-
-    case 'create_task':
-      return (
-        <CreateTaskTool
-          key={resolvedToolCallId}
-          toolCallId={resolvedToolCallId}
-          state={state}
-          input={args as { video_url?: string; videoUrl?: string; url?: string } | undefined}
-          output={result as {
-            taskId?: string
-            status?: string
-            message?: string
-            videoUrl?: string
-            error?: string
-            details?: string | Record<string, unknown>
-          } | undefined}
-          errorText={errorText}
-          onViewClick={onOpenPanel}
-        />
-      )
-
-    case 'preview_video':
-      return (
-        <PreviewVideoTool
-          key={resolvedToolCallId}
-          toolCallId={resolvedToolCallId}
-          state={state}
-          input={args as { video_url?: string; videoUrl?: string; url?: string } | undefined}
-          output={result as {
-            title?: string
-            thumbnail?: string
-            duration?: string
-            channel?: string
-            error?: string
-            details?: string | Record<string, unknown>
           } | undefined}
           errorText={errorText}
         />

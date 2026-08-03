@@ -26,19 +26,9 @@ export type TextPart = {
     text: string;
 };
 
-export type PreviewCache = {
-    url: string;
-    title?: string;
-    thumbnail?: string;
-} | null;
-
 /** Shared context passed to tool execute functions */
 export type ToolContext = {
     supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>;
     user: { id: string; email?: string } | null;
     accessToken: string | undefined;
-    messages: ChatUIMessage[];
-    previewCache: PreviewCache;
-    setPreviewCache: (cache: PreviewCache) => void;
-    threadId: string | undefined;
 };

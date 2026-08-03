@@ -13,7 +13,6 @@ from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 from services.summarizer.config import SummarizerConfig, get_llm
 from services.summarizer.transcript_optimizer import TranscriptOptimizer
 from services.summarizer.text_processor import TextProcessor
-from services.summarizer.classifier import ContentClassifier
 from services.summarizer.summary_engine import SummaryEngine
 from services.summarizer.keypoint_matcher import KeypointMatcher
 from services.summarizer.translation import SummaryTranslator
@@ -29,7 +28,6 @@ class Summarizer:
     This is a facade class that coordinates multiple specialized modules:
     - TranscriptOptimizer: Transcript cleaning and formatting
     - TextProcessor: Chunking and paragraph organization
-    - ContentClassifier: Content type classification
     - SummaryEngine: Core summarization logic
     - KeypointMatcher: Timestamp injection
     - SummaryTranslator: Translation between languages
@@ -46,12 +44,10 @@ class Summarizer:
         self._text_processor = TextProcessor(
             self.config, self._ainvoke_with_fallback
         )
-        self._classifier = ContentClassifier(self.config)
         self._summary_engine = SummaryEngine(
             self.config,
             self._ainvoke_with_fallback,
             self._text_processor,
-            self._classifier,
         )
         self._keypoint_matcher = KeypointMatcher(self.config)
         self._translator = SummaryTranslator(
@@ -147,7 +143,6 @@ class Summarizer:
         transcript: str,
         target_language: str = "zh",
         video_title: Optional[str] = None,
-        existing_classification: Optional[Dict[str, Any]] = None,
         trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate a summary of the transcript."""
@@ -155,15 +150,8 @@ class Summarizer:
             transcript,
             target_language,
             video_title,
-            existing_classification,
             trace_metadata,
         )
-
-    async def classify_content(
-        self, transcript: str, trace_metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Classify content to determine summarization strategy."""
-        return await self._classifier.classify_content(transcript, trace_metadata)
 
     async def summarize_in_language_with_anchors(
         self,
@@ -172,7 +160,6 @@ class Summarizer:
         summary_language: str,
         video_title: Optional[str] = None,
         script_raw_json: Optional[str] = None,
-        existing_classification: Optional[Dict[str, Any]] = None,
         trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate summary with timestamp anchors for keypoints."""
@@ -180,7 +167,6 @@ class Summarizer:
             transcript,
             summary_language,
             video_title,
-            existing_classification=existing_classification,
             trace_metadata=trace_metadata,
         )
         raw_info_lang, segments = self._keypoint_matcher.parse_script_raw_payload(

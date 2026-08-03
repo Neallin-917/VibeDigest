@@ -20,8 +20,6 @@ Core fields:
 - `Ingest/Optimize`
 - `Cognition/Summarize/Plan`
 - `Cognition/Summarize/Generate`
-- `Cognition/Classify`
-- `Cognition/Comprehension`
 - `Translate/Summary`
 - `Translate/Transcript`
 
@@ -73,6 +71,6 @@ LangChain handles nested trace propagation for async `ainvoke` calls. Use `@trac
 ## Query Examples
 
 - `session_id:<task_id>`: show the trace tree for one video task
-- `tags:stage:cognition`: focus on summarization and comprehension work
+- `tags:stage:cognition`: focus on summary-planning and generation work
 - `tags:source:whisper`: inspect Whisper-derived transcript tasks
 - `run_name:"Cognition/Summarize/Generate"`: filter to summary generation calls

@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export type SupportedProvider = 'openrouter' | 'custom';
+export type SupportedProvider = 'openai' | 'openrouter' | 'custom';
 export type ModelTier = 'smart' | 'fast';
 export type ProviderModelDefaults = Record<SupportedProvider, Record<ModelTier, string>>;
+const SUPPORTED_PROVIDERS: readonly SupportedProvider[] = ['openai', 'openrouter', 'custom'];
 
 const providerModelDefaultsPath = path.join(
     /* turbopackIgnore: true */ process.cwd(),
@@ -16,14 +17,18 @@ const PROVIDER_MODEL_DEFAULTS = JSON.parse(
     fs.readFileSync(providerModelDefaultsPath, 'utf-8')
 ) as ProviderModelDefaults;
 
-export function resolveProvider(openaiBaseUrl?: string): SupportedProvider {
+export function resolveProvider(
+    openaiBaseUrl?: string,
+    configuredProvider?: SupportedProvider
+): SupportedProvider {
+    if (configuredProvider) return configuredProvider;
     return openaiBaseUrl ? 'custom' : 'openrouter';
 }
 
 export function getProviderModelDefaults(providerName: string): Record<ModelTier, string> {
-    if (!(providerName in PROVIDER_MODEL_DEFAULTS)) {
+    if (!SUPPORTED_PROVIDERS.includes(providerName as SupportedProvider)) {
         throw new Error(
-            `Unsupported provider: '${providerName}'. Expected one of: ${Object.keys(PROVIDER_MODEL_DEFAULTS).join(', ')}.`
+            `Unsupported provider: '${providerName}'. Expected one of: ${SUPPORTED_PROVIDERS.join(', ')}.`
         );
     }
 

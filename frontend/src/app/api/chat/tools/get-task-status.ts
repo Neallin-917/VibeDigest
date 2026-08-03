@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import { SERVER_BACKEND_URL } from '@/lib/backend-url';
 import { normalizeTaskStatus, sanitizeErrorMessage } from '@/lib/safe-error';
-import { extractUrl } from '../utils';
 import { getTaskStatusToolContextSchema } from './context';
 
 export const taskStatusSchema = z.object({
@@ -14,7 +13,7 @@ export const getTaskStatusTool = tool({
     inputSchema: taskStatusSchema,
     contextSchema: getTaskStatusToolContextSchema,
     execute: async ({ taskId }: z.infer<typeof taskStatusSchema>, { context, abortSignal }) => {
-            const { supabase, user, accessToken, getPreviewCache } = context;
+            const { supabase, user, accessToken } = context;
             // 1. Try Direct Database Access (Fastest)
             const { data } = await supabase
                 .from('tasks')
@@ -28,22 +27,12 @@ export const getTaskStatusTool = tool({
                 if (row.user_id !== user?.id && !row.is_demo) {
                     return { error: 'Access denied', taskId };
                 }
-                const normalizedTaskUrl = extractUrl(row.video_url || '');
-                const previewCache = getPreviewCache();
-                const canUsePreview = Boolean(previewCache && normalizedTaskUrl && previewCache.url === normalizedTaskUrl);
-                const previewTitle = canUsePreview ? previewCache?.title : undefined;
-                const previewThumbnail = canUsePreview ? previewCache?.thumbnail : undefined;
-                const normalizedTitle =
-                    row.video_title && row.video_title !== 'Unknown'
-                        ? row.video_title
-                        : previewTitle;
-
                 return {
                     taskId: row.id,
                     status: normalizeTaskStatus(row.status),
                     progress: row.progress,
-                    video_title: normalizedTitle,
-                    thumbnail_url: row.thumbnail_url || previewThumbnail,
+                    video_title: row.video_title,
+                    thumbnail_url: row.thumbnail_url,
                     video_url: row.video_url,
                     error_message: row.error_message ? sanitizeErrorMessage(row.error_message) : row.error_message,
                     created_at: row.created_at,
@@ -56,7 +45,7 @@ export const getTaskStatusTool = tool({
                 if (response) return response;
             }
 
-            // 1b. Retry after 500ms (handles race with create_task write propagation)
+            // 1b. Retry once for a just-committed task write.
             if (!data) {
                 await new Promise(r => setTimeout(r, 500));
                 const { data: retryData } = await supabase

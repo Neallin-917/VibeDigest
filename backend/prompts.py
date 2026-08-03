@@ -274,59 +274,6 @@ Note: startSeconds/endSeconds may be omitted for items where they are missing in
 """
 
 # =============================================================================
-# V2 CLASSIFIED SUMMARY SYSTEM
-# Three-layer content classification for adaptive summarization
-# =============================================================================
-
-# Content Classifier Prompt - identifies 3 dimensions in one call
-CONTENT_CLASSIFIER_SYSTEM = """You are a content analysis expert. Analyze the given transcript and classify it across 3 dimensions.
-Return ONLY valid JSON (no markdown).
-
-Schema:
-{
-  "content_form": string,     // One of: tutorial, interview, monologue, news, review, finance, narrative, casual
-  "info_structure": string,   // One of: hierarchical, sequential, argumentative, comparative, narrative_arc, thematic, qa_format, data_driven
-  "cognitive_goal": string,   // One of: understand, decide, execute, inspire, digest
-  "confidence": number        // 0.0 to 1.0
-}
-
-Definitions:
-
-CONTENT_FORM (what type of content is this?):
-- tutorial: Educational content with teaching intent
-- interview: Multi-person Q&A or dialogue
-- monologue: Single person expressing views/experiences
-- news: Event reporting, time-sensitive information
-- review: Evaluation/critique of products or things
-- finance: Market analysis, investment views
-- narrative: Stories, vlogs, personal experiences
-- casual: Casual chat, no clear topic
-
-INFO_STRUCTURE (how is information organized?):
-- hierarchical: Concept → sub-concepts → details (tree-like)
-- sequential: Step 1 → Step 2 → Step 3 (linear process)
-- argumentative: Thesis → evidence → conclusion (persuasive)
-- comparative: A vs B analysis
-- narrative_arc: Beginning → development → climax → resolution
-- thematic: Topic A, Topic B, parallel expansion
-- qa_format: Question → answer alternating
-- data_driven: Analysis based on data/facts
-
-COGNITIVE_GOAL (what does the user want to gain?):
-- understand: Learn concepts/principles
-- decide: Make choices/judgments
-- execute: Follow steps to do something
-- inspire: Get new perspectives/insights
-- digest: Quick summary of what happened
-"""
-
-CONTENT_CLASSIFIER_USER = """Analyze this transcript and classify it:
-
-{transcript_sample}
-
-Return JSON classification only."""
-
-# =============================================================================
 # STRUCTURE TEMPLATES - How to organize keypoints based on info_structure
 # =============================================================================
 
@@ -645,47 +592,6 @@ Constraint Checklist & Confidence Score:
 Please generate the JSON summary now based on the system instructions (Form: {content_type_info}).
 """
 
-COMPREHENSION_BRIEF_SYSTEM = """You are a "Comprehension Agent". Your role is NOT to summarize, but to provide the deep understanding a smart listener retains from long-form content.
-
-Your goal: Maximize user absorption, not compression.
-Readability: Clear, restrained, non-promotional. Assume a smart but time-poor reader.
-Rules:
-- ❌ No "this content talks about..." summaries
-- ❌ No section-by-section recap
-- ❌ No information dumping
-- ✅ Output must be readable in 3–5 minutes
-
-You MUST return a valid JSON object in {language_name} following this structure:
-{{
-  "core_intent": "1 sentence: what this is REALLY about (problem/intent/essence)",
-  "core_position": "1 sentence: the speaker's judgment or stance worth remembering",
-  "key_insights": [
-    {{
-      "title": "Crisp insight headline",
-      "new_perspective": "What new perspective this adds",
-      "why_it_matters": "Exactly why this changes how the user thinks (1-2 lines)"
-    }}
-  ],
-  "what_to_ignore": ["List of low-signal, PR, filler, or repetitive parts"],
-  "target_audience": {{
-    "who_benefits": ["Who specifically benefits from this"],
-    "who_wont": ["Who this is NOT for"]
-  }},
-  "reusable_takeaway": "One transferable output: framework, checklist, decision rule, or key question"
-}}
-
-Strict constraints:
-- core_intent and core_position MUST be exactly 1 sentence each.
-- key_insights MUST have between 3 and 5 items.
-- Output MUST be in {language_name} (except technical terms without equivalents).
-"""
-
-COMPREHENSION_BRIEF_USER = """Transcript to process:
-{transcript}
-
-Please provide the Comprehension Brief in {language_name}.
-"""
-
 # =============================================================================
 # V4 TWO-PHASE DYNAMIC SUMMARY SYSTEM
 # Phase 1: Content Analysis + Section Planning
@@ -891,4 +797,3 @@ COUNTERARGUMENTS section: Extract objections addressed.
 - content: The counterargument
 - metadata: {{ "response": "how it was addressed" }}""",
 }
-

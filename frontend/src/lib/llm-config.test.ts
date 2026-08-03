@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getProviderConfig } from './llm-config';
+
+const createOpenAI = vi.hoisted(() => vi.fn());
+
+vi.mock('@ai-sdk/openai', () => ({ createOpenAI }));
+
+import { createProviderClient, getProviderConfig } from './llm-config';
 import { env } from '@/env';
 
 // Mock the environment module
@@ -7,6 +12,7 @@ vi.mock('@/env', () => ({
     env: {
         OPENROUTER_BASE_URL: undefined,
         OPENROUTER_API_KEY: undefined,
+        LLM_PROVIDER: undefined,
         OPENAI_BASE_URL: undefined,
         OPENAI_API_KEY: undefined,
         AI_SDK_DEBUG: '0',
@@ -15,9 +21,11 @@ vi.mock('@/env', () => ({
 
 describe('getProviderConfig', () => {
     beforeEach(() => {
+        createOpenAI.mockReset();
         // Reset mock values before each test
         vi.mocked(env).OPENROUTER_BASE_URL = undefined;
         vi.mocked(env).OPENROUTER_API_KEY = undefined;
+        vi.mocked(env).LLM_PROVIDER = undefined;
         vi.mocked(env).OPENAI_BASE_URL = undefined;
         vi.mocked(env).OPENAI_API_KEY = undefined;
     });
@@ -43,6 +51,27 @@ describe('getProviderConfig', () => {
 
         expect(config.baseURL).toBe('http://localhost:1234/v1');
         expect(config.apiKey).toBe('sk-custom-mock');
+    });
+
+    it('returns the official OpenAI endpoint for the openai provider', () => {
+        vi.mocked(env).OPENAI_API_KEY = 'sk-openai-mock';
+
+        const config = getProviderConfig('openai');
+
+        expect(config.baseURL).toBe('https://api.openai.com/v1');
+        expect(config.apiKey).toBe('sk-openai-mock');
+    });
+
+    it('does not replace an explicit OpenAI provider with the inferred provider', () => {
+        vi.mocked(env).LLM_PROVIDER = 'custom';
+        vi.mocked(env).OPENAI_BASE_URL = 'http://localhost:1234/v1';
+        vi.mocked(env).OPENAI_API_KEY = 'sk-openai-mock';
+
+        createProviderClient('openai');
+
+        expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({
+            baseURL: 'https://api.openai.com/v1',
+        }));
     });
 
     it('defaults to OpenRouter public URL if OPENROUTER_BASE_URL is missing', () => {

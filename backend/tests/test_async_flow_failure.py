@@ -26,9 +26,7 @@ async def test_ingest_failure_handling():
         "direct_audio_url": None,
         "transcript_raw": None,
         "transcript_lang": "en",
-        "classification_result": None,
         "final_summary_json": None,
-        "comprehension_brief_json": None,
         "transcript_source": None,
         "ingest_error": None
     })
@@ -111,9 +109,7 @@ async def test_ingest_youtube_failure_surfaces_supadata_root_cause():
         "direct_audio_url": None,
         "transcript_raw": None,
         "transcript_lang": "en",
-        "classification_result": None,
         "final_summary_json": None,
-        "comprehension_brief_json": None,
         "transcript_source": None,
         "ingest_error": None,
     })
@@ -176,9 +172,7 @@ async def test_cognition_failure_handling():
         "direct_audio_url": None,
         "transcript_raw": None,
         "transcript_lang": "en",
-        "classification_result": None,
         "final_summary_json": None,
-        "comprehension_brief_json": None,
         "transcript_source": None,
         "ingest_error": None
     })
@@ -187,17 +181,9 @@ async def test_cognition_failure_handling():
     mock_summarizer = MagicMock()
 
     with patch('workflow._get_db_client', return_value=mock_db), \
-         patch('workflow._get_summarizer', return_value=mock_summarizer), \
-         patch('workflow.settings') as mock_settings:
+         patch('workflow._get_summarizer', return_value=mock_summarizer):
 
-            # Force sequential execution to be deterministic
-            mock_settings.COGNITION_SEQUENTIAL = True
-            mock_settings.COGNITION_DELAY = 0
-
-            # Mock Classify success
-            mock_summarizer.classify_content = AsyncMock(return_value={"category": "Tech"})
-
-            # Mock Summarize failure
+            # Mock summary failure.
             mock_summarizer.summarize = AsyncMock(side_effect=Exception("LLM Rate Limit"))
 
             # Mock DB interactions
@@ -229,9 +215,7 @@ async def test_cleanup_marks_parent_task_error_when_state_has_errors():
         "direct_audio_url": None,
         "transcript_raw": None,
         "transcript_lang": "en",
-        "classification_result": None,
         "final_summary_json": None,
-        "comprehension_brief_json": None,
         "transcript_source": None,
         "ingest_error": None
     })

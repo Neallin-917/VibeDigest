@@ -42,7 +42,6 @@ class SummaryEngine:
         config: Any,
         invoke_with_fallback: Any,
         text_processor: Any,
-        classifier: Any,
     ):
         """
         Initialize the SummaryEngine.
@@ -51,19 +50,16 @@ class SummaryEngine:
             config: SummarizerConfig instance
             invoke_with_fallback: Async function for LLM invocation with fallback
             text_processor: TextProcessor instance for chunking
-            classifier: ContentClassifier instance (kept for compatibility)
         """
         self.config = config
         self._ainvoke_with_fallback = invoke_with_fallback
         self.text_processor = text_processor
-        self.classifier = classifier
 
     async def summarize(
         self,
         transcript: str,
         target_language: str = "en",
         video_title: Optional[str] = None,
-        existing_classification: Optional[Dict[str, Any]] = None,
         trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
@@ -73,13 +69,14 @@ class SummaryEngine:
             transcript: The transcript text to summarize
             target_language: Target language code
             video_title: Optional video title (unused in V4)
-            existing_classification: Optional pre-computed classification (unused in V4)
             trace_metadata: Optional tracing metadata
 
         Returns:
             JSON string containing the V4 summary with dynamic sections
         """
-        if not self.config.api_key:
+        if not self.config.is_llm_available:
+            # Keep the established public failure contract; ``is_llm_available``
+            # additionally permits the trusted local Codex runtime.
             raise RuntimeError("OpenAI API unavailable for summary generation")
 
         target_language = normalize_lang_code(target_language)

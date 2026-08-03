@@ -12,7 +12,6 @@ sys.path.append(os.path.join(os.getcwd(), "backend"))
 # Patch external dependencies (Must happen before workflow import if possible, or patch modules)
 # Since workflow uses getter functions, we patch them in setUp
 
-import workflow
 from workflow import ingest, cognition, build_graph, VideoProcessingState
 
 class TestWorkflow(unittest.IsolatedAsyncioTestCase):
@@ -28,12 +27,9 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
 
         # Use MagicMock as base, then attach AsyncMocks for async methods
         self.mock_summarizer = MagicMock()
-        self.mock_summarizer.classify_content = AsyncMock()
         self.mock_summarizer.summarize = AsyncMock()
         self.mock_summarizer.optimize_transcript = AsyncMock()
         self.mock_summarizer.fast_clean_transcript = MagicMock(side_effect=lambda x: x)
-        self.mock_comprehension = AsyncMock()
-        self.mock_comprehension.generate_comprehension_brief = AsyncMock(return_value='{"brief": "ok"}')
 
         # Patch getter functions to return our mocks
         for attr, mock in [
@@ -42,7 +38,6 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
             ('_get_video_processor', self.mock_vp),
             ('_get_transcriber', self.mock_transcriber),
             ('_get_summarizer', self.mock_summarizer),
-            ('_get_comprehension_agent', self.mock_comprehension),
         ]:
             p = patch(f'workflow.{attr}', return_value=mock)
             p.start()
@@ -123,7 +118,6 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         """Test Cognition executed in parallel"""
         print("\nRunning test_cognition_parallel...")
         # Setup Mocks to return objects with model_dump
-        self.mock_summarizer.classify_content.return_value = self.MockModel({"category": "Tech"})
         self.mock_summarizer.summarize.return_value = self.MockModel(self.valid_summary("Summary"))
 
         state = cast(VideoProcessingState, {
@@ -135,9 +129,7 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
 
         updates = await cognition(state)
 
-        self.assertIn("classification_result", updates)
         self.assertIn("final_summary_json", updates)
-        self.assertTrue(self.mock_summarizer.classify_content.called)
         self.assertTrue(self.mock_summarizer.summarize.called)
 
     async def test_full_graph_integration(self):
@@ -149,7 +141,6 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         long_transcript = "Graph MD Content " * 20
         self.mock_supadata.get_transcript_async.return_value = (long_transcript, "{}", "en")
         self.mock_vp.extract_info_only.return_value = {"title": "Graph Video", "thumbnail": "img"}
-        self.mock_summarizer.classify_content.return_value = self.MockModel({"cat": "test"})
         self.mock_summarizer.summarize.return_value = self.MockModel(self.valid_summary("Graph summary"))
 
         app = build_graph()
@@ -176,7 +167,6 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         print(f"DEBUG: Final State Content: {final_state}")
 
         self.assertEqual(final_state["transcript_text"], long_transcript)
-        self.assertEqual(final_state["classification_result"], {"cat": "test"})
         # Should have run through ingest and cognition
         self.assertTrue(self.mock_supadata.get_transcript_async.called)
         self.assertTrue(self.mock_summarizer.summarize.called)

@@ -3,7 +3,6 @@ import type { ChatUIMessage } from '@/lib/chat-ui';
 import {
     getTextFromUIMessage,
     getMessageCreatedAtIso,
-    extractTaskIdFromCreateTaskMessages,
 } from './utils';
 import { assertPersistableMessages, logInvalidChatMessages, sanitizeIncomingMessages } from '@/lib/chat-message-boundary';
 
@@ -258,9 +257,9 @@ export function createOnFinishHandler(params: PersistenceParams) {
 
             const persistableFinalMessages = assertPersistableMessages(finalMessages);
 
-            // 1. Determine Task ID binding first (from tool outputs or request)
-            const createdTaskId = extractTaskIdFromCreateTaskMessages(persistableFinalMessages);
-            const taskIdToBind = createdTaskId || requestTaskId;
+            // URL submissions bind a task in direct-submit; conversational Q&A
+            // can only retain the explicit task selected by the user.
+            const taskIdToBind = requestTaskId;
             const isNewChat = !threadTitle || threadTitle === 'New Chat';
             const firstUserMsg = [...messages, ...finalMessages].find(
                 (message) => message.role === 'user' && getTextFromUIMessage(message).length > 0

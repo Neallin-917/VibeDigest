@@ -17,66 +17,6 @@ describe('ApiClient', () => {
         expect(API_BASE_URL).toBeDefined()
     })
 
-    describe('request', () => {
-        it('handles successful requests', async () => {
-            const mockResponse = { success: true }
-            fetchSpy.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockResponse,
-            } as Response)
-
-            const formData = new FormData()
-            await ApiClient.processVideo(formData, mockToken)
-
-            expect(fetchSpy).toHaveBeenCalledWith(
-                expect.stringContaining('/api/process-video'),
-                expect.objectContaining({
-                    method: 'POST',
-                    headers: expect.objectContaining({
-                        Authorization: `Bearer ${mockToken}`
-                    })
-                })
-            )
-        })
-
-        it('handles error responses with detail', async () => {
-            const errorMessage = 'Validation failed'
-            fetchSpy.mockResolvedValueOnce({
-                ok: false,
-                statusText: 'Bad Request',
-                json: async () => ({ detail: errorMessage }),
-            } as Response)
-
-            const formData = new FormData()
-            await expect(ApiClient.processVideo(formData, mockToken))
-                .rejects.toThrow(errorMessage)
-        })
-
-        it('handles error responses without detail', async () => {
-            fetchSpy.mockResolvedValueOnce({
-                ok: false,
-                statusText: 'Internal Server Error',
-                json: async () => ({}),
-            } as Response)
-
-            const formData = new FormData()
-            await expect(ApiClient.processVideo(formData, mockToken))
-                .rejects.toThrow('API Error: Internal Server Error')
-        })
-        
-        it('handles JSON parsing error in error response', async () => {
-             fetchSpy.mockResolvedValueOnce({
-                ok: false,
-                statusText: 'Gateway Timeout',
-                json: async () => { throw new Error('Invalid JSON') },
-            } as unknown as Response)
-
-            const formData = new FormData()
-            await expect(ApiClient.processVideo(formData, mockToken))
-                .rejects.toThrow('API Error: Gateway Timeout')
-        })
-    })
-
     describe('retryOutput', () => {
         it('sends correct request', async () => {
             fetchSpy.mockResolvedValueOnce({

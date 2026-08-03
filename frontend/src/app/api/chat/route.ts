@@ -12,11 +12,11 @@ import {
 import { createProviderClient } from '@/lib/llm-config';
 import { getProviderModelDefaults, resolveProvider, resolveProviderModel } from '@/lib/llm-model-registry';
 import { env } from '@/env';
-import type { RequestPayload, ChatMessageRow, ModelTier, ResolvedModel, PreviewCache } from './types';
-import { getTextFromUIMessage, extractUrl, isUsableTaskId, getErrorMessage, getErrorStack } from './utils';
+import type { RequestPayload, ChatMessageRow, ModelTier, ResolvedModel } from './types';
+import { getTextFromUIMessage, isUsableTaskId, getErrorMessage, getErrorStack } from './utils';
 import { verifyAuth, isAuthError } from './auth';
 import { buildRagContext } from './rag';
-import { chatTools, createChatToolsContext, getActiveChatTools } from './tools';
+import { ACTIVE_CHAT_TOOLS, chatTools, createChatToolsContext } from './tools';
 import { createOnFinishHandler, restoreArchivedThreadIfNeeded } from './persistence';
 import {
     chatDataSchemas,
@@ -39,7 +39,7 @@ const CHAT_TIMEOUT = {
 } as const;
 
 function resolveModel(tier: ModelTier): ResolvedModel {
-    const provider = resolveProvider(env.OPENAI_BASE_URL);
+    const provider = resolveProvider(env.OPENAI_BASE_URL, env.LLM_PROVIDER);
     getProviderModelDefaults(provider);
     const model = resolveProviderModel(provider, tier, {
         smart: env.MODEL_ALIAS_SMART,
@@ -144,10 +144,8 @@ export async function POST(req: Request) {
 
         // 4. Determine model tier
         const messageText = message ? getTextFromUIMessage(message) : '';
-        const detectedUrl = extractUrl(messageText || '');
-        const allowVideoTools = Boolean(detectedUrl);
         const isShortFollowup = Boolean(
-            taskId && !detectedUrl && messageText.trim().length > 0 && messageText.trim().length <= SHORT_QUERY_CHAR_LIMIT
+            taskId && messageText.trim().length > 0 && messageText.trim().length <= SHORT_QUERY_CHAR_LIMIT
         );
         const modelTier: ModelTier = isShortFollowup ? 'fast' : 'smart';
 
@@ -165,15 +163,9 @@ When a taskId is provided:
 - Call get_task_outputs if you need transcript/summary content not already in CURRENT VIDEO CONTEXT
 - If the user asks for examples/quotes/verbatim wording and the summary is insufficient, call get_task_outputs with kinds: ["script"]
 - Answer directly from CURRENT VIDEO CONTEXT when possible
-
-When users provide video URLs:
-- Call preview_video, then create_task, then get_task_status — no confirmation needed
-- If no valid URL in the latest message, ask the user for it first
 `;
 
-        systemPrompt += allowVideoTools
-            ? `\n\nYour available tools:\n- get_task_status: Check current processing status and progress\n- get_task_outputs: Retrieve transcripts, summaries, and other processed content\n- create_task: Start processing a new video URL\n- preview_video: Get video metadata (title, thumbnail, duration) without full processing`
-            : `\n\nYour available tools:\n- get_task_status: Check current processing status and progress\n- get_task_outputs: Retrieve transcripts, summaries, and other processed content`;
+        systemPrompt += `\n\nYour available tools:\n- get_task_status: Check current processing status and progress\n- get_task_outputs: Retrieve transcripts, summaries, and other processed content`;
 
         systemPrompt += `\n\nNever make up information about video content. Always use tools to get real data before answering.`;
 
@@ -185,24 +177,15 @@ When users provide video URLs:
             systemPrompt += `\n\nNo specific task context. Use tools when users mention videos or ask about processing status.`;
         }
 
-        // Note: URL submissions are now handled directly by the frontend (bypassing LLM).
-        // This LLM path only runs for non-URL messages (Q&A, status checks).
-        // Video tools remain available as fallback for edge cases.
+        // URL submission has its own command route. This LLM path handles only
+        // Q&A over existing tasks, so it has no task-creation side effects.
 
         // 7. Build tools with shared context
-        let previewCache: PreviewCache = null;
         const toolsContext = createChatToolsContext({
             supabase,
             user,
             accessToken,
-            messages,
-            threadId,
-            getPreviewCache: () => previewCache,
-            setPreviewCache: (cache: PreviewCache) => {
-                previewCache = cache;
-            },
         });
-        const activeTools = getActiveChatTools(allowVideoTools);
 
         // 8. Validate UI messages and convert to model messages
         const validatedMessages = await validateUIMessages<ChatUIMessage>({
@@ -237,9 +220,15 @@ When users provide video URLs:
                 const agent = new ToolLoopAgent({
                     model: openai.chat(modelName),
                     instructions: systemPrompt,
+                    // GPT-5.6 tool calls through Chat Completions require an
+                    // explicit no-reasoning baseline. The API transport keeps
+                    // the existing app-owned tool loop intact.
+                    providerOptions: providerName === 'openai'
+                        ? { openai: { reasoningEffort: 'none' } }
+                        : undefined,
                     stopWhen: isStepCount(5),
                     tools: chatTools,
-                    activeTools,
+                    activeTools: ACTIVE_CHAT_TOOLS,
                     toolsContext,
                     timeout: CHAT_TIMEOUT,
                     onStepEnd: ({ finishReason, performance, stepNumber, toolResults, usage }) => {
@@ -255,21 +244,6 @@ When users provide video URLs:
 
                         toolResults.forEach((toolResult) => {
                             if (!('toolName' in toolResult) || !('output' in toolResult)) return;
-
-                            if (toolResult.toolName === 'create_task') {
-                                const output = toolResult.output as {
-                                    taskId?: string;
-                                    videoUrl?: string;
-                                };
-                                if (typeof output.taskId === 'string') {
-                                    writeTaskDataParts(writer, {
-                                        taskId: output.taskId,
-                                        status: 'pending',
-                                        progress: 0,
-                                        video_url: output.videoUrl,
-                                    });
-                                }
-                            }
 
                             if (toolResult.toolName === 'get_task_status') {
                                 const output = toolResult.output as {

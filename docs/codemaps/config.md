@@ -13,11 +13,21 @@
 | `SUPABASE_JWT_SECRET` | API | HS256 fallback validation where configured |
 | `NEXT_PUBLIC_SUPABASE_URL` | frontend | Browser Supabase client |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend | Browser-safe Supabase anon key |
-| `OPENROUTER_API_KEY` | worker/API | Default text provider when `OPENAI_BASE_URL` is absent |
+| `LLM_RUNTIME` | API + worker | `api` (default) or trusted-local `codex_local`; production rejects the latter |
+| `LLM_PROVIDER` | API + worker + frontend server | Explicit API provider: `openai`, `openrouter`, or `custom` |
+| `OPENAI_API_KEY` | API + worker + frontend server | Required for `LLM_PROVIDER=openai` or `custom` |
+| `OPENROUTER_API_KEY` | API + worker + frontend server | Required for `LLM_PROVIDER=openrouter` |
 
-When `OPENAI_BASE_URL` is set, text routing becomes `custom` and
-`OPENAI_API_KEY` is required. Model defaults live only in
-`config/llm-provider-defaults.json`; environment aliases may override them.
+`LLM_RUNTIME=api` is the product runtime. Set `LLM_PROVIDER=openai` to use the
+official OpenAI API; `OPENAI_BASE_URL` is only used by `custom`. Leaving
+`LLM_PROVIDER` unset keeps the legacy inference (`custom` when
+`OPENAI_BASE_URL` is set, otherwise `openrouter`).
+
+`LLM_RUNTIME=codex_local` is for a trusted developer machine only. It uses the
+local Codex app-server and its existing `codex login` session, with ephemeral
+read-only turns, denied approvals, bounded concurrency, and a timeout. It is
+rejected when Railway production metadata is present. Model defaults live only
+in `config/llm-provider-defaults.json`; environment aliases may override them.
 
 ## Queue worker
 
@@ -37,8 +47,7 @@ When `OPENAI_BASE_URL` is set, text routing becomes `custom` and
 - CORS/origin: `FRONTEND_URL`, `ALLOWED_ORIGINS`, `BACKEND_ORIGIN_URL`
 - Audio: `OPENAI_AUDIO_BASE_URL`, `OPENAI_AUDIO_API_KEY`,
   `OPENAI_TRANSCRIPTION_MODEL`
-- Cognition: `COGNITION_SEQUENTIAL`, `COGNITION_DELAY`;
-  `SUMMARY_STRATEGY` defaults to `v4_dynamic`
+- Summary: `SUMMARY_STRATEGY` defaults to `v4_dynamic`
 
 Exact validation/defaults are owned by `backend/config.py`,
 `backend/worker.py`, `frontend/src/env.ts`, and

@@ -106,6 +106,35 @@ class TestModelSmartFast:
         assert s.MODEL_SMART == "gemini-3-pro-preview"
         assert s.MODEL_FAST == "gemini-3-flash-preview"
 
+    def test_explicit_openai_provider_uses_gpt56_role_defaults(self):
+        s = Settings()
+        s.LLM_RUNTIME = "api"
+        s.LLM_PROVIDER_ENV = "openai"
+        s.MODEL_ALIAS_SMART = None
+        s.MODEL_ALIAS_FAST = None
+
+        assert s.LLM_PROVIDER == "openai"
+        assert s.MODEL_SMART == "gpt-5.6-sol"
+        assert s.MODEL_FAST == "gpt-5.6-terra"
+
+    def test_local_codex_runtime_uses_shared_gpt56_role_defaults(self):
+        s = Settings()
+        s.LLM_RUNTIME = "codex_local"
+        s.MODEL_ALIAS_SMART = None
+        s.MODEL_ALIAS_FAST = None
+
+        assert s.LLM_PROVIDER == "codex_local"
+        assert s.MODEL_SMART == "gpt-5.6-sol"
+        assert s.MODEL_FAST == "gpt-5.6-terra"
+
+    def test_local_codex_runtime_is_rejected_in_production(self):
+        s = Settings()
+        s.LLM_RUNTIME = "codex_local"
+
+        with patch.dict(os.environ, {"RAILWAY_PROJECT_ID": "production-project"}):
+            with pytest.raises(RuntimeError, match="only allowed on trusted local"):
+                s._validate_required_env()
+
     def test_default_provider_is_openrouter_when_no_custom_base_url(self):
         original = os.environ.get("OPENAI_BASE_URL")
         try:

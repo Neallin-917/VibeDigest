@@ -38,7 +38,6 @@ DEMO_USER_ENV_KEYS = ("VIBEDIGEST_DEMO_USER_ID", "DEMO_USER_ID")
 INITIAL_OUTPUT_KINDS = [
     OutputKind.SCRIPT.value,
     OutputKind.SUMMARY.value,
-    OutputKind.COMPREHENSION_BRIEF.value,
 ]
 
 logger = logging.getLogger(__name__)

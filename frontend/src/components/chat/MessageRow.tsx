@@ -157,7 +157,7 @@ function MessageRowComponent({
                   if (isToolUIPart(part)) {
                     return (
                       <div key={index} className="w-full min-w-0 max-w-full">
-                        {renderToolPart(part, index, onOpenPanel)}
+                        {renderToolPart(part, index)}
                       </div>
                     )
                   }

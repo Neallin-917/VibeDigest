@@ -20,7 +20,10 @@ def supports_structured_output(model_name: str) -> bool:
     Check if a model supports structured output.
     LiteLLM generally supports structured output for OpenAI-compatible models.
     """
-    return True
+    del model_name
+    # CodexLocalChatModel preserves the ordinary chat contract. Its output is
+    # parsed through the existing JSON fallback instead of LangChain tool calls.
+    return settings.LLM_RUNTIME != "codex_local"
 
 
 def read_int_env(
@@ -90,14 +93,23 @@ class SummarizerConfig:
         from utils.llm_router import resolve_model_for_intent
 
         # Mirror the runtime provider contract used by utils.openai_client.
-        if settings.LLM_PROVIDER == "openrouter":
+        # Local Codex authentication belongs to the Codex app-server rather
+        # than an application API key.
+        if settings.LLM_RUNTIME == "codex_local":
+            self.api_key = None
+            self.base_url = None
+        elif settings.LLM_PROVIDER == "openrouter":
             self.api_key = os.getenv("OPENROUTER_API_KEY")
             self.base_url = os.getenv("OPENROUTER_BASE_URL")
         else:
             self.api_key = os.getenv("OPENAI_API_KEY")
             self.base_url = os.getenv("OPENAI_BASE_URL")
 
-        if self.api_key:
+        self.is_llm_available = settings.LLM_RUNTIME == "codex_local" or bool(
+            self.api_key
+        )
+
+        if self.is_llm_available:
             logger.info("Summarizer initialized with configured text LLM provider")
         else:
             logger.warning(

@@ -4,7 +4,6 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 sys.path.append(os.path.join(os.getcwd(), "backend"))
 
@@ -47,9 +46,7 @@ async def run_debug_session(
         "transcript_text": transcript_text,
         "transcript_raw": "",
         "transcript_lang": lang,
-        "classification_result": None,
         "final_summary_json": None,
-        "comprehension_brief_json": None,
         "cache_hit": False,
         "is_youtube": True,
         "errors": [],
@@ -69,11 +66,6 @@ async def run_debug_session(
                  db.upsert_completed_task_output(
                      task_id, user_id, "summary", 
                      json.dumps(results["final_summary_json"], ensure_ascii=False)
-                 )
-            if results.get("classification_result"):
-                 db.upsert_completed_task_output(
-                     task_id, user_id, "classification", 
-                     json.dumps(results["classification_result"], ensure_ascii=False)
                  )
             print("\n✅ 数据库已同步。UI 应已实时刷新。")
 

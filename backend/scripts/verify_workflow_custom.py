@@ -117,7 +117,6 @@ async def main():
         # Verify Results
         transcript = final_state.get('transcript_text', '')
         summary = final_state.get('final_summary_json', {})
-        classification = final_state.get('classification_result', {})
         
         if transcript:
             print(f"✅ 转录完成! (长度: {len(transcript)})")
@@ -130,16 +129,13 @@ async def main():
         else:
             print("❌ AI 总结缺失")
             
-        if classification:
-            print(f"✅ 内容分类完成: {classification.get('category', 'Unknown')}")
-            
         # 6. Verify DB Persistence
         print("\n💾 正在验证数据库持久化...")
         outputs = db.get_task_outputs(task_id)
         kinds = [o['kind'] for o in outputs]
         print(f"   保存的输出类型: {kinds}")
         
-        expected = {'script', 'classification', 'summary'}
+        expected = {'script', 'summary'}
         if expected.issubset(set(kinds)):
              print("🌟 全链路验证成功! 任务已正确保存到数据库。")
         else:

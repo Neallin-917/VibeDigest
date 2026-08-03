@@ -362,11 +362,8 @@ def create_chat_model(
         if settings.OPENROUTER_BASE_URL:
             kwargs.setdefault("api_base", settings.OPENROUTER_BASE_URL)
 
-        # OpenRouter fallback routing
-        extra_body = kwargs.get("extra_body", {})
-        extra_body["models"] = [model_name, "openrouter/auto"]
-        extra_body["route"] = "fallback"
-        kwargs["extra_body"] = extra_body
+        # Keep the product on the configured Luna model. OpenRouter may still
+        # fail over between upstream providers for that same model.
 
     # Use our RateLimitAware wrapper
     return RateLimitAwareChatLiteLLM(

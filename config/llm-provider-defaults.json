@@ -1,18 +1,18 @@
 {
   "openai": {
-    "smart": "gpt-5.6-sol",
-    "fast": "gpt-5.6-terra"
+    "smart": "gpt-5.6-luna",
+    "fast": "gpt-5.6-luna"
   },
   "codex_local": {
-    "smart": "gpt-5.6-sol",
-    "fast": "gpt-5.6-terra"
+    "smart": "gpt-5.6-luna",
+    "fast": "gpt-5.6-luna"
   },
   "openrouter": {
-    "smart": "openrouter/auto",
-    "fast": "openrouter/auto"
+    "smart": "openai/gpt-5.6-luna",
+    "fast": "openai/gpt-5.6-luna"
   },
   "custom": {
-    "smart": "gemini-3-pro-preview",
-    "fast": "gemini-3-flash-preview"
+    "smart": "gpt-5.6-luna",
+    "fast": "gpt-5.6-luna"
   }
 }

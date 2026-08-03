@@ -244,8 +244,8 @@ describe('POST /api/chat', () => {
                     {
                         provider: 'custom',
                         defaults: {
-                            smart: 'gemini-3-pro-preview',
-                            fast: 'gemini-3-flash-preview'
+                            smart: 'gpt-5.6-luna',
+                            fast: 'gpt-5.6-luna'
                         }
                     }
                 ]
@@ -300,7 +300,7 @@ describe('POST /api/chat', () => {
         // Verify system prompt contains default instruction
         const callArgs = mockStreamText.mock.calls[0][0]
         expect(callArgs.instructions).toContain('You are VibeDigest Assistant')
-        expect(callArgs.model.id).toBe('openrouter/auto')
+        expect(callArgs.model.id).toBe('openai/gpt-5.6-luna')
         expect(callArgs.activeTools).toEqual(['get_task_status', 'get_task_outputs'])
         expect(callArgs.timeout).toEqual({
             totalMs: 25_000,
@@ -755,10 +755,10 @@ describe('POST /api/chat', () => {
         await POST(req)
 
         const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('gemini-3-flash-preview')
+        expect(callArgs?.model?.id).toBe('gpt-5.6-luna')
     })
 
-    it('uses default openrouter fast model for short follow-up when provider is unset', async () => {
+    it('uses the Luna OpenRouter fast model for short follow-up when provider is unset', async () => {
         const req = new NextRequest('http://localhost/api/chat', {
             method: 'POST',
             body: JSON.stringify({
@@ -771,7 +771,7 @@ describe('POST /api/chat', () => {
         await POST(req)
 
         const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('openrouter/auto')
+        expect(callArgs?.model?.id).toBe('openai/gpt-5.6-luna')
     })
 
     it('returns 503 when createProviderClient throws Missing API Key', async () => {
@@ -854,7 +854,7 @@ describe('POST /api/chat', () => {
         await POST(req)
 
         const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('gemini-3-pro-preview')
+        expect(callArgs?.model?.id).toBe('gpt-5.6-luna')
     })
 
     it('handles persistence in onFinish callback', async () => {
@@ -976,8 +976,8 @@ describe('Chat Title Generation Logic', () => {
                     {
                         provider: 'custom',
                         defaults: {
-                            smart: 'gemini-3-pro-preview',
-                            fast: 'gemini-3-flash-preview'
+                            smart: 'gpt-5.6-luna',
+                            fast: 'gpt-5.6-luna'
                         }
                     }
                 ]

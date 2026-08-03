@@ -2,24 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { getProviderModelDefaults, resolveProvider, resolveProviderModel } from './llm-model-registry';
 
 describe('llm-model-registry', () => {
-    it('returns shared defaults for openrouter', () => {
+    it('returns the Luna defaults for OpenRouter', () => {
         expect(getProviderModelDefaults('openrouter')).toEqual({
-            smart: 'openrouter/auto',
-            fast: 'openrouter/auto',
+            smart: 'openai/gpt-5.6-luna',
+            fast: 'openai/gpt-5.6-luna',
         });
     });
 
-    it('returns the GPT-5.6 role defaults for the OpenAI API provider', () => {
+    it('returns the Luna defaults for the OpenAI API provider', () => {
         expect(getProviderModelDefaults('openai')).toEqual({
-            smart: 'gpt-5.6-sol',
-            fast: 'gpt-5.6-terra',
+            smart: 'gpt-5.6-luna',
+            fast: 'gpt-5.6-luna',
         });
     });
 
-    it('returns shared defaults for custom provider', () => {
+    it('returns the Luna defaults for custom providers', () => {
         expect(getProviderModelDefaults('custom')).toEqual({
-            smart: 'gemini-3-pro-preview',
-            fast: 'gemini-3-flash-preview',
+            smart: 'gpt-5.6-luna',
+            fast: 'gpt-5.6-luna',
         });
     });
 

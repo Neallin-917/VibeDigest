@@ -16,10 +16,10 @@ from utils.openai_client import (
 
 @patch("utils.openai_client.settings")
 @patch("utils.openai_client.RateLimitAwareChatLiteLLM")
-def test_create_chat_model_openrouter_fallback(mock_llm_cls, mock_settings):
+def test_create_chat_model_openrouter_keeps_the_configured_model(mock_llm_cls, mock_settings):
     """
-    Test that create_chat_model injects OpenRouter-specific fallback parameters
-    into the LiteLLM initialization when running in 'openrouter' mode.
+    Test that create_chat_model does not inject a cross-model fallback when
+    running in 'openrouter' mode.
     """
     mock_settings.LLM_PROVIDER = "openrouter"
     mock_settings.OPENROUTER_BASE_URL = None
@@ -29,11 +29,7 @@ def test_create_chat_model_openrouter_fallback(mock_llm_cls, mock_settings):
 
     _, kwargs = mock_llm_cls.call_args
 
-    assert "extra_body" in kwargs, "extra_body should be injected for OpenRouter"
-    extra_body = kwargs["extra_body"]
-
-    assert extra_body["models"] == ["openrouter/google/gemini-pro", "openrouter/auto"]
-    assert extra_body["route"] == "fallback"
+    assert "extra_body" not in kwargs
 
 
 def test_openrouter_requires_openrouter_api_key():

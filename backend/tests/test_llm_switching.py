@@ -61,17 +61,15 @@ class TestLLMSwitching:
                    call_kwargs.args[0] == "openrouter/openai/gpt-5.2" if call_kwargs.args else True
 
     @patch("utils.openai_client.RateLimitAwareChatLiteLLM")
-    def test_openrouter_fallback_injection(self, mock_rate_limit_llm):
-        """Verify OpenRouter fallback routing is injected."""
+    def test_openrouter_keeps_the_configured_model_without_cross_model_fallback(self, mock_rate_limit_llm):
+        """OpenRouter requests must not silently fall back to a different model."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=False), \
              patch.object(settings, "OPENAI_BASE_URL", None), \
              patch.object(settings, "_llm_provider_override", None):
             create_chat_model("google/gemini-pro")
 
             _, kwargs = mock_rate_limit_llm.call_args
-            extra_body = kwargs.get("extra_body", {})
-            assert extra_body["models"] == ["openrouter/google/gemini-pro", "openrouter/auto"]
-            assert extra_body["route"] == "fallback"
+            assert "extra_body" not in kwargs
 
     def test_unsupported_provider_raises(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False), \
@@ -86,7 +84,7 @@ class TestLLMSwitching:
              patch.object(settings, "CODEX_LOCAL_MAX_CONCURRENCY", 1), \
              patch.object(settings, "CODEX_LOCAL_BINARY", None), \
              patch.object(settings, "CODEX_LOCAL_WORKDIR", None):
-            model = create_chat_model("gpt-5.6-terra")
+            model = create_chat_model("gpt-5.6-luna")
 
         assert isinstance(model, CodexLocalChatModel)
-        assert model.model_name == "gpt-5.6-terra"
+        assert model.model_name == "gpt-5.6-luna"

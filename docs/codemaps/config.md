@@ -18,10 +18,12 @@
 | `OPENAI_API_KEY` | API + worker + frontend server | Required for `LLM_PROVIDER=openai` or `custom` |
 | `OPENROUTER_API_KEY` | API + worker + frontend server | Required for `LLM_PROVIDER=openrouter` |
 
-`LLM_RUNTIME=api` is the product runtime. Set `LLM_PROVIDER=openai` to use the
-official OpenAI API; `OPENAI_BASE_URL` is only used by `custom`. Leaving
-`LLM_PROVIDER` unset keeps the legacy inference (`custom` when
-`OPENAI_BASE_URL` is set, otherwise `openrouter`).
+`LLM_RUNTIME=api` is the product runtime. Every provider's smart and fast
+defaults resolve to GPT-5.6 Luna; the OpenRouter route uses its canonical
+`openai/gpt-5.6-luna` model ID. Set `LLM_PROVIDER=openai` to use the official
+OpenAI API; `OPENAI_BASE_URL` is only used by `custom`. Leaving `LLM_PROVIDER`
+unset keeps the legacy inference (`custom` when `OPENAI_BASE_URL` is set,
+otherwise `openrouter`).
 
 `LLM_RUNTIME=codex_local` is for a trusted developer machine only. It uses the
 local Codex app-server and its existing `codex login` session, with ephemeral

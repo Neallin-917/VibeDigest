@@ -92,8 +92,8 @@ class TestModelSmartFast:
         s.LLM_PROVIDER = None
 
         assert s.LLM_PROVIDER == "openrouter"
-        assert s.MODEL_SMART == "openrouter/auto"
-        assert s.MODEL_FAST == "openrouter/auto"
+        assert s.MODEL_SMART == "openai/gpt-5.6-luna"
+        assert s.MODEL_FAST == "openai/gpt-5.6-luna"
 
     def test_custom_runtime_contract_uses_shared_defaults(self):
         s = Settings()
@@ -103,10 +103,10 @@ class TestModelSmartFast:
         s.LLM_PROVIDER = None
 
         assert s.LLM_PROVIDER == "custom"
-        assert s.MODEL_SMART == "gemini-3-pro-preview"
-        assert s.MODEL_FAST == "gemini-3-flash-preview"
+        assert s.MODEL_SMART == "gpt-5.6-luna"
+        assert s.MODEL_FAST == "gpt-5.6-luna"
 
-    def test_explicit_openai_provider_uses_gpt56_role_defaults(self):
+    def test_explicit_openai_provider_uses_luna_defaults(self):
         s = Settings()
         s.LLM_RUNTIME = "api"
         s.LLM_PROVIDER_ENV = "openai"
@@ -114,18 +114,18 @@ class TestModelSmartFast:
         s.MODEL_ALIAS_FAST = None
 
         assert s.LLM_PROVIDER == "openai"
-        assert s.MODEL_SMART == "gpt-5.6-sol"
-        assert s.MODEL_FAST == "gpt-5.6-terra"
+        assert s.MODEL_SMART == "gpt-5.6-luna"
+        assert s.MODEL_FAST == "gpt-5.6-luna"
 
-    def test_local_codex_runtime_uses_shared_gpt56_role_defaults(self):
+    def test_local_codex_runtime_uses_shared_luna_defaults(self):
         s = Settings()
         s.LLM_RUNTIME = "codex_local"
         s.MODEL_ALIAS_SMART = None
         s.MODEL_ALIAS_FAST = None
 
         assert s.LLM_PROVIDER == "codex_local"
-        assert s.MODEL_SMART == "gpt-5.6-sol"
-        assert s.MODEL_FAST == "gpt-5.6-terra"
+        assert s.MODEL_SMART == "gpt-5.6-luna"
+        assert s.MODEL_FAST == "gpt-5.6-luna"
 
     def test_local_codex_runtime_is_rejected_in_production(self):
         s = Settings()
@@ -164,7 +164,7 @@ class TestModelSmartFast:
         s.MODEL_ALIAS_SMART = None
         s.OPENAI_BASE_URL = None
         s.LLM_PROVIDER = None
-        assert s.MODEL_SMART == "openrouter/auto"
+        assert s.MODEL_SMART == "openai/gpt-5.6-luna"
 
     def test_fast_alias_overrides_default(self):
         s = Settings()
@@ -176,7 +176,7 @@ class TestModelSmartFast:
         s.MODEL_ALIAS_FAST = None
         s.OPENAI_BASE_URL = None
         s.LLM_PROVIDER = None
-        assert s.MODEL_FAST == "openrouter/auto"
+        assert s.MODEL_FAST == "openai/gpt-5.6-luna"
 
     def test_custom_provider_defaults_come_from_shared_registry(self):
         s = Settings()
@@ -184,8 +184,8 @@ class TestModelSmartFast:
         s.MODEL_ALIAS_FAST = None
         s.OPENAI_BASE_URL = "http://localhost:8317/v1"
         s.LLM_PROVIDER = None
-        assert s.MODEL_SMART == "gemini-3-pro-preview"
-        assert s.MODEL_FAST == "gemini-3-flash-preview"
+        assert s.MODEL_SMART == "gpt-5.6-luna"
+        assert s.MODEL_FAST == "gpt-5.6-luna"
 
     def test_unknown_provider_override_raises(self):
         s = Settings()

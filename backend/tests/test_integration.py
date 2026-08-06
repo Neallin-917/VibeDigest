@@ -108,6 +108,15 @@ async def test_process_video_endpoint_real_db(async_client: AsyncClient, monkeyp
         video_url="https://youtube.com/watch?v=dQw4w9WgXcQ",
         user_id=TEST_USER_ID,
         guest_id=None,
+        output_intent={
+            "version": 1,
+            "request_text": "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            "target_locale": None,
+            "locale_source": "source_language",
+            "depth": "standard",
+            "audience": None,
+            "preserve_source_terms": False,
+        },
     )
 
 

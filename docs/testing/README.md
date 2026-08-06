@@ -1,6 +1,6 @@
 # Testing Guide
 
-> Last Verified: 2026-07-29
+> Last Verified: 2026-08-07
 
 This file owns testing strategy, prerequisites, and coverage policy.
 
@@ -52,6 +52,31 @@ make test-frontend
 cd frontend && npm run test:cov
 cd frontend && npx playwright test
 ```
+
+The default Playwright suite uses deterministic API mocks. Visual comparison is
+an explicit local review because its PNG baselines are platform-specific and
+intentionally ignored by Git:
+
+```bash
+cd frontend && RUN_VISUAL_REGRESSION=1 npx playwright test e2e/visual-regression.spec.ts --project=chromium-guest
+```
+
+Use `--update-snapshots` only after a human has reviewed the intended visual
+change.
+
+### Local visual demo
+
+```bash
+cd frontend && npm run demo:chat
+```
+
+This starts an isolated development server on port `3002` with deterministic
+task metadata and progressive summary fixtures. It is intended for manually
+checking the chat interaction — source card, playable iframe, conclusion, key
+insights, comparison table, and lightweight bar chart — without Supabase,
+FastAPI, a worker, or any model/provider
+credential. The mode is disabled in production builds and does not change the
+production Supabase + FastAPI data path.
 
 ## Prerequisites
 
@@ -132,6 +157,10 @@ its application-owned tool protocol is identical in local and hosted runs.
 
 `NEXT_PUBLIC_E2E_MOCK=1` is mandatory in CI. Frontend E2E must not receive
 OpenRouter or OpenAI provider secrets.
+
+The local visual demo uses the same E2E-safe fixture boundary. It is suitable
+for day-to-day UI review; use the local Supabase stack only when validating
+Auth, RLS, or Realtime semantics.
 
 ## Default Review Expectations
 

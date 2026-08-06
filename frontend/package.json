@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "cd .. && uv run python scripts/workspace_dev.py",
     "dev:test": "NEXT_PUBLIC_E2E_MOCK=1 NEXT_DIST_DIR=.next-test next dev -p 3001",
+    "demo:chat": "NEXT_PUBLIC_E2E_MOCK=1 NEXT_PUBLIC_LOCAL_DEMO=1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-demo BACKEND_API_URL=http://127.0.0.1:16081 NEXT_DIST_DIR=.next-demo next dev -p 3002",
     "dev:next": "next dev",
     "build": "next build",
     "start": "next start",

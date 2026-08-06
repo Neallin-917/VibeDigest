@@ -20,6 +20,7 @@ from services.summarizer.models import (
     DynamicSection,
     ContentPlan,
     SummaryResponseV4,
+    SummaryResponseV5,
 )
 from services.summarizer.facade import Summarizer
 
@@ -37,4 +38,5 @@ __all__ = [
     "DynamicSection",
     "ContentPlan",
     "SummaryResponseV4",
+    "SummaryResponseV5",
 ]

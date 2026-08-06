@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { threadKeys } from './queryKeys'
 import type { Thread } from '@/types'
+import { isLocalUiDemo } from '@/lib/local-ui-demo'
 
 type MutableThreadStatus = 'active' | 'archived'
 
@@ -53,21 +54,25 @@ function sortThreadsByUpdatedAt(threads: Thread[]) {
  */
 export function useThreadsQuery() {
     const queryClient = useQueryClient()
+    const isDemo = isLocalUiDemo()
 
     const { data: threads = [], isLoading } = useQuery({
         queryKey: threadKeys.all,
         queryFn: fetchThreads,
+        enabled: !isDemo,
         staleTime: 30_000,
         refetchOnWindowFocus: true,
     })
 
     const refetch = useCallback(async (): Promise<Thread[]> => {
+        if (isDemo) return []
+
         const data = await queryClient.fetchQuery({
             queryKey: threadKeys.all,
             queryFn: fetchThreads,
         })
         return data
-    }, [queryClient])
+    }, [isDemo, queryClient])
 
     const updateThreadStatus = useCallback(async (threadId: string, status: MutableThreadStatus) => {
         const updatedThread = await patchThreadStatus(threadId, status)

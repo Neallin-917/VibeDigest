@@ -1,6 +1,6 @@
 # Feature: Streaming Structured Summary in Chat
 
-> **Status**: Planning  
+> **Status**: Superseded by the persisted inline-task implementation (2026-08-06)
 > **Created**: 2026-02-01  
 > **Depends On**: [summary-block-rendering.md](./summary-block-rendering.md)  
 > **Owner**: @haoran
@@ -11,10 +11,13 @@
 
 用户提问时，希望在**对话框内流式输出结构化的 Summary UI**，而不是等待右侧面板加载完成。
 
-当前：
-- Chat 中只能流式输出纯文本
-- Summary 是后端处理完后一次性返回
-- 结构化内容无法实时渲染
+当前实现：
+- URL 提交后立即创建并持久化一条 `data-task-status` 消息。
+- 任务记录经 Supabase Realtime 更新；视频标题或封面到达时，该消息立即渲染可播放 iframe。
+- 摘要输出持久化后，同一消息只追加一条结论和最多两张关键洞察，不等待页面右侧面板。
+- 时间戳只保留为内部结构化证据，不参与播放器跳转，直到内容定位可靠性被重新验证。
+
+本文余下内容保留为 2026-02 的技术探索记录，不能作为当前产品行为或实现路线的依据。
 
 ---
 

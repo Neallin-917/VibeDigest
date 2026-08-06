@@ -1,9 +1,11 @@
 # Feature: Summary Block Rendering Enhancement
 
-> **Status**: Planning  
+> **Status**: Historical proposal (superseded for chat, 2026-08-06)
 > **Created**: 2026-02-01  
 > **Related**: [summary-block-architecture.md](../summary-block-architecture.md)  
 > **Owner**: @haoran
+
+> 当前产品在 `TaskDataGroup` 中以行内播放器、单条结论和最多两张关键洞察卡片渲染已持久化结果；不再有 `VideoDetailPanel` 或交互式时间戳跳转。本文余下内容是历史方案，不是当前实现约束。
 
 ---
 
@@ -41,7 +43,7 @@
 | 层 | 文件 | 改动 |
 |----|------|------|
 | Backend | `backend/prompts.py` | 允许 `keypoints.detail` 使用 Markdown |
-| Frontend | `VideoDetailPanel.tsx` | 用 `react-markdown` 渲染 detail 字段 |
+| Frontend | 历史 `VideoDetailPanel.tsx` | 用 `react-markdown` 渲染 detail 字段 |
 
 ### 实现步骤
 
@@ -64,7 +66,7 @@ cd frontend && npm install react-markdown
 ```
 
 ```tsx
-// VideoDetailPanel.tsx
+// 历史 VideoDetailPanel.tsx
 import ReactMarkdown from 'react-markdown';
 
 // 替换 {kp.detail} 为：
@@ -160,7 +162,7 @@ function normalizeToBlocks(content: unknown): Block[] {
 | 1.2 | 迁移现有 UI 为独立 Block 组件 | 1.1 |
 | 1.3 | 创建 `useSummaryBlocks.ts` 兼容层 | 1.1 |
 | 1.4 | 创建 `SummaryRenderer.tsx` | 1.2, 1.3 |
-| 1.5 | 替换 `VideoDetailPanel` 使用新架构 | 1.4 |
+| 1.5 | 替换历史 `VideoDetailPanel` 使用新架构 | 1.4 |
 | 1.6 | 后端输出 v3 格式（可选） | 1.5 验证通过后 |
 
 ---
@@ -186,5 +188,5 @@ function normalizeToBlocks(content: unknown): Block[] {
 
 - `backend/prompts.py` - Summary Prompt 模板
 - `backend/services/summarizer/models.py` - Pydantic Schema
-- `frontend/src/components/chat/VideoDetailPanel.tsx` - 当前渲染组件
+- `frontend/src/components/chat/VideoDetailPanel.tsx` - 历史渲染组件（已删除）
 - `docs/summary-block-architecture.md` - 详细架构设计

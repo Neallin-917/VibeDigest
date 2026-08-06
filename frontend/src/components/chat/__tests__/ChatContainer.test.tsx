@@ -313,17 +313,12 @@ describe('ChatContainer', () => {
             {
               type: 'data-task-status',
               id: 'task-status-task-123',
-              data: { taskId: 'task-123', status: 'pending', progress: 0 },
-            } as any,
-            {
-              type: 'data-task-progress',
-              id: 'task-progress-task-123',
-              data: { taskId: 'task-123' },
-            } as any,
-            {
-              type: 'data-task-plan',
-              id: 'task-plan-task-123',
-              data: { taskId: 'task-123' },
+              data: {
+                taskId: 'task-123',
+                status: 'pending',
+                progress: 0,
+                videoUrl: 'https://www.youtube.com/watch?v=test123',
+              },
             } as any,
           ],
         },
@@ -527,25 +522,20 @@ describe('ChatContainer', () => {
     expect(screen.queryByText('chat.tools.status.videoTask')).not.toBeInTheDocument()
   })
 
-  it('renders real task progress from persisted message data', async () => {
+  it('renders an inline task artifact from persisted task data', async () => {
     const messages: ChatUIMessage[] = [{
-      id: 'assistant-task-progress',
+      id: 'assistant-inline-task',
       role: 'assistant',
       parts: [
         {
           type: 'data-task-status',
           id: 'task-status-new-task',
-          data: { taskId: 'new-task', status: 'pending', progress: 0 },
-        } as any,
-        {
-          type: 'data-task-progress',
-          id: 'task-progress-new-task',
-          data: { taskId: 'new-task' },
-        } as any,
-        {
-          type: 'data-task-plan',
-          id: 'task-plan-new-task',
-          data: { taskId: 'new-task' },
+          data: {
+            taskId: 'new-task',
+            status: 'pending',
+            progress: 0,
+            videoUrl: 'https://www.youtube.com/watch?v=new-task',
+          },
         } as any,
       ],
     }]
@@ -562,7 +552,7 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer activeTaskId="new-task" />)
 
-    expect(await screen.findByText('chat.tools.status.videoTask')).toBeInTheDocument()
+    expect(await screen.findByTestId('inline-task-artifact')).toBeInTheDocument()
   })
 
   it('renders only the latest status card when history repeats the same task', async () => {
@@ -570,17 +560,12 @@ describe('ChatContainer', () => {
       {
         type: 'data-task-status',
         id: 'task-status-repeated-task',
-        data: { taskId: 'repeated-task', status: 'pending', progress: 0 },
-      },
-      {
-        type: 'data-task-progress',
-        id: 'task-progress-repeated-task',
-        data: { taskId: 'repeated-task' },
-      },
-      {
-        type: 'data-task-plan',
-        id: 'task-plan-repeated-task',
-        data: { taskId: 'repeated-task' },
+        data: {
+          taskId: 'repeated-task',
+          status: 'pending',
+          progress: 0,
+          videoUrl: 'https://www.youtube.com/watch?v=repeated-task',
+        },
       },
     ] as ChatUIMessage['parts']
     const messages: ChatUIMessage[] = [
@@ -601,6 +586,6 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer activeTaskId="repeated-task" />)
 
-    expect(await screen.findAllByText('chat.tools.status.videoTask')).toHaveLength(1)
+    expect(await screen.findAllByTestId('inline-task-artifact')).toHaveLength(1)
   })
 })

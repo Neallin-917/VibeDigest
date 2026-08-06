@@ -41,6 +41,7 @@ export const env = createEnv({
     
     // Testing
     NEXT_PUBLIC_E2E_MOCK: z.string().optional(),
+    NEXT_PUBLIC_LOCAL_DEMO: z.string().optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
@@ -69,6 +70,7 @@ export const env = createEnv({
     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
     NEXT_PUBLIC_BING_SITE_VERIFICATION: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION,
     NEXT_PUBLIC_E2E_MOCK: process.env.NEXT_PUBLIC_E2E_MOCK,
+    NEXT_PUBLIC_LOCAL_DEMO: process.env.NEXT_PUBLIC_LOCAL_DEMO,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,

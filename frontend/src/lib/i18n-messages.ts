@@ -407,8 +407,6 @@ export const messages: Record<Locale, Messages> = {
       loadingExamples: "Loading examples...",
       openingChat: "Opening chat...",
       openingThread: "Opening {title}",
-      videoDetails: "Video details",
-      closeVideoDetails: "Close video details",
       directSubmit: {
         unavailable: "Unable to process this video right now.",
         invalidResponse: "Unable to create a task for this URL.",
@@ -416,19 +414,12 @@ export const messages: Record<Locale, Messages> = {
       },
       loadMore: "Load More",
       loadingMore: "Loading...",
-      taskCompleteGuide: {
-        line1: "Video summary is ready.",
-        line2: "The summary is generated from the video's audio content and includes: overview, key points, and conclusions.",
-        line3: "It's available in the right panel. Feel free to ask more questions.",
-      },
       welcome: {
         title: "What would you like to digest today?",
         subtitle: "Paste a video or podcast URL to get AI-powered insights",
         tryExamples: "Or try these examples",
       },
-      contextPanel: {
-        title: "Context Panel",
-        analyzingVideo: "Analyzing video...",
+      inlineResult: {
         noSummary: "No summary available.",
       },
       tools: {
@@ -439,24 +430,13 @@ export const messages: Record<Locale, Messages> = {
           statusQueued: "Queued",
           statusReady: "Ready",
           statusFailed: "Failed",
-          processingPlan: "Processing Plan",
-          processingPlanDesc: "Step-by-step progress for this task",
-          progressCount: "{completed} of {total} complete",
-          viewSummary: "View Summary",
           errorGetStatus: "Failed to get task status",
           unknownError: "Unknown error",
           videoTask: "Video task",
           steps: {
-            queuedLabel: "Queued",
-            queuedDesc: "We verified the URL and prepared the workflow.",
             ingestLabel: "Fetch source data",
-            ingestDesc: "Collect metadata and pull the best available transcript.",
             transcribeLabel: "Transcribe audio",
-            transcribeDesc: "Generate a clean, timestamped transcript for analysis.",
             summarizeLabel: "Summarize content",
-            summarizeDesc: "Create an accurate, structured summary for quick reading.",
-            finalizeLabel: "Finalize outputs",
-            finalizeDesc: "Prepare the final assets and make them ready to view.",
           },
         },
         create: {
@@ -984,8 +964,6 @@ export const messages: Record<Locale, Messages> = {
       loadingExamples: "正在加载示例...",
       openingChat: "正在打开对话...",
       openingThread: "正在打开「{title}」",
-      videoDetails: "视频详情",
-      closeVideoDetails: "关闭视频详情",
       directSubmit: {
         unavailable: "暂时无法处理这个视频，请稍后重试。",
         invalidResponse: "暂时无法为这个链接创建任务。",
@@ -993,19 +971,12 @@ export const messages: Record<Locale, Messages> = {
       },
       loadMore: "加载更多",
       loadingMore: "加载中...",
-      taskCompleteGuide: {
-        line1: "视频总结已完成。",
-        line2: "摘要基于该视频的内容音频生成，包含：主题概览、重点信息、结论要点。",
-        line3: "已放在右侧面板，欢迎继续提问。",
-      },
       welcome: {
         title: "今天想总结什么内容？",
         subtitle: "粘贴视频或播客链接，获取 AI 洞察",
         tryExamples: "或者试试这些示例",
       },
-      contextPanel: {
-        title: "内容面板",
-        analyzingVideo: "正在分析视频...",
+      inlineResult: {
         noSummary: "暂无摘要。",
       },
       tools: {
@@ -1016,24 +987,13 @@ export const messages: Record<Locale, Messages> = {
           statusQueued: "排队中",
           statusReady: "就绪",
           statusFailed: "失败",
-          processingPlan: "处理计划",
-          processingPlanDesc: "此任务的逐步进度",
-          progressCount: "已完成 {completed} / {total}",
-          viewSummary: "查看摘要",
           errorGetStatus: "获取任务状态失败",
           unknownError: "未知错误",
           videoTask: "视频任务",
           steps: {
-            queuedLabel: "已入队",
-            queuedDesc: "已验证链接并准备好工作流。",
             ingestLabel: "获取源数据",
-            ingestDesc: "收集元数据并获取最佳可用字幕。",
             transcribeLabel: "转录音频",
-            transcribeDesc: "生成清晰的带时间戳转录稿供分析。",
             summarizeLabel: "生成摘要",
-            summarizeDesc: "生成准确的结构化摘要以便快速阅读。",
-            finalizeLabel: "整理结果",
-            finalizeDesc: "准备最终成果并生成可查看的版本。",
           },
         },
         create: {
@@ -1170,16 +1130,12 @@ export const messages: Record<Locale, Messages> = {
       loadingExamples: "例を読み込み中...",
       openingChat: "チャットを開いています...",
       openingThread: "「{title}」を開いています",
-      videoDetails: "動画の詳細",
-      closeVideoDetails: "動画の詳細を閉じる",
       directSubmit: {
         unavailable: "現在この動画を処理できません。しばらくしてからお試しください。",
         invalidResponse: "このURLのタスクを作成できませんでした。",
         networkError: "ネットワークエラーのため、動画処理を開始できませんでした。",
       },
-      contextPanel: {
-        title: "コンテキストパネル",
-        analyzingVideo: "動画を分析中...",
+      inlineResult: {
         noSummary: "要約はありません。",
       },
       tools: {
@@ -1190,24 +1146,13 @@ export const messages: Record<Locale, Messages> = {
           statusQueued: "キュー待ち",
           statusReady: "完了",
           statusFailed: "失敗",
-          processingPlan: "処理プラン",
-          processingPlanDesc: "このタスクのステップごとの進捗",
-          progressCount: "{completed} / {total} 完了",
-          viewSummary: "要約を見る",
           errorGetStatus: "タスク状態の取得に失敗",
           unknownError: "不明なエラー",
           videoTask: "動画タスク",
           steps: {
-            queuedLabel: "キュー登録済み",
-            queuedDesc: "URLを検証し、ワークフローを準備しました。",
             ingestLabel: "ソースデータを取得",
-            ingestDesc: "メタデータを収集し、最適な文字起こしを取得します。",
             transcribeLabel: "音声を文字起こし",
-            transcribeDesc: "分析用のタイムスタンプ付き文字起こしを生成します。",
             summarizeLabel: "コンテンツを要約",
-            summarizeDesc: "素早く読めるよう正確で構造化された要約を作成します。",
-            finalizeLabel: "出力を最終化",
-            finalizeDesc: "最終成果物を準備し、閲覧可能にします。",
           },
         },
         create: {

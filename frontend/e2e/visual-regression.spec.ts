@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test';
 import { setupApiMocks } from './fixtures/mock-api';
 
 test.describe('Visual Regression', () => {
-  test('Landing Page visual check', async ({ page }) => {
-    // Visual regression snapshots are platform-specific (darwin vs linux differ in fonts/rendering).
-    // Run locally only to update baselines: npx playwright test --update-snapshots
-    test.skip(!!process.env.CI, 'Visual regression snapshots must be generated per-platform locally');
+  test('Landing hero visual check', async ({ page }) => {
+    // Visual baselines are OS-specific and intentionally ignored by Git. They are
+    // a deliberate local review, not a dependency of the deterministic E2E suite.
+    test.skip(process.env.RUN_VISUAL_REGRESSION !== '1', 'Set RUN_VISUAL_REGRESSION=1 for local visual review');
 
     // Use setupApiMocks to ensure consistent API responses (includes blockExternalImages)
     await setupApiMocks(page);
@@ -16,14 +16,9 @@ test.describe('Visual Regression', () => {
     // Wait for Hero to be visible
     await expect(page.locator('h1')).toBeVisible();
 
-    // Take screenshot and compare
-    // Note: This will fail on the first run. 
-    // Run `npx playwright test --update-snapshots` to generate the baseline.
-    // CommunityTemplates loads dynamic data at SSR time (before page.route() applies),
-    // so page height and content may vary between runs. Use maxDiffPixelRatio for tolerance.
-    await expect(page).toHaveScreenshot('landing-page.png', {
-      maxDiffPixelRatio: 0.25,
-      fullPage: true
+    // Keep the visual target independent of server-rendered community data.
+    await expect(page.locator('#hero')).toHaveScreenshot('landing-hero.png', {
+      maxDiffPixelRatio: 0.02,
     });
   });
 });

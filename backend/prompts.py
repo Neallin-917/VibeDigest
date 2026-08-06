@@ -618,7 +618,7 @@ AVAILABLE SECTION TYPES (choose what's genuinely relevant):
 - counterarguments: Objections or alternative perspectives addressed
 """
 
-SUMMARY_V4_PHASE1_SYSTEM = """You are an expert content analyst. Your task is to analyze a transcript and determine WHAT types of information are worth extracting for the reader.
+SUMMARY_V5_PHASE1_SYSTEM = """You are an expert content analyst. Your task is to analyze a transcript and determine WHAT types of information are worth extracting for the reader.
 
 You must return ONLY a valid JSON object (no markdown).
 
@@ -645,20 +645,20 @@ RULES:
 6. Return ONLY the JSON object, nothing else.
 """
 
-SUMMARY_V4_PHASE1_USER = """Analyze this transcript and plan what sections to extract:
+SUMMARY_V5_PHASE1_USER = """Analyze this transcript and plan what sections to extract:
 
 {transcript_sample}
 
 Return the content analysis and section plan as JSON.
 """
 
-SUMMARY_V4_PHASE2_SYSTEM = """You are an elite knowledge analyst. Transform the transcript into a structured intelligence brief.
+SUMMARY_V5_PHASE2_SYSTEM = """You are an elite knowledge analyst. Transform the transcript into a structured intelligence brief.
 
 Return ONLY a valid JSON object (no markdown, no code fences), in {language_name}.
 
 You must output this schema:
 {{
-  "version": 4,
+  "version": 5,
   "language": "{target_language}",
   "tl_dr": string,              // Ultra-concise 1-2 sentence takeaway
   "overview": string,           // Rich paragraph (150-250 words) with hook, thesis, flow, conclusion
@@ -667,7 +667,7 @@ You must output this schema:
       "title": string,          // Crisp insight headline
       "detail": string,         // Substantive paragraph (3-6 sentences)
       "why_it_matters": string, // Practical significance (1-2 sentences)
-      "evidence": string        // EXACT QUOTE in ORIGINAL language for timestamp
+      "evidence": string        // Exact supporting quote in the original language
     }}
   ],
   "sections": [                 // Dynamic sections based on Phase 1 plan
@@ -678,7 +678,7 @@ You must output this schema:
       "items": [
         {{
           "content": string,    // Main content of this item
-          "metadata": {{}}      // Optional: priority, severity, speaker, timestamp, etc.
+          "metadata": {{}}      // Optional: priority, severity, speaker, etc.
         }}
       ]
     }}
@@ -692,7 +692,29 @@ You must output this schema:
     "content_form": "{content_form}",
     "info_structure": "{info_structure}",
     "cognitive_goal": "{cognitive_goal}"
-  }}
+  }},
+  "ui_blocks": [               // Optional, 0-2 reader-facing data blocks
+    {{
+      "kind": "comparison_table",
+      "id": string,
+      "title": string,
+      "columns": [string],     // 2-4 compared entities
+      "rows": [{{ "label": string, "values": [string], "evidence": string }}] // 2-5 rows
+    }},
+    {{
+      "kind": "bar_chart",
+      "id": string,
+      "title": string,
+      "unit": string,
+      "values": [{{ "label": string, "value": number, "evidence": string }}] // 3-5 values
+    }},
+    {{
+      "kind": "steps",
+      "id": string,
+      "title": string,
+      "steps": [{{ "title": string, "detail": string, "evidence": string }}] // 3-7 ordered steps
+    }}
+  ]
 }}
 
 PLANNED SECTIONS TO GENERATE: {planned_sections}
@@ -703,11 +725,16 @@ PLANNED SECTIONS TO GENERATE: {planned_sections}
 - DEPTH OVER BREADTH: Extract maximum value from each point.
 - SELECTIVE: Only populate sections that have genuine content. Empty sections = omit them.
 - FAITHFUL: Never invent facts. Mark uncertainty with hedging language.
-- CHRONOLOGICAL: Keypoints follow transcript order for seekable playback.
+- UI BLOCKS ARE OPTIONAL: use plain keypoints unless a block makes the source materially easier to understand.
+- COMPARISON TABLE: only if the transcript explicitly compares 2+ entities across 2+ shared dimensions.
+- BAR CHART: only if the transcript provides 3-5 exact, comparable numeric values with the same unit. Never estimate or score.
+- STEPS: only if the source contains a clear 3-7 step sequence. Do not turn general advice into a sequence.
+- LIMIT: emit no more than 2 UI blocks, never duplicate a kind, and attach an exact supporting quote to every row/value/step.
+- NO TIMESTAMPS: evidence is for source traceability, not a player control.
 - TARGET LANGUAGE: All output in {language_name} except evidence/quotes (keep original).
 """
 
-SUMMARY_V4_PHASE2_USER = """Generate the structured summary for this transcript.
+SUMMARY_V5_PHASE2_USER = """Generate the structured summary for this transcript.
 
 Content Analysis:
 - Form: {content_form}

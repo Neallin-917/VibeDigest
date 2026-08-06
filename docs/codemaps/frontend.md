@@ -67,6 +67,7 @@ src/app/
 | --- | --- | --- |
 | Chat workspace | `src/components/chat/` | Conversation UI and task data parts |
 | Task presentation | `src/components/tasks/` | Video/audio/transcript rendering and Realtime listener |
+| Inline knowledge blocks | `src/components/chat/KnowledgeUiBlocks.tsx` | Whitelisted table, chart, and steps renderers for validated V5 summary data |
 | App shell | `src/components/layout/` | Navigation, sidebar, feedback |
 | Shared primitives | `src/components/ui/` | Check here before creating a component; use CVA for variants |
 | Server-state hooks | `src/hooks/` | Query keys, tasks, threads, auth-derived behavior |
@@ -89,6 +90,10 @@ messages cross the single `chat-message-boundary.ts` validation boundary.
 - Keep task loading calm and explicit; avoid decorative skeletons, shimmer, and
   redundant progress surfaces.
 - Keep browser-visible errors sanitized through `safe-error.ts`.
+- Treat model-selected UI as data, not markup: `summary-contract.ts` validates
+  `ui_blocks` again in the browser and `KnowledgeUiBlocks.tsx` renders only the
+  approved table, bar-chart, and steps shapes. Malformed blocks disappear while
+  the text summary remains readable.
 
 ## Validation
 

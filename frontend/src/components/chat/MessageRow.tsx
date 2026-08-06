@@ -13,7 +13,6 @@ import type { ChatUIMessage } from '@/lib/chat-ui'
 interface MessageRowProps {
   message: ChatUIMessage
   isStreaming: boolean
-  onOpenPanel?: (taskId: string) => void
   liveTaskIds?: Set<string>
   visibleTaskIds?: Set<string>
 }
@@ -101,7 +100,6 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
 function MessageRowComponent({
   message,
   isStreaming,
-  onOpenPanel,
   liveTaskIds,
   visibleTaskIds,
 }: MessageRowProps) {
@@ -121,6 +119,13 @@ function MessageRowComponent({
     if (!hasRenderableParts) return null
   }
 
+  const conversationParts = message.parts?.filter(
+    part => part.type === 'text' || isToolUIPart(part)
+  ) ?? []
+  const dataParts = message.parts && message.parts.length > 0
+    ? renderDataParts(message.parts, liveTaskIds, visibleTaskIds)
+    : null
+
   return (
     <div
       data-streaming={isStreaming ? 'true' : 'false'}
@@ -132,17 +137,17 @@ function MessageRowComponent({
           message.role === 'user' ? 'items-end' : 'items-start'
         )}
       >
-        <div
-          className={cn(
-            'px-6 py-5 text-[15.5px] leading-7 relative overflow-hidden min-w-0 backdrop-blur-md',
-            message.role === 'user'
-              ? 'rounded-[20px] rounded-tr-sm bg-emerald-600/10 dark:bg-emerald-500/10 border border-emerald-600/10 dark:border-emerald-500/20 text-slate-800 dark:text-zinc-200'
-              : 'rounded-[20px] rounded-tl-sm bg-white/60 dark:bg-zinc-900/60 border border-white/50 dark:border-white/10 text-slate-800 dark:text-zinc-200 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)]'
-          )}
-        >
-          <div className="w-full min-w-0">
-            {message.parts && message.parts.length > 0
-              ? message.parts.map((part, index) => {
+        {conversationParts.length > 0 ? (
+          <div
+            className={cn(
+              'px-6 py-5 text-[15.5px] leading-7 relative overflow-hidden min-w-0 backdrop-blur-md',
+              message.role === 'user'
+                ? 'rounded-[20px] rounded-tr-sm bg-emerald-600/10 dark:bg-emerald-500/10 border border-emerald-600/10 dark:border-emerald-500/20 text-slate-800 dark:text-zinc-200'
+                : 'rounded-[20px] rounded-tl-sm bg-white/60 dark:bg-zinc-900/60 border border-white/50 dark:border-white/10 text-slate-800 dark:text-zinc-200 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)]'
+            )}
+          >
+            <div className="w-full min-w-0">
+              {conversationParts.map((part, index) => {
                   if (part.type === 'text') {
                     return (
                       <div
@@ -163,13 +168,11 @@ function MessageRowComponent({
                   }
 
                   return null
-                })
-              : null}
-            {message.parts && message.parts.length > 0
-              ? renderDataParts(message.parts, liveTaskIds, onOpenPanel, visibleTaskIds)
-              : null}
+                })}
+            </div>
           </div>
-        </div>
+        ) : null}
+        {dataParts}
       </div>
     </div>
   )
@@ -177,7 +180,6 @@ function MessageRowComponent({
 
 export const MessageRow = memo(MessageRowComponent, (prev, next) => {
   if (prev.isStreaming !== next.isStreaming) return false
-  if (prev.onOpenPanel !== next.onOpenPanel) return false
   if (!areTaskIdSetsEqual(prev.liveTaskIds, next.liveTaskIds)) return false
   if (!areTaskIdSetsEqual(prev.visibleTaskIds, next.visibleTaskIds)) return false
 

@@ -29,7 +29,6 @@ We use the Page Object Model pattern to organize test interactions.
 Page objects are located in `e2e/pages/`.
 - `AuthPage`: Login interactions
 - `ChatPage`: Chat interface interactions
-- `TaskPage`: Task card and details interactions
 - `SettingsPage`: Settings page interactions
 
 ### Test Data Factory

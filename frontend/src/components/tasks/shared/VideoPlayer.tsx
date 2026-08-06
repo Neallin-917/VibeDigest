@@ -12,8 +12,6 @@ interface VideoPlayerProps {
   audioUrl?: string | null
   audioCoverUrl?: string
   sourceUrl?: string
-  onMediaReady?: (ctrl: { seek: (seconds: number) => void }) => void
-  onTitleResolved?: (title: string) => void
   className?: string
 }
 
@@ -25,45 +23,25 @@ export function VideoPlayer({
   audioUrl,
   audioCoverUrl,
   sourceUrl,
-  onMediaReady,
-  onTitleResolved,
-  className
+  className,
 }: VideoPlayerProps) {
   return (
-    <div className={cn(
-      "glass-panel rounded-[24px] p-2 transition-all hover:shadow-lg backdrop-blur-xl border shadow-sm",
-      // Light Mode
-      "bg-white/65 border-white/50",
-      // Dark Mode
-      "dark:bg-black/40 dark:border-white/10",
-      className
-    )}>
-      <div className="relative aspect-video rounded-[20px] overflow-hidden shadow-inner bg-black">
+    <section className={cn('overflow-hidden rounded-2xl border border-border bg-surface-raised', className)}>
+      <div className="relative aspect-video bg-black">
         {mediaType === 'audio' && audioUrl ? (
-          <AudioEmbed 
+          <AudioEmbed
             audioUrl={audioUrl}
             coverUrl={audioCoverUrl || coverUrl}
             sourceUrl={sourceUrl || videoUrl}
             title={title}
-            onReady={onMediaReady}
           />
         ) : (
-          <VideoEmbed 
-            videoUrl={videoUrl}
-            title={title}
-            coverUrl={coverUrl}
-            onReady={onMediaReady}
-            onTitleResolved={onTitleResolved}
-          />
+          <VideoEmbed videoUrl={videoUrl} title={title} />
         )}
       </div>
-      
-      {/* Title & Metadata */}
-      <div className="px-2 pt-3 pb-1">
-        <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 line-clamp-1">
-          {title || "Loading..."}
-        </h4>
+      <div className="px-4 py-3">
+        <h3 className="truncate text-sm font-medium text-foreground">{title || 'Video source'}</h3>
       </div>
-    </div>
+    </section>
   )
 }

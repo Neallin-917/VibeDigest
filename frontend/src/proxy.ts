@@ -9,6 +9,7 @@ const DEFAULT_LOCALE = "en"
 const PROTECTED_ROUTES = ['/history', '/settings']
 const PUBLIC_ROUTES = ['/login', '/auth', '/register', '/faq', '/explore', '/terms', '/privacy', '/about', '/chat']
 const CHAT_HISTORY_MESSAGES_PATH = /^\/api\/chat\/threads\/[^/]+\/messages$/
+const isLocalUiDemo = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_LOCAL_DEMO === '1'
 
 function isAuthenticatedChatHistoryRead(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -44,6 +45,10 @@ export async function proxy(request: NextRequest) {
   // route handlers. Skipping this duplicate Auth round-trip keeps reopening a
   // conversation responsive while all other API paths retain session refresh.
   if (pathname.startsWith('/api')) {
+    if (isLocalUiDemo) {
+      return NextResponse.next()
+    }
+
     if (isAuthenticatedChatHistoryRead(request)) {
       return NextResponse.next()
     }

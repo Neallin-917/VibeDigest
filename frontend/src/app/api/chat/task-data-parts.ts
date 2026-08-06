@@ -1,6 +1,5 @@
 import type { UIMessageStreamWriter } from 'ai'
 import type { ChatUIMessage } from '@/lib/chat-ui'
-import { getResolvedTaskProgress } from '@/lib/task-progress'
 
 type TaskStatusLike = {
   taskId: string
@@ -16,7 +15,11 @@ export function writeTaskDataParts(
   writer: UIMessageStreamWriter<ChatUIMessage>,
   task: TaskStatusLike
 ) {
-  const progress = getResolvedTaskProgress(task.status, task.progress)
+  const progress = task.status === 'completed'
+    ? 100
+    : typeof task.progress === 'number'
+      ? Math.max(0, Math.min(task.progress, 100))
+      : 0
 
   writer.write({
     type: 'data-task-status',
@@ -29,22 +32,6 @@ export function writeTaskDataParts(
       thumbnailUrl: task.thumbnail_url,
       videoUrl: task.video_url,
       errorMessage: task.error_message,
-    },
-  })
-
-  writer.write({
-    type: 'data-task-progress',
-    id: `task-progress-${task.taskId}`,
-    data: {
-      taskId: task.taskId,
-    },
-  })
-
-  writer.write({
-    type: 'data-task-plan',
-    id: `task-plan-${task.taskId}`,
-    data: {
-      taskId: task.taskId,
     },
   })
 }

@@ -19,11 +19,17 @@
     - [ ] **示例卡片**: 点击示例卡片应直接填充并提交。
 - **对话交互**
     - [x] **提交 URL**: 发送 YouTube 链接，显示 Loading 状态。
-    - [x] **视频卡片**: 识别 URL 并渲染 `VideoCardMessage`。
-    - [x] **Context Panel**: 点击卡片打开右侧面板，加载播放器。
+    - [x] **渐进式任务消息**: URL 提交后先渲染任务消息；视频元数据到达后，在同一消息中显示可播放 iframe。
+- [x] **知识卡片**: 摘要输出写入后，在播放器下追加一条结论与最多两条关键洞察；在有明确对比、可比数值或步骤时，追加经过校验的表格、柱状图或步骤卡；时间戳不触发播放器跳转。
 - **消息渲染**
     - [ ] **AI 回复**: 正常显示文本消息 (Markdown)。
-    - [ ] **工具状态**: 显示 "Thinking..." 或工具调用过程 (可选)。
+- [ ] **工具状态**: 显示 "Thinking..." 或工具调用过程 (可选)。
+
+#### 本地交互演示（无服务依赖）
+
+- `cd frontend && npm run demo:chat` 启动确定性 fixture。
+- 提交公开 YouTube 或 Bilibili 链接后，应依次看到：任务状态、可播放 iframe、结论、两条关键洞察、对比表和轻量柱状图。
+- 不连接 Supabase、FastAPI、Worker 或模型服务；真实 Auth/Realtime 验证仍走独立的本地 Supabase 或 E2E 流程。
 
 #### 2. 获客流程 (`e2e/task-creation.spec.ts`)
 - **Landing Page**
@@ -42,7 +48,7 @@
 #### 1. Chat Components (`src/components/chat`)
 - [x] `ChatWorkspace.tsx`: Main chat layout and provider integration (`ChatWorkspace.test.tsx`).
 - [ ] `ChatInput.tsx`: 输入框交互, 提交, Loading 状态禁用。
-- [x] `VideoDetailPanel.tsx` (原 TaskDetail): 视频播放器集成, 摘要渲染, 时间戳跳转。
+- [x] `TaskDataGroup.tsx`: 任务 Realtime 订阅、行内播放器和极简知识卡片 (`TaskDataGroup.test.tsx`)。
 - [ ] `WelcomeScreen.tsx`: 示例加载, 布局响应式。
 
 #### 2. Sidebar & Navigation

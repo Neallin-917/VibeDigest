@@ -94,6 +94,59 @@ describe('summary-contract', () => {
     ).toBeNull()
   })
 
+  it('accepts only safe, complete V5 UI blocks', () => {
+    const parsed = parseCurrentSummary({
+      ...validSummary,
+      version: 5,
+      ui_blocks: [
+        {
+          kind: 'comparison_table',
+          id: 'comparison-1',
+          title: 'A useful comparison',
+          columns: ['Option A', 'Option B'],
+          rows: [
+            { label: 'Cost', values: ['Low', 'High'], evidence: 'A supported quote.' },
+            { label: 'Speed', values: ['Fast', 'Slow'], evidence: 'Another supported quote.' },
+          ],
+        },
+        {
+          kind: 'bar_chart',
+          id: 'chart-1',
+          title: 'Verified values',
+          unit: 'items',
+          values: [
+            { label: 'First', value: 3, evidence: 'Quoted 3.' },
+            { label: 'Second', value: 5, evidence: 'Quoted 5.' },
+            { label: 'Third', value: 8, evidence: 'Quoted 8.' },
+          ],
+        },
+      ],
+    })
+
+    expect(parsed?.uiBlocks).toHaveLength(2)
+    expect(parsed?.uiBlocks?.[0]).toMatchObject({ kind: 'comparison_table', id: 'comparison-1' })
+    expect(parsed?.uiBlocks?.[1]).toMatchObject({ kind: 'bar_chart', id: 'chart-1' })
+  })
+
+  it('drops malformed UI blocks and keeps the text summary readable', () => {
+    const parsed = parseCurrentSummary({
+      ...validSummary,
+      version: 5,
+      ui_blocks: [
+        {
+          kind: 'bar_chart',
+          id: 'chart-1',
+          title: 'Not enough data',
+          unit: 'items',
+          values: [{ label: 'Only one', value: 1, evidence: 'Unsupported chart.' }],
+        },
+      ],
+    })
+
+    expect(parsed).toMatchObject({ overview: 'Structured overview.', keypoints: validSummary.keypoints })
+    expect(parsed?.uiBlocks).toBeUndefined()
+  })
+
   it('prefers the canonical locale-null summary and ignores invalid rows', () => {
     const picked = pickPreferredSummaryOutput([
       {

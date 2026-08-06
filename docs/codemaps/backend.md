@@ -125,7 +125,7 @@ worker.py (Durable Consumer)
 | `services/task_queue.py` | Versioned PGMQ messages | `PostgresTaskQueue` |
 | `services/job_handlers.py` | Pipeline attempt and output retry | `run_pipeline`, `handle_retry_output` |
 | `workflow.py` | LangGraph state machine | `app` (compiled graph) |
-| `services/summarizer/` | LLM summarization | `Summarizer` |
+| `services/summarizer/` | LLM summarization and validated V4/V5 output contracts | `Summarizer`, `SummaryResponseV5` |
 | `services/transcriber.py` | Audio transcription | `Transcriber` |
 | `services/video_processor.py` | yt-dlp download, caption extraction | `VideoProcessor` |
 | `db_client.py` | Postgres operations | `DBClient` |
@@ -185,3 +185,13 @@ backend/tests/
 
 Operational scripts live under `backend/scripts/`; supported entrypoints are
 documented by `Makefile` and `CONTRIBUTING.md`, not duplicated here.
+
+## Summary output contract
+
+The summarizer persists a V5-compatible JSON summary. The familiar conclusion,
+keypoints, and dynamic sections remain required; `ui_blocks` is an optional
+list of at most two validated knowledge blocks. Only three data-only shapes are
+allowed: `comparison_table`, `bar_chart`, and `steps`. Every row, value, and
+step retains source evidence. Invalid optional blocks are dropped without
+discarding an otherwise valid text summary. The LLM never supplies executable
+HTML, JSX, SVG, or renderer configuration.

@@ -25,7 +25,6 @@ interface ChatContainerProps {
   initialMessages?: ChatUIMessage[]
   isAuthenticated?: boolean | null
   isInteractionLocked?: boolean
-  onOpenPanel?: (taskId: string) => void
   onSelectExample?: (taskId: string) => void
   onChatStarted?: (threadId: string, taskId?: string) => void
   initialExamples?: Promise<ChatExample[]> | null
@@ -76,7 +75,6 @@ export function ChatContainer({
   initialMessages = [],
   isAuthenticated = null,
   isInteractionLocked = false,
-  onOpenPanel,
   onSelectExample,
   onChatStarted,
   initialExamples = null
@@ -314,7 +312,6 @@ export function ChatContainer({
                 key={m.id}
                 message={m}
                 isStreaming={false}
-                onOpenPanel={onOpenPanel}
                 liveTaskIds={latestTaskIdsByMessage.get(m.id)}
                 visibleTaskIds={latestTaskIdsByMessage.get(m.id) ?? NO_TASK_IDS}
               />
@@ -325,7 +322,6 @@ export function ChatContainer({
                 key={streamingMessage.id}
                 message={streamingMessage}
                 isStreaming
-                onOpenPanel={onOpenPanel}
                 liveTaskIds={NO_TASK_IDS}
               />
             ) : null}

@@ -1,8 +1,10 @@
 # Implementation Plan: Unified Summary Block Rendering Architecture
 
-> **Status**: Draft  
+> **Status**: Historical draft (superseded for chat, 2026-08-06)
 > **Created**: 2026-01-30  
 > **Author**: AI Assistant  
+
+> 当前聊天面使用 `TaskDataGroup` 消费已持久化的任务/摘要数据：元数据到达时先展示播放器，摘要完成后追加极简知识卡片。本文保留为历史架构探索，不引用已删除的 `VideoDetailPanel`。
 
 ---
 
@@ -217,7 +219,7 @@ function normalizeToBlocks(content: unknown): Block[] {
 | 1.3 | `blocks/*.tsx` | 迁移现有 UI 为独立 Block 组件 |
 | 1.4 | `useSummaryBlocks.ts` | v2 → blocks[] 转换逻辑 |
 | 1.5 | `SummaryRenderer.tsx` | 主渲染器 |
-| 1.6 | 替换 `VideoDetailPanel` | 使用新架构 |
+| 1.6 | 替换历史 `VideoDetailPanel` | 使用新架构 |
 
 **产出**：前端完成解耦，现有功能不变
 
@@ -286,7 +288,7 @@ function normalizeToBlocks(content: unknown): Block[] {
 ## 8. 验收标准
 
 ### Phase 1 完成标准
-- [ ] VideoDetailPanel 使用 SummaryRenderer
+- [ ] 历史 VideoDetailPanel 使用 SummaryRenderer
 - [ ] 现有 v2 数据正常渲染
 - [ ] 新增 Block type 只需改 BlockRegistry + 新组件
 

@@ -31,7 +31,7 @@ The conclusions below are grounded in these repository facts:
 | Route rendering | Core product routes are dynamic (`/[lang]/chat`, task detail, settings, explore) |
 | Client surface | `73` files use `"use client"` |
 | `use client` hotspots | `components/chat` 19, `components/ui` 9, `app/[lang]` 9, `components/tasks` 7, `components/layout` 7, `components/landing` 7 |
-| Large files | Locale content remains large but is isolated in the server-only import graph; current interactive hotspots include `VideoDetailPanel.tsx`, `useThreadNavigation.ts`, and `ChatContainer.tsx` |
+| Large files | Locale content remains large but is isolated in the server-only import graph; current interactive hotspots include `TaskDataGroup.tsx`, `useThreadNavigation.ts`, and `ChatContainer.tsx` |
 | Heavy imports observed | `react-markdown`, `shiki`, AI SDK, `@tanstack/react-query`, `@supabase/supabase-js`, `next/navigation`, `sonner`, Vercel analytics; `framer-motion` exists only in an unused landing module |
 
 ## Current Verified Interventions
@@ -193,14 +193,14 @@ Priority rules:
 | --- | --- | --- |
 | Shell | Global client boundary is wider than necessary because providers, toaster, theme, and analytics sit below `[lang]/layout.tsx` and participate in every route | P0 |
 | Route | Chat is the dominant product path and also the densest client-render surface; landing is secondary and mostly first-load/animation focused | P0 |
-| Feature | Chat and Video Detail are the highest-cost interactive areas; thread navigation is the highest state-complexity area | P0 |
+| Feature | Chat and inline task artifacts are the highest-cost interactive areas; thread navigation is the highest state-complexity area | P0 |
 | Infra | The all-locale client payload is resolved; markdown/rendering/subscription infra remains the meaningful optimization surface | P1 |
 
 ## Route Matrix
 
 | Route group | Render mode | Performance note | Priority |
 | --- | --- | --- | --- |
-| `/[lang]/chat` | Dynamic | Highest client-state density, route-level suspense fallback, sidebar + workspace + detail panel all active on core path | P0 |
+| `/[lang]/chat` | Dynamic | Highest client-state density, route-level suspense fallback, sidebar + workspace + inline task artifacts on the core path | P0 |
 | `/[lang]/tasks/[id]` and `/[lang]/tasks/[id]/[slug]` | Dynamic | Content-heavy detail pages; slug route uses markdown rendering in the server page, but still depends on complex task content | P1 |
 | `/[lang]/explore` | Dynamic | Not enough evidence of major hotspot yet; likely moderate | P2 |
 | `/[lang]/settings` and pricing | Dynamic | Lower traffic and less sustained interactivity than chat | P2 |
@@ -270,30 +270,29 @@ Priority rules:
 
 - `P0`
 
-### P0. Video Detail Panel
+### P0. Inline Task Artifact
 
-**Module:** `VideoDetailPanel`
+**Module:** `TaskDataGroup`
 
 **Responsibility**
 
-- Displays video context, summary structures, media seeking, realtime task updates, and animated collapsible sections
+- Displays source metadata, an embedded player, concise summary cards, and realtime task updates inside the owning chat message
 
 **Risk profile**
 
 | Dimension | Score | Notes |
 | --- | --- | --- |
-| First-load cost | 3 | It is dynamically imported in `ChatWorkspace`, which helps, but it is still a large client-only module |
-| Interaction cost | 4 | Rich UI, media interactions, animated cards, expandable sections, and mixed content rendering |
-| Sustained cost | 5 | Subscribes to realtime task changes and stays mounted during task-focused reading sessions |
-| Bundle cost | 4 | Imports Supabase realtime types, media player logic, motion, and complex parsing helpers |
-| Engineering complexity | 5 | Combines subscription, normalization/parsing, UI composition, and media control in one file |
+| First-load cost | 2 | It is loaded with the chat message renderer and only mounts for persisted task data parts |
+| Interaction cost | 2 | The player is native-provider controlled and the card surface has no expandable or seek interactions |
+| Sustained cost | 4 | It subscribes to task changes and summary/audio output changes only while its message is visible |
+| Bundle cost | 3 | Imports Supabase realtime types, media embeds, and summary parsing helpers |
+| Engineering complexity | 3 | Keeps data subscription and a deliberately small presentational surface together |
 
 **Trigger scenarios**
 
-- Opening a task panel from chat
-- Following live task progress
-- Reading and navigating structured summary sections
-- Seeking media from summary/keypoint references
+- Receiving video metadata after a URL submission
+- Following a live task in the chat transcript
+- Receiving the persisted structured summary output
 
 **Resource cost shape**
 
@@ -566,11 +565,11 @@ These areas should be treated as design-heavy optimization work rather than tact
    - markdown/tool/data rendering
    - task-panel opening side effects
 
-2. Video detail mixed responsibilities
+2. Inline task artifact responsibilities
    - realtime subscription
    - structured summary parsing
-   - media control
-   - animated presentation
+   - provider iframe rendering
+   - card presentation
 
 3. Thread navigation state machine
    - URL sync
@@ -589,7 +588,7 @@ These areas should be treated as design-heavy optimization work rather than tact
 ### P0
 
 - Chat workspace chain
-- Video detail panel
+- Inline task artifact
 - Thread navigation and query coordination
 
 These are the first modules to optimize because they sit on the core product path and combine high runtime cost with high engineering leverage.
@@ -617,7 +616,7 @@ These are meaningful but should follow once the chat path is decomposed and the 
 ### Phase 2: Medium-Risk Structural Work
 
 - Split chat orchestration from rendering and transport concerns
-- Split `VideoDetailPanel` into subscription, parsing, and presentational sections
+- Split `TaskDataGroup` only when measured render or subscription cost justifies it
 - Clarify thread navigation state ownership and query cache policy
 - Keep locale content server-owned and add no further split until payload growth justifies it
 

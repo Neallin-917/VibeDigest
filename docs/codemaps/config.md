@@ -49,7 +49,7 @@ in `config/llm-provider-defaults.json`; environment aliases may override them.
 - CORS/origin: `FRONTEND_URL`, `ALLOWED_ORIGINS`, `BACKEND_ORIGIN_URL`
 - Audio: `OPENAI_AUDIO_BASE_URL`, `OPENAI_AUDIO_API_KEY`,
   `OPENAI_TRANSCRIPTION_MODEL`
-- Summary: `SUMMARY_STRATEGY` defaults to `v4_dynamic`
+- Summary: `SUMMARY_STRATEGY` defaults to `v5_dynamic`
 
 Exact validation/defaults are owned by `backend/config.py`,
 `backend/worker.py`, `frontend/src/env.ts`, and

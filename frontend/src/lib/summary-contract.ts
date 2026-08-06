@@ -19,6 +19,43 @@ export interface CurrentSummarySection {
   items: CurrentSummarySectionItem[]
 }
 
+export type ComparisonTableBlock = {
+  kind: 'comparison_table'
+  id: string
+  title: string
+  columns: string[]
+  rows: Array<{
+    label: string
+    values: string[]
+    evidence: string
+  }>
+}
+
+export type BarChartBlock = {
+  kind: 'bar_chart'
+  id: string
+  title: string
+  unit: string
+  values: Array<{
+    label: string
+    value: number
+    evidence: string
+  }>
+}
+
+export type StepsBlock = {
+  kind: 'steps'
+  id: string
+  title: string
+  steps: Array<{
+    title: string
+    detail: string
+    evidence: string
+  }>
+}
+
+export type CurrentSummaryUiBlock = ComparisonTableBlock | BarChartBlock | StepsBlock
+
 export interface CurrentSummary {
   version: number
   language: string
@@ -26,6 +63,7 @@ export interface CurrentSummary {
   overview: string
   keypoints: CurrentSummaryKeyPoint[]
   sections: CurrentSummarySection[]
+  uiBlocks?: CurrentSummaryUiBlock[]
   context?: Record<string, unknown>
   content_type?: Record<string, unknown>
 }
@@ -50,6 +88,85 @@ function asNonEmptyString(value: unknown): string | undefined {
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function asStringArray(value: unknown, minLength: number, maxLength: number): string[] | null {
+  if (!Array.isArray(value) || value.length < minLength || value.length > maxLength) return null
+
+  const strings = value.map(asNonEmptyString)
+  return strings.every((item): item is string => Boolean(item)) ? strings : null
+}
+
+function parseUiBlocks(value: unknown): CurrentSummaryUiBlock[] {
+  if (!Array.isArray(value)) return []
+
+  const blocks: CurrentSummaryUiBlock[] = []
+  const seenKinds = new Set<CurrentSummaryUiBlock['kind']>()
+
+  for (const candidate of value.slice(0, 2)) {
+    if (!isRecord(candidate)) continue
+
+    const kind = asNonEmptyString(candidate.kind)
+    const id = asNonEmptyString(candidate.id)
+    const title = asNonEmptyString(candidate.title)
+    if (!kind || !id || !title || seenKinds.has(kind as CurrentSummaryUiBlock['kind'])) continue
+
+    if (kind === 'comparison_table') {
+      const columns = asStringArray(candidate.columns, 2, 4)
+      if (!columns || !Array.isArray(candidate.rows) || candidate.rows.length < 2 || candidate.rows.length > 5) continue
+
+      const rows = candidate.rows.flatMap(row => {
+        if (!isRecord(row)) return []
+        const label = asNonEmptyString(row.label)
+        const values = asStringArray(row.values, columns.length, columns.length)
+        const evidence = asNonEmptyString(row.evidence)
+        return label && values && evidence ? [{ label, values, evidence }] : []
+      })
+      if (rows.length !== candidate.rows.length) continue
+
+      blocks.push({ kind, id, title, columns, rows })
+      seenKinds.add(kind)
+      continue
+    }
+
+    if (kind === 'bar_chart') {
+      const unit = asNonEmptyString(candidate.unit)
+      if (!unit || !Array.isArray(candidate.values) || candidate.values.length < 3 || candidate.values.length > 5) continue
+
+      const values = candidate.values.flatMap(item => {
+        if (!isRecord(item)) return []
+        const label = asNonEmptyString(item.label)
+        const numericValue = asNumber(item.value)
+        const evidence = asNonEmptyString(item.evidence)
+        return label && numericValue !== undefined && numericValue >= 0 && evidence
+          ? [{ label, value: numericValue, evidence }]
+          : []
+      })
+      if (values.length !== candidate.values.length) continue
+
+      blocks.push({ kind, id, title, unit, values })
+      seenKinds.add(kind)
+      continue
+    }
+
+    if (kind === 'steps') {
+      if (!Array.isArray(candidate.steps) || candidate.steps.length < 3 || candidate.steps.length > 7) continue
+
+      const steps = candidate.steps.flatMap(step => {
+        if (!isRecord(step)) return []
+        const stepTitle = asNonEmptyString(step.title)
+        const detail = asNonEmptyString(step.detail)
+        const evidence = asNonEmptyString(step.evidence)
+        return stepTitle && detail && evidence ? [{ title: stepTitle, detail, evidence }] : []
+      })
+      if (steps.length !== candidate.steps.length) continue
+
+      blocks.push({ kind, id, title, steps })
+      seenKinds.add(kind)
+    }
+  }
+
+  return blocks
 }
 
 function asVersion(value: unknown): number | undefined {
@@ -157,6 +274,8 @@ export function parseCurrentSummary(content: unknown): CurrentSummary | null {
     })
   }
 
+  const uiBlocks = parseUiBlocks(value.ui_blocks)
+
   return {
     version,
     language,
@@ -164,6 +283,7 @@ export function parseCurrentSummary(content: unknown): CurrentSummary | null {
     overview,
     keypoints,
     sections,
+    ...(uiBlocks.length > 0 ? { uiBlocks } : {}),
     context: isRecord(value.context) ? value.context : undefined,
     content_type: isRecord(value.content_type) ? value.content_type : undefined,
   }

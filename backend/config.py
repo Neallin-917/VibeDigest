@@ -223,8 +223,8 @@ class Settings:
     )
 
     # Summary Strategy
-    # 'v4_dynamic' - Two-phase dynamic summary with content-aware section generation (default)
-    SUMMARY_STRATEGY: str = os.getenv("SUMMARY_STRATEGY", "v4_dynamic")
+    # 'v5_dynamic' - Two-phase dynamic summary with optional validated knowledge UI blocks (default)
+    SUMMARY_STRATEGY: str = os.getenv("SUMMARY_STRATEGY", "v5_dynamic")
 
     def __init__(self):
         # Log strategy on init to confirm loading

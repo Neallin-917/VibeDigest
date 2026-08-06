@@ -21,24 +21,12 @@ export const taskStatusDataSchema = z.object({
   errorMessage: z.string().optional(),
 })
 
-export const taskProgressDataSchema = z.object({
-  taskId: z.string(),
-})
-
-export const taskPlanDataSchema = z.object({
-  taskId: z.string(),
-})
-
 export const chatDataSchemas = {
   'task-status': taskStatusDataSchema,
-  'task-progress': taskProgressDataSchema,
-  'task-plan': taskPlanDataSchema,
 } as const
 
 export type ChatUIDataParts = {
   'task-status': z.infer<typeof taskStatusDataSchema>
-  'task-progress': z.infer<typeof taskProgressDataSchema>
-  'task-plan': z.infer<typeof taskPlanDataSchema>
 }
 
 export type ChatUITools = InferUITools<ChatToolSet>
@@ -119,16 +107,6 @@ export function createTaskDataParts(params: {
           videoUrl,
           errorMessage,
         },
-      },
-      {
-        type: 'data-task-progress',
-        id: `task-progress-${taskId}`,
-        data: { taskId },
-      },
-      {
-        type: 'data-task-plan',
-        id: `task-plan-${taskId}`,
-        data: { taskId },
       },
     ],
     metadata: { createdAt: new Date().toISOString() },

@@ -7,14 +7,18 @@ import { I18nProvider } from "@/components/i18n/I18nProvider"
 import type { Locale, Messages } from "@/lib/i18n"
 import { accountKeys } from "@/hooks/useAccountQueries"
 import { createClient } from "@/lib/supabase"
+import { isLocalUiDemo } from "@/lib/local-ui-demo"
 
 import { ThemeProvider } from "next-themes"
 
 function AccountSessionSync() {
     const queryClient = useQueryClient()
-    const supabase = useMemo(() => createClient(), [])
+    const isDemo = isLocalUiDemo()
+    const supabase = useMemo(() => (isDemo ? null : createClient()), [isDemo])
 
     useEffect(() => {
+        if (!supabase) return
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
             // Render the browser session immediately while useCurrentUserQuery
             // continues its server-validated lookup in the background.

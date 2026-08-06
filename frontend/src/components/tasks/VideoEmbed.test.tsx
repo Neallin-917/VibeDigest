@@ -1,11 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { VideoEmbed, supportsVideoEmbed } from './VideoEmbed'
-import { vi, describe, it, expect } from 'vitest'
-
-// Mock YouTubePlayer since it uses standard React rendering
-vi.mock('@/components/tasks/YouTubePlayer', () => ({
-    YouTubePlayer: ({ videoId }: { videoId: string }) => <div data-testid="youtube-player">{videoId}</div>
-}))
+import { describe, it, expect } from 'vitest'
 
 describe('VideoEmbed', () => {
     describe('supportsVideoEmbed', () => {
@@ -28,7 +23,9 @@ describe('VideoEmbed', () => {
     describe('rendering', () => {
         it('renders YouTube player for youtube links', () => {
             render(<VideoEmbed videoUrl="https://www.youtube.com/watch?v=TEST_ID" />)
-            expect(screen.getByTestId('youtube-player')).toHaveTextContent('TEST_ID')
+            const iframe = screen.getByTitle('Embedded video player')
+            expect(iframe).toHaveAttribute('src', expect.stringContaining('/embed/TEST_ID'))
+            expect(iframe).toHaveAttribute('src', expect.not.stringContaining('start='))
         })
 
         it('renders Bilibili iframe for bilibili links', () => {
@@ -37,17 +34,6 @@ describe('VideoEmbed', () => {
             const iframe = screen.getByTitle('Embedded video player')
             expect(iframe).toBeInTheDocument()
             expect(iframe).toHaveAttribute('src', expect.stringContaining('bvid=BVtest'))
-        })
-
-        it('loads an opened Bilibili cover eagerly', () => {
-            render(
-                <VideoEmbed
-                    videoUrl="https://www.bilibili.com/video/BVtest"
-                    coverUrl="/cover.jpg"
-                    title="Bilibili cover"
-                />
-            )
-            expect(screen.getByAltText('Bilibili cover')).toHaveAttribute('loading', 'eager')
         })
 
         it('renders null for unknown links', () => {

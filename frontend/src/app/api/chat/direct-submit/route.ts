@@ -24,6 +24,7 @@ type DirectSubmitPayload = {
   threadId?: string
   videoUrl?: string
   originalText?: string
+  uiLocale?: string
 }
 
 function buildDirectSubmitMessages(params: {
@@ -108,6 +109,10 @@ export async function POST(req: Request) {
 
     const formData = new FormData()
     formData.append('video_url', body.videoUrl)
+    formData.append('request_text', body.originalText)
+    if (body.uiLocale) {
+      formData.append('ui_locale', body.uiLocale)
+    }
 
     const res = await fetch(`${SERVER_BACKEND_URL}/api/process-video`, {
       method: 'POST',

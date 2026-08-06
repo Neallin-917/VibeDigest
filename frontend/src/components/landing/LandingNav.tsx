@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Menu } from "lucide-react"
 import { LandingUserButton } from "@/components/auth/LandingUserButton"
@@ -33,7 +32,6 @@ const navItems: NavItem[] = [
 
 export function LandingNav() {
     const { locale, t } = useI18n()
-    const [isScrolled, setIsScrolled] = useState(false)
 
     // Labels for navigation items
     const labels: Record<string, string> = {
@@ -45,21 +43,8 @@ export function LandingNav() {
         faq: t("landing.navFAQ"),
     }
 
-    // Simplified check for "scrolled past hero"
-    useEffect(() => {
-        const handleScroll = () => {
-            setIsScrolled(window.scrollY > 50)
-            // simplified active section logic could go here if needed, or rely on intersection observes
-            // For now, removing complex JS scroll spying can be acceptable or replaced with a lighter version
-            // But the critical part is removing the manual scrollToSection calculation
-        }
-        window.addEventListener("scroll", handleScroll, { passive: true })
-        handleScroll()
-        return () => window.removeEventListener("scroll", handleScroll)
-    }, [])
-
     return (
-        <nav className="fixed top-6 left-0 right-0 z-50 px-6 h-14 flex items-center pointer-events-none">
+        <nav aria-label={t("nav.menu")} className="pointer-events-none fixed left-0 right-0 top-4 z-50 flex h-14 items-center px-6">
             <div className="max-w-7xl mx-auto w-full flex items-center justify-between pointer-events-auto">
                 {/* Left: Brand Logo */}
                 <Link
@@ -72,13 +57,8 @@ export function LandingNav() {
                 {/* Center: Navigation Capsule */}
                 <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
                     <div className={cn(
-                        "flex items-center gap-1 px-1.5 py-1.5 rounded-full backdrop-blur-xl transition-all duration-300",
-                        // Light mode
-                        "bg-white/70 shadow-lg ring-1 ring-white/60",
-                        // Dark mode
-                        "dark:bg-zinc-900/40 dark:ring-white/5 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_4px_20px_-2px_rgba(0,0,0,0.2)]",
-                        // Scrolled state
-                        isScrolled && "bg-white/90 shadow-xl ring-slate-200/50 dark:bg-zinc-900/80 dark:shadow-lg dark:ring-white/10"
+                        "flex items-center gap-1 rounded-full border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm",
+                        "dark:border-white/10 dark:bg-zinc-900"
                     )}>
                         {navItems.slice(1).map((item) => (
                             item.href ? (

@@ -89,6 +89,7 @@ def _patch_workflow_deps():
     mock_db = MagicMock()
     mock_db.get_task.return_value = {"progress": 0}
     mock_db.get_task_outputs.return_value = []
+    mock_db.create_task_output.return_value = {"id": "summary-output"}
 
     mock_supadata = AsyncMock()
     mock_vp = AsyncMock()
@@ -596,6 +597,28 @@ class TestCognition:
         mock_summarizer.summarize.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_summary_uses_persisted_explicit_locale(self, mock_db, mock_summarizer):
+        transcript = "Long enough English transcript for analysis to proceed. " * 10
+        mock_db.get_task.return_value = {
+            "progress": 0,
+            "output_intent": {
+                "target_locale": "zh",
+                "locale_source": "explicit_instruction",
+            },
+        }
+        mock_db.get_task_outputs.return_value = [
+            {"id": "summary-zh", "kind": "summary", "locale": "zh"},
+        ]
+        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("中文摘要"))
+
+        result = await cognition(_make_state(transcript_text=transcript, transcript_lang="en"))
+
+        assert result["final_summary_json"]["overview"] == "中文摘要"
+        assert mock_summarizer.summarize.call_args.kwargs["target_language"] == "zh"
+        assert mock_db.update_output_status.call_args.args[0] == "summary-zh"
+        assert mock_db.update_output_status.call_args.kwargs["locale"] == "zh"
+
+    @pytest.mark.asyncio
     async def test_summary_failure_marks_summary_output_error(self, mock_db, mock_summarizer):
         """A summary error is recorded and its output becomes terminally failed."""
         transcript = "Summary failure test with enough content here. " * 10
@@ -607,8 +630,8 @@ class TestCognition:
         assert any("Token limit" in e for e in result.get("errors", []))
         # Summary DB output should be marked as error
         error_calls = [
-            c for c in mock_db.update_task_output_by_kind.call_args_list
-            if c.args[1] == OutputKind.SUMMARY.value and c.kwargs.get("status") == TaskStatus.ERROR
+            c for c in mock_db.update_output_status.call_args_list
+            if c.args[0] == "summary-output" and c.kwargs.get("status") == TaskStatus.ERROR
         ]
         assert len(error_calls) > 0
 

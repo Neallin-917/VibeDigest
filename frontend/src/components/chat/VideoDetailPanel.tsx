@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { subscribeToTask } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
+import { ProcessingIndicator } from './ProcessingIndicator'
 import {
   parseCurrentSummary,
   pickPreferredSummaryOutput,
@@ -444,8 +445,11 @@ export function VideoDetailPanel({
         {/* Loading State */}
         {!summary && task.status === 'processing' && (
           <div className="rounded-2xl px-4 py-6 text-center border border-white/60 dark:border-white/10 bg-white/70 dark:bg-zinc-900/40 shadow-glass backdrop-blur-xl">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 dark:border-emerald-400 mb-2"></div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("chat.contextPanel.analyzingVideo")}</p>
+            <ProcessingIndicator
+              size="panel"
+              label={t("chat.contextPanel.analyzingVideo")}
+              className="flex-col gap-2 text-[11px] text-slate-500 dark:text-slate-400"
+            />
           </div>
         )}
 

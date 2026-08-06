@@ -256,6 +256,9 @@ class DBClient:
         progress: Optional[int] = None,
         content: Optional[str] = None,
         error: Optional[str] = None,
+        locale: Optional[str] = None,
+        intent: Optional[Dict[str, Any]] = None,
+        provenance: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Update output status, content, and progress."""
         fields = []
@@ -273,6 +276,15 @@ class DBClient:
         if error is not None:
             fields.append("error_message = :error")
             params["error"] = _normalize_error_for_storage(error)
+        if locale is not None:
+            fields.append("locale = :locale")
+            params["locale"] = locale
+        if intent is not None:
+            fields.append("intent = CAST(:intent AS jsonb)")
+            params["intent"] = json.dumps(intent, ensure_ascii=False)
+        if provenance is not None:
+            fields.append("provenance = CAST(:provenance AS jsonb)")
+            params["provenance"] = json.dumps(provenance, ensure_ascii=False)
 
         fields.append("updated_at = now()")
         query = f"UPDATE task_outputs SET {', '.join(fields)} WHERE id = :output_id"
@@ -378,7 +390,7 @@ class DBClient:
                 id, user_id, guest_id, video_url, status, progress, video_title, thumbnail_url,
                 error_message, created_at, updated_at, is_demo,
                 author, author_url, author_image_url, description, keywords,
-                view_count, upload_date, duration
+                view_count, upload_date, duration, output_intent
             FROM tasks WHERE id = :task_id
         """
         rows = self._execute_query(query, {"task_id": task_id})

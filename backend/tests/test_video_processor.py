@@ -1,6 +1,7 @@
 
+import asyncio
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 from services.video_processor import VideoProcessor
 
 @pytest.fixture
@@ -57,3 +58,51 @@ async def test_enrich_apple(processor):
         
         assert info["uploader"] == "Apple Author"
         assert info["uploader_avatar"] == "http://img.com/apple.jpg"
+
+
+@pytest.mark.asyncio
+async def test_bilibili_download_retries_transient_timeout_with_fresh_resolution(processor):
+    processor._download_once = Mock(
+        side_effect=[
+            RuntimeError("HTTPSConnectionPool: Read timed out."),
+            RuntimeError("HTTPSConnectionPool: Read timed out."),
+            {"title": "recovered"},
+        ]
+    )
+
+    with patch.object(asyncio, "sleep", new=AsyncMock()) as sleep:
+        result = await processor._download_media(
+            "https://www.bilibili.com/video/BV1bi346XEnM/",
+            {"outtmpl": "temp/audio.%(ext)s"},
+        )
+
+    assert result == {"title": "recovered"}
+    assert processor._download_once.call_count == 3
+    assert sleep.await_args_list[0].args == (1,)
+    assert sleep.await_args_list[1].args == (2,)
+
+
+@pytest.mark.asyncio
+async def test_bilibili_download_reports_clear_error_after_bounded_timeouts(processor):
+    processor._download_once = Mock(
+        side_effect=RuntimeError("HTTPSConnectionPool: Read timed out.")
+    )
+
+    with patch.object(asyncio, "sleep", new=AsyncMock()):
+        with pytest.raises(RuntimeError, match="3 次尝试后仍超时"):
+            await processor._download_media(
+                "https://www.bilibili.com/video/BV1bi346XEnM/",
+                {"outtmpl": "temp/audio.%(ext)s"},
+            )
+
+    assert processor._download_once.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_non_bilibili_download_does_not_retry(processor):
+    processor._download_once = Mock(side_effect=RuntimeError("Read timed out"))
+
+    with pytest.raises(RuntimeError, match="Read timed out"):
+        await processor._download_media("https://example.com/video", {})
+
+    assert processor._download_once.call_count == 1

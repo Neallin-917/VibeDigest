@@ -7,6 +7,7 @@ from dependencies import (
     get_task_queue,
 )
 from fastapi import APIRouter, Body, Depends, Form, Header, HTTPException
+from services.output_intent import build_output_intent
 from services.task_queue import GuestQuotaExceededError, TaskQueue
 from utils.url import normalize_video_url
 
@@ -18,6 +19,8 @@ GUEST_DATABASE_USER_ID = "00000000-0000-0000-0000-000000000001"
 @router.post("/process-video")
 def process_video(
     video_url: str = Form(...),
+    request_text: str | None = Form(None),
+    ui_locale: str | None = Form(None),
     user_id: str = Depends(get_current_user),
     authorization: str | None = Header(None),
     x_guest_id: str | None = Header(None, alias="X-Guest-Id"),
@@ -30,12 +33,14 @@ def process_video(
 
     is_guest = authorization is None or not authorization.startswith("Bearer ")
     database_user_id = GUEST_DATABASE_USER_ID if is_guest else user_id
+    output_intent = build_output_intent(request_text or video_url, ui_locale)
 
     try:
         submission = queue.submit_process_video(
             video_url=video_url,
             user_id=database_user_id,
             guest_id=x_guest_id if is_guest else None,
+            output_intent=output_intent,
         )
         task_id = submission.task_id
 

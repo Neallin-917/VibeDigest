@@ -4,6 +4,7 @@ import { HeroSection } from "@/components/landing/HeroSection"
 import { FeaturesSection } from "@/components/landing/FeaturesSection"
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection"
 import { PricingSection } from "@/components/landing/PricingSection"
+import { LandingFAQ } from "@/components/landing/LandingFAQ"
 import { SupportCTA } from "@/components/landing/SupportCTA"
 import { ServerCommunityTemplates } from "@/components/templates/ServerCommunityTemplates"
 import { TemplatesSkeleton } from "@/components/templates/TemplatesSkeleton"
@@ -110,47 +111,34 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent text-slate-800 dark:text-zinc-100 relative overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
-
-      {/* Background Blobs (Light Mode) */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none dark:hidden -z-10">
-        <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-emerald-100/40 rounded-full blur-[100px] mix-blend-multiply animate-float-slow" />
-        <div className="absolute top-[20%] left-[-10%] w-[35%] h-[35%] bg-teal-100/40 rounded-full blur-[100px] mix-blend-multiply animate-float-slow" style={{ animationDelay: '2s' }} />
-        <div className="absolute bottom-[-10%] left-[20%] w-[45%] h-[45%] bg-cyan-100/40 rounded-full blur-[100px] mix-blend-multiply animate-float-slow" style={{ animationDelay: '4s' }} />
-        <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")` }}></div>
-      </div>
-
-      {/* Dark Mode Background - refined deep space */}
-      <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-[#050505]">
-        {/* Subtle top glow */}
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[80%] h-[60%] bg-emerald-900/10 rounded-[100%] blur-[120px]" />
-
-        {/* Moving aurora elements */}
-        <div className="absolute top-[10%] right-[-10%] w-[40%] h-[40%] bg-indigo-900/20 rounded-full blur-[120px] animate-pulse-glow" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-teal-900/10 rounded-full blur-[100px] animate-float-slow" style={{ animationDuration: '10s' }} />
-
-        {/* Grid Overlay with fade out */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_100%)]" />
-      </div>
+    <div className="relative flex min-h-screen flex-col bg-background font-sans text-slate-800 selection:bg-primary/20 selection:text-primary dark:text-zinc-100">
+      <a
+        href="#main-content"
+        className="sr-only fixed left-4 top-4 z-[60] rounded-md bg-emerald-800 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:bg-emerald-400 dark:text-zinc-950 dark:focus:ring-emerald-200 dark:focus:ring-offset-zinc-950"
+      >
+        {t("landing.skipToContent")}
+      </a>
 
       {/* Login & Nav */}
       <GoogleOneTap />
       <LandingNav />
 
-      <main className="flex-1 w-full relative z-10">
+      <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
         <HeroSection />
 
-        {/* Community Section */}
-        <div id="demos" className="max-w-6xl mx-auto px-6 mb-20 scroll-mt-24">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-1 h-6 bg-emerald-700 dark:bg-primary rounded-full"></div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t("landing.communityTitle")}</h2>
-            <span className="text-xs text-slate-500 dark:text-gray-500 hidden md:inline-block">{t("landing.communityHint")}</span>
+        <section id="demos" aria-labelledby="community-title" className="mx-auto mb-20 max-w-6xl px-6 scroll-mt-24">
+          <div className="max-w-2xl">
+            <h2 id="community-title" className="font-display text-2xl font-bold text-slate-900 md:text-3xl dark:text-white">
+              {t("landing.communityTitle")}
+            </h2>
+            <p className="mt-3 text-sm text-slate-600 dark:text-zinc-400">{t("landing.communityHint")}</p>
           </div>
 
-          <Suspense fallback={<TemplatesSkeleton />}>
-            <ServerCommunityTemplates limit={4} showHeader={false} locale={locale} />
-          </Suspense>
+          <div className="mt-8">
+            <Suspense fallback={<TemplatesSkeleton />}>
+              <ServerCommunityTemplates limit={3} showHeader={false} locale={locale} />
+            </Suspense>
+          </div>
 
           <div className="mt-8 flex justify-center">
             <Link
@@ -161,15 +149,16 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
               <span className="group-hover:translate-x-1 transition-transform">→</span>
             </Link>
           </div>
-        </div>
+        </section>
 
         <FeaturesSection />
         <HowItWorksSection />
         <PricingSection />
+        <LandingFAQ />
         <SupportCTA />
       </main>
 
-      <footer className="py-8 text-center text-slate-500 dark:text-gray-600 text-xs border-t border-slate-200 dark:border-white/5 relative z-10 bg-white/50 dark:bg-[#0A0A0A] backdrop-blur-sm">
+      <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-500">
         <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
           <div className="mt-3 flex justify-center gap-5">
             <Link href={`/${locale}/about`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>

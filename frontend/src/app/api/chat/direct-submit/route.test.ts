@@ -259,4 +259,33 @@ describe('POST /api/chat/direct-submit', () => {
       })
     )
   })
+
+  it('forwards the complete request and UI locale so the backend can persist output intent', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ task_id: 'task-123' }),
+    } as Response)
+
+    const req = new Request('http://localhost/api/chat/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        videoUrl: 'https://www.youtube.com/watch?v=abc',
+        originalText: 'Summarize this English video in Chinese: https://www.youtube.com/watch?v=abc',
+        uiLocale: 'en',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(200)
+    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+    const formData = options.body as FormData
+    expect(formData.get('video_url')).toBe('https://www.youtube.com/watch?v=abc')
+    expect(formData.get('request_text')).toBe(
+      'Summarize this English video in Chinese: https://www.youtube.com/watch?v=abc'
+    )
+    expect(formData.get('ui_locale')).toBe('en')
+  })
 })

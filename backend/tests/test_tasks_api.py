@@ -23,6 +23,15 @@ async def test_process_video_success(api_client, mock_task_queue):
         video_url="https://youtube.com/watch?v=123",
         user_id="00000000-0000-0000-0000-000000000001",
         guest_id=None,
+        output_intent={
+            "version": 1,
+            "request_text": "https://youtube.com/watch?v=123",
+            "target_locale": None,
+            "locale_source": "source_language",
+            "depth": "standard",
+            "audience": None,
+            "preserve_source_terms": False,
+        },
     )
 
 
@@ -42,8 +51,42 @@ async def test_process_video_passes_guest_identity(
         video_url="https://youtube.com/watch?v=123",
         user_id="00000000-0000-0000-0000-000000000001",
         guest_id="guest-123",
+        output_intent={
+            "version": 1,
+            "request_text": "https://youtube.com/watch?v=123",
+            "target_locale": None,
+            "locale_source": "source_language",
+            "depth": "standard",
+            "audience": None,
+            "preserve_source_terms": False,
+        },
     )
 
+
+@pytest.mark.asyncio
+async def test_process_video_preserves_explicit_output_language_intent(
+    api_client,
+    mock_task_queue,
+):
+    response = await api_client.post(
+        "/api/process-video",
+        data={
+            "video_url": "https://youtube.com/watch?v=123",
+            "request_text": "Summarize this English video in Chinese",
+            "ui_locale": "en",
+        },
+    )
+
+    assert response.status_code == 200
+    assert mock_task_queue.submit_process_video.call_args.kwargs["output_intent"] == {
+        "version": 1,
+        "request_text": "Summarize this English video in Chinese",
+        "target_locale": "zh",
+        "locale_source": "explicit_instruction",
+        "depth": "standard",
+        "audience": None,
+        "preserve_source_terms": False,
+    }
 
 @pytest.mark.asyncio
 async def test_process_video_returns_503_when_queue_is_unavailable(
@@ -325,8 +368,17 @@ async def test_authenticated_user_can_create_task(
         assert response.status_code == 200
         mock_task_queue.submit_process_video.assert_called_once_with(
             video_url="https://youtube.com/watch?v=123",
-            user_id="auth-user-id",
-            guest_id=None,
-        )
+        user_id="auth-user-id",
+        guest_id=None,
+        output_intent={
+            "version": 1,
+            "request_text": "https://youtube.com/watch?v=123",
+            "target_locale": None,
+            "locale_source": "source_language",
+            "depth": "standard",
+            "audience": None,
+            "preserve_source_terms": False,
+        },
+    )
     finally:
         app.dependency_overrides = saved

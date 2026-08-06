@@ -45,6 +45,7 @@ class TaskQueue(Protocol):
         video_url: str,
         user_id: str,
         guest_id: str | None,
+        output_intent: dict[str, Any],
     ) -> TaskSubmission: ...
 
     def submit_retry_output(
@@ -90,6 +91,7 @@ class PostgresTaskQueue:
         video_url: str,
         user_id: str,
         guest_id: str | None,
+        output_intent: dict[str, Any],
     ) -> TaskSubmission:
         rows = self.db._execute_query(
             """
@@ -99,6 +101,7 @@ class PostgresTaskQueue:
                 :video_url,
                 :guest_id,
                 :guest_quota_limit,
+                CAST(:output_intent AS jsonb),
                 :queue_name
             )
             """,
@@ -107,6 +110,7 @@ class PostgresTaskQueue:
                 "video_url": video_url,
                 "guest_id": guest_id,
                 "guest_quota_limit": self.guest_quota_limit,
+                "output_intent": json.dumps(output_intent, ensure_ascii=False),
                 "queue_name": self.queue_name,
             },
         )

@@ -18,6 +18,7 @@ from dependencies import (
     get_supadata_client,
 )
 from services.summarizer.validation import parse_summary_payload_v4
+from services.output_intent import resolve_output_intent
 from utils.url import normalize_video_url
 from utils.language_utils import normalize_lang_code
 from utils.text_utils import detect_language, is_cjk_language
@@ -478,6 +479,7 @@ async def _run_summarize(
     transcript_language: Optional[str],
     transcript_source: Optional[str],
 ):
+    summary_output: Optional[Dict[str, Any]] = None
     try:
         logger.info("Cognition: Starting summarization...")
         _advance_task_progress(task_id, 85)
@@ -491,10 +493,33 @@ async def _run_summarize(
             metadata={"node": "cognition_summarize"},
         )
         source_language = normalize_lang_code(transcript_language or "unknown")
+        task = _get_db_client().get_task(task_id)
+        task_intent = task.get("output_intent") if isinstance(task, dict) else None
+        resolved_intent = resolve_output_intent(task_intent, source_language)
+        target_language = resolved_intent["target_locale"]
+
+        summary_output = next(
+            (
+                output
+                for output in _get_db_client().get_task_outputs(task_id)
+                if output.get("kind") == OutputKind.SUMMARY.value
+                and output.get("locale") in {target_language, None}
+            ),
+            None,
+        )
+        if not summary_output:
+            summary_output = _get_db_client().create_task_output(
+                task_id,
+                user_id,
+                OutputKind.SUMMARY.value,
+                locale=target_language,
+            )
+        if not summary_output:
+            raise RuntimeError("Summary output placeholder is missing")
 
         summary = await _get_summarizer().summarize(
             transcript_text,
-            target_language=source_language,
+            target_language=target_language,
             trace_metadata=trace_meta,
         )
 
@@ -502,12 +527,18 @@ async def _run_summarize(
         summary_content = json.dumps(payload, ensure_ascii=False)
         summary_payload = payload
 
-        _get_db_client().update_task_output_by_kind(
-            task_id,
-            OutputKind.SUMMARY.value,
+        _get_db_client().update_output_status(
+            str(summary_output["id"]),
             content=summary_content,
             status=TaskStatus.COMPLETED,
             progress=100,
+            locale=target_language,
+            intent=resolved_intent,
+            provenance={
+                "source_task_id": task_id,
+                "source_kind": OutputKind.SCRIPT.value,
+                "transcript_language": source_language,
+            },
         )
 
         _advance_task_progress(task_id, 92)
@@ -515,14 +546,14 @@ async def _run_summarize(
         return summary_payload
     except Exception as e:
         logger.error(f"Cognition: Summarization failed: {e}")
-        _get_db_client().update_task_output_by_kind(
-            task_id,
-            OutputKind.SUMMARY.value,
-            status=TaskStatus.ERROR,
-            progress=100,
-            content="",
-            error=str(e),
-        )
+        if summary_output:
+            _get_db_client().update_output_status(
+                str(summary_output["id"]),
+                status=TaskStatus.ERROR,
+                progress=100,
+                content="",
+                error=str(e),
+            )
         return e
 
 

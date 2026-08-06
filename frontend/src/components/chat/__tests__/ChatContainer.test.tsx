@@ -62,6 +62,12 @@ vi.mock('../WelcomeScreen', () => ({
   )
 }))
 
+vi.mock('../ProcessingIndicator', () => ({
+  ProcessingIndicator: ({ label }: { label: string }) => (
+    <div data-testid="processing-indicator" role="status" aria-live="polite">{label}</div>
+  ),
+}))
+
 vi.mock('../tools', () => ({
   GetTaskStatusTool: () => <div data-testid="tool-get-task-status" />,
   GetTaskOutputsTool: () => <div data-testid="tool-get-task-outputs" />,
@@ -189,6 +195,7 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer />)
     expect(screen.getByText('Thinking...')).toBeInTheDocument()
+    expect(screen.getByTestId('processing-indicator')).toHaveAttribute('aria-live', 'polite')
   })
 
   it('handles auth error', () => {

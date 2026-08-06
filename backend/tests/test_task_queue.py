@@ -20,6 +20,7 @@ def test_submit_process_video_uses_atomic_database_boundary():
         video_url="https://example.com/video",
         user_id="00000000-0000-0000-0000-000000000001",
         guest_id=None,
+        output_intent={"target_locale": "zh", "locale_source": "ui_locale"},
     )
 
     assert submission.task_id == "task-1"
@@ -29,6 +30,7 @@ def test_submit_process_video_uses_atomic_database_boundary():
     assert "vibedigest_private.submit_video_task" in query
     assert params["queue_name"] == "video_processing"
     assert params["guest_quota_limit"] == 1
+    assert json.loads(params["output_intent"])["target_locale"] == "zh"
 
 
 def test_submit_process_video_surfaces_atomic_guest_quota_rejection():
@@ -47,6 +49,7 @@ def test_submit_process_video_surfaces_atomic_guest_quota_rejection():
             video_url="https://example.com/second-video",
             user_id="00000000-0000-0000-0000-000000000001",
             guest_id="guest-1",
+            output_intent={"target_locale": "en", "locale_source": "ui_locale"},
         )
 
 

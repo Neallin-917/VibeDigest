@@ -15,6 +15,17 @@ logger = logging.getLogger(__name__)
 class VideoProcessor:
     """Video processor using yt-dlp to download and convert media."""
 
+    _BILIBILI_DOWNLOAD_ATTEMPTS = 3
+    _TRANSIENT_DOWNLOAD_ERRORS = (
+        "read timed out",
+        "timed out",
+        "connection reset",
+        "connection aborted",
+        "remote end closed",
+        "temporarily unavailable",
+        "network is unreachable",
+    )
+
     def __init__(self):
         # Lazy import for test environments to avoid heavy deps at import time.
         # A conservative browser UA helps with providers that block default agents.
@@ -106,6 +117,67 @@ class VideoProcessor:
             )
 
         return headers
+
+    @staticmethod
+    def _is_bilibili_url(url: str) -> bool:
+        try:
+            host = (urlparse(url).hostname or "").lower().replace("www.", "")
+        except Exception:
+            return False
+        return host.endswith("bilibili.com")
+
+    @classmethod
+    def _is_transient_download_error(cls, error: Exception) -> bool:
+        message = str(error).lower()
+        return any(marker in message for marker in cls._TRANSIENT_DOWNLOAD_ERRORS)
+
+    @staticmethod
+    def _download_once(url: str, ydl_opts: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolve a fresh media URL and download it in one yt-dlp session."""
+        import yt_dlp
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, False)
+            ydl.download([url])
+        return info
+
+    async def _download_media(self, url: str, ydl_opts: Dict[str, Any]) -> Dict[str, Any]:
+        """Bound retries for transient Bilibili CDN failures.
+
+        A new yt-dlp session is deliberately created on every retry so Bilibili
+        extractor metadata and CDN URLs are resolved again instead of repeatedly
+        reading from a mirror that has already timed out.
+        """
+        is_bilibili = self._is_bilibili_url(url)
+        attempts = self._BILIBILI_DOWNLOAD_ATTEMPTS if is_bilibili else 1
+
+        for attempt in range(1, attempts + 1):
+            try:
+                return await asyncio.to_thread(self._download_once, url, ydl_opts)
+            except Exception as exc:
+                should_retry = (
+                    is_bilibili
+                    and attempt < attempts
+                    and self._is_transient_download_error(exc)
+                )
+                if should_retry:
+                    logger.warning(
+                        "Bilibili audio download timed out (attempt %s/%s); "
+                        "refreshing the CDN URL before retrying.",
+                        attempt,
+                        attempts,
+                    )
+                    await asyncio.sleep(attempt)
+                    continue
+
+                if is_bilibili and self._is_transient_download_error(exc):
+                    raise RuntimeError(
+                        "Bilibili 音频下载在 3 次尝试后仍超时。请稍后重试；"
+                        "如问题持续，请联系支持并提供视频链接。"
+                    ) from exc
+                raise
+
+        raise RuntimeError("Bilibili 音频下载未返回结果。")
 
     def _is_xiaoyuzhou_url(self, url: str) -> bool:
         try:
@@ -453,33 +525,28 @@ class VideoProcessor:
 
             logger.info(f"开始下载视频: {url}")
 
-            # Run synchronously without a thread pool
-            # In FastAPI, IO-bound operations can be awaited directly
-            import asyncio
-            import yt_dlp
+            if self._is_bilibili_url(url):
+                # Keep the total task wait bounded; _download_media creates a
+                # fresh resolver session for each of the three outer attempts.
+                ydl_opts.update({"retries": 1, "fragment_retries": 1, "socket_timeout": 20})
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                try:
-                    # Fetch video info (use thread to avoid blocking event loop)
-                    info = await asyncio.to_thread(ydl.extract_info, url, False)
-                except Exception as e:
-                    msg = str(e)
-                    # Give a more actionable hint for common provider blocks
-                    if "403" in msg and "Forbidden" in msg and "BiliBili" in msg:
-                        raise Exception(
-                            "Bilibili blocked the request (HTTP 403). "
-                            "If this is a restricted/anti-bot page, set BILIBILI_SESSDATA or BILIBILI_COOKIE in .env "
-                            "and retry."
-                        ) from e
-                    raise
+            try:
+                info = await self._download_media(url, ydl_opts)
+            except Exception as e:
+                msg = str(e)
+                # Give a more actionable hint for common provider blocks.
+                if "403" in msg and "Forbidden" in msg and "BiliBili" in msg:
+                    raise Exception(
+                        "Bilibili blocked the request (HTTP 403). "
+                        "If this is a restricted/anti-bot page, set BILIBILI_SESSDATA or BILIBILI_COOKIE in .env "
+                        "and retry."
+                    ) from e
+                raise
 
-                video_title = info.get("title", "unknown")
-                expected_duration = info.get("duration") or 0
-                direct_audio_url = self._extract_direct_audio_url_from_info(info)
-                logger.info(f"视频标题: {video_title}")
-
-                # Download media (use thread to avoid blocking event loop)
-                await asyncio.to_thread(ydl.download, [url])
+            video_title = info.get("title", "unknown")
+            expected_duration = info.get("duration") or 0
+            direct_audio_url = self._extract_direct_audio_url_from_info(info)
+            logger.info(f"视频标题: {video_title}")
 
             # Locate generated m4a file
             audio_file = str(output_dir / f"audio_{unique_id}.m4a")

@@ -12,11 +12,12 @@ import { extractAndNormalizeUrl } from '@/lib/url-utils'
 import { useChatScroll } from './useChatScroll'
 import { useDirectUrlSubmission } from './useDirectUrlSubmission'
 
-import { Loader2, XCircle } from 'lucide-react'
+import { XCircle } from 'lucide-react'
 import { useI18n } from '@/components/i18n/I18nProvider'
 import { chatDataSchemas, createUserTextMessage, type ChatUIMessage } from '@/lib/chat-ui'
 import { LazyMessageRow as MessageRow, preloadMessageRow } from './LazyMessageRow'
 import type { ChatExample } from '@/lib/chat-examples'
+import { ProcessingIndicator } from './ProcessingIndicator'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -334,10 +335,10 @@ export function ChatContainer({
               <div className="flex w-full">
                 <div className="flex flex-col gap-2">
                   <div className="bg-white/40 dark:bg-white/5 px-5 py-3 rounded-2xl rounded-tl-sm border border-white/40 dark:border-white/5 flex items-center gap-2 w-fit">
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                    <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                      {t('chat.thinking')}
-                    </span>
+                    <ProcessingIndicator
+                      label={t('chat.thinking')}
+                      className="text-sm text-slate-500 dark:text-slate-400 font-medium"
+                    />
                   </div>
                 </div>
               </div>

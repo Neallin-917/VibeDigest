@@ -54,6 +54,7 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
         "tasks.summaryStructured.overviewTitle": "Overview",
         "tasks.summaryStructured.evidenceLabel": "Evidence",
         "chat.contextPanel.noSummary": "No summary available",
+        "chat.contextPanel.analyzingVideo": "Analyzing video...",
         "chat.closeVideoDetails": "Close video details",
         "chat.tools.status.videoTask": "Video task",
       }
@@ -68,6 +69,12 @@ vi.mock('@/components/tasks/shared/VideoPlayer', () => ({
   VideoPlayer: ({ title }: { title?: string }) => (
     <div data-testid="video-player">{title ?? 'Video Player Stub'}</div>
   )
+}))
+
+vi.mock('../ProcessingIndicator', () => ({
+  ProcessingIndicator: ({ label }: { label: string }) => (
+    <div data-testid="processing-indicator" role="status" aria-live="polite">{label}</div>
+  ),
 }))
 
 describe('VideoDetailPanel', () => {
@@ -119,6 +126,24 @@ describe('VideoDetailPanel', () => {
       expect(screen.getByText('chat.contextPanel.title')).toBeInTheDocument()
       expect(screen.getByTestId('video-player')).toBeInTheDocument()
     })
+  })
+
+  it('shows the semantic processing indicator while no summary is available', async () => {
+    mockSingle.mockResolvedValue({
+      data: {
+        id: 'task-123',
+        video_title: 'Test Video',
+        video_url: 'https://youtu.be/test',
+        status: 'processing',
+      },
+    })
+
+    render(<VideoDetailPanel taskId="task-123" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('processing-indicator')).toHaveTextContent('Analyzing video...')
+    })
+    expect(screen.getByTestId('processing-indicator')).toHaveAttribute('aria-live', 'polite')
   })
 
   it('uses a clear source label when the saved task has no metadata title', async () => {

@@ -30,6 +30,9 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
     useI18n: () => ({
         t: (key: string) => {
             if (key === "landing.smartSummarizationDesc") return "Analysis **with power**"
+            if (key === "landing.trustedBy") return "Supports YouTube and podcasts"
+            if (key === "landing.freeAllowance") return "3 summaries each month. No card required."
+            if (key === "landing.signInHandoff") return "Sign in after submitting to begin."
             return key
         }
     })
@@ -83,6 +86,14 @@ describe("HeroSection", () => {
         expect(input).toHaveAttribute("data-variant", "inline")
         expect(input).toHaveAttribute("data-placeholder", "taskForm.urlPlaceholder")
         expect(input).toHaveAttribute("data-input-label", "taskForm.urlInputLabel")
+    })
+
+    it("explains platform support, the free allowance, and the sign-in handoff before submit", () => {
+        render(<HeroSection />)
+
+        expect(screen.getByText("Supports YouTube and podcasts")).toBeInTheDocument()
+        expect(screen.getByText("3 summaries each month. No card required.")).toBeInTheDocument()
+        expect(screen.getByText("Sign in after submitting to begin.")).toBeInTheDocument()
     })
 
     it("uses the shared account cache for an authenticated submission", async () => {

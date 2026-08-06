@@ -15,7 +15,7 @@ export function useDirectUrlSubmission(deps: {
   handleDirectUrlSubmission: (url: string, originalText: string) => Promise<boolean>
 } {
   const { setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef } = deps
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   const [isDirectProcessing, setIsDirectProcessing] = useState(false)
   const [directSubmitError, setDirectSubmitError] = useState<string | null>(null)
@@ -36,6 +36,7 @@ export function useDirectUrlSubmission(deps: {
           videoUrl: url,
           originalText,
           threadId: effectiveThreadId,
+          uiLocale: locale,
         }),
       })
 
@@ -77,7 +78,7 @@ export function useDirectUrlSubmission(deps: {
     } finally {
       setIsDirectProcessing(false)
     }
-  }, [setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef, t])
+  }, [setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef, locale, t])
 
   return { isDirectProcessing, directSubmitError, handleDirectUrlSubmission }
 }

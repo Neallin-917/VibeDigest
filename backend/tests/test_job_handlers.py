@@ -118,7 +118,50 @@ async def test_handle_retry_output_summary_success(mock_db_client, mock_summariz
         assert stored_payload["version"] == 4
         assert stored_payload["language"] == "en"
         assert stored_payload["overview"] == "Detailed overview."
-        assert stored_payload["keypoints"][0]["evidence"] == "Quoted support."
+    assert stored_payload["keypoints"][0]["evidence"] == "Quoted support."
+
+
+@pytest.mark.asyncio
+async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_language(
+    mock_db_client, mock_summarizer
+):
+    mock_db_client.get_output.return_value = {
+        "id": "out-ja",
+        "task_id": "task_1",
+        "user_id": "u1",
+        "kind": "summary",
+        "locale": "ja",
+        "intent": {"target_locale": "ja", "locale_source": "explicit_instruction"},
+    }
+    mock_db_client.get_task.return_value = {"video_title": "Video Title"}
+    mock_db_client.get_task_outputs.return_value = [
+        {"kind": "script", "content": "English transcript"},
+        {"kind": "script_raw", "content": json.dumps({"language": "en"})},
+    ]
+    mock_summarizer.optimize_transcript.return_value = "English transcript"
+    mock_summarizer.summarize_in_language_with_anchors.return_value = json.dumps({
+        "version": 4,
+        "language": "ja",
+        "tl_dr": "要約",
+        "overview": "概要",
+        "keypoints": [{"title": "点", "detail": "詳細", "evidence": "引用"}],
+    })
+
+    with (
+        patch("services.job_handlers.get_db_client", return_value=mock_db_client),
+        patch("services.job_handlers.get_summarizer", return_value=mock_summarizer),
+    ):
+        await handle_retry_output("out-ja", "u1")
+
+    assert mock_summarizer.summarize_in_language_with_anchors.call_args.kwargs[
+        "summary_language"
+    ] == "ja"
+    assert mock_db_client.update_output_status.call_args.kwargs["locale"] == "ja"
+    assert mock_db_client.update_output_status.call_args.kwargs["provenance"] == {
+        "source_task_id": "task_1",
+        "source_kind": "script",
+        "transcript_language": "en",
+    }
 
 @pytest.mark.asyncio
 async def test_handle_retry_output_summary_rejects_invalid_payload(mock_db_client, mock_summarizer):

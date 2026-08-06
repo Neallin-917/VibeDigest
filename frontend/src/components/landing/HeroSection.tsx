@@ -3,8 +3,7 @@
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Youtube, Apple, ExternalLink } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Youtube, Apple, ExternalLink } from "lucide-react"
 import { useState } from "react"
 import {
     Dialog,
@@ -69,23 +68,8 @@ export function HeroSection() {
     }
 
     return (
-        <section id="hero" className="bg-noise flex flex-col items-center justify-center px-6 pt-28 pb-16 md:pt-40 md:pb-24 text-center relative z-10 min-h-[85vh]">
-            <div className="space-y-6 max-w-4xl relative">
-
-                {/* Badge/Pill */}
-                <div
-                    className={cn(
-                        "inline-flex items-center gap-2 px-4 py-1.5 rounded-full backdrop-blur-md shadow-sm mb-6 cursor-default",
-                        "bg-white/40 border border-white/60",
-                        "dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]"
-                    )}
-                >
-                    <span className="relative flex h-2 w-2">
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                    </span>
-                    <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 tracking-wide uppercase">{t("landing.badge")}</span>
-                </div>
-
+        <section id="hero" className="flex min-h-[min(760px,100dvh)] items-center px-6 pb-16 pt-28 md:pb-20 md:pt-24">
+            <div className="mx-auto w-full max-w-3xl text-center">
                 <h1
                     className="font-display text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.1] md:leading-[1.1]"
                 >
@@ -96,22 +80,13 @@ export function HeroSection() {
                 </h1>
 
                 <p
-                    className="max-w-xl mx-auto text-base md:text-lg leading-relaxed text-slate-600 dark:text-zinc-400 font-light"
+                    className="mx-auto mt-5 max-w-xl text-base font-normal leading-relaxed text-slate-600 md:text-lg dark:text-zinc-400"
                 >
                     {renderWithBold(t("landing.smartSummarizationDesc"))}
                 </p>
-            </div>
-
-            <div
-                className="w-full max-w-2xl z-20 mt-12 px-4"
-            >
-                <div className="relative group perspective-1000">
-                    {/* Glow Effect */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600/20 via-teal-600/20 to-emerald-600/20 dark:from-emerald-500/20 dark:via-teal-500/20 dark:to-cyan-500/20 rounded-full blur-xl opacity-60" />
-
-                    {/* Input Container */}
-                    <div className="relative">
-                        <ChatInput 
+                <div className="mx-auto mt-10 w-full max-w-2xl">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+                        <ChatInput
                             variant="inline"
                             onSubmit={handleHeroSubmit}
                             placeholder={t("taskForm.urlPlaceholder")}
@@ -119,18 +94,12 @@ export function HeroSection() {
                             hideDisclaimer={true}
                         />
                     </div>
+                    <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-600 dark:text-zinc-400">
+                        <span>{t("landing.trustedBy")}</span>
+                        <span>{t("landing.freeAllowance")}</span>
+                        <span>{t("landing.signInHandoff")}</span>
+                    </div>
                 </div>
-
-                <p className="mt-5 text-xs text-slate-500 dark:text-zinc-500">
-                    {t("landing.trustedBy")}
-                </p>
-            </div>
-
-            {/* Scroll Indicator */}
-            <div
-                className="absolute bottom-8 left-1/2 -translate-x-1/2"
-            >
-                <ChevronDown className="w-6 h-6 text-slate-400 dark:text-zinc-500" aria-hidden="true" />
             </div>
 
             {/* Unsupported URL Dialog */}

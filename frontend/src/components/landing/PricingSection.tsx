@@ -7,6 +7,7 @@ import { CheckCircle2, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import Link from "next/link"
 
 export function PricingSection() {
     const { t, locale } = useI18n()
@@ -55,8 +56,8 @@ export function PricingSection() {
         {
             key: "pro",
             title: t("pricing.pro.title"),
-            price: t("pricing.pro.price"),
-            desc: t("pricing.pro.desc"),
+            price: t("pricing.pro.annualPrice"),
+            desc: t("landing.proAnnualBilling"),
             features: proFeatureKeys.map(k => t(k)),
             cta: t("landing.viewPlan"),
             highlight: true
@@ -73,7 +74,7 @@ export function PricingSection() {
     ]
 
     return (
-        <section id="pricing" className="bg-noise py-20 px-6 relative scroll-mt-24">
+        <section id="pricing" className="px-6 py-20 scroll-mt-24">
             <div className="max-w-5xl mx-auto">
                 <div className="text-center mb-12">
                     <div>
@@ -86,32 +87,31 @@ export function PricingSection() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                     {plans.map((plan) => (
                         <div
                             key={plan.key}
                             className={cn(
-                                "relative p-6 rounded-2xl flex flex-col backdrop-blur-xl transition-colors duration-200",
+                                "relative flex flex-col rounded-2xl border p-6 transition-colors duration-200",
                                 plan.highlight
                                     ? cn(
                                         // Light mode highlight
-                                        "bg-white/90 border-2 border-emerald-500/30 shadow-2xl shadow-emerald-900/5 md:-mt-3 md:mb-3 z-10",
+                                        "border-emerald-600 bg-white shadow-sm md:-mt-3 md:mb-3 z-10",
                                         // Dark mode highlight
-                                        "dark:bg-zinc-900/80 dark:border dark:border-emerald-500/30 dark:shadow-[0_0_40px_-10px_rgba(16,185,129,0.2)]"
+                                        "dark:border-emerald-400 dark:bg-zinc-900 dark:shadow-none"
                                     )
                                     : cn(
                                         // Light mode normal
-                                        "bg-white/60 border border-slate-200 hover:border-slate-300 shadow-lg",
+                                        "border-slate-200 bg-white hover:border-slate-300",
                                         // Dark mode normal
-                                        "dark:bg-zinc-900/40 dark:border-white/5 dark:hover:border-white/10 dark:shadow-none"
+                                        "dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
                                     )
                             )}
                         >
                             {plan.highlight && (
                                 <div className={cn(
-                                    "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold px-3 py-1 rounded-full tracking-wider uppercase shadow-lg flex items-center gap-1",
-                                    "bg-gradient-to-r from-emerald-700 to-teal-700 text-white",
-                                    "dark:from-emerald-500 dark:to-teal-500 dark:text-black"
+                                    "absolute top-0 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-emerald-800 px-3 py-1 text-[10px] font-bold tracking-wider text-white",
+                                    "dark:bg-emerald-400 dark:text-zinc-950"
                                 )}>
                                     <Zap className="w-2.5 h-2.5 fill-current" />
                                     {t("landing.mostPopular")}
@@ -127,7 +127,7 @@ export function PricingSection() {
 
                             <div className="flex items-baseline gap-1 mb-4">
                                 <span className="text-3xl font-bold text-slate-900 dark:text-white font-display tracking-tight">{plan.price}</span>
-                                {plan.key === 'pro' && <span className="text-xs text-slate-500 dark:text-zinc-500">{t("pricing.pro.unit")}</span>}
+                                {plan.key === 'pro' && <span className="text-xs text-slate-500 dark:text-zinc-500">{t("landing.effectiveMonthly")}</span>}
                             </div>
 
                             <Text className="text-slate-600 dark:text-zinc-400 mb-6 leading-relaxed text-xs min-h-[32px]">
@@ -153,8 +153,8 @@ export function PricingSection() {
                                     "w-full h-10 rounded-lg font-semibold text-sm transition-all duration-300",
                                     plan.highlight
                                         ? cn(
-                                            "bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-900/10 border-0",
-                                            "dark:from-emerald-500 dark:to-teal-500 dark:hover:from-emerald-400 dark:hover:to-teal-400 dark:text-black dark:shadow-emerald-500/20"
+                                            "border-0 bg-emerald-800 text-white hover:bg-emerald-900 active:translate-y-px",
+                                            "dark:bg-emerald-400 dark:text-zinc-950 dark:hover:bg-emerald-300"
                                         )
                                         : cn(
                                             "bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700 hover:text-slate-900",
@@ -167,6 +167,16 @@ export function PricingSection() {
                         </div>
                     ))}
                 </div>
+                <p className="mx-auto mt-6 max-w-xl text-center text-xs leading-relaxed text-slate-500 dark:text-zinc-500">
+                    {t("landing.pricingPolicyPrefix")} {" "}
+                    <Link href={`/${locale}/policies/refund`} className="underline underline-offset-2 hover:text-slate-700 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:hover:text-zinc-300 dark:focus-visible:ring-emerald-400 dark:focus-visible:ring-offset-zinc-950">
+                        {t("pricing.policies.refund")}
+                    </Link>
+                    {" "}{t("landing.pricingPolicyConnector")} {" "}
+                    <Link href={`/${locale}/policies/terms`} className="underline underline-offset-2 hover:text-slate-700 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:hover:text-zinc-300 dark:focus-visible:ring-emerald-400 dark:focus-visible:ring-offset-zinc-950">
+                        {t("pricing.policies.terms")}
+                    </Link>.
+                </p>
             </div>
         </section>
     )

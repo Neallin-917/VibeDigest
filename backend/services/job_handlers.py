@@ -4,6 +4,7 @@ from typing import Any, cast
 
 from dependencies import get_db_client, get_summarizer
 from services.formatting import format_markdown_from_raw_segments
+from services.output_intent import resolve_output_intent
 from services.summarizer.validation import parse_summary_payload_v4
 from workflow import VideoProcessingState
 from workflow import app as workflow_app
@@ -132,9 +133,11 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
                 output_id,
             )
 
+        resolved_intent = resolve_output_intent(out.get("intent"), transcript_language)
+        target_language = resolved_intent["target_locale"]
         summary_json = await summarizer.summarize_in_language_with_anchors(
             script_text,
-            summary_language=transcript_language,
+            summary_language=target_language,
             video_title=video_title,
             script_raw_json=script_raw_json,
         )
@@ -149,6 +152,13 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
             progress=100,
             content=validated_summary,
             error="",
+            locale=target_language,
+            intent=resolved_intent,
+            provenance={
+                "source_task_id": task_id,
+                "source_kind": "script",
+                "transcript_language": transcript_language,
+            },
         )
         return
 

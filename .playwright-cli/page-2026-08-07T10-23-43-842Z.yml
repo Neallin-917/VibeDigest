@@ -1,0 +1,206 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - link "Skip to main content" [ref=e4] [cursor=pointer]:
+        - /url: "#main-content"
+      - navigation "Menu":
+        - generic [ref=e5]:
+          - link "VibeDigest" [ref=e6] [cursor=pointer]:
+            - /url: /en#hero
+          - generic [ref=e10]:
+            - link "Demos" [ref=e11] [cursor=pointer]:
+              - /url: /en#demos
+            - link "Features" [ref=e12] [cursor=pointer]:
+              - /url: /en#features
+            - link "How It Works" [ref=e13] [cursor=pointer]:
+              - /url: /en#how-it-works
+            - link "Pricing" [ref=e14] [cursor=pointer]:
+              - /url: /en#pricing
+            - link "FAQ" [ref=e15] [cursor=pointer]:
+              - /url: /en/faq
+          - generic [ref=e17]:
+            - button "English" [ref=e19]
+            - button "Toggle theme" [ref=e23]
+            - link "Sign Up" [ref=e28] [cursor=pointer]:
+              - /url: /en/login
+      - main [ref=e29]:
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - paragraph [ref=e33]: AI-Powered Video Companion
+            - heading "Turn one link into a digest you can use." [level=1] [ref=e34]
+            - paragraph [ref=e35]: Turn long videos and podcasts into structured summaries, transcripts, and key takeaways you can revisit.
+            - generic [ref=e40]:
+              - textbox "Video or podcast URL" [ref=e42]:
+                - /placeholder: Paste a video or podcast URL...
+              - button "Send message" [disabled] [ref=e43]
+          - region [ref=e47]:
+            - generic [ref=e49]:
+              - generic [ref=e51]:
+                - generic [ref=e52]: A finished VibeDigest
+                - generic [ref=e53]: Ready to read
+              - heading "State of the Claw — Peter Steinberger" [level=2] [ref=e58]
+            - generic [ref=e59]:
+              - generic [ref=e60]:
+                - generic [ref=e61]: Brief
+                - paragraph [ref=e65]: A fast-growing open-source project is learning how to preserve independence while operating at unprecedented scale.
+              - generic [ref=e66]:
+                - generic [ref=e67]:
+                  - generic [ref=e68]: "1"
+                  - paragraph [ref=e69]: The project’s pace creates a new kind of coordination and security challenge.
+                - generic [ref=e70]:
+                  - generic [ref=e71]: "2"
+                  - paragraph [ref=e72]: A neutral foundation protects the ecosystem while contributors and companies grow around it.
+              - generic [ref=e78]:
+                - paragraph [ref=e79]: What changes for open source?
+                - paragraph [ref=e80]: Ask a natural-language follow-up and keep the answer tied to the source material.
+            - link "Open a finished digest" [ref=e81] [cursor=pointer]:
+              - /url: /en/explore
+        - region [ref=e86]:
+          - generic [ref=e87]:
+            - heading "See a finished digest" [level=2] [ref=e88]
+            - paragraph [ref=e89]: Curated public demos. Your own tasks stay private.
+          - generic [ref=e92]:
+            - link "State of the Claw — Peter Steinberger YouTube State of the Claw — Peter Steinberger" [ref=e93] [cursor=pointer]:
+              - /url: /en/chat?task=3a6c1431-239b-49f2-89be-00f3f52f59bc
+              - generic [ref=e94]:
+                - img "State of the Claw — Peter Steinberger" [ref=e95]
+                - generic [ref=e97]: YouTube
+              - heading "State of the Claw — Peter Steinberger" [level=3] [ref=e100]
+            - 'link "GE Aerospace: Full Throttle [Business Breakdowns Episode 235] YouTube GE Aerospace: Full Throttle [Business Breakdowns Episode 235] B Business Breakdowns" [ref=e102] [cursor=pointer]':
+              - /url: /en/chat?task=2e88c39d-3a9e-4483-92b0-1098ca66d85e
+              - generic [ref=e103]:
+                - 'img "GE Aerospace: Full Throttle [Business Breakdowns Episode 235]" [ref=e104]'
+                - generic [ref=e106]: YouTube
+              - generic [ref=e108]:
+                - 'heading "GE Aerospace: Full Throttle [Business Breakdowns Episode 235]" [level=3] [ref=e109]'
+                - generic [ref=e111]:
+                  - generic [ref=e112]: B
+                  - generic [ref=e114]: Business Breakdowns
+            - 'link "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition YouTube Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition A All-In Podcast" [ref=e115] [cursor=pointer]':
+              - /url: /en/chat?task=f70f3256-aa6b-4a0e-8c15-6b36abbf4f8b
+              - generic [ref=e116]:
+                - 'img "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition" [ref=e117]'
+                - generic [ref=e119]: YouTube
+              - generic [ref=e121]:
+                - 'heading "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition" [level=3] [ref=e122]'
+                - generic [ref=e124]:
+                  - generic [ref=e125]: A
+                  - generic [ref=e127]: All-In Podcast
+          - link "View all examples →" [ref=e129] [cursor=pointer]:
+            - /url: /en/explore
+            - text: View all examples
+            - generic [ref=e130]: →
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - heading "Everything you need to learn faster" [level=2] [ref=e134]
+            - paragraph [ref=e135]: Transform passive watching into active understanding with our suite of AI-powered tools.
+          - generic [ref=e136]:
+            - article [ref=e137]:
+              - generic [ref=e143]:
+                - heading "Smart Summarization" [level=3] [ref=e144]
+                - paragraph [ref=e145]: Turn long videos and podcasts into structured summaries, transcripts, and key takeaways you can revisit.
+            - article [ref=e146]:
+              - generic [ref=e152]:
+                - heading "Dynamic Podcast Templates" [level=3] [ref=e153]
+                - paragraph [ref=e154]: Read in formats that fit the content, from debate matrices to narrative arcs, so complex podcasts are easier to follow.
+            - article [ref=e155]:
+              - generic [ref=e160]:
+                - heading "Chat with Video" [level=3] [ref=e161]
+                - paragraph [ref=e162]: Have specific questions? Ask the AI anything about the video content and get instant answers.
+        - generic [ref=e164]:
+          - generic [ref=e166]:
+            - heading "How It Works" [level=2] [ref=e167]
+            - paragraph [ref=e168]: Get your summary in 3 simple steps
+          - generic [ref=e169]:
+            - generic [ref=e171]:
+              - generic [ref=e172]: "1"
+              - heading "1. Paste Link" [level=3] [ref=e177]
+              - paragraph [ref=e178]: Copy the URL from YouTube, Apple Podcasts, or Bilibili and paste it into our analyzer.
+            - generic [ref=e179]:
+              - generic [ref=e180]: "2"
+              - heading "2. AI Processing" [level=3] [ref=e185]
+              - paragraph [ref=e186]: VibeDigest transcribes the content and extracts its key ideas.
+            - generic [ref=e187]:
+              - generic [ref=e188]: "3"
+              - heading "3. Get Summary" [level=3] [ref=e193]
+              - paragraph [ref=e194]: Receive a structured summary, transcript, and key takeaways.
+        - generic [ref=e196]:
+          - generic [ref=e198]:
+            - heading "Simple Pricing" [level=2] [ref=e199]
+            - paragraph [ref=e200]: Choose the plan that fits your needs
+          - generic [ref=e201]:
+            - generic [ref=e202]:
+              - heading "Basic" [level=3] [ref=e203]
+              - generic [ref=e204]: Free
+              - paragraph [ref=e206]: Try VibeDigest for free, no card required
+              - list [ref=e207]:
+                - listitem [ref=e208]:
+                  - generic [ref=e212]: 3 videos / month
+                - listitem [ref=e213]:
+                  - generic [ref=e217]: Save notes
+                - listitem [ref=e218]:
+                  - generic [ref=e222]: Transcript translation
+              - button "Get Started" [ref=e223]
+            - generic [ref=e224]:
+              - generic [ref=e225]: MOST POPULAR
+              - heading "Pro" [level=3] [ref=e228]
+              - generic [ref=e229]:
+                - generic [ref=e230]: $8.25
+                - generic [ref=e231]: effective / month
+              - paragraph [ref=e232]: $99 billed annually for a 12-month subscription.
+              - list [ref=e233]:
+                - listitem [ref=e234]:
+                  - generic [ref=e238]: 100 videos / month
+                - listitem [ref=e239]:
+                  - generic [ref=e243]: Everything from basic
+              - button "View plan" [ref=e244]
+            - generic [ref=e245]:
+              - heading "Top Up" [level=3] [ref=e246]
+              - generic [ref=e247]: $4.99
+              - paragraph [ref=e249]: Pay as you go, one-time payment
+              - list [ref=e250]:
+                - listitem [ref=e251]:
+                  - generic [ref=e255]: 50 videos per pack
+                - listitem [ref=e256]:
+                  - generic [ref=e260]: Never expires
+                - listitem [ref=e261]:
+                  - generic [ref=e265]: Use alongside any plan
+              - button "Buy Credits" [ref=e266]
+          - paragraph [ref=e267]:
+            - text: Subscriptions are covered by our
+            - link "Refund Policy" [ref=e268] [cursor=pointer]:
+              - /url: /en/policies/refund
+            - text: and
+            - link "Terms of Service" [ref=e269] [cursor=pointer]:
+              - /url: /en/policies/terms
+            - text: .
+        - region [ref=e270]:
+          - generic [ref=e271]:
+            - heading "Questions before you begin?" [level=2] [ref=e272]
+            - paragraph [ref=e273]: The essentials before you paste a link.
+            - generic [ref=e274]:
+              - group [ref=e275]:
+                - generic "Can I try VibeDigest for free?" [ref=e276] [cursor=pointer]: + Can I try VibeDigest for free?
+              - group [ref=e277]:
+                - generic "When do I need to sign in?" [ref=e278] [cursor=pointer]: + When do I need to sign in?
+              - group [ref=e279]:
+                - generic "How is Pro billed?" [ref=e280] [cursor=pointer]: + How is Pro billed?
+            - link "Read the full FAQ" [ref=e281] [cursor=pointer]:
+              - /url: /en/faq
+        - generic [ref=e286]:
+          - heading "Still have questions?" [level=2] [ref=e287]
+          - paragraph [ref=e288]: Our support team is here to help you get the most out of the AI Summarizer. Reach out anytime, and we'll get back to you within 24 hours.
+          - button "Contact Support" [ref=e290]
+      - contentinfo [ref=e294]:
+        - paragraph [ref=e295]: © 2026 VibeDigest. All rights reserved.
+        - generic [ref=e296]:
+          - link "About" [ref=e297] [cursor=pointer]:
+            - /url: /en/about
+          - link "FAQ" [ref=e298] [cursor=pointer]:
+            - /url: /en/faq
+          - link "Privacy Policy" [ref=e299] [cursor=pointer]:
+            - /url: /en/privacy
+          - link "Terms of Service" [ref=e300] [cursor=pointer]:
+            - /url: /en/terms
+    - region "Notifications alt+T"
+  - alert [ref=e301]

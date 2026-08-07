@@ -1,0 +1,270 @@
+- generic:
+  - generic:
+    - generic:
+      - link:
+        - /url: "#main-content"
+        - text: 跳到主要内容
+      - navigation:
+        - generic [ref=e5]:
+          - link [ref=e320] [cursor=pointer]:
+            - /url: /zh#hero
+            - generic [ref=e7]: VibeDigest
+          - generic [ref=e10]:
+            - link [ref=e321] [cursor=pointer]:
+              - /url: /zh#demos
+              - text: 社区示例
+            - link [ref=e322] [cursor=pointer]:
+              - /url: /zh#features
+              - text: 功能
+            - link [ref=e323] [cursor=pointer]:
+              - /url: /zh#how-it-works
+              - text: 使用方法
+            - link [ref=e324] [cursor=pointer]:
+              - /url: /zh#pricing
+              - text: 定价
+            - link [ref=e325] [cursor=pointer]:
+              - /url: /zh/faq
+              - text: 常见问题
+          - generic [ref=e17]:
+            - button [ref=e326]:
+              - generic [ref=e20]: 中文
+            - button [ref=e327]:
+              - generic [ref=e26]: Toggle theme
+            - link [ref=e328] [cursor=pointer]:
+              - /url: /zh/login
+              - text: 注册
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: AI 驱动的视频伴侣
+              - heading [level=1]: 一个链接，变成一份 可继续使用的摘要。
+              - paragraph: 把长视频和播客整理成结构化摘要、逐字稿与理解要点，方便随时回顾。
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - textbox:
+                            - /placeholder: 粘贴视频或播客链接...
+                        - button [disabled]
+            - region:
+              - generic:
+                - generic:
+                  - generic: 一份已完成的 VibeDigest
+                  - generic: 已可阅读
+                - generic:
+                  - heading [level=2]: State of the Claw — Peter Steinberger
+              - generic:
+                - generic:
+                  - generic: 摘要
+                  - paragraph: 一个高速增长的开源项目，正在学习如何在空前规模下保持独立性。
+                - generic:
+                  - generic:
+                    - generic: "1"
+                    - paragraph: 项目的增长速度带来了全新的协作与安全挑战。
+                  - generic:
+                    - generic: "2"
+                    - paragraph: 中立基金会让生态保持开放，也让贡献者与公司能够共同成长。
+                - generic:
+                  - generic:
+                    - generic:
+                      - paragraph: 这会如何改变开源？
+                      - paragraph: 自然语言追问会持续关联到原始内容，而不是脱离来源的泛泛回答。
+              - link:
+                - /url: /zh/explore
+                - generic: 打开一份已完成摘要
+        - region:
+          - generic:
+            - heading [level=2]: 查看已完成的摘要
+            - paragraph: 精选公开示例；你的任务默认保持私密。
+          - generic:
+            - generic:
+              - generic:
+                - link:
+                  - /url: /zh/chat?task=3a6c1431-239b-49f2-89be-00f3f52f59bc
+                  - generic: YouTube
+                  - generic:
+                    - heading [level=3]: State of the Claw — Peter Steinberger
+                - link:
+                  - /url: /zh/chat?task=2e88c39d-3a9e-4483-92b0-1098ca66d85e
+                  - generic: YouTube
+                  - generic:
+                    - heading [level=3]: "GE Aerospace: Full Throttle [Business Breakdowns Episode 235]"
+                    - generic:
+                      - generic:
+                        - generic: B
+                        - generic: Business Breakdowns
+                - link:
+                  - /url: /zh/chat?task=f70f3256-aa6b-4a0e-8c15-6b36abbf4f8b
+                  - generic: YouTube
+                  - generic:
+                    - heading [level=3]: "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition"
+                    - generic:
+                      - generic:
+                        - generic: A
+                        - generic: All-In Podcast
+          - generic:
+            - link:
+              - /url: /zh/explore
+              - text: 查看全部示例
+              - generic: →
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=2]: 让您 学习更高效
+              - paragraph: 通过我们的 AI 工具套件，将被动观看转化为主动理解。
+            - generic:
+              - article:
+                - generic:
+                  - generic:
+                    - heading [level=3]: 智能摘要
+                    - paragraph: 把长视频和播客整理成结构化摘要、逐字稿与理解要点，方便随时回顾。
+              - article:
+                - generic:
+                  - generic:
+                    - heading [level=3]: 动态播客模板
+                    - paragraph: 针对不同播客类型提供定制化视图，从激烈辩论到深度叙事都更易理解。
+              - article:
+                - generic:
+                  - generic:
+                    - heading [level=3]: 与视频对话
+                    - paragraph: 有具体问题？向 AI 询问关于视频内容的任何问题，获取即时解答。
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=2]: 工作原理
+                - paragraph: 只需简单 3 步即可获取摘要
+            - generic:
+              - generic:
+                - generic: "1"
+                - heading [level=3]: 1. 粘贴链接
+                - paragraph: 复制 YouTube、Apple Podcasts 或 Bilibili 的链接并粘贴到我们的分析器中。
+              - generic:
+                - generic: "2"
+                - heading [level=3]: 2. AI 处理
+                - paragraph: VibeDigest 转写内容，并提取其中的核心观点。
+              - generic:
+                - generic: "3"
+                - heading [level=3]: 3. 获取摘要
+                - paragraph: 获得结构化摘要、逐字稿和理解要点。
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=2]: 简单定价
+                - paragraph: 选择适合您需求的方案
+            - generic:
+              - generic:
+                - heading [level=3]: 基础版
+                - generic: 免费
+                - paragraph: 免费试用 VibeDigest，无需信用卡
+                - list:
+                  - listitem:
+                    - generic: 每月 3 个视频
+                  - listitem:
+                    - generic: 保存笔记
+                  - listitem:
+                    - generic: 字幕翻译
+                - button: 开始使用
+              - generic:
+                - generic: 最受欢迎
+                - heading [level=3]: 专业版
+                - generic:
+                  - generic: $8.25
+                  - generic: 折合每月
+                - paragraph: 年付 $99，订阅期为 12 个月。
+                - list:
+                  - listitem:
+                    - generic: 每月 100 个视频
+                  - listitem:
+                    - generic: 包含基础版所有功能
+                - button: 查看方案
+              - generic:
+                - heading [level=3]: 充值包
+                - generic: $4.99
+                - paragraph: 即付即用，一次性付费
+                - list:
+                  - listitem:
+                    - generic: 每包 50 个视频
+                  - listitem:
+                    - generic: 永久有效
+                  - listitem:
+                    - generic: 可搭配任意方案使用
+                - button: 购买点数
+            - paragraph:
+              - text: 订阅适用我们的
+              - link:
+                - /url: /zh/policies/refund
+                - text: 退款政策
+              - text: 与
+              - link:
+                - /url: /zh/policies/terms
+                - text: 服务条款
+              - text: .
+        - region:
+          - generic:
+            - heading [level=2]: 开始前常见问题
+            - paragraph: 粘贴链接前需要了解的关键信息。
+            - generic:
+              - group:
+                - generic: + 可以免费试用 VibeDigest 吗？
+              - group:
+                - generic: + 什么时候需要登录？
+              - group:
+                - generic: + Pro 如何计费？
+            - link:
+              - /url: /zh/faq
+              - text: 查看完整常见问题
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=2]: 还有问题？
+              - paragraph: 我们的支持团队随时为您服务，帮助您充分利用 AI 摘要工具。随时联系，我们将在 24 小时内回复。
+              - generic:
+                - button: 联系支持
+      - contentinfo:
+        - paragraph: © 2026 VibeDigest。保留所有权利。
+        - generic:
+          - link:
+            - /url: /zh/about
+            - text: 关于我们
+          - link:
+            - /url: /zh/faq
+            - text: 常见问题
+          - link:
+            - /url: /zh/privacy
+            - text: 隐私政策
+          - link:
+            - /url: /zh/terms
+            - text: 服务条款
+    - region "Notifications alt+T"
+  - generic [ref=e305] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e306]
+    - generic [ref=e311]:
+      - button "Open issues overlay" [ref=e312]:
+        - generic [ref=e313]:
+          - generic [ref=e314]: "0"
+          - generic [ref=e315]: "1"
+        - generic [ref=e316]: Issue
+      - button "Collapse issues badge" [ref=e317]
+  - alert
+  - dialog [ref=e330]:
+    - heading "Login" [level=2] [ref=e332]
+    - generic [ref=e333]:
+      - generic [ref=e334]:
+        - paragraph [ref=e339]: 链接已保留
+        - heading "继续生成摘要" [level=3] [ref=e343]
+        - paragraph [ref=e344]: 登录后将立即开始处理。
+      - generic [ref=e345]:
+        - button "Google 登录" [active] [ref=e346]
+        - generic [ref=e353]: 或使用邮箱
+        - generic [ref=e358]:
+          - textbox "你的邮箱" [ref=e360]
+          - button "发送登录链接" [ref=e361]
+          - generic [ref=e365]:
+            - button "使用密码登录" [ref=e366]
+            - button "没有账户？注册" [ref=e367]
+    - button "Close" [ref=e368]

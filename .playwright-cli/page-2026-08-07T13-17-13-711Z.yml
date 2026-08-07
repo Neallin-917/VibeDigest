@@ -1,0 +1,68 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e324]:
+      - navigation "菜单":
+        - generic [ref=e325]:
+          - link "VibeDigest" [ref=e326] [cursor=pointer]:
+            - /url: /zh#hero
+          - generic [ref=e330]:
+            - link "社区示例" [ref=e331] [cursor=pointer]:
+              - /url: /zh#demos
+            - link "功能" [ref=e332] [cursor=pointer]:
+              - /url: /zh#features
+            - link "使用方法" [ref=e333] [cursor=pointer]:
+              - /url: /zh#how-it-works
+            - link "定价" [ref=e334] [cursor=pointer]:
+              - /url: /zh#pricing
+            - link "常见问题" [ref=e335] [cursor=pointer]:
+              - /url: /zh/faq
+          - generic [ref=e337]:
+            - button "中文" [ref=e339]
+            - button "Toggle theme" [ref=e343]
+            - link "注册" [ref=e348] [cursor=pointer]:
+              - /url: /zh/login
+      - main [ref=e349]:
+        - generic [ref=e350]:
+          - heading "探索社区摘要" [level=1] [ref=e351]
+          - paragraph [ref=e352]: 浏览使用 VibeDigest 创建的真实示例。
+        - generic [ref=e354]:
+          - link "How AI shortens the feedback loop YouTube How AI shortens the feedback loop V VibeDigest demo" [ref=e355] [cursor=pointer]:
+            - /url: /zh/chat?task=local-demo-feedback-loop
+            - generic [ref=e356]:
+              - img "How AI shortens the feedback loop" [ref=e357]
+              - generic [ref=e359]: YouTube
+            - generic [ref=e361]:
+              - heading "How AI shortens the feedback loop" [level=3] [ref=e362]
+              - generic [ref=e364]:
+                - generic [ref=e365]: V
+                - generic [ref=e367]: VibeDigest demo
+          - link "State of the Claw — Peter Steinberger YouTube State of the Claw — Peter Steinberger C Community example" [ref=e368] [cursor=pointer]:
+            - /url: /zh/chat?task=local-demo-ai-strategy
+            - generic [ref=e369]:
+              - img "State of the Claw — Peter Steinberger" [ref=e370]
+              - generic [ref=e372]: YouTube
+            - generic [ref=e374]:
+              - heading "State of the Claw — Peter Steinberger" [level=3] [ref=e375]
+              - generic [ref=e377]:
+                - generic [ref=e378]: C
+                - generic [ref=e380]: Community example
+          - 'link "GE Aerospace: Full Throttle YouTube GE Aerospace: Full Throttle B Business Breakdowns" [ref=e381] [cursor=pointer]':
+            - /url: /zh/chat?task=local-demo-business
+            - generic [ref=e382]:
+              - 'img "GE Aerospace: Full Throttle" [ref=e383]'
+              - generic [ref=e385]: YouTube
+            - generic [ref=e387]:
+              - 'heading "GE Aerospace: Full Throttle" [level=3] [ref=e388]'
+              - generic [ref=e390]:
+                - generic [ref=e391]: B
+                - generic [ref=e393]: Business Breakdowns
+      - contentinfo [ref=e394]:
+        - paragraph [ref=e395]: © 2026 VibeDigest. 保留所有权利。
+        - generic [ref=e396]:
+          - link "隐私政策" [ref=e397] [cursor=pointer]:
+            - /url: /zh/privacy
+          - link "服务条款" [ref=e398] [cursor=pointer]:
+            - /url: /zh/terms
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e311] [cursor=pointer]
+  - alert [ref=e305]: 探索 AI 视频摘要 | VibeDigest | VibeDigest

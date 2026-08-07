@@ -1,0 +1,19 @@
+- generic [active] [ref=f8e1]:
+  - generic [ref=f8e2]:
+    - generic [ref=f8e7]:
+      - button "中文" [ref=f8e10]
+      - generic [ref=f8e14]:
+        - heading "欢迎回来" [level=3] [ref=f8e19]
+        - paragraph [ref=f8e20]: 登录以继续
+      - generic [ref=f8e21]:
+        - button "Google 登录" [ref=f8e22]
+        - generic [ref=f8e29]: 或使用邮箱
+        - generic [ref=f8e34]:
+          - textbox "你的邮箱" [ref=f8e36]
+          - button "发送登录链接" [ref=f8e37]
+          - generic [ref=f8e41]:
+            - button "使用密码登录" [ref=f8e42]
+            - button "没有账户？注册" [ref=f8e43]
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f8e49] [cursor=pointer]
+  - alert [ref=f8e53]

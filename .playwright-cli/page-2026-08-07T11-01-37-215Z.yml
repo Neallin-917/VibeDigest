@@ -1,0 +1,20 @@
+- generic [active] [ref=f10e1]:
+  - generic [ref=f10e2]:
+    - generic [ref=f10e7]:
+      - button "中文" [ref=f10e10]
+      - generic [ref=f10e14]:
+        - paragraph [ref=f10e19]: 链接已保留
+        - heading "继续生成摘要" [level=3] [ref=f10e23]
+        - paragraph [ref=f10e24]: 登录后将立即开始处理。
+      - generic [ref=f10e25]:
+        - button "Google 登录" [ref=f10e26]
+        - generic [ref=f10e33]: 或使用邮箱
+        - generic [ref=f10e38]:
+          - textbox "你的邮箱" [ref=f10e40]
+          - button "发送登录链接" [ref=f10e41]
+          - generic [ref=f10e45]:
+            - button "使用密码登录" [ref=f10e46]
+            - button "没有账户？注册" [ref=f10e47]
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f10e53] [cursor=pointer]
+  - alert [ref=f10e57]

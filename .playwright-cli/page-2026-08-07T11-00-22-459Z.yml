@@ -1,0 +1,79 @@
+- generic [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - generic [ref=f5e3]:
+      - complementary [ref=f5e4]:
+        - button "Toggle sidebar" [ref=f5e6]
+        - navigation [ref=f5e8]:
+          - generic [ref=f5e9]:
+            - button "新对话" [ref=f5e10]
+            - generic: 新对话
+          - generic [ref=f5e12]:
+            - button "社区" [ref=f5e13]
+            - generic: 社区
+      - generic [ref=f5e16]:
+        - banner [ref=f5e17]:
+          - button "点击头像查看更多选项" [ref=f5e19]: U
+        - main [ref=f5e20]:
+          - generic [ref=f5e23]:
+            - article [ref=f5e49]:
+              - generic [ref=f5e50]:
+                - iframe [ref=f5e52]:
+                  - generic [ref=f6e1]:
+                    - generic "YouTube 视频播放器" [ref=f6e3]
+                    - generic [ref=f6e5]:
+                      - generic:
+                        - generic:
+                          - generic [ref=f6e6] [cursor=pointer]
+                          - button "播放视频" [ref=f6e10] [cursor=pointer]
+                          - button "隐藏播放器控件" [ref=f6e14] [cursor=pointer]
+                          - generic [ref=f6e21]:
+                            - generic [ref=f6e22]:
+                              - link "State of the Claw — Peter Steinberger" [ref=f6e23] [cursor=pointer]:
+                                - /url: https://www.youtube.com/watch?v=zgNvts_2TUE
+                              - link "AI Engineer" [ref=f6e24] [cursor=pointer]:
+                                - /url: /channel/UCLKPca3kwwd-B59HNr-_lvA
+                            - generic [ref=f6e26]:
+                              - button [ref=f6e27] [cursor=pointer]:
+                                - img "thumbnail-image" [ref=f6e28]
+                              - generic [ref=f6e30]:
+                                - generic: AI Engineer
+                                - generic: 61.1万位订阅者
+                - heading "State of the Claw — Peter Steinberger" [level=3] [ref=f5e54]
+              - generic [ref=f5e55]:
+                - heading "一句话总结" [level=3] [ref=f5e58]
+                - paragraph [ref=f5e59]: Peter Steinberger 回顾了 OpenClaw 作为增长最快开源项目的爆发式发展，以及他加入 OpenAI 负责智能体开发、同时通过 OpenClaw Foundation 保持项目独立的安排。
+              - generic [ref=f5e60]:
+                - generic [ref=f5e61]:
+                  - heading "要点" [level=3] [ref=f5e62]
+                  - generic [ref=f5e63]: "03"
+                - list [ref=f5e64]:
+                  - listitem [ref=f5e65]:
+                    - generic [ref=f5e66]: "01"
+                    - generic [ref=f5e67]:
+                      - paragraph [ref=f5e68]: 超高速增长与“钢管式”轨迹
+                      - paragraph [ref=f5e69]: OpenClaw 被称为 GitHub 历史上增长最快的项目，已超过教育类仓库，成为平台上规模最大的功能型软件项目。五个月内约有 3 万次提交和近 3 万个 PR，这种速度迫使项目从个人维护转向由 Nvidia、Microsoft、ByteDance 等参与的广泛协作。
+                  - listitem [ref=f5e70]:
+                    - generic [ref=f5e71]: "02"
+                    - generic [ref=f5e72]:
+                      - paragraph [ref=f5e73]: 安全报告洪流
+                      - paragraph [ref=f5e74]: 项目已收到 1,142 份安全报告，平均每天 16.6 份。Steinberger 将其与 Linux 内核每天 8 至 9 份、Curl 累计约 600 份作对比；其中 99% 被标为严重，团队不得不应对 AI 自动生成漏洞报告的新现实。
+                  - listitem [ref=f5e75]:
+                    - generic [ref=f5e76]: "03"
+                    - generic [ref=f5e77]:
+                      - paragraph [ref=f5e78]: 对 AI 安全研究方式的批评
+                      - paragraph [ref=f5e79]: Steinberger 批评部分学术和企业安全报告忽略推荐配置，只为制造耸动标题。他举例称，有研究者让智能体以 sudo 模式运行或关闭沙箱来强行触发漏洞，这与项目的个人智能体安全指南相违背。
+              - group [ref=f5e80]:
+                - generic "继续阅读" [ref=f5e81] [cursor=pointer]: +
+              - group [ref=f5e84]:
+                - generic "依据 06" [ref=f5e85] [cursor=pointer]:
+                  - generic [ref=f5e86]: 依据
+                  - generic [ref=f5e87]: "06"
+            - generic [ref=f5e26]:
+              - generic [ref=f5e27]:
+                - textbox "围绕这份内容的追问" [active] [ref=f5e29]:
+                  - /placeholder: 围绕这份内容继续追问...
+                - button "发送" [disabled] [ref=f5e30]
+              - paragraph [ref=f5e35]: AI 可能出错，请核实重要信息。
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f5e41] [cursor=pointer]
+  - alert [ref=f5e45]

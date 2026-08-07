@@ -1,10 +1,30 @@
-export function TemplatesSkeleton() {
+import { cva } from "class-variance-authority"
+
+const skeletonGrid = cva("grid grid-cols-1 gap-6 sm:grid-cols-2", {
+    variants: {
+        layout: {
+            gallery: "lg:grid-cols-3 xl:grid-cols-4",
+            landingPreview: "lg:grid-cols-3 xl:grid-cols-4",
+        },
+    },
+    defaultVariants: {
+        layout: "gallery",
+    },
+})
+
+export function TemplatesSkeleton({
+    count = 8,
+    layout = "gallery",
+}: {
+    count?: number
+    layout?: "gallery" | "landingPreview"
+}) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
+        <div className={skeletonGrid({ layout })}>
+            {Array.from({ length: count }).map((_, i) => (
                 <div
                     key={i}
-                    className="bg-surface-raised border border-border rounded-xl overflow-hidden h-[320px] animate-pulse"
+                    className={`h-[320px] overflow-hidden rounded-xl border border-border bg-surface-raised animate-pulse ${layout === "landingPreview" && i >= 3 ? "hidden xl:block" : ""}`}
                 >
                     {/* Cover Image Skeleton */}
                     <div className="h-40 bg-muted w-full" />

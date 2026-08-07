@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { cva } from "class-variance-authority"
 import Link from "next/link"
 import Image from "next/image"
 import { PlayCircle, Loader2, Sparkles } from "lucide-react"
@@ -24,6 +25,21 @@ export type Task = {
     task_outputs?: TaskOutput[]
 }
 
+const communityGrid = cva("grid grid-cols-1 gap-6 sm:grid-cols-2", {
+    variants: {
+        layout: {
+            gallery: "lg:grid-cols-3 xl:grid-cols-4",
+            landingPreview: "lg:grid-cols-3",
+            landingPreviewWide: "lg:grid-cols-3 xl:grid-cols-4",
+        },
+    },
+    defaultVariants: {
+        layout: "gallery",
+    },
+})
+
+export type CommunityTemplatesLayout = "gallery" | "landingPreview"
+
 const getPlatformFromUrl = (url: string) => {
     try {
         const urlObj = new URL(url)
@@ -43,10 +59,12 @@ function TemplateCard({
     task,
     locale,
     highPriorityThumbnail = false,
+    className,
 }: {
     task: Task
     locale: Locale
     highPriorityThumbnail?: boolean
+    className?: string
 }) {
     const platform = getPlatformFromUrl(task.video_url)
     const showAuthor = task.author && task.author !== "Unknown"
@@ -54,7 +72,7 @@ function TemplateCard({
     return (
         <Link
             href={`/${locale}/chat?task=${task.id}`}
-            className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-zinc-900/60 dark:bg-gradient-to-br dark:from-white/[0.05] dark:to-transparent backdrop-blur-sm cursor-pointer transition-all duration-300 hover:border-slate-300 dark:hover:border-white/20 hover:shadow-lg dark:hover:shadow-[0_8px_32px_rgba(62,207,142,0.15)] hover:scale-[1.02] h-full"
+            className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:border-slate-300 hover:shadow-lg dark:border-white/10 dark:bg-zinc-900/60 dark:bg-gradient-to-br dark:from-white/[0.05] dark:to-transparent dark:hover:border-white/20 dark:hover:shadow-[0_8px_32px_rgba(62,207,142,0.15)] ${className ?? ""}`}
         >
             {/* Thumbnail Area */}
             <div className="relative aspect-video w-full overflow-hidden bg-slate-100 dark:bg-black/40 shrink-0">
@@ -132,6 +150,7 @@ type CommunityTemplatesProps = {
     showHeader?: boolean
     initialTasks?: Task[]
     initialStatus?: "ready" | "unavailable"
+    layout?: CommunityTemplatesLayout
     locale: Locale
     copy: {
         loading: string
@@ -146,6 +165,7 @@ export function CommunityTemplates({
     showHeader = true,
     initialTasks = [],
     initialStatus = "ready",
+    layout = "gallery",
     locale,
     copy,
 }: CommunityTemplatesProps) {
@@ -253,6 +273,10 @@ export function CommunityTemplates({
         return null
     }
 
+    const gridLayout = layout === "landingPreview" && tasks.length >= 4
+        ? "landingPreviewWide"
+        : layout
+
     return (
         <div className="space-y-6">
             {showHeader && (
@@ -269,13 +293,14 @@ export function CommunityTemplates({
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className={communityGrid({ layout: gridLayout })}>
                 {tasks.map((task, index) => (
                     <TemplateCard
                         key={task.id}
                         task={task}
                         locale={locale}
                         highPriorityThumbnail={index === 0}
+                        className={layout === "landingPreview" && index >= 3 ? "hidden xl:flex" : undefined}
                     />
                 ))}
             </div>

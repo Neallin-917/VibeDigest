@@ -126,7 +126,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
       <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
         <HeroSection />
 
-        <section id="demos" aria-labelledby="community-title" className="mx-auto mb-20 max-w-6xl px-6 scroll-mt-24">
+        <section id="demos" aria-labelledby="community-title" className="mx-auto mb-20 max-w-[1600px] px-6 scroll-mt-24">
           <div className="max-w-2xl">
             <h2 id="community-title" className="font-display text-2xl font-bold text-slate-900 md:text-3xl dark:text-white">
               {t("landing.communityTitle")}
@@ -135,8 +135,8 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
           </div>
 
           <div className="mt-8">
-            <Suspense fallback={<TemplatesSkeleton />}>
-              <ServerCommunityTemplates limit={3} showHeader={false} locale={locale} />
+            <Suspense fallback={<TemplatesSkeleton count={4} layout="landingPreview" />}>
+              <ServerCommunityTemplates limit={4} layout="landingPreview" showHeader={false} locale={locale} />
             </Suspense>
           </div>
 

@@ -1,0 +1,25 @@
+- generic [active] [ref=f11e1]:
+  - generic [ref=f11e2]:
+    - generic [ref=f11e3]:
+      - complementary [ref=f11e4]:
+        - button "Toggle sidebar" [ref=f11e6]
+        - navigation [ref=f11e8]:
+          - generic [ref=f11e9]:
+            - button "新对话" [ref=f11e10]
+            - generic: 新对话
+          - generic [ref=f11e12]:
+            - button "社区" [ref=f11e13]
+            - generic: 社区
+      - generic [ref=f11e16]:
+        - banner [ref=f11e17]:
+          - button "点击头像查看更多选项" [ref=f11e19]: U
+        - main [ref=f11e20]:
+          - generic [ref=f11e26]:
+            - generic [ref=f11e27]:
+              - textbox "围绕这份内容的追问" [ref=f11e29]:
+                - /placeholder: 围绕这份内容继续追问...
+              - button "发送" [disabled] [ref=f11e30]
+            - paragraph [ref=f11e35]: AI 可能出错，请核实重要信息。
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f11e41] [cursor=pointer]
+  - alert [ref=f11e45]

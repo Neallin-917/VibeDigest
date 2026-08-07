@@ -1,0 +1,218 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - link "跳到主要内容" [ref=f1e4] [cursor=pointer]:
+        - /url: "#main-content"
+      - navigation "菜单":
+        - generic [ref=f1e5]:
+          - link "VibeDigest" [ref=f1e6] [cursor=pointer]:
+            - /url: /zh#hero
+          - generic [ref=f1e10]:
+            - link "社区示例" [ref=f1e11] [cursor=pointer]:
+              - /url: /zh#demos
+            - link "功能" [ref=f1e12] [cursor=pointer]:
+              - /url: /zh#features
+            - link "使用方法" [ref=f1e13] [cursor=pointer]:
+              - /url: /zh#how-it-works
+            - link "定价" [ref=f1e14] [cursor=pointer]:
+              - /url: /zh#pricing
+            - link "常见问题" [ref=f1e15] [cursor=pointer]:
+              - /url: /zh/faq
+          - generic [ref=f1e17]:
+            - button "中文" [ref=f1e19]
+            - button "Toggle theme" [ref=f1e23]
+      - main [ref=f1e29]:
+        - generic [ref=f1e31]:
+          - generic [ref=f1e32]:
+            - paragraph [ref=f1e33]: AI 驱动的视频伴侣
+            - heading "一个链接，变成一份 可继续使用的摘要。" [level=1] [ref=f1e34]
+            - paragraph [ref=f1e35]: 把长视频和播客整理成结构化摘要、逐字稿与理解要点，方便随时回顾。
+            - generic [ref=f1e40]:
+              - textbox "视频或播客链接" [ref=f1e42]:
+                - /placeholder: 粘贴视频或播客链接...
+              - button "发送" [disabled] [ref=f1e43]
+          - region [ref=f1e47]:
+            - generic [ref=f1e49]:
+              - generic [ref=f1e51]:
+                - generic [ref=f1e52]: 一份已完成的 VibeDigest
+                - generic [ref=f1e53]: 已可阅读
+              - heading "State of the Claw — Peter Steinberger" [level=2] [ref=f1e58]
+            - generic [ref=f1e59]:
+              - generic [ref=f1e60]:
+                - generic [ref=f1e61]: 摘要
+                - paragraph [ref=f1e65]: 一个高速增长的开源项目，正在学习如何在空前规模下保持独立性。
+              - generic [ref=f1e66]:
+                - generic [ref=f1e67]:
+                  - generic [ref=f1e68]: "1"
+                  - paragraph [ref=f1e69]: 项目的增长速度带来了全新的协作与安全挑战。
+                - generic [ref=f1e70]:
+                  - generic [ref=f1e71]: "2"
+                  - paragraph [ref=f1e72]: 中立基金会让生态保持开放，也让贡献者与公司能够共同成长。
+              - generic [ref=f1e78]:
+                - paragraph [ref=f1e79]: 这会如何改变开源？
+                - paragraph [ref=f1e80]: 自然语言追问会持续关联到原始内容，而不是脱离来源的泛泛回答。
+            - link "打开一份已完成摘要" [ref=f1e81] [cursor=pointer]:
+              - /url: /zh/explore
+        - region [ref=f1e86]:
+          - generic [ref=f1e87]:
+            - heading "查看已完成的摘要" [level=2] [ref=f1e88]
+            - paragraph [ref=f1e89]: 精选公开示例；你的任务默认保持私密。
+          - generic [ref=f1e92]:
+            - link "How AI shortens the feedback loop YouTube How AI shortens the feedback loop V VibeDigest demo" [ref=f1e93] [cursor=pointer]:
+              - /url: /zh/chat?task=local-demo-feedback-loop
+              - generic [ref=f1e94]:
+                - img "How AI shortens the feedback loop" [ref=f1e95]
+                - generic [ref=f1e97]: YouTube
+              - generic [ref=f1e99]:
+                - heading "How AI shortens the feedback loop" [level=3] [ref=f1e100]
+                - generic [ref=f1e102]:
+                  - generic [ref=f1e103]: V
+                  - generic [ref=f1e105]: VibeDigest demo
+            - link "State of the Claw — Peter Steinberger YouTube State of the Claw — Peter Steinberger C Community example" [ref=f1e106] [cursor=pointer]:
+              - /url: /zh/chat?task=local-demo-ai-strategy
+              - generic [ref=f1e107]:
+                - img "State of the Claw — Peter Steinberger" [ref=f1e108]
+                - generic [ref=f1e110]: YouTube
+              - generic [ref=f1e112]:
+                - heading "State of the Claw — Peter Steinberger" [level=3] [ref=f1e113]
+                - generic [ref=f1e115]:
+                  - generic [ref=f1e116]: C
+                  - generic [ref=f1e118]: Community example
+            - 'link "GE Aerospace: Full Throttle YouTube GE Aerospace: Full Throttle B Business Breakdowns" [ref=f1e119] [cursor=pointer]':
+              - /url: /zh/chat?task=local-demo-business
+              - generic [ref=f1e120]:
+                - 'img "GE Aerospace: Full Throttle" [ref=f1e121]'
+                - generic [ref=f1e123]: YouTube
+              - generic [ref=f1e125]:
+                - 'heading "GE Aerospace: Full Throttle" [level=3] [ref=f1e126]'
+                - generic [ref=f1e128]:
+                  - generic [ref=f1e129]: B
+                  - generic [ref=f1e131]: Business Breakdowns
+            - 'link "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition YouTube Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition A All-In Podcast" [ref=f1e132] [cursor=pointer]':
+              - /url: /zh/chat?task=local-demo-ai-infrastructure
+              - generic [ref=f1e133]:
+                - 'img "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition" [ref=f1e134]'
+                - generic [ref=f1e136]: YouTube
+              - generic [ref=f1e138]:
+                - 'heading "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition" [level=3] [ref=f1e139]'
+                - generic [ref=f1e141]:
+                  - generic [ref=f1e142]: A
+                  - generic [ref=f1e144]: All-In Podcast
+          - link "查看全部示例 →" [ref=f1e146] [cursor=pointer]:
+            - /url: /zh/explore
+            - text: 查看全部示例
+            - generic [ref=f1e147]: →
+        - generic [ref=f1e149]:
+          - generic [ref=f1e150]:
+            - heading "让您 学习更高效" [level=2] [ref=f1e151]
+            - paragraph [ref=f1e152]: 通过我们的 AI 工具套件，将被动观看转化为主动理解。
+          - generic [ref=f1e153]:
+            - article [ref=f1e154]:
+              - generic [ref=f1e160]:
+                - heading "智能摘要" [level=3] [ref=f1e161]
+                - paragraph [ref=f1e162]: 把长视频和播客整理成结构化摘要、逐字稿与理解要点，方便随时回顾。
+            - article [ref=f1e163]:
+              - generic [ref=f1e169]:
+                - heading "动态播客模板" [level=3] [ref=f1e170]
+                - paragraph [ref=f1e171]: 针对不同播客类型提供定制化视图，从激烈辩论到深度叙事都更易理解。
+            - article [ref=f1e172]:
+              - generic [ref=f1e177]:
+                - heading "与视频对话" [level=3] [ref=f1e178]
+                - paragraph [ref=f1e179]: 有具体问题？向 AI 询问关于视频内容的任何问题，获取即时解答。
+        - generic [ref=f1e181]:
+          - generic [ref=f1e183]:
+            - heading "工作原理" [level=2] [ref=f1e184]
+            - paragraph [ref=f1e185]: 只需简单 3 步即可获取摘要
+          - generic [ref=f1e186]:
+            - generic [ref=f1e188]:
+              - generic [ref=f1e189]: "1"
+              - heading "1. 粘贴链接" [level=3] [ref=f1e194]
+              - paragraph [ref=f1e195]: 复制 YouTube、Apple Podcasts 或 Bilibili 的链接并粘贴到我们的分析器中。
+            - generic [ref=f1e196]:
+              - generic [ref=f1e197]: "2"
+              - heading "2. AI 处理" [level=3] [ref=f1e202]
+              - paragraph [ref=f1e203]: VibeDigest 转写内容，并提取其中的核心观点。
+            - generic [ref=f1e204]:
+              - generic [ref=f1e205]: "3"
+              - heading "3. 获取摘要" [level=3] [ref=f1e210]
+              - paragraph [ref=f1e211]: 获得结构化摘要、逐字稿和理解要点。
+        - generic [ref=f1e213]:
+          - generic [ref=f1e215]:
+            - heading "简单定价" [level=2] [ref=f1e216]
+            - paragraph [ref=f1e217]: 选择适合您需求的方案
+          - generic [ref=f1e218]:
+            - generic [ref=f1e219]:
+              - heading "基础版" [level=3] [ref=f1e220]
+              - generic [ref=f1e221]: 免费
+              - paragraph [ref=f1e223]: 免费试用 VibeDigest，无需信用卡
+              - list [ref=f1e224]:
+                - listitem [ref=f1e225]:
+                  - generic [ref=f1e229]: 每月 3 个视频
+                - listitem [ref=f1e230]:
+                  - generic [ref=f1e234]: 保存笔记
+                - listitem [ref=f1e235]:
+                  - generic [ref=f1e239]: 字幕翻译
+              - button "开始使用" [ref=f1e240]
+            - generic [ref=f1e241]:
+              - generic [ref=f1e242]: 最受欢迎
+              - heading "专业版" [level=3] [ref=f1e245]
+              - generic [ref=f1e246]:
+                - generic [ref=f1e247]: $8.25
+                - generic [ref=f1e248]: 折合每月
+              - paragraph [ref=f1e249]: 年付 $99，订阅期为 12 个月。
+              - list [ref=f1e250]:
+                - listitem [ref=f1e251]:
+                  - generic [ref=f1e255]: 每月 100 个视频
+                - listitem [ref=f1e256]:
+                  - generic [ref=f1e260]: 包含基础版所有功能
+              - button "查看方案" [ref=f1e261]
+            - generic [ref=f1e262]:
+              - heading "充值包" [level=3] [ref=f1e263]
+              - generic [ref=f1e264]: $4.99
+              - paragraph [ref=f1e266]: 即付即用，一次性付费
+              - list [ref=f1e267]:
+                - listitem [ref=f1e268]:
+                  - generic [ref=f1e272]: 每包 50 个视频
+                - listitem [ref=f1e273]:
+                  - generic [ref=f1e277]: 永久有效
+                - listitem [ref=f1e278]:
+                  - generic [ref=f1e282]: 可搭配任意方案使用
+              - button "购买点数" [ref=f1e283]
+          - paragraph [ref=f1e284]:
+            - text: 订阅适用我们的
+            - link "退款政策" [ref=f1e285] [cursor=pointer]:
+              - /url: /zh/policies/refund
+            - text: 与
+            - link "服务条款" [ref=f1e286] [cursor=pointer]:
+              - /url: /zh/policies/terms
+            - text: .
+        - region [ref=f1e287]:
+          - generic [ref=f1e288]:
+            - heading "开始前常见问题" [level=2] [ref=f1e289]
+            - paragraph [ref=f1e290]: 粘贴链接前需要了解的关键信息。
+            - generic [ref=f1e291]:
+              - group [ref=f1e292]:
+                - generic "可以免费试用 VibeDigest 吗？" [ref=f1e293] [cursor=pointer]: + 可以免费试用 VibeDigest 吗？
+              - group [ref=f1e294]:
+                - generic "什么时候需要登录？" [ref=f1e295] [cursor=pointer]: + 什么时候需要登录？
+              - group [ref=f1e296]:
+                - generic "Pro 如何计费？" [ref=f1e297] [cursor=pointer]: + Pro 如何计费？
+            - link "查看完整常见问题" [ref=f1e298] [cursor=pointer]:
+              - /url: /zh/faq
+        - generic [ref=f1e303]:
+          - heading "还有问题？" [level=2] [ref=f1e304]
+          - paragraph [ref=f1e305]: 我们的支持团队随时为您服务，帮助您充分利用 AI 摘要工具。随时联系，我们将在 24 小时内回复。
+          - button "联系支持" [ref=f1e307]
+      - contentinfo [ref=f1e311]:
+        - paragraph [ref=f1e312]: © 2026 VibeDigest。保留所有权利。
+        - generic [ref=f1e313]:
+          - link "关于我们" [ref=f1e314] [cursor=pointer]:
+            - /url: /zh/about
+          - link "常见问题" [ref=f1e315] [cursor=pointer]:
+            - /url: /zh/faq
+          - link "隐私政策" [ref=f1e316] [cursor=pointer]:
+            - /url: /zh/privacy
+          - link "服务条款" [ref=f1e317] [cursor=pointer]:
+            - /url: /zh/terms
+    - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f1e323] [cursor=pointer]

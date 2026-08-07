@@ -119,7 +119,10 @@ async def test_creem_webhook_subscription_completed(api_client, mock_db_client):
                 "billing_type": "recurring",
                 "billing_period": "every-month",
             },
-            "subscription": {"id": "sub_1"},
+            "subscription": {
+                "id": "sub_1",
+                "current_period_end_date": "2026-09-07T00:00:00Z",
+            },
         },
     }
     payload_bytes = json.dumps(payload).encode("utf-8")
@@ -136,6 +139,7 @@ async def test_creem_webhook_subscription_completed(api_client, mock_db_client):
         call_args = mock_db_client.update_subscription_by_user.call_args[0]
         assert call_args[0] == "u2"
         assert call_args[1] == "pro"
+        assert call_args[2] == "2026-09-07T00:00:00+00:00"
 
 
 @pytest.mark.asyncio
@@ -146,7 +150,7 @@ async def test_creem_webhook_subscription_paid(api_client, mock_db_client):
         "eventType": "subscription.paid",
         "object": {
             "customer": "cust_3",
-            "product": {"billing_period": "every-month"},
+            "current_period_end_date": "2026-09-07T00:00:00Z",
         },
     }
     payload_bytes = json.dumps(payload).encode("utf-8")
@@ -163,15 +167,19 @@ async def test_creem_webhook_subscription_paid(api_client, mock_db_client):
         call_args = mock_db_client.update_subscription.call_args[0]
         assert call_args[0] == "cust_3"
         assert call_args[1] == "pro"
+        assert call_args[2] == "2026-09-07T00:00:00+00:00"
 
 
 @pytest.mark.asyncio
-async def test_creem_webhook_subscription_canceled(api_client, mock_db_client):
-    """subscription.canceled event downgrades user to free tier immediately."""
+async def test_creem_webhook_subscription_canceled_preserves_paid_period(api_client, mock_db_client):
+    """subscription.canceled keeps Pro access through Creem's paid period end."""
     secret = "test_secret"
     payload = {
         "eventType": "subscription.canceled",
-        "object": {"customer": "cust_4"},
+        "object": {
+            "customer": "cust_4",
+            "current_period_end_date": "2026-09-07T00:00:00Z",
+        },
     }
     payload_bytes = json.dumps(payload).encode("utf-8")
     signature = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
@@ -186,7 +194,31 @@ async def test_creem_webhook_subscription_canceled(api_client, mock_db_client):
         mock_db_client.update_subscription.assert_called_once()
         call_args = mock_db_client.update_subscription.call_args[0]
         assert call_args[0] == "cust_4"
-        assert call_args[1] == "free"
+        assert call_args[1] == "pro"
+        assert call_args[2] == "2026-09-07T00:00:00+00:00"
+
+
+@pytest.mark.asyncio
+async def test_creem_webhook_subscription_expired_does_not_drop_access_early(
+    api_client, mock_db_client
+):
+    secret = "test_secret"
+    payload = {
+        "eventType": "subscription.expired",
+        "object": {"customer": "cust_5"},
+    }
+    payload_bytes = json.dumps(payload).encode("utf-8")
+    signature = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+
+    with patch("api.routes.webhooks.CREEM_WEBHOOK_SECRET", secret):
+        response = await api_client.post(
+            "/api/webhook/creem",
+            content=payload_bytes,
+            headers={"creem-signature": signature},
+        )
+
+    assert response.status_code == 200
+    mock_db_client.update_subscription.assert_not_called()
 
 
 @pytest.mark.asyncio

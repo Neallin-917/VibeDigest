@@ -39,6 +39,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.thinking') return 'Thinking...'
       if (key === 'chat.genericError') return 'Something went wrong.'
       if (key === 'chat.retry') return 'Retry'
+      if (key === 'taskForm.quotaExceeded.description') return 'Your plan limit has been reached.'
+      if (key === 'taskForm.quotaExceeded.confirm') return 'View Plans'
       if (key === 'chat.followUpPlaceholder') return 'Ask a follow-up about this source...'
       if (key === 'chat.followUpInputLabel') return 'Follow-up question about this source'
       return key
@@ -392,6 +394,33 @@ describe('ChatContainer', () => {
 
       expect(mockSendMessage).not.toHaveBeenCalled()
       expect(mockSetMessages).not.toHaveBeenCalled()
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+
+  it('localizes a quota rejection and links to plans', async () => {
+    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=quota123')
+    const originalFetch = global.fetch
+    try {
+      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          code: 'QUOTA_EXCEEDED',
+          details: 'Quota exceeded',
+        }),
+      } as Response)
+
+      render(<ChatContainer isAuthenticated={true} />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Your plan limit has been reached.')).toBeInTheDocument()
+      })
+      expect(screen.getByRole('link', { name: 'View Plans' })).toHaveAttribute(
+        'href',
+        '/en/settings/pricing',
+      )
+      expect(screen.queryByText('Quota exceeded')).not.toBeInTheDocument()
     } finally {
       global.fetch = originalFetch
     }

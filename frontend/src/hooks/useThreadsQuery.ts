@@ -50,29 +50,29 @@ function sortThreadsByUpdatedAt(threads: Thread[]) {
  *
  * - staleTime: 30s (thread list changes infrequently)
  * - refetchOnWindowFocus: catches updates from other tabs
- * - 401 responses gracefully return empty array
+ * - guest sessions do not request private history
  */
-export function useThreadsQuery() {
+export function useThreadsQuery({ enabled = true }: { enabled?: boolean } = {}) {
     const queryClient = useQueryClient()
     const isDemo = isLocalUiDemo()
 
     const { data: threads = [], isLoading } = useQuery({
         queryKey: threadKeys.all,
         queryFn: fetchThreads,
-        enabled: !isDemo,
+        enabled: !isDemo && enabled,
         staleTime: 30_000,
         refetchOnWindowFocus: true,
     })
 
     const refetch = useCallback(async (): Promise<Thread[]> => {
-        if (isDemo) return []
+        if (isDemo || !enabled) return []
 
         const data = await queryClient.fetchQuery({
             queryKey: threadKeys.all,
             queryFn: fetchThreads,
         })
         return data
-    }, [isDemo, queryClient])
+    }, [enabled, isDemo, queryClient])
 
     const updateThreadStatus = useCallback(async (threadId: string, status: MutableThreadStatus) => {
         const updatedThread = await patchThreadStatus(threadId, status)

@@ -69,9 +69,9 @@ export function HeroSection() {
     }
 
     return (
-        <section id="hero" className="relative overflow-hidden px-6 pb-16 pt-28 md:pb-24 md:pt-32">
-            <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[38rem] bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.12),transparent_62%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.10),transparent_62%)]" />
-            <div className="mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-[minmax(0,0.94fr)_minmax(28rem,0.86fr)] lg:gap-16">
+        <section id="hero" className="relative overflow-hidden px-6 pb-16 pt-24 md:pb-24 md:pt-24">
+            <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.13),transparent_62%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.11),transparent_62%)]" />
+            <div className="mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(30rem,1fr)] lg:gap-20">
                 <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
                     <p className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
                         {t("landing.badge")}
@@ -81,11 +81,11 @@ export function HeroSection() {
                         <span className="text-emerald-700 dark:text-emerald-300">{t("landing.titleEmphasis")}</span>
                     </h1>
 
-                    <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-slate-600 md:text-lg lg:mx-0 dark:text-zinc-400">
+                    <p className="mx-auto mt-6 max-w-[32rem] text-base leading-relaxed text-slate-600 md:text-lg lg:mx-0 dark:text-zinc-400">
                         {renderWithBold(t("landing.smartSummarizationDesc"))}
                     </p>
-                    <div className="mx-auto mt-9 w-full max-w-2xl lg:mx-0">
-                        <div className="rounded-[1.7rem] border border-slate-200 bg-white p-2 shadow-[0_16px_50px_-30px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-zinc-950">
+                    <div className="mx-auto mt-9 w-full max-w-xl lg:mx-0">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_16px_50px_-30px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-zinc-950">
                             <ChatInput
                                 variant="inline"
                                 onSubmit={handleHeroSubmit}
@@ -93,13 +93,6 @@ export function HeroSection() {
                                 inputLabel={t("taskForm.urlInputLabel")}
                                 hideDisclaimer={true}
                             />
-                        </div>
-                        <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs leading-5 text-slate-600 lg:justify-start dark:text-zinc-400">
-                            <span>{t("landing.trustedBy")}</span>
-                            <span aria-hidden="true" className="hidden text-slate-300 dark:text-zinc-700 sm:inline">•</span>
-                            <span>{t("landing.freeAllowance")}</span>
-                            <span aria-hidden="true" className="hidden text-slate-300 dark:text-zinc-700 sm:inline">•</span>
-                            <span>{t("landing.signInHandoff")}</span>
                         </div>
                     </div>
                 </div>

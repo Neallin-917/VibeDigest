@@ -23,7 +23,7 @@ interface ChatWorkspaceProps {
   onNewChat: () => void
   onSelectThread: (threadId: string) => void
   onSelectTask: (taskId: string | null) => void
-  onSelectExample?: (taskId: string) => void
+  onSelectExample?: (task: ChatExample) => void
   onThreadCreated?: () => void
   onChatStarted?: (threadId: string, taskId?: string) => void
   threads?: Thread[]

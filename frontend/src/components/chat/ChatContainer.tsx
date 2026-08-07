@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { extractAndNormalizeUrl } from '@/lib/url-utils'
 import { useChatScroll } from './useChatScroll'
 import { useDirectUrlSubmission } from './useDirectUrlSubmission'
+import Link from 'next/link'
 
 import { XCircle } from 'lucide-react'
 import { useI18n } from '@/components/i18n/I18nProvider'
@@ -26,7 +27,7 @@ interface ChatContainerProps {
   initialMessages?: ChatUIMessage[]
   isAuthenticated?: boolean | null
   isInteractionLocked?: boolean
-  onSelectExample?: (taskId: string) => void
+  onSelectExample?: (task: ChatExample) => void
   onChatStarted?: (threadId: string, taskId?: string) => void
   initialExamples?: Promise<ChatExample[]> | null
 }
@@ -169,7 +170,12 @@ export function ChatContainer({
     window.location.href = loginUrl
   }
 
-  const { isDirectProcessing, directSubmitError, handleDirectUrlSubmission } = useDirectUrlSubmission({
+  const {
+    isDirectProcessing,
+    directSubmitError,
+    directSubmitQuotaExceeded,
+    handleDirectUrlSubmission,
+  } = useDirectUrlSubmission({
     sendMessageToApi,
     setMessages,
     onChatStarted,
@@ -397,6 +403,13 @@ export function ChatContainer({
                   >
                     {t('auth.signIn')}
                   </button>
+                ) : directSubmitQuotaExceeded ? (
+                  <Link
+                    href={`/${locale}/settings/pricing`}
+                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    {t('taskForm.quotaExceeded.confirm')}
+                  </Link>
                 ) : error && !directSubmitError && !taskRetryError ? (
                   <button
                     onClick={() => regenerate()}

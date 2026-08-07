@@ -21,12 +21,22 @@ export const taskStatusDataSchema = z.object({
   errorMessage: z.string().optional(),
 })
 
+// Older completed demo threads persisted this lightweight progress marker.
+// Keep it readable so a follow-up can validate its complete conversation history.
+export const legacyTaskReferenceDataSchema = z.object({
+  taskId: z.string(),
+})
+
 export const chatDataSchemas = {
   'task-status': taskStatusDataSchema,
+  'task-progress': legacyTaskReferenceDataSchema,
+  'task-plan': legacyTaskReferenceDataSchema,
 } as const
 
 export type ChatUIDataParts = {
   'task-status': z.infer<typeof taskStatusDataSchema>
+  'task-progress': z.infer<typeof legacyTaskReferenceDataSchema>
+  'task-plan': z.infer<typeof legacyTaskReferenceDataSchema>
 }
 
 export type ChatUITools = InferUITools<ChatToolSet>

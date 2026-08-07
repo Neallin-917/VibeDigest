@@ -8,7 +8,7 @@ from dependencies import (
 )
 from fastapi import APIRouter, Body, Depends, Form, Header, HTTPException
 from services.output_intent import build_output_intent
-from services.task_queue import GuestQuotaExceededError, TaskQueue
+from services.task_queue import GuestQuotaExceededError, QuotaExceededError, TaskQueue
 from utils.url import normalize_video_url
 
 router = APIRouter()
@@ -57,6 +57,8 @@ def process_video(
 
     except GuestQuotaExceededError as exc:
         raise HTTPException(status_code=402, detail="Guest quota exceeded") from exc
+    except QuotaExceededError as exc:
+        raise HTTPException(status_code=402, detail="Quota exceeded") from exc
     except Exception as exc:
         logger.exception("Error creating or enqueueing task: %s", exc)
         raise HTTPException(

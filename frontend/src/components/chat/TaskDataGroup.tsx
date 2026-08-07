@@ -361,7 +361,7 @@ function collectEvidence(summary: CurrentSummary): EvidenceItem[] {
     items.push({ label, text })
   }
 
-  summary.keypoints.slice(0, 2).forEach((keypoint) => {
+  summary.keypoints.forEach((keypoint) => {
     add(keypoint.title, keypoint.evidence)
   })
 
@@ -410,6 +410,75 @@ function EvidenceDisclosure({ title, items }: { title: string; items: EvidenceIt
   )
 }
 
+function SummaryContinuation({
+  summary,
+  visibleKeypointCount,
+  title,
+  sectionsTitle,
+}: {
+  summary: CurrentSummary
+  visibleKeypointCount: number
+  title: string
+  sectionsTitle: string
+}) {
+  const remainingKeypoints = summary.keypoints.slice(visibleKeypointCount)
+  const hasMoreContent = remainingKeypoints.length > 0 || summary.sections.length > 0
+
+  if (!hasMoreContent) return null
+
+  return (
+    <details className="rounded-2xl border border-border/80 bg-surface-raised/80 px-5 py-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2">
+        <span>{title}</span>
+        <span aria-hidden="true" className="text-base font-normal text-muted-foreground">+</span>
+      </summary>
+      <div className="mt-4 space-y-6 border-t border-border/70 pt-4">
+        {remainingKeypoints.length > 0 ? (
+          <ol>
+            {remainingKeypoints.map((keypoint, index) => (
+              <li
+                key={`${keypoint.title}-${index}`}
+                className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 border-t border-border/70 py-3 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
+                  {String(visibleKeypointCount + index + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold leading-5 text-foreground">{keypoint.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
+        {summary.sections.length > 0 ? (
+          <div className="space-y-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+              {sectionsTitle}
+            </p>
+            {summary.sections.map((section, index) => (
+              <section key={`${section.section_type}-${section.title ?? index}`} className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0">
+                {section.title ? <h4 className="text-sm font-semibold text-foreground">{section.title}</h4> : null}
+                {section.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{section.description}</p> : null}
+                {section.items.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {section.items.map((item, itemIndex) => (
+                      <li key={`${item.content}-${itemIndex}`} className="text-sm leading-6 text-muted-foreground">
+                        {item.content}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </details>
+  )
+}
+
 function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskDataGroupProps) {
   const { t, locale } = useI18n()
   const [isRetrying, setIsRetrying] = useState(false)
@@ -434,7 +503,8 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const canRenderMedia = canRenderVideo || Boolean(audioData?.audioUrl)
   const showPlayer = canRenderMedia && (hasSourceMetadata || status === 'completed')
   const conclusion = summary?.tl_dr || summary?.overview
-  const keypoints = summary?.keypoints?.slice(0, 2) ?? []
+  const visibleKeypointCount = 3
+  const keypoints = summary?.keypoints?.slice(0, visibleKeypointCount) ?? []
   const evidenceItems = summary ? collectEvidence(summary) : []
   const stageLabel = getStageLabel(t, status, snapshot.progress)
   const safeError = snapshot.errorMessage
@@ -526,6 +596,15 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
       ) : null}
 
       {summary?.uiBlocks?.length ? <KnowledgeUiBlocks blocks={summary.uiBlocks} /> : null}
+
+      {summary ? (
+        <SummaryContinuation
+          summary={summary}
+          visibleKeypointCount={visibleKeypointCount}
+          title={t('tasks.summaryStructured.continueReading')}
+          sectionsTitle={t('tasks.summaryStructured.sectionsTitle')}
+        />
+      ) : null}
 
       <EvidenceDisclosure
         title={t('tasks.summaryStructured.evidenceLabel')}

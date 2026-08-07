@@ -6,10 +6,13 @@ import { useLoadThreadPayload, usePrefetchThread, useInvalidateThreadPayload, ty
 import type { ChatUIMessage } from "@/lib/chat-ui"
 import type { Thread } from "@/types"
 import { preloadMessageRow } from "@/components/chat/LazyMessageRow"
+import { createTaskDataParts } from "@/lib/chat-ui"
+import type { ChatExample } from "@/lib/chat-examples"
 
 interface UseThreadNavigationOptions {
     threads: Thread[]
     refetchThreads: () => Promise<Thread[]>
+    publicExample?: ChatExample | null
 }
 
 export interface ThreadNavigationState {
@@ -24,7 +27,7 @@ export interface ThreadNavigationState {
     handleNewChat: () => void
     handleSelectThread: (threadId: string) => Promise<void>
     handleSelectTask: (taskId: string | null) => Promise<void>
-    handleSelectExample: (taskId: string) => Promise<void>
+    handleSelectExample: (task: ChatExample) => Promise<void>
     handleChatStarted: (threadId: string, taskId?: string) => void
     prefetchThread: (threadId: string) => void
 }
@@ -39,6 +42,7 @@ export interface ThreadNavigationState {
 export function useThreadNavigation({
     threads,
     refetchThreads,
+    publicExample = null,
 }: UseThreadNavigationOptions): ThreadNavigationState {
     const searchParams = useSearchParams()
     const { replace } = useRouter()
@@ -130,6 +134,31 @@ export function useThreadNavigation({
         replace(nextUrl, { scroll: false })
         return true
     }, [pathname, replace])
+
+    const openPublicExample = useCallback((example: ChatExample) => {
+        const params = getCurrentParams()
+        params.set("task", example.id)
+        params.delete("threadId")
+
+        setActiveThreadId(null)
+        setActiveTaskId(example.id)
+        setInitialMessages([
+            createTaskDataParts({
+                messageId: `public-demo-${example.id}`,
+                taskId: example.id,
+                status: "completed",
+                progress: 100,
+                videoTitle: example.video_title,
+                thumbnailUrl: example.thumbnail_url,
+                videoUrl: example.video_url,
+            }),
+        ])
+        setPendingThreadId(null)
+        setIsThreadSwitching(false)
+        hasBootstrappedRef.current = true
+        setIsBootstrapping(false)
+        safeReplace(params)
+    }, [getCurrentParams, safeReplace])
 
     const commitThreadSelection = useCallback((threadId: string, payload: ThreadPayload) => {
         startTransition(() => {
@@ -245,6 +274,14 @@ export function useThreadNavigation({
                 return
             }
 
+            // A direct public demo opens a read-only task card without probing
+            // private thread endpoints. A later authenticated follow-up owns its
+            // own thread and will add `threadId`, so only intercept the initial view.
+            if (!queryThreadId && publicExample?.id === queryTaskId) {
+                openPublicExample(publicExample)
+                return
+            }
+
             if (queryTaskId) {
                 // A restored URL already identifies both the task and its thread.
                 // Start the messages request now instead of waiting for the sidebar
@@ -331,7 +368,7 @@ export function useThreadNavigation({
         return () => {
             cancelled = true
         }
-    }, [queryTaskId, queryThreadId])
+    }, [openPublicExample, publicExample, queryTaskId, queryThreadId])
 
     // Handle New Chat
     const handleNewChat = useCallback(() => {
@@ -446,9 +483,10 @@ export function useThreadNavigation({
     }, [refetchThreads, getCurrentParams, loadThreadPayload, resolveOrCreateThreadForTask, resolvedActiveThreadId, safeReplace])
 
     // Handle Demo Selection from Welcome Screen
-    const handleSelectExample = useCallback(async (taskId: string) => {
-        await handleSelectTask(taskId)
-    }, [handleSelectTask])
+    const handleSelectExample = useCallback(async (example: ChatExample) => {
+        isUserNavigatingRef.current = true
+        openPublicExample(example)
+    }, [openPublicExample])
 
     // Handle Chat Started (first message sent, optionally with a newly created task)
     const handleChatStarted = useCallback((threadId: string, taskId?: string) => {

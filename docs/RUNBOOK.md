@@ -26,7 +26,9 @@ is development-only and connects to the configured Cloud development database.
    the queue baseline before any command service, and
    `20260807090000_add_task_retry.sql` with this release).
 3. Deploy/update the Railway Worker and verify it can poll an empty queue.
-4. Deploy the Railway API.
+4. Deploy the Railway API. Its `/health/ready` endpoint must return `200`;
+   it rejects traffic when the six-argument submission function, PGMQ, output
+   intent columns, or monthly-quota reset column are absent.
 5. Deploy the Vercel frontend.
 6. Submit one controlled video and confirm:
    task/output transaction, PGMQ claim, heartbeat, progress writes, Realtime

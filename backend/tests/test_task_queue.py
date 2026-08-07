@@ -2,7 +2,12 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-from services.task_queue import GuestQuotaExceededError, PostgresTaskQueue, QueuedJob
+from services.task_queue import (
+    GuestQuotaExceededError,
+    PostgresTaskQueue,
+    QueuedJob,
+    QuotaExceededError,
+)
 
 
 def test_submit_process_video_uses_atomic_database_boundary():
@@ -50,6 +55,25 @@ def test_submit_process_video_surfaces_atomic_guest_quota_rejection():
             user_id="00000000-0000-0000-0000-000000000001",
             guest_id="guest-1",
             output_intent={"target_locale": "en", "locale_source": "ui_locale"},
+        )
+
+
+def test_submit_process_video_surfaces_atomic_account_quota_rejection():
+    db = MagicMock()
+    db._execute_query.return_value = [
+        {
+            "task_id": None,
+            "resolution": "quota_exceeded",
+            "message_id": None,
+        }
+    ]
+    queue = PostgresTaskQueue(db)
+
+    with pytest.raises(QuotaExceededError, match="Quota exceeded"):
+        queue.submit_process_video(
+            video_url="https://example.com/second-video",
+            user_id="00000000-0000-0000-0000-000000000001",
+            guest_id=None,
         )
 
 

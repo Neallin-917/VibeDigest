@@ -25,6 +25,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
         'chat.tools.status.steps.summarizeLabel': 'Writing knowledge cards',
         'tasks.summaryStructured.tldrTitle': 'One conclusion',
         'tasks.summaryStructured.keypointsTitle': 'Key insights',
+        'tasks.summaryStructured.continueReading': 'Continue reading',
+        'tasks.summaryStructured.sectionsTitle': 'Sections',
         'tasks.summaryStructured.evidenceLabel': 'Evidence',
         'chat.inlineResult.noSummary': 'No summary available.',
         'chat.directSubmit.unavailable': 'Unable to process this video right now.',
@@ -125,7 +127,7 @@ describe('TaskDataGroup', () => {
           keypoints: [
             { title: 'Practice feedback loops', detail: 'Review work often.', evidence: '00:32' },
             { title: 'Protect focus', detail: 'Use uninterrupted sessions.', evidence: '01:10' },
-            { title: 'Not rendered', detail: 'Keep the first screen short.', evidence: '02:03' },
+            { title: 'Read the full result', detail: 'Keep the details close to the first screen.', evidence: '02:03' },
           ],
           ui_blocks: [
             {
@@ -139,7 +141,14 @@ describe('TaskDataGroup', () => {
               ],
             },
           ],
-          sections: [],
+          sections: [
+            {
+              section_type: 'takeaways',
+              title: 'A practical next step',
+              description: 'Apply the feedback loop to one important task this week.',
+              items: [{ content: 'Choose a repeatable practice and review it after every attempt.' }],
+            },
+          ],
         }),
       },
     ]
@@ -165,7 +174,9 @@ describe('TaskDataGroup', () => {
     expect(screen.getAllByText('Protect focus')).toHaveLength(1)
     expect(screen.getByText('Compare practice modes')).toBeInTheDocument()
     expect(screen.getByText('Immediate')).toBeInTheDocument()
-    expect(screen.queryByText('Not rendered')).not.toBeInTheDocument()
+    expect(screen.getByText('Read the full result')).toBeInTheDocument()
+    expect(screen.getByText('A practical next step')).toBeInTheDocument()
+    expect(screen.getByText('Continue reading').closest('details')).not.toHaveAttribute('open')
     expect(screen.getByText('Evidence')).toBeInTheDocument()
     expect(screen.queryByText('00:32')).not.toBeInTheDocument()
     expect(screen.getByText('A source quote.')).toBeInTheDocument()

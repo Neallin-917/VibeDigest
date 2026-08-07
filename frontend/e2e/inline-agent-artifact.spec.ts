@@ -86,7 +86,7 @@ test.describe('Inline agent task artifact', () => {
               keypoints: [
                 { title: 'Feedback loops', detail: 'Review the outcome after each attempt.', evidence: '00:42' },
                 { title: 'Protected focus', detail: 'Reserve uninterrupted practice time.', evidence: '01:24' },
-                { title: 'Not rendered', detail: 'The first screen stays concise.', evidence: '02:10' },
+                { title: 'Practical next step', detail: 'Use the next session to apply the feedback loop.', evidence: '02:10' },
               ],
               ui_blocks: [
                 {
@@ -137,12 +137,12 @@ test.describe('Inline agent task artifact', () => {
     const keyPoints = artifact.getByRole('list')
     await expect(keyPoints.getByText('Feedback loops', { exact: true })).toBeVisible()
     await expect(keyPoints.getByText('Protected focus', { exact: true })).toBeVisible()
+    await expect(keyPoints.getByText('Practical next step', { exact: true })).toBeVisible()
     await expect(artifact.getByRole('heading', { name: 'Practice modes' })).toBeVisible()
     await expect(artifact.getByRole('table')).toBeVisible()
     await expect(artifact.getByText('Immediate review')).toBeVisible()
     await expect(artifact.getByRole('heading', { name: 'Verified repetitions' })).toBeVisible()
     await expect(artifact.getByText('8 repetitions')).toBeVisible()
-    await expect(artifact.getByText('Not rendered')).toHaveCount(0)
     await expect(artifact.getByText('00:42')).toHaveCount(0)
   })
 })

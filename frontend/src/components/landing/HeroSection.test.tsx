@@ -89,12 +89,12 @@ describe("HeroSection", () => {
         expect(input).toHaveAttribute("data-input-label", "taskForm.urlInputLabel")
     })
 
-    it("explains platform support, the free allowance, and the sign-in handoff before submit", () => {
+    it("keeps supporting copy out of the hero so the task input stays the only CTA", () => {
         render(<HeroSection />)
 
-        expect(screen.getByText("Supports YouTube and podcasts")).toBeInTheDocument()
-        expect(screen.getByText("3 summaries each month. No card required.")).toBeInTheDocument()
-        expect(screen.getByText("Sign in after submitting to begin.")).toBeInTheDocument()
+        expect(screen.queryByText("Supports YouTube and podcasts")).not.toBeInTheDocument()
+        expect(screen.queryByText("3 summaries each month. No card required.")).not.toBeInTheDocument()
+        expect(screen.queryByText("Sign in after submitting to begin.")).not.toBeInTheDocument()
     })
 
     it("uses the shared account cache for an authenticated submission", async () => {

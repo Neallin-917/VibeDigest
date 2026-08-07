@@ -65,9 +65,9 @@ export class ApiClient {
         });
     }
 
-    static async createCheckoutSession(priceId: string, token: string) {
+    static async createCheckoutSession(planKey: string, token: string) {
         const formData = new FormData();
-        formData.append("price_id", priceId);
+        formData.append("plan_key", planKey);
 
         return this.request("/api/create-checkout-session", {
             method: "POST",
@@ -87,9 +87,9 @@ export class ApiClient {
         });
     }
 
-    static async createCryptoCharge(priceId: string, token: string) {
+    static async createCryptoCharge(planKey: string, token: string) {
         const formData = new FormData();
-        formData.append("price_id", priceId);
+        formData.append("plan_key", planKey);
 
         return this.request("/api/create-crypto-charge", {
             method: "POST",

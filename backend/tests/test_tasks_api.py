@@ -7,7 +7,7 @@ from dependencies import (
 from fastapi import HTTPException as FastAPIHTTPException
 from httpx import ASGITransport, AsyncClient
 from main import app
-from services.task_queue import GuestQuotaExceededError, TaskSubmission
+from services.task_queue import GuestQuotaExceededError, QuotaExceededError, TaskSubmission
 
 
 @pytest.mark.asyncio
@@ -123,6 +123,25 @@ async def test_process_video_returns_402_when_atomic_quota_is_exceeded(
 
     assert response.status_code == 402
     assert response.json()["detail"] == "Guest quota exceeded"
+
+
+@pytest.mark.asyncio
+async def test_process_video_returns_402_when_account_quota_is_exceeded(
+    api_client,
+    mock_task_queue,
+):
+    mock_task_queue.submit_process_video.side_effect = QuotaExceededError(
+        "Quota exceeded"
+    )
+
+    response = await api_client.post(
+        "/api/process-video",
+        data={"video_url": "https://youtube.com/watch?v=123"},
+        headers={"Authorization": "Bearer test-token"},
+    )
+
+    assert response.status_code == 402
+    assert response.json()["detail"] == "Quota exceeded"
 
 
 @pytest.mark.asyncio

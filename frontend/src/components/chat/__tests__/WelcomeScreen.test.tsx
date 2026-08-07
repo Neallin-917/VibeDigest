@@ -24,7 +24,7 @@ vi.mock('../QuickTemplateCard', () => ({
     <div
       data-testid="template-card"
       data-high-priority-thumbnail={String(highPriorityThumbnail)}
-      onClick={() => onSelect(task.id)}
+      onClick={() => onSelect(task)}
     >
       {task.video_title}
     </div>
@@ -110,7 +110,11 @@ describe('WelcomeScreen', () => {
     )
 
     fireEvent.click(await screen.findByText('Video 1'))
-    expect(onSelect).toHaveBeenCalledWith('1')
+    expect(onSelect).toHaveBeenCalledWith({
+      id: '1',
+      video_title: 'Video 1',
+      video_url: 'url1',
+    })
   })
 
   it('handles input submission', () => {
@@ -125,5 +129,18 @@ describe('WelcomeScreen', () => {
     
     fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' })
     expect(onSubmit).toHaveBeenCalledWith('hello')
+  })
+
+  it('explains the sign-in handoff to unauthenticated visitors', () => {
+    render(
+      <WelcomeScreen
+        onSelectExample={vi.fn()}
+        onSubmit={vi.fn()}
+        isAuthenticated={false}
+        initialExamples={noExamples}
+      />
+    )
+
+    expect(screen.getByText('auth.guestSubmitHint')).toBeInTheDocument()
   })
 })

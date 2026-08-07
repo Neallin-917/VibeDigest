@@ -8,6 +8,8 @@ import type { ChatUIMessage } from '@/lib/chat-ui'
 vi.mock('@/env', () => ({
     env: {
         AI_SDK_DEBUG: '0',
+        NODE_ENV: 'test',
+        LLM_RUNTIME: 'api',
         BACKEND_API_URL: 'http://localhost:8000',
         SERVER_BACKEND_URL: 'http://localhost:8000',
         MODEL_ALIAS_SMART: undefined,
@@ -44,6 +46,7 @@ const {
     mockUpsert,
     mockCreateUIMessageStream,
     mockCreateUIMessageStreamResponse,
+    mockRunLocalCodex,
 } = vi.hoisted(() => {
     return {
         // Supabase mocks
@@ -67,6 +70,7 @@ const {
         mockGenerateText: vi.fn(),
         mockCreateUIMessageStream: vi.fn(),
         mockCreateUIMessageStreamResponse: vi.fn(),
+        mockRunLocalCodex: vi.fn(),
     }
 })
 
@@ -126,6 +130,11 @@ vi.mock('@/lib/llm-config', () => ({
     }))
 }))
 
+vi.mock('@/lib/local-codex', () => ({
+    isLocalCodexRuntime: () => (env as { LLM_RUNTIME?: string }).LLM_RUNTIME === 'codex_local',
+    runLocalCodex: mockRunLocalCodex,
+}))
+
 const originalFetch = global.fetch
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 let consoleWarnSpy: ReturnType<typeof vi.spyOn>
@@ -168,6 +177,7 @@ describe('POST /api/chat', () => {
 
         ;(env as any).MODEL_ALIAS_SMART = undefined
         ;(env as any).MODEL_ALIAS_FAST = undefined
+        ;(env as any).LLM_RUNTIME = 'api'
         ;(env as any).OPENAI_BASE_URL = undefined
         ;(env as any).OPENAI_API_KEY = undefined
         ;(env as any).OPENROUTER_BASE_URL = undefined
@@ -308,6 +318,51 @@ describe('POST /api/chat', () => {
             firstChunkMs: 8_000,
             chunkMs: 8_000,
         })
+    })
+
+    it('uses the local Codex bridge for a development follow-up without a provider key', async () => {
+        const writes: unknown[] = []
+        ;(env as any).LLM_RUNTIME = 'codex_local'
+        mockRunLocalCodex.mockResolvedValue('The source supports this concise local answer.')
+        mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
+            void execute({
+                writer: {
+                    write: (part: unknown) => writes.push(part),
+                    merge: vi.fn(),
+                    onError: vi.fn(),
+                },
+            })
+            return { options }
+        })
+
+        const req = new NextRequest('http://localhost/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: createTextMessage('Which risk needs community help?'),
+                taskId: 'task-123',
+                threadId: 'thread-123',
+            }),
+        })
+
+        const res = await POST(req)
+        await new Promise((resolve) => setTimeout(resolve, 0))
+
+        expect(res.status).toBe(200)
+        expect(mockRunLocalCodex).toHaveBeenCalledWith(
+            expect.stringContaining('Which risk needs community help?'),
+            expect.any(AbortSignal),
+        )
+        expect(mockRunLocalCodex).toHaveBeenCalledWith(
+            expect.stringContaining('SOURCE CONTEXT:'),
+            expect.any(AbortSignal),
+        )
+        expect(mockConvertToModelMessages).not.toHaveBeenCalled()
+        expect(mockStreamText).not.toHaveBeenCalled()
+        expect(writes).toEqual(expect.arrayContaining([
+            expect.objectContaining({ type: 'text-start' }),
+            expect.objectContaining({ type: 'text-delta', delta: 'The source supports this concise local answer.' }),
+            expect.objectContaining({ type: 'text-end' }),
+        ]))
     })
 
     it('validates persisted tool messages before converting them for the model', async () => {

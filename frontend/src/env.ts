@@ -11,7 +11,9 @@ export const env = createEnv({
     BACKEND_ORIGIN_URL: z.string().url().optional(),
     
     // LLM Configuration
+    LLM_RUNTIME: z.enum(['api', 'codex_local']).optional(),
     LLM_PROVIDER: z.enum(['openai', 'openrouter', 'custom']).optional(),
+    CODEX_LOCAL_TIMEOUT_SECONDS: z.coerce.number().int().min(10).max(900).optional(),
     MODEL_ALIAS_SMART: z.string().optional(),
     MODEL_ALIAS_FAST: z.string().optional(),
     OPENAI_BASE_URL: z.string().url().optional(),
@@ -51,7 +53,9 @@ export const env = createEnv({
     BACKEND_API_URL: process.env.BACKEND_API_URL,
     BACKEND_ORIGIN_URL: process.env.BACKEND_ORIGIN_URL,
     
+    LLM_RUNTIME: process.env.LLM_RUNTIME,
     LLM_PROVIDER: process.env.LLM_PROVIDER,
+    CODEX_LOCAL_TIMEOUT_SECONDS: process.env.CODEX_LOCAL_TIMEOUT_SECONDS,
     MODEL_ALIAS_SMART: process.env.MODEL_ALIAS_SMART,
     MODEL_ALIAS_FAST: process.env.MODEL_ALIAS_FAST,
     OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,

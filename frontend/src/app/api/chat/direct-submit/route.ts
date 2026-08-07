@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: 'Task creation failed',
-          code: 'TASK_CREATION_FAILED',
+          code: res.status === 402 ? 'QUOTA_EXCEEDED' : 'TASK_CREATION_FAILED',
           details: sanitizeErrorMessage(errorText || `Backend returned status ${res.status}`),
         },
         { status: res.status }

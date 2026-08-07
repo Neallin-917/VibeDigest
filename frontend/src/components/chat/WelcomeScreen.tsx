@@ -9,7 +9,7 @@ import { QuickTemplateCard } from './QuickTemplateCard'
 import { ChatInput, type ChatSubmitHandler } from './ChatInput'
 
 interface WelcomeScreenProps {
-  onSelectExample: (taskId: string) => void
+  onSelectExample: (task: ChatExample) => void
   /** Handler for input submission */
   onSubmit: ChatSubmitHandler
   /** Loading state for input */
@@ -40,7 +40,7 @@ function WelcomeExamples({
   onSelectExample,
 }: {
   examplesPromise: Promise<ChatExample[]>
-  onSelectExample: (taskId: string) => void
+  onSelectExample: (task: ChatExample) => void
 }) {
   const { t } = useI18n()
   const examples = use(examplesPromise)
@@ -114,7 +114,7 @@ export function WelcomeScreen({
         />
         {hasMounted && isAuthenticated === false && (
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
-            {t('auth.signInToChat')}
+            {t('auth.guestSubmitHint')}
           </p>
         )}
       </div>

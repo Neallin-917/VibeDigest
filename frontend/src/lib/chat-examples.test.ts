@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { CHAT_EXAMPLE_LIMIT, getChatExamples } from "./chat-examples"
+import { CHAT_EXAMPLE_LIMIT, getChatExample, getChatExamples } from "./chat-examples"
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -48,5 +48,37 @@ describe("getChatExamples", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })))
 
     await expect(getChatExamples()).resolves.toEqual([])
+  })
+
+  it("resolves a direct link only when it remains a completed public demo", async () => {
+    const taskId = "8ecdf78a-a13a-4f15-9bea-910d73917b55"
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{
+        id: taskId,
+        video_url: "https://example.com/demo",
+        video_title: "Demo",
+        thumbnail_url: null,
+      }]), { status: 200 })
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(getChatExample(taskId)).resolves.toMatchObject({
+      id: taskId,
+      video_title: "Demo",
+    })
+
+    const [requestUrl] = fetchMock.mock.calls[0] as [URL]
+    expect(requestUrl.searchParams.get("id")).toBe(`eq.${taskId}`)
+    expect(requestUrl.searchParams.get("is_demo")).toBe("eq.true")
+    expect(requestUrl.searchParams.get("status")).toBe("eq.completed")
+    expect(requestUrl.searchParams.get("limit")).toBe("1")
+  })
+
+  it("does not query Supabase for an invalid direct task ID", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(getChatExample("not-a-task-id")).resolves.toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

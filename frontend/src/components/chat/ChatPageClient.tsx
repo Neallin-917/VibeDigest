@@ -12,12 +12,16 @@ import type { ChatExample } from "@/lib/chat-examples"
 
 function ChatPageContent({
     initialExamples,
+    publicExample,
 }: {
     initialExamples: Promise<ChatExample[]> | null
+    publicExample: ChatExample | null
 }) {
     const { isAuthenticated } = useAuth()
-    const { threads, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery()
-    const nav = useThreadNavigation({ threads, refetchThreads })
+    const { threads, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery({
+        enabled: isAuthenticated === true,
+    })
+    const nav = useThreadNavigation({ threads, refetchThreads, publicExample })
 
     const handleUpdateThreadStatus = async (threadId: string, status: 'active' | 'archived') => {
         try {
@@ -67,12 +71,14 @@ function ChatPageContent({
 
 export function ChatPageClient({
     initialExamples = null,
+    publicExample = null,
 }: {
     initialExamples?: Promise<ChatExample[]> | null
+    publicExample?: ChatExample | null
 }) {
     return (
         <Suspense fallback={<div className="h-screen w-full bg-background" />}>
-            <ChatPageContent initialExamples={initialExamples} />
+            <ChatPageContent initialExamples={initialExamples} publicExample={publicExample} />
         </Suspense>
     )
 }

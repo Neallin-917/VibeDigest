@@ -158,7 +158,7 @@ export async function POST(req: Request) {
       {
         error: 'Direct submit failed',
         code: 'DIRECT_SUBMIT_FAILED',
-        details: error instanceof Error ? error.message : 'Unexpected error',
+        details: 'Unable to process this video right now.',
       },
       { status: 500 }
     )

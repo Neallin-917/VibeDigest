@@ -69,6 +69,7 @@ describe("HeroSection", () => {
         render(<HeroSection />)
         expect(screen.getByText("landing.titlePrefix")).toBeInTheDocument()
         expect(screen.getByText("landing.titleEmphasis")).toBeInTheDocument()
+        expect(screen.getByText("landing.previewTitle")).toBeInTheDocument()
     })
 
     it("renders parsed markdown in description", () => {

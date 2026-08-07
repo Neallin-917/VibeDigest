@@ -47,7 +47,7 @@ validates current database state by entity ID.
 
 1. `vibedigest_private.submit_video_task` owns task dedupe/create, guest quota,
    placeholder creation, active handoff, and `pgmq.send` in one transaction.
-2. `submit_output_retry` owns output reset and retry send in one transaction.
+2. `submit_output_retry` and `retry_video_task` own output/task reset and retry send in one transaction; task retries never consume a second guest allowance.
 3. The worker uses PGMQ visibility + heartbeat and treats delivery as
    at-least-once.
 4. Terminal persistence must succeed before

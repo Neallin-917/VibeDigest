@@ -70,6 +70,24 @@ def test_submit_retry_output_uses_atomic_database_boundary():
     assert "vibedigest_private.submit_output_retry" in query
 
 
+def test_submit_retry_task_uses_atomic_database_boundary():
+    db = MagicMock()
+    db._execute_query.return_value = [{"message_id": 44}]
+    queue = PostgresTaskQueue(db)
+
+    assert (
+        queue.submit_retry_task(
+            task_id="00000000-0000-0000-0000-000000000003",
+            user_id="00000000-0000-0000-0000-000000000001",
+            guest_id="guest-1",
+        )
+        == 44
+    )
+    query, params = db._execute_query.call_args.args
+    assert "vibedigest_private.retry_video_task" in query
+    assert params["guest_id"] == "guest-1"
+
+
 def test_read_normalizes_pgmq_records():
     db = MagicMock()
     db._execute_query.return_value = [

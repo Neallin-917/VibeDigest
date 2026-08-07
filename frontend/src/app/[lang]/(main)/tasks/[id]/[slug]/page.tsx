@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Heading, Text } from "@/components/ui/typography"
 import { cn } from "@/lib/utils"
+import { normalizeTaskStatus } from "@/lib/safe-error"
 
 type Props = {
     params: Promise<{
@@ -130,7 +131,7 @@ export default async function TaskDetailPage(props: Props) {
     const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200) : ""
     const title = task.video_title || "Processed Video"
     const chatPath = `/${lang}/chat?task=${id}`
-    const status = task.status || "pending"
+    const status = normalizeTaskStatus(task.status)
     const canonicalUrl = buildLocalizedPath(lang, `/tasks/${id}/${correctSlug}`)
     const articleJsonLd: Record<string, unknown> = {
         "@context": "https://schema.org",
@@ -229,7 +230,9 @@ export default async function TaskDetailPage(props: Props) {
                             </div>
                         ) : (
                             <Text tone="muted">
-                                Summary not available yet. Check back once processing completes.
+                                {status === "failed"
+                                    ? "This task did not complete. Continue in chat to retry it."
+                                    : "Summary not available yet. Check back once processing completes."}
                             </Text>
                         )}
                     </section>
@@ -250,7 +253,7 @@ export default async function TaskDetailPage(props: Props) {
                                 href={chatPath}
                                 className={cn(buttonVariants({ variant: "default" }), "w-full")}
                             >
-                                Start Chat
+                                {status === "failed" ? "Continue in Chat" : "Start Chat"}
                             </Link>
                             {task.video_url && (
                                 <a

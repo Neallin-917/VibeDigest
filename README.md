@@ -83,10 +83,14 @@ The implementation details live in the codemaps under `docs/codemaps/`.
 | `make test-provider-smoke` | Verify the configured LLM provider with a real API call |
 | `make test-frontend` | Frontend unit tests |
 | `make create-demo-task` | Create and process the default public demo task |
+| `cd frontend && npm run demo:chat` | Start the local visual demo with deterministic landing-page cases |
+| `cd frontend && npx playwright test e2e/smoke.spec.ts --project=chromium-guest` | Run browser smoke with the same deterministic demo cases |
 | `cd frontend && npm run build` | Production build check |
 | `make clean` | Remove generated local artifacts |
 
 Demo task defaults to `https://www.youtube.com/watch?v=7rzYDM6vMtI`, sets `is_demo=true`, and uses `VIBEDIGEST_DEMO_USER_ID`, `DEMO_USER_ID`, or the first `profiles` row as the owner. Override with `DEMO_URL='https://...' DEMO_USER_ID=... make create-demo-task`; use `DEMO_NO_RUN=1` to create only the task row and output placeholders.
+
+`npm run demo:chat` and Playwright smoke do not read production demos or write to Supabase. They render a small fixed set of completed public-case fixtures, so every local visual check has representative cards even when no local database is running.
 
 ## Documentation Map
 

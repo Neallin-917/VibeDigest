@@ -2,145 +2,76 @@
 
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Heading, Text } from "@/components/ui/typography"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import {
-    FileText,
-    Languages,
-    MessageSquare,
-    Smartphone,
-    Zap,
-    Layout,
-    LucideIcon
-} from "lucide-react"
+import { FileText, MessageSquare, Sparkles, type LucideIcon } from "lucide-react"
 
-interface FeatureCardProps {
+type FeatureCardProps = {
     icon: LucideIcon
     title: string
     desc: string
-    gradient: string
-    iconColor: string
-    comingSoon?: boolean
     className?: string
 }
 
-function FeatureCard({ icon: Icon, title, desc, gradient, iconColor, comingSoon, className = "" }: FeatureCardProps) {
-    const { t } = useI18n()
+function FeatureCard({ icon: Icon, title, desc, className = "" }: FeatureCardProps) {
     return (
-        <div
+        <article
             className={cn(
-                "group relative p-6 rounded-3xl overflow-hidden transition-colors duration-200",
-                // Light mode - cleaner glass
-                "bg-white/40 backdrop-blur-xl border border-white/60 shadow-lg hover:shadow-xl hover:bg-white/60",
-                // Dark mode - deep glass with glow
-                "dark:bg-card/40 dark:backdrop-blur-xl dark:border-white/5 dark:hover:border-white/10 dark:hover:bg-card/60 dark:shadow-none",
-                className
+                "group rounded-3xl border border-slate-200 bg-white p-6 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30 dark:border-white/10 dark:bg-zinc-950 dark:hover:border-emerald-400/30 dark:hover:bg-emerald-400/[0.035]",
+                className,
             )}
         >
-            {/* Hover Gradient Spotlight */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-[0.05] dark:group-hover:opacity-[0.1] transition-opacity duration-500`} />
-            
-            {/* Ambient Corner Blob */}
-            <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${gradient} opacity-[0.1] dark:opacity-[0.15] blur-3xl rounded-full group-hover:scale-150 transition-transform duration-700 ease-out`} />
-
-            <div className="relative z-10 flex flex-col h-full">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-sm",
-                            "bg-white border border-white/50",
-                            "dark:bg-white/5 dark:border-white/10"
-                        )}>
-                            <Icon className={cn("w-5 h-5", iconColor)} />
-                        </div>
-                        <Heading as="h3" className="text-base font-bold text-slate-900 dark:text-white group-hover:translate-x-1 transition-transform duration-300">
-                            {title}
-                        </Heading>
-                    </div>
-                    
-                    {comingSoon && (
-                        <Badge variant="secondary" className="text-[10px] h-5 px-2 font-semibold border-emerald-500/10 bg-emerald-500/5 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
-                            {t("landing.comingSoon")}
-                        </Badge>
-                    )}
+            <div className="flex flex-col gap-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-emerald-700 dark:bg-white/10 dark:text-emerald-300">
+                    <Icon className="h-5 w-5" strokeWidth={1.8} />
                 </div>
-                
-                <Text className="text-slate-600 dark:text-zinc-400 leading-relaxed text-sm font-medium">
-                    {desc}
-                </Text>
+                <div>
+                    <Heading as="h3" className="text-base font-bold text-slate-900 dark:text-white">
+                        {title}
+                    </Heading>
+                    <Text className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-zinc-400">
+                        {desc}
+                    </Text>
+                </div>
             </div>
-        </div>
+        </article>
     )
 }
 
 export function FeaturesSection() {
     const { t } = useI18n()
-
     const features = [
         {
-            icon: FileText,
+            icon: Sparkles,
             title: t("landing.smartSummarization"),
             desc: t("landing.smartSummarizationDesc"),
-            gradient: "from-emerald-500/20 to-teal-600/20",
-            iconColor: "text-emerald-700",
+        },
+        {
+            icon: FileText,
+            title: t("landing.dynamicTemplates"),
+            desc: t("landing.dynamicTemplatesDesc"),
         },
         {
             icon: MessageSquare,
             title: t("landing.chatWithVideo"),
             desc: t("landing.chatWithVideoDesc"),
-            gradient: "from-cyan-500/20 to-blue-600/20",
-            iconColor: "text-cyan-700",
         },
-        {
-            icon: Layout,
-            title: t("landing.dynamicTemplates"),
-            desc: t("landing.dynamicTemplatesDesc"),
-            gradient: "from-sky-500/20 to-blue-600/20",
-            iconColor: "text-sky-700",
-        },
-        {
-            icon: Languages,
-            title: t("landing.crossLanguageAI"),
-            desc: t("landing.crossLanguageAIDesc"),
-            gradient: "from-amber-500/20 to-orange-600/20",
-            iconColor: "text-amber-700",
-        },
-        {
-            icon: Smartphone,
-            title: t("landing.mobileFirst"),
-            desc: t("landing.mobileFirstDesc"),
-            gradient: "from-violet-500/20 to-purple-600/20",
-            iconColor: "text-violet-700",
-        },
-        {
-            icon: Zap,
-            title: t("landing.fastProcessing"),
-            desc: t("landing.fastProcessingDesc"),
-            gradient: "from-rose-500/20 to-red-600/20",
-            iconColor: "text-rose-700",
-        }
     ]
 
     return (
-        <section id="features" className="py-20 px-6 relative scroll-mt-24">
-            <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-12 relative z-10">
-                    <div>
-                        <Heading as="h2" className="text-2xl md:text-4xl font-display font-bold mb-5 text-slate-900 dark:text-white">
-                            {t("landing.featuresTitlePrefix")} <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-400 dark:to-teal-400">{t("landing.featuresTitleEmphasis")}</span>
-                        </Heading>
-                        <Text className="max-w-xl mx-auto text-slate-600 dark:text-zinc-400 text-base">
-                            {t("landing.featuresSubtitle")}
-                        </Text>
-                    </div>
+        <section id="features" className="relative scroll-mt-24 px-6 py-20">
+            <div className="mx-auto max-w-6xl">
+                <div className="mb-12 max-w-2xl">
+                    <Heading as="h2" className="mb-5 font-display text-2xl font-bold text-slate-900 md:text-4xl dark:text-white">
+                        {t("landing.featuresTitlePrefix")} <span className="text-emerald-700 dark:text-emerald-300">{t("landing.featuresTitleEmphasis")}</span>
+                    </Heading>
+                    <Text className="max-w-xl text-base text-slate-600 dark:text-zinc-400">
+                        {t("landing.featuresSubtitle")}
+                    </Text>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
-                    {features.map((feature, index) => (
-                        <FeatureCard
-                            key={index}
-                            {...feature}
-                        />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {features.map((feature) => (
+                        <FeatureCard key={feature.title} {...feature} />
                     ))}
                 </div>
             </div>

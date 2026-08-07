@@ -56,6 +56,14 @@ class TaskQueue(Protocol):
         guest_id: str | None,
     ) -> int: ...
 
+    def submit_retry_task(
+        self,
+        *,
+        task_id: str,
+        user_id: str,
+        guest_id: str | None,
+    ) -> int: ...
+
 
 class PostgresTaskQueue:
     """Durable task submission and delivery backed by Supabase PGMQ."""
@@ -156,6 +164,34 @@ class PostgresTaskQueue:
         )
         if not rows or rows[0].get("message_id") is None:
             raise RuntimeError("Output retry submission returned no message id")
+        return int(rows[0]["message_id"])
+
+    def submit_retry_task(
+        self,
+        *,
+        task_id: str,
+        user_id: str,
+        guest_id: str | None,
+    ) -> int:
+        rows = self.db._execute_query(
+            """
+            SELECT *
+            FROM vibedigest_private.retry_video_task(
+                CAST(:task_id AS uuid),
+                CAST(:user_id AS uuid),
+                :guest_id,
+                :queue_name
+            )
+            """,
+            {
+                "task_id": task_id,
+                "user_id": user_id,
+                "guest_id": guest_id,
+                "queue_name": self.queue_name,
+            },
+        )
+        if not rows or rows[0].get("message_id") is None:
+            raise RuntimeError("Task retry submission returned no message id")
         return int(rows[0]["message_id"])
 
     def read(

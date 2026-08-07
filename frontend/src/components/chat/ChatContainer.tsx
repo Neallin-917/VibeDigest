@@ -18,6 +18,7 @@ import { chatDataSchemas, createUserTextMessage, type ChatUIMessage } from '@/li
 import { LazyMessageRow as MessageRow, preloadMessageRow } from './LazyMessageRow'
 import type { ChatExample } from '@/lib/chat-examples'
 import { ProcessingIndicator } from './ProcessingIndicator'
+import { sanitizeErrorMessage } from '@/lib/safe-error'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -175,6 +176,36 @@ export function ChatContainer({
     effectiveThreadId,
     activeTaskIdRef,
   })
+  const [taskRetryError, setTaskRetryError] = useState<string | null>(null)
+
+  const handleTaskRetry = useCallback(async (taskId: string) => {
+    setTaskRetryError(null)
+
+    try {
+      const res = await fetch('/api/chat/retry-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      })
+
+      if (!res.ok) {
+        const errorPayload = await res.json().catch(() => null)
+        const details =
+          errorPayload && typeof errorPayload === 'object' && 'details' in errorPayload && typeof errorPayload.details === 'string'
+            ? errorPayload.details
+            : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
+              ? errorPayload.error
+              : t('chat.directSubmit.unavailable')
+        setTaskRetryError(sanitizeErrorMessage(details))
+        return false
+      }
+
+      return true
+    } catch {
+      setTaskRetryError(t('chat.directSubmit.networkError'))
+      return false
+    }
+  }, [t])
 
   const handleSendMessage = async (content: string): Promise<boolean> => {
     if (isInteractionLocked) return false
@@ -222,7 +253,7 @@ export function ChatContainer({
   }, [activeTaskId])
 
   const isLoading = status === 'streaming' || status === 'submitted' || isDirectProcessing
-  const displayErrorMessage = directSubmitError ?? (requiresAuth
+  const displayErrorMessage = taskRetryError ?? directSubmitError ?? (requiresAuth
     ? t('auth.signInToContinue', { appName: t('brand.appName') })
     : error
       ? t('chat.genericError')
@@ -236,6 +267,7 @@ export function ChatContainer({
     status === 'streaming' && lastMessage?.role === 'assistant' ? lastMessage : null
   const historyMessages = streamingMessage ? messages.slice(0, -1) : messages
   const renderMessages = historyMessages
+  const hasActiveSource = Boolean(activeTaskId && !NO_TASK_IDS.has(activeTaskId))
   const latestTaskIdsByMessage = useMemo(() => {
     const latestTaskMessageIds = new Map<string, string>()
 
@@ -314,6 +346,7 @@ export function ChatContainer({
                 isStreaming={false}
                 liveTaskIds={latestTaskIdsByMessage.get(m.id)}
                 visibleTaskIds={latestTaskIdsByMessage.get(m.id) ?? NO_TASK_IDS}
+                onRetryTask={handleTaskRetry}
               />
             ))}
 
@@ -323,6 +356,7 @@ export function ChatContainer({
                 message={streamingMessage}
                 isStreaming
                 liveTaskIds={NO_TASK_IDS}
+                onRetryTask={handleTaskRetry}
               />
             ) : null}
 
@@ -354,7 +388,7 @@ export function ChatContainer({
               >
                 <XCircle className="w-4 h-4 text-red-500" />
                 <div className="text-sm text-red-600 dark:text-red-400">
-                  {directSubmitError ?? displayErrorMessage}
+                  {displayErrorMessage}
                 </div>
                 {requiresAuth ? (
                   <button
@@ -363,7 +397,7 @@ export function ChatContainer({
                   >
                     {t('auth.signIn')}
                   </button>
-                ) : error && !directSubmitError ? (
+                ) : error && !directSubmitError && !taskRetryError ? (
                   <button
                     onClick={() => regenerate()}
                     className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -384,6 +418,8 @@ export function ChatContainer({
           isLoading={isLoading}
           disabled={isInteractionLocked}
           onStop={status === 'streaming' ? stop : undefined}
+          placeholder={hasActiveSource ? t('chat.followUpPlaceholder') : undefined}
+          inputLabel={hasActiveSource ? t('chat.followUpInputLabel') : undefined}
         />
       )}
     </div >

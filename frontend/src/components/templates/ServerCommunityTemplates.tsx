@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
+import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import type { Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { CommunityTemplates, Task } from "./CommunityTemplates"
+import { getDemoFixtureTasks } from "./demoFixtures"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
@@ -38,13 +40,33 @@ export async function ServerCommunityTemplates({
   showHeader?: boolean
   locale: Locale
 }) {
-  const supabase = await createClient()
   const t = createTranslator(locale)
+  const copy = {
+    loading: t("taskForm.processing"),
+    title: t("dashboard.communityExamples"),
+    hint: t("dashboard.communityExamplesHint"),
+    unavailable: t("landing.communityUnavailable"),
+  }
+
+  if (shouldUseDemoFixtures()) {
+    return (
+      <CommunityTemplates
+        limit={limit}
+        showHeader={showHeader}
+        initialTasks={getDemoFixtureTasks(limit)}
+        initialStatus="ready"
+        locale={locale}
+        copy={copy}
+      />
+    )
+  }
+
+  const supabase = await createClient()
 
   // Artificial delay for testing (Uncomment to test Skeleton)
   // await new Promise(resolve => setTimeout(resolve, 3000))
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('tasks')
     .select(`
       id,
@@ -61,6 +83,15 @@ export async function ServerCommunityTemplates({
     .order('created_at', { ascending: false })
     .limit(limit)
 
+  if (error) {
+    console.error("Failed to fetch public demo tasks", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    })
+  }
+
   // Transform data to match Task interface
   const initialTasks = (data || [])
     .map(toTask)
@@ -71,12 +102,9 @@ export async function ServerCommunityTemplates({
       limit={limit}
       showHeader={showHeader}
       initialTasks={initialTasks}
+      initialStatus={error ? "unavailable" : "ready"}
       locale={locale}
-      copy={{
-        loading: t("taskForm.processing"),
-        title: t("dashboard.communityExamples"),
-        hint: t("dashboard.communityExamplesHint"),
-      }}
+      copy={copy}
     />
   )
 }

@@ -131,11 +131,13 @@ type CommunityTemplatesProps = {
     limit?: number
     showHeader?: boolean
     initialTasks?: Task[]
+    initialStatus?: "ready" | "unavailable"
     locale: Locale
     copy: {
         loading: string
         title: string
         hint: string
+        unavailable: string
     }
 }
 
@@ -143,15 +145,17 @@ export function CommunityTemplates({
     limit,
     showHeader = true,
     initialTasks = [],
+    initialStatus = "ready",
     locale,
     copy,
 }: CommunityTemplatesProps) {
     const [tasks, setTasks] = useState<Task[]>(initialTasks)
-    const [loading, setLoading] = useState(initialTasks.length === 0)
+    const [loading, setLoading] = useState(initialTasks.length === 0 && initialStatus === "ready")
+    const [isUnavailable, setIsUnavailable] = useState(initialStatus === "unavailable")
     const supabase = useMemo(() => createClient(), [])
 
     useEffect(() => {
-        if (initialTasks.length > 0) {
+        if (initialTasks.length > 0 || initialStatus === "unavailable") {
             return
         }
 
@@ -189,8 +193,9 @@ export function CommunityTemplates({
                 const result = await Promise.race([query, timeout])
 
                 if (cancelled || result === null) {
-                    if (result === null) {
+                    if (result === null && !cancelled) {
                         console.warn("Demo tasks fetch timed out.")
+                        setIsUnavailable(true)
                     }
                     return
                 }
@@ -202,10 +207,12 @@ export function CommunityTemplates({
                     setTasks(data as any as Task[])
                 } else if (error) {
                     console.error("Error fetching demo tasks:", error)
+                    setIsUnavailable(true)
                 }
             } catch (error) {
                 if (!cancelled) {
                     console.error("Error fetching demo tasks:", error)
+                    setIsUnavailable(true)
                 }
             } finally {
                 if (timeoutId) {
@@ -223,7 +230,7 @@ export function CommunityTemplates({
             // Prevent state updates after unmount.
             cancelled = true
         }
-    }, [limit, initialTasks.length, supabase])
+    }, [initialStatus, limit, initialTasks.length, supabase])
 
     if (loading) {
         return (
@@ -231,6 +238,14 @@ export function CommunityTemplates({
                 <Loader2 className="h-6 w-6 animate-spin mr-3 text-primary" />
                 <span className="text-sm font-medium">{copy.loading}</span>
             </div>
+        )
+    }
+
+    if (isUnavailable) {
+        return (
+            <p className="py-4 text-sm text-slate-500 dark:text-zinc-400" role="status" aria-live="polite">
+                {copy.unavailable}
+            </p>
         )
     }
 

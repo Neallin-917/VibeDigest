@@ -25,8 +25,11 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
         'chat.tools.status.steps.summarizeLabel': 'Writing knowledge cards',
         'tasks.summaryStructured.tldrTitle': 'One conclusion',
         'tasks.summaryStructured.keypointsTitle': 'Key insights',
+        'tasks.summaryStructured.evidenceLabel': 'Evidence',
         'chat.inlineResult.noSummary': 'No summary available.',
         'chat.directSubmit.unavailable': 'Unable to process this video right now.',
+        'chat.retry': 'Retry',
+        'chat.retryQueued': 'Retry queued',
       }
       return labels[key] ?? key
     },
@@ -158,12 +161,14 @@ describe('TaskDataGroup', () => {
     })
     expect(screen.getByText('One conclusion')).toBeInTheDocument()
     expect(screen.getByText('Key insights')).toBeInTheDocument()
-    expect(screen.getByText('Practice feedback loops')).toBeInTheDocument()
-    expect(screen.getByText('Protect focus')).toBeInTheDocument()
+    expect(screen.getAllByText('Practice feedback loops')).toHaveLength(1)
+    expect(screen.getAllByText('Protect focus')).toHaveLength(1)
     expect(screen.getByText('Compare practice modes')).toBeInTheDocument()
     expect(screen.getByText('Immediate')).toBeInTheDocument()
     expect(screen.queryByText('Not rendered')).not.toBeInTheDocument()
+    expect(screen.getByText('Evidence')).toBeInTheDocument()
     expect(screen.queryByText('00:32')).not.toBeInTheDocument()
+    expect(screen.getByText('A source quote.')).toBeInTheDocument()
   })
 
   it('shows a sanitized failure without reviving the old progress panel', () => {
@@ -183,6 +188,46 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Unable to process this video right now.')).toBeInTheDocument()
     expect(screen.queryByText(/litellm/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/processing plan/i)).not.toBeInTheDocument()
+  })
+
+  it('offers an owned failed task a single retry action', async () => {
+    const onRetryTask = vi.fn().mockResolvedValue(true)
+
+    render(
+      <TaskDataGroup
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-789',
+          status: 'failed',
+          progress: 70,
+          videoUrl: 'https://www.youtube.com/watch?v=video-789',
+          errorMessage: 'Temporary upstream failure',
+        }}
+      />
+    )
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'Retry' }).click()
+    })
+
+    expect(onRetryTask).toHaveBeenCalledWith('task-789')
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+  })
+
+  it('keeps recovery available when a failed task has no error detail', () => {
+    render(
+      <TaskDataGroup
+        onRetryTask={vi.fn().mockResolvedValue(true)}
+        taskStatus={{
+          taskId: 'task-without-error',
+          status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-789',
+        }}
+      />
+    )
+
+    expect(screen.getByText('Unable to process this video right now.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
   })
 
   it('replays the local visual demo without querying Supabase', async () => {
@@ -217,7 +262,7 @@ describe('TaskDataGroup', () => {
       })
 
       expect(screen.getByText('AI becomes useful when feedback, judgment, and action form a shorter loop.')).toBeInTheDocument()
-      expect(screen.getByText('Show useful feedback early')).toBeInTheDocument()
+      expect(screen.getAllByText('Show useful feedback early')).toHaveLength(2)
       expect(screen.getByText('Keep the interface focused')).toBeInTheDocument()
     } finally {
       vi.useRealTimers()

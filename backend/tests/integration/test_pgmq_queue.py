@@ -151,6 +151,66 @@ def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
     assert handoff == [{"status": "completed"}]
 
 
+def test_retry_task_resets_terminal_state_and_reuses_the_process_message_contract(
+    pgmq_db: DBClient,
+):
+    queue_name = f"video_processing_retry_{uuid4().hex[:12]}"
+    _create_queue(pgmq_db, queue_name)
+    queue = PostgresTaskQueue(pgmq_db, queue_name=queue_name)
+
+    submission = queue.submit_process_video(
+        video_url=f"https://example.com/retry/{uuid4()}",
+        user_id=AUTH_USER_ID,
+        guest_id=None,
+    )
+    original_job = queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="error",
+        progress=100,
+        error="temporary provider outage",
+    )
+    queue.archive(
+        job_id=original_job.job_id,
+        message_id=original_job.message_id,
+        status="failed",
+    )
+
+    retry_message_id = queue.submit_retry_task(
+        task_id=submission.task_id,
+        user_id=AUTH_USER_ID,
+        guest_id=None,
+    )
+    duplicate_retry_message_id = queue.submit_retry_task(
+        task_id=submission.task_id,
+        user_id=AUTH_USER_ID,
+        guest_id=None,
+    )
+
+    assert duplicate_retry_message_id == retry_message_id
+    retried_task = pgmq_db.get_task(submission.task_id)
+    assert retried_task is not None
+    assert retried_task["status"] == "pending"
+    assert retried_task["progress"] == 0
+    assert retried_task["error_message"] == ""
+
+    retry_job = queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+    assert retry_job.message == {
+        "version": 1,
+        "kind": "process_video",
+        "job_id": retry_job.job_id,
+        "task_id": submission.task_id,
+    }
+    assert retry_job.message_id == retry_message_id
+
+
 def test_default_chat_title_backfill_is_useful_and_idempotent(pgmq_db: DBClient):
     task_id = str(uuid4())
     task_thread_id = str(uuid4())

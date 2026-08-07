@@ -282,6 +282,79 @@ async def test_retry_output_rejects_non_owner(
 
 
 @pytest.mark.asyncio
+async def test_retry_task_requeues_an_owned_terminal_task(
+    api_client,
+    mock_db_client,
+    mock_task_queue,
+):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123",
+        "user_id": "test_user_id",
+        "guest_id": None,
+        "status": "error",
+    }
+
+    response = await api_client.post(
+        "/api/retry-task",
+        data={"task_id": "task_123"},
+        headers={"Authorization": "Bearer token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Task retry queued"}
+    mock_task_queue.submit_retry_task.assert_called_once_with(
+        task_id="task_123",
+        user_id="test_user_id",
+        guest_id=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_retry_task_rejects_non_terminal_task(
+    api_client,
+    mock_db_client,
+    mock_task_queue,
+):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123",
+        "user_id": "test_user_id",
+        "guest_id": None,
+        "status": "processing",
+    }
+
+    response = await api_client.post(
+        "/api/retry-task",
+        data={"task_id": "task_123"},
+        headers={"Authorization": "Bearer token"},
+    )
+
+    assert response.status_code == 409
+    mock_task_queue.submit_retry_task.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_retry_task_requires_a_guest_identity_for_guest_commands(
+    api_client,
+    mock_db_client,
+    mock_task_queue,
+):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123",
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "guest_id": None,
+        "status": "error",
+    }
+
+    response = await api_client.post(
+        "/api/retry-task",
+        data={"task_id": "task_123"},
+    )
+
+    assert response.status_code == 403
+    mock_task_queue.submit_retry_task.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_update_task_title(api_client, mock_db_client):
     mock_db_client.get_task.return_value = {"user_id": "test_user_id"}
     response = await api_client.patch(

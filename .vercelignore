@@ -8,7 +8,7 @@ output
 htmlcov
 backend
 docs
-supabase
+/supabase
 frontend/node_modules
 frontend/.next
 frontend/.next-test

@@ -41,6 +41,17 @@ transaction.
 Response: `{"message":"Retry queued"}`. Queue failure returns `503` without a
 partial pending state.
 
+### `POST /api/retry-task`
+
+Form field: `task_id`. Only the owner of a terminal failed task may call this
+command. The private transaction resets the task and unfinished outputs, creates
+one new `process_video` message, and records its handoff atomically. Repeated
+clicks reuse that queued handoff; guest retries do not consume another guest
+allowance.
+
+Response: `{"message":"Task retry queued"}`. Errors: `404` missing task,
+`403` non-owner, `409` task is not terminal, `503` queue unavailable.
+
 ### `GET /api/tasks/{task_id}/status`
 
 Returns current task state after bearer or guest ownership validation. The

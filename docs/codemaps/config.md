@@ -13,7 +13,7 @@
 | `SUPABASE_JWT_SECRET` | API | HS256 fallback validation where configured |
 | `NEXT_PUBLIC_SUPABASE_URL` | frontend | Browser Supabase client |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend | Browser-safe Supabase anon key |
-| `LLM_RUNTIME` | API + worker | `api` (default) or trusted-local `codex_local`; production rejects the latter |
+| `LLM_RUNTIME` | API + worker + local Next chat | `api` (default) or trusted-local `codex_local`; production rejects the latter |
 | `LLM_PROVIDER` | API + worker + frontend server | Explicit API provider: `openai`, `openrouter`, or `custom` |
 | `OPENAI_API_KEY` | API + worker + frontend server | Required for `LLM_PROVIDER=openai` or `custom` |
 | `OPENROUTER_API_KEY` | API + worker + frontend server | Required for `LLM_PROVIDER=openrouter` |
@@ -27,9 +27,11 @@ otherwise `openrouter`).
 
 `LLM_RUNTIME=codex_local` is for a trusted developer machine only. It uses the
 local Codex app-server and its existing `codex login` session, with ephemeral
-read-only turns, denied approvals, bounded concurrency, and a timeout. It is
-rejected when Railway production metadata is present. Model defaults live only
-in `config/llm-provider-defaults.json`; environment aliases may override them.
+read-only turns, denied approvals, bounded concurrency, and a timeout. In
+development, it also enables the Next.js source-grounded follow-up bridge;
+production rejects the setting and retains its API-provider chat path. Model
+defaults live only in `config/llm-provider-defaults.json`; environment aliases
+may override them.
 
 ## Queue worker
 

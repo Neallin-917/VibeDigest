@@ -14,6 +14,10 @@ class GuestQuotaExceededError(Exception):
     """The atomic task submission rejected a guest over the free limit."""
 
 
+class QuotaExceededError(Exception):
+    """The atomic task submission rejected an account with no remaining usage."""
+
+
 @dataclass(frozen=True)
 class TaskSubmission:
     task_id: str
@@ -52,6 +56,14 @@ class TaskQueue(Protocol):
         self,
         *,
         output_id: str,
+        user_id: str,
+        guest_id: str | None,
+    ) -> int: ...
+
+    def submit_retry_task(
+        self,
+        *,
+        task_id: str,
         user_id: str,
         guest_id: str | None,
     ) -> int: ...
@@ -120,6 +132,8 @@ class PostgresTaskQueue:
         resolution = str(row["resolution"])
         if resolution == "guest_quota_exceeded":
             raise GuestQuotaExceededError("Guest quota exceeded")
+        if resolution == "quota_exceeded":
+            raise QuotaExceededError("Quota exceeded")
         if row.get("task_id") is None:
             raise RuntimeError("Task submission returned no task id")
         return TaskSubmission(
@@ -156,6 +170,34 @@ class PostgresTaskQueue:
         )
         if not rows or rows[0].get("message_id") is None:
             raise RuntimeError("Output retry submission returned no message id")
+        return int(rows[0]["message_id"])
+
+    def submit_retry_task(
+        self,
+        *,
+        task_id: str,
+        user_id: str,
+        guest_id: str | None,
+    ) -> int:
+        rows = self.db._execute_query(
+            """
+            SELECT *
+            FROM vibedigest_private.retry_video_task(
+                CAST(:task_id AS uuid),
+                CAST(:user_id AS uuid),
+                :guest_id,
+                :queue_name
+            )
+            """,
+            {
+                "task_id": task_id,
+                "user_id": user_id,
+                "guest_id": guest_id,
+                "queue_name": self.queue_name,
+            },
+        )
+        if not rows or rows[0].get("message_id") is None:
+            raise RuntimeError("Task retry submission returned no message id")
         return int(rows[0]["message_id"])
 
     def read(

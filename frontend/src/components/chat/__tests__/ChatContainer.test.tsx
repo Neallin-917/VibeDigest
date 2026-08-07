@@ -39,6 +39,10 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.thinking') return 'Thinking...'
       if (key === 'chat.genericError') return 'Something went wrong.'
       if (key === 'chat.retry') return 'Retry'
+      if (key === 'taskForm.quotaExceeded.description') return 'Your plan limit has been reached.'
+      if (key === 'taskForm.quotaExceeded.confirm') return 'View Plans'
+      if (key === 'chat.followUpPlaceholder') return 'Ask a follow-up about this source...'
+      if (key === 'chat.followUpInputLabel') return 'Follow-up question about this source'
       return key
     },
     locale: 'en',
@@ -46,8 +50,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
 }))
 
 vi.mock('../ChatInput', () => ({
-  ChatInput: ({ onSubmit, isLoading, disabled }: any) => (
-    <div data-testid="chat-input">
+  ChatInput: ({ onSubmit, isLoading, disabled, placeholder, inputLabel }: any) => (
+    <div data-testid="chat-input" data-placeholder={placeholder} data-label={inputLabel}>
       <button onClick={() => onSubmit('test message')} disabled={isLoading || disabled}>Send</button>
     </div>
   )
@@ -121,6 +125,30 @@ describe('ChatContainer', () => {
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument()
     expect(screen.getByTestId('chat-input')).toBeInTheDocument()
     expect(await screen.findByText('Hello')).toBeInTheDocument()
+  })
+
+  it('frames the composer as a source-grounded follow-up when a task is active', () => {
+    const messages: ChatUIMessage[] = [createTextMessage('A completed result', 'assistant', 'result-1')]
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(<ChatContainer activeTaskId="task-123" />)
+
+    expect(screen.getByTestId('chat-input')).toHaveAttribute(
+      'data-placeholder',
+      'Ask a follow-up about this source...'
+    )
+    expect(screen.getByTestId('chat-input')).toHaveAttribute(
+      'data-label',
+      'Follow-up question about this source'
+    )
   })
 
   it('sends message via ChatInput when authenticated', async () => {
@@ -366,6 +394,33 @@ describe('ChatContainer', () => {
 
       expect(mockSendMessage).not.toHaveBeenCalled()
       expect(mockSetMessages).not.toHaveBeenCalled()
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+
+  it('localizes a quota rejection and links to plans', async () => {
+    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=quota123')
+    const originalFetch = global.fetch
+    try {
+      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          code: 'QUOTA_EXCEEDED',
+          details: 'Quota exceeded',
+        }),
+      } as Response)
+
+      render(<ChatContainer isAuthenticated={true} />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Your plan limit has been reached.')).toBeInTheDocument()
+      })
+      expect(screen.getByRole('link', { name: 'View Plans' })).toHaveAttribute(
+        'href',
+        '/en/settings/pricing',
+      )
+      expect(screen.queryByText('Quota exceeded')).not.toBeInTheDocument()
     } finally {
       global.fetch = originalFetch
     }

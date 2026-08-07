@@ -166,6 +166,6 @@ test.describe('Complete Task Workflow (Mocked)', () => {
     await expect(artifact.getByTitle('Never Gonna Give You Up')).toBeVisible()
     await expect(artifact.getByText('AI Summary Content')).toBeVisible()
     await expect(artifact.getByRole('heading', { name: 'Key Points' })).toBeVisible()
-    await expect(artifact.getByText('Intro')).toBeVisible()
+    await expect(artifact.getByRole('list').getByText('Intro', { exact: true })).toBeVisible()
   })
 })

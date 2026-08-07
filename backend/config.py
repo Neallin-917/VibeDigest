@@ -379,5 +379,9 @@ class Settings:
                 return price
         return None
 
+    @classmethod
+    def get_price_by_plan_key(cls, plan_key: str) -> Optional[PriceConfig]:
+        return cls.PRICES.get(plan_key.upper())
+
 
 settings = Settings()

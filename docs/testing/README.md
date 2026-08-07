@@ -132,10 +132,12 @@ developer shell or CI job.
 
 The backend can use `LLM_RUNTIME=codex_local` during a manual local debugging
 session. It runs the local Codex app-server through the Python SDK with an
-ephemeral, read-only, no-approval thread. This is intentionally not an E2E or
-CI transport: Codex usage limits and agent semantics are different from the
-production API. The Next.js chat route retains its standard API transport so
-its application-owned tool protocol is identical in local and hosted runs.
+ephemeral, read-only, no-approval thread. In development only, the Next.js
+chat route uses the same logged-in Codex runtime through a constrained local
+bridge for source-grounded follow-ups. This is intentionally not an E2E or CI
+transport: Codex usage limits and agent semantics are different from the
+production API. Hosted chat always retains the standard API provider and its
+application-owned tool protocol.
 
 ### Quality evaluation policy
 

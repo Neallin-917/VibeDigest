@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { CommunityTemplates, type Task } from "./CommunityTemplates"
 
+const clientState = vi.hoisted(() => ({ client: {} }))
+
 vi.mock("@/lib/supabase", () => ({
-    createClient: () => ({}),
+    createClient: () => clientState.client,
 }))
 
 const tasks: Task[] = [
@@ -29,9 +31,14 @@ const copy = {
     loading: "Loading",
     title: "Community examples",
     hint: "Try an example",
+    unavailable: "Examples are temporarily unavailable.",
 }
 
 describe("CommunityTemplates", () => {
+    afterEach(() => {
+        clientState.client = {}
+    })
+
     it("prioritizes only the leading thumbnail", () => {
         render(
             <CommunityTemplates
@@ -49,5 +56,46 @@ describe("CommunityTemplates", () => {
         expect(leadingImage).toHaveAttribute("fetchpriority", "high")
         expect(laterImage).toHaveAttribute("loading", "lazy")
         expect(laterImage).toHaveAttribute("fetchpriority", "auto")
+    })
+
+    it("shows a concise status when the server could not load examples", () => {
+        render(
+            <CommunityTemplates
+                initialStatus="unavailable"
+                locale="en"
+                copy={copy}
+            />
+        )
+
+        expect(screen.getByRole("status")).toHaveTextContent(copy.unavailable)
+    })
+
+    it("shows the same status after the client fallback query fails", async () => {
+        const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+        const query = {
+            select: vi.fn(),
+            eq: vi.fn(),
+            order: vi.fn(),
+            limit: vi.fn(),
+        }
+        query.select.mockReturnValue(query)
+        query.eq.mockReturnValue(query)
+        query.order.mockReturnValue(query)
+        query.limit.mockResolvedValue({
+            data: null,
+            error: { message: "Data API unavailable" },
+        })
+        clientState.client = { from: vi.fn(() => query) }
+
+        render(
+            <CommunityTemplates
+                limit={3}
+                locale="en"
+                copy={copy}
+            />
+        )
+
+        expect(await screen.findByText(copy.unavailable)).toHaveAttribute("role", "status")
+        consoleError.mockRestore()
     })
 })

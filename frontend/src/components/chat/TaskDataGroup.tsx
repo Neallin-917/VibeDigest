@@ -27,6 +27,7 @@ import {
 type TaskDataGroupProps = {
   taskStatus?: ChatUIDataParts['task-status']
   live?: boolean
+  onRetryTask?: (taskId: string) => Promise<boolean>
 }
 
 type TaskSnapshot = {
@@ -44,8 +45,15 @@ type AudioData = {
   coverUrl?: string
 }
 
+type EvidenceItem = {
+  label: string
+  text: string
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
+
+const isStandaloneTimestamp = (value: string) => /^\d{1,2}:\d{2}(?::\d{2})?$/.test(value)
 
 const asString = (value: unknown): string | undefined =>
   typeof value === 'string' ? value : undefined
@@ -342,8 +350,138 @@ function KnowledgeCard({
   )
 }
 
-function TaskDataGroupComponent({ taskStatus, live = false }: TaskDataGroupProps) {
+function collectEvidence(summary: CurrentSummary): EvidenceItem[] {
+  const items: EvidenceItem[] = []
+  const seen = new Set<string>()
+
+  const add = (label: string, evidence: string) => {
+    const text = evidence.trim()
+    if (!text || isStandaloneTimestamp(text) || seen.has(text)) return
+    seen.add(text)
+    items.push({ label, text })
+  }
+
+  summary.keypoints.forEach((keypoint) => {
+    add(keypoint.title, keypoint.evidence)
+  })
+
+  summary.uiBlocks?.forEach((block) => {
+    if (block.kind === 'comparison_table') {
+      block.rows.forEach((row) => add(`${block.title}: ${row.label}`, row.evidence))
+      return
+    }
+
+    if (block.kind === 'bar_chart') {
+      block.values.forEach((value) => add(`${block.title}: ${value.label}`, value.evidence))
+      return
+    }
+
+    block.steps.forEach((step) => add(`${block.title}: ${step.title}`, step.evidence))
+  })
+
+  return items.slice(0, 8)
+}
+
+function EvidenceDisclosure({ title, items }: { title: string; items: EvidenceItem[] }) {
+  if (items.length === 0) return null
+
+  return (
+    <details className="rounded-2xl border border-border/80 bg-surface-raised/80 px-5 py-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2">
+        <span>{title}</span>
+        <span className="text-xs font-medium tabular-nums text-muted-foreground">{String(items.length).padStart(2, '0')}</span>
+      </summary>
+      <ol className="mt-4 space-y-3 border-t border-border/70 pt-4">
+        {items.map((item, index) => (
+          <li key={`${item.label}-${index}`} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3">
+            <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <div>
+              <p className="text-xs font-medium text-foreground">{item.label}</p>
+              <blockquote className="mt-1 border-l border-primary/40 pl-3 text-sm leading-6 text-muted-foreground">
+                {item.text}
+              </blockquote>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </details>
+  )
+}
+
+function SummaryContinuation({
+  summary,
+  visibleKeypointCount,
+  title,
+  sectionsTitle,
+}: {
+  summary: CurrentSummary
+  visibleKeypointCount: number
+  title: string
+  sectionsTitle: string
+}) {
+  const remainingKeypoints = summary.keypoints.slice(visibleKeypointCount)
+  const hasMoreContent = remainingKeypoints.length > 0 || summary.sections.length > 0
+
+  if (!hasMoreContent) return null
+
+  return (
+    <details className="rounded-2xl border border-border/80 bg-surface-raised/80 px-5 py-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2">
+        <span>{title}</span>
+        <span aria-hidden="true" className="text-base font-normal text-muted-foreground">+</span>
+      </summary>
+      <div className="mt-4 space-y-6 border-t border-border/70 pt-4">
+        {remainingKeypoints.length > 0 ? (
+          <ol>
+            {remainingKeypoints.map((keypoint, index) => (
+              <li
+                key={`${keypoint.title}-${index}`}
+                className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 border-t border-border/70 py-3 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
+                  {String(visibleKeypointCount + index + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold leading-5 text-foreground">{keypoint.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
+        {summary.sections.length > 0 ? (
+          <div className="space-y-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+              {sectionsTitle}
+            </p>
+            {summary.sections.map((section, index) => (
+              <section key={`${section.section_type}-${section.title ?? index}`} className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0">
+                {section.title ? <h4 className="text-sm font-semibold text-foreground">{section.title}</h4> : null}
+                {section.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{section.description}</p> : null}
+                {section.items.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {section.items.map((item, itemIndex) => (
+                      <li key={`${item.content}-${itemIndex}`} className="text-sm leading-6 text-muted-foreground">
+                        {item.content}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </details>
+  )
+}
+
+function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskDataGroupProps) {
   const { t, locale } = useI18n()
+  const [isRetrying, setIsRetrying] = useState(false)
   const isDemo = isLocalUiDemo()
   const liveSnapshot = useLiveTaskSnapshot(taskStatus, live && !isDemo)
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo)
@@ -365,11 +503,24 @@ function TaskDataGroupComponent({ taskStatus, live = false }: TaskDataGroupProps
   const canRenderMedia = canRenderVideo || Boolean(audioData?.audioUrl)
   const showPlayer = canRenderMedia && (hasSourceMetadata || status === 'completed')
   const conclusion = summary?.tl_dr || summary?.overview
-  const keypoints = summary?.keypoints?.slice(0, 2) ?? []
+  const visibleKeypointCount = 3
+  const keypoints = summary?.keypoints?.slice(0, visibleKeypointCount) ?? []
+  const evidenceItems = summary ? collectEvidence(summary) : []
   const stageLabel = getStageLabel(t, status, snapshot.progress)
   const safeError = snapshot.errorMessage
     ? sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
     : null
+  const canRetry = status === 'failed' && Boolean(onRetryTask)
+  const failureMessage = safeError ?? (
+    status === 'failed' ? t('chat.directSubmit.unavailable') : null
+  )
+
+  const handleRetry = async () => {
+    if (!onRetryTask || isRetrying) return
+    setIsRetrying(true)
+    const accepted = await onRetryTask(snapshot.taskId)
+    if (!accepted) setIsRetrying(false)
+  }
 
   return (
     <article className="w-full space-y-3" data-testid="inline-task-artifact">
@@ -398,10 +549,20 @@ function TaskDataGroupComponent({ taskStatus, live = false }: TaskDataGroupProps
         </p>
       ) : null}
 
-      {safeError ? (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-          {safeError}
-        </p>
+      {failureMessage ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+          <p>{failureMessage}</p>
+          {canRetry ? (
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="rounded-lg border border-destructive/30 bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background disabled:cursor-wait disabled:opacity-60"
+            >
+              {isRetrying ? t('chat.retryQueued') : t('chat.retry')}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {conclusion ? (
@@ -435,6 +596,20 @@ function TaskDataGroupComponent({ taskStatus, live = false }: TaskDataGroupProps
       ) : null}
 
       {summary?.uiBlocks?.length ? <KnowledgeUiBlocks blocks={summary.uiBlocks} /> : null}
+
+      {summary ? (
+        <SummaryContinuation
+          summary={summary}
+          visibleKeypointCount={visibleKeypointCount}
+          title={t('tasks.summaryStructured.continueReading')}
+          sectionsTitle={t('tasks.summaryStructured.sectionsTitle')}
+        />
+      ) : null}
+
+      <EvidenceDisclosure
+        title={t('tasks.summaryStructured.evidenceLabel')}
+        items={evidenceItems}
+      />
 
       {status === 'completed' && !summary && !safeError ? (
         <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>

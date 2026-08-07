@@ -151,6 +151,48 @@ describe('POST /api/chat/direct-submit', () => {
     expect(mockUpsertChatState).not.toHaveBeenCalled()
   })
 
+  it('returns a quota-specific error code without persisting chat state', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 402,
+      text: async () => 'Quota exceeded',
+    } as Response)
+
+    const res = await POST(new Request('http://localhost/api/chat/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        videoUrl: 'https://www.youtube.com/watch?v=quota',
+        originalText: 'https://www.youtube.com/watch?v=quota',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(402)
+    expect(body).toEqual(expect.objectContaining({ code: 'QUOTA_EXCEEDED' }))
+    expect(mockUpsertChatState).not.toHaveBeenCalled()
+  })
+
+  it('does not expose internal exceptions on task creation failure', async () => {
+    mockCreateClient.mockRejectedValue(new Error('postgres://admin:secret@internal-db:5432/app'))
+
+    const res = await POST(new Request('http://localhost/api/chat/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        videoUrl: 'https://www.youtube.com/watch?v=abc',
+        originalText: 'https://www.youtube.com/watch?v=abc',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(body.details).toBe('Unable to process this video right now.')
+    expect(body.details).not.toContain('secret')
+  })
+
   it('returns mocked task data in E2E mode without calling backend or persistence', async () => {
     ;(env as { NEXT_PUBLIC_E2E_MOCK: string }).NEXT_PUBLIC_E2E_MOCK = '1'
     global.fetch = vi.fn()

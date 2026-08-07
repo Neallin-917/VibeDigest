@@ -84,6 +84,48 @@ class TestHealthCheck:
         assert "service" in data
 
 
+class TestReadinessCheck:
+    def test_returns_ready_when_the_submission_contract_is_available(self, client, mock_db):
+        mock_db._execute_query.return_value = [{
+            "submission_function_ready": True,
+            "queue_schema_ready": True,
+            "task_intent_ready": True,
+            "output_intent_ready": True,
+            "output_provenance_ready": True,
+            "monthly_quota_ready": True,
+        }]
+
+        response = client.get("/health/ready")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "ready"
+        query = mock_db._execute_query.call_args.args[0]
+        assert "submit_video_task(uuid,text,text,integer,jsonb,text)" in query
+
+    def test_returns_503_when_a_required_database_contract_is_missing(self, client, mock_db):
+        mock_db._execute_query.return_value = [{
+            "submission_function_ready": True,
+            "queue_schema_ready": True,
+            "task_intent_ready": True,
+            "output_intent_ready": False,
+            "output_provenance_ready": True,
+            "monthly_quota_ready": True,
+        }]
+
+        response = client.get("/health/ready")
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == "Service is not ready"
+
+    def test_returns_503_when_the_readiness_query_fails(self, client, mock_db):
+        mock_db._execute_query.side_effect = RuntimeError("connection unavailable")
+
+        response = client.get("/health/ready")
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == "Service is not ready"
+
+
 # ---------------------------------------------------------------------------
 # POST /api/feedback — anonymous (no Authorization header)
 # ---------------------------------------------------------------------------

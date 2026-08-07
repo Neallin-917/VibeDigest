@@ -12,6 +12,7 @@ export function useDirectUrlSubmission(deps: {
 }): {
   isDirectProcessing: boolean
   directSubmitError: string | null
+  directSubmitQuotaExceeded: boolean
   handleDirectUrlSubmission: (url: string, originalText: string) => Promise<boolean>
 } {
   const { setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef } = deps
@@ -19,6 +20,7 @@ export function useDirectUrlSubmission(deps: {
 
   const [isDirectProcessing, setIsDirectProcessing] = useState(false)
   const [directSubmitError, setDirectSubmitError] = useState<string | null>(null)
+  const [directSubmitQuotaExceeded, setDirectSubmitQuotaExceeded] = useState(false)
 
   /**
    * Direct URL submission: bypass LLM tool calls entirely.
@@ -28,6 +30,7 @@ export function useDirectUrlSubmission(deps: {
   const handleDirectUrlSubmission = useCallback(async (url: string, originalText: string) => {
     setIsDirectProcessing(true)
     setDirectSubmitError(null)
+    setDirectSubmitQuotaExceeded(false)
     try {
       const res = await fetch('/api/chat/direct-submit', {
         method: 'POST',
@@ -42,13 +45,23 @@ export function useDirectUrlSubmission(deps: {
 
       if (!res.ok) {
         const errorPayload = await res.json().catch(() => null)
+        const quotaExceeded =
+          errorPayload &&
+          typeof errorPayload === 'object' &&
+          'code' in errorPayload &&
+          errorPayload.code === 'QUOTA_EXCEEDED'
         const details =
           errorPayload && typeof errorPayload === 'object' && 'details' in errorPayload && typeof errorPayload.details === 'string'
             ? errorPayload.details
             : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
               ? errorPayload.error
               : t('chat.directSubmit.unavailable')
-        setDirectSubmitError(sanitizeErrorMessage(details))
+        setDirectSubmitError(
+          quotaExceeded
+            ? t('taskForm.quotaExceeded.description')
+            : sanitizeErrorMessage(details),
+        )
+        setDirectSubmitQuotaExceeded(quotaExceeded)
         return false
       }
 
@@ -80,5 +93,10 @@ export function useDirectUrlSubmission(deps: {
     }
   }, [setMessages, onChatStarted, effectiveThreadId, activeTaskIdRef, locale, t])
 
-  return { isDirectProcessing, directSubmitError, handleDirectUrlSubmission }
+  return {
+    isDirectProcessing,
+    directSubmitError,
+    directSubmitQuotaExceeded,
+    handleDirectUrlSubmission,
+  }
 }

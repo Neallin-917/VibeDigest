@@ -23,6 +23,7 @@ import {
     messageMetadataSchema,
     type ChatUIMessage,
 } from '@/lib/chat-ui';
+import { isLocalCodexRuntime, runLocalCodex } from '@/lib/local-codex';
 import {
     logInvalidChatMessages,
     sanitizeIncomingMessages,
@@ -37,6 +38,7 @@ const CHAT_TIMEOUT = {
     firstChunkMs: 8_000,
     chunkMs: 8_000,
 } as const;
+const LOCAL_CODEX_HISTORY_LIMIT = 8;
 
 function resolveModel(tier: ModelTier): ResolvedModel {
     const provider = resolveProvider(env.OPENAI_BASE_URL, env.LLM_PROVIDER);
@@ -53,6 +55,30 @@ export const maxDuration = 30;
 function getSafeStreamingError(error: unknown): string {
     console.error('[API/Chat] Stream error:', error);
     return 'The AI service is temporarily unavailable. Please try again.';
+}
+
+function buildLocalCodexPrompt(
+    messages: ChatUIMessage[],
+    context: string,
+): string {
+    const conversation = messages
+        .map((chatMessage) => {
+            const text = getTextFromUIMessage(chatMessage).trim();
+            return text ? `${chatMessage.role.toUpperCase()}:\n${text}` : null;
+        })
+        .filter((entry): entry is string => Boolean(entry))
+        .slice(-LOCAL_CODEX_HISTORY_LIMIT)
+        .join('\n\n');
+
+    return [
+        'SOURCE CONTEXT:',
+        context || 'No source context is available for this request.',
+        '',
+        'CONVERSATION:',
+        conversation,
+        '',
+        'Answer the latest user question concisely. Do not make up facts beyond SOURCE CONTEXT.',
+    ].join('\n');
 }
 
 export async function POST(req: Request) {
@@ -149,11 +175,7 @@ export async function POST(req: Request) {
         );
         const modelTier: ModelTier = isShortFollowup ? 'fast' : 'smart';
 
-        // 5. Resolve model and create provider client
-        const { model: modelName, provider: providerName } = resolveModel(modelTier);
-        const openai = createProviderClient(providerName);
-
-        // 6. Build System Prompt
+        // 5. Build System Prompt
         let systemPrompt = `You are VibeDigest Assistant, an AI helper for video content analysis.
 
 Use tools proactively to provide accurate, up-to-date information. Never make up information about video content.
@@ -180,27 +202,20 @@ When a taskId is provided:
         // URL submission has its own command route. This LLM path handles only
         // Q&A over existing tasks, so it has no task-creation side effects.
 
-        // 7. Build tools with shared context
+        // 6. Build tools with shared context
         const toolsContext = createChatToolsContext({
             supabase,
             user,
             accessToken,
         });
 
-        // 8. Validate UI messages and convert to model messages
+        // 7. Validate UI messages and prepare persistence
         const validatedMessages = await validateUIMessages<ChatUIMessage>({
             messages,
             metadataSchema: messageMetadataSchema,
             dataSchemas: chatDataSchemas,
             tools: chatTools,
         });
-        const modelMessages = pruneMessages({
-            messages: await convertToModelMessages(validatedMessages),
-            reasoning: 'all',
-            toolCalls: 'before-last-2-messages',
-            emptyMessages: 'remove',
-        });
-
         const onFinish = createOnFinishHandler({
             threadId,
             threadTitle,
@@ -209,6 +224,38 @@ When a taskId is provided:
             supabase,
             messages: validatedMessages,
         });
+
+        if (isLocalCodexRuntime()) {
+            const stream = createUIMessageStream<ChatUIMessage>({
+                originalMessages: validatedMessages,
+                onFinish,
+                execute: async ({ writer }) => {
+                    const textId = createIdGenerator({ prefix: 'local-codex', size: 16 })();
+                    const response = await runLocalCodex(
+                        buildLocalCodexPrompt(validatedMessages, context),
+                        req.signal,
+                    );
+
+                    writer.write({ type: 'text-start', id: textId });
+                    writer.write({ type: 'text-delta', id: textId, delta: response });
+                    writer.write({ type: 'text-end', id: textId });
+                },
+                onError: getSafeStreamingError,
+            });
+
+            return createUIMessageStreamResponse({ stream });
+        }
+
+        const modelMessages = pruneMessages({
+            messages: await convertToModelMessages(validatedMessages),
+            reasoning: 'all',
+            toolCalls: 'before-last-2-messages',
+            emptyMessages: 'remove',
+        });
+
+        // 8. Resolve the cloud-provider model only for the hosted-compatible path.
+        const { model: modelName, provider: providerName } = resolveModel(modelTier);
+        const openai = createProviderClient(providerName);
 
         // 9. Stream response and emit task data parts for UI cards
         const stream = createUIMessageStream<ChatUIMessage>({

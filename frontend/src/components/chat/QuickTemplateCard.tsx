@@ -3,15 +3,11 @@
 import Image from 'next/image'
 import { PlayCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { ChatExample } from '@/lib/chat-examples'
 
 interface QuickTemplateCardProps {
-  task: {
-    id: string
-    video_url: string
-    video_title?: string
-    thumbnail_url?: string
-  }
-  onSelect: (taskId: string) => void
+  task: ChatExample
+  onSelect: (task: ChatExample) => void
   highPriorityThumbnail?: boolean
 }
 
@@ -38,7 +34,7 @@ export function QuickTemplateCard({
 
   return (
     <button
-      onClick={() => onSelect(task.id)}
+      onClick={() => onSelect(task)}
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-xl border transition-all duration-300 text-left",
         "bg-white/60 border-slate-200/80 hover:border-slate-300 hover:bg-white hover:shadow-lg hover:scale-[1.02]",

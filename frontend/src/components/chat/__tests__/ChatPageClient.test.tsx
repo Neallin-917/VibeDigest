@@ -24,6 +24,7 @@ const pushMock = vi.fn()
 const fetchThreadTaskIdMock = vi.fn<(threadId: string) => Promise<string | null>>()
 const loadMessageRowMock = vi.fn<() => Promise<unknown>>()
 const idleCallbacks: IdleRequestCallback[] = []
+const authState = vi.hoisted(() => ({ isAuthenticated: true as boolean | null }))
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => ({
@@ -40,6 +41,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/thread-utils', () => ({
   fetchThreadTaskId: (threadId: string) => fetchThreadTaskIdMock(threadId)
+}))
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => authState,
 }))
 
 vi.mock('@/components/chat/LazyMessageRow', () => ({
@@ -68,6 +73,7 @@ vi.mock('../ChatWorkspace', () => ({
       data-thread-id={props.activeThreadId || ''}
       data-task-id={props.activeTaskId || ''}
       data-locked={props.isThreadSwitching ? 'true' : 'false'}
+      data-initial-message-count={String(props.initialMessages?.length ?? 0)}
     >
       <button onClick={() => props.onSelectTask('task-b')}>Select Task B</button>
       <button onClick={() => props.onSelectThread?.('thread-b')}>Select Thread B</button>
@@ -119,6 +125,7 @@ describe('ChatPageClient', () => {
       value: vi.fn()
     })
     currentSearchParams = new URLSearchParams()
+    authState.isAuthenticated = true
     replaceMock.mockImplementation((url: string) => {
       const [, query = ''] = url.split('?')
       currentSearchParams = new URLSearchParams(query)
@@ -158,6 +165,29 @@ describe('ChatPageClient', () => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'false')
     })
+  })
+
+  it('opens a verified public demo without requesting private history', async () => {
+    currentSearchParams = new URLSearchParams('task=public-demo')
+    authState.isAuthenticated = false
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithQueryClient(
+      <ChatPageClient
+        publicExample={{
+          id: 'public-demo',
+          video_url: 'https://www.youtube.com/watch?v=public-demo',
+          video_title: 'Public demo',
+        }}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-task-id', 'public-demo')
+      expect(screen.getByTestId('workspace')).toHaveAttribute('data-initial-message-count', '1')
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('loads an explicitly linked history payload while the sidebar list is still refreshing', async () => {

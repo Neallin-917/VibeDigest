@@ -16,7 +16,8 @@ function getTaskId(part: ChatUIMessagePart) {
 export function renderDataParts(
   parts: ChatUIMessagePart[],
   liveTaskIds?: Set<string>,
-  visibleTaskIds?: Set<string>
+  visibleTaskIds?: Set<string>,
+  onRetryTask?: (taskId: string) => Promise<boolean>
 ) {
   const buckets = new Map<string, TaskDataBucket>()
 
@@ -44,6 +45,7 @@ export function renderDataParts(
       key={taskId}
       taskStatus={bucket.taskStatus}
       live={liveTaskIds?.has(taskId) ?? false}
+      onRetryTask={onRetryTask}
     />
   ))
 }

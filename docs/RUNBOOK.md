@@ -22,9 +22,13 @@ is development-only and connects to the configured Cloud development database.
 ## Release order
 
 1. Reconcile local and remote Supabase migrations on a development branch.
-2. Apply `202607290001_create_video_processing_queue.sql`.
+2. Apply the reviewed pending migrations in `supabase/migrations/` (including
+   the queue baseline before any command service, and
+   `20260807090000_add_task_retry.sql` with this release).
 3. Deploy/update the Railway Worker and verify it can poll an empty queue.
-4. Deploy the Railway API.
+4. Deploy the Railway API. Its `/health/ready` endpoint must return `200`;
+   it rejects traffic when the six-argument submission function, PGMQ, output
+   intent columns, or monthly-quota reset column are absent.
 5. Deploy the Vercel frontend.
 6. Submit one controlled video and confirm:
    task/output transaction, PGMQ claim, heartbeat, progress writes, Realtime
@@ -47,7 +51,7 @@ cd frontend && npm run build
 ```
 
 CI additionally runs the real PGMQ lifecycle test against
-`ghcr.io/pgmq/pg16-pgmq:v1.10.0`. Local Docker validation is optional, but a
+`ghcr.io/pgmq/pg16-pgmq:v1.5.1`. Local Docker validation is optional, but a
 release must not proceed unless that CI job passes.
 
 ## Health and queue checks
@@ -59,6 +63,8 @@ release must not proceed unless that CI job passes.
   `queued` records.
 - Failed tasks have a terminal sanitized error after the configured maximum
   attempts.
+- A controlled failed task can be retried once without a second guest-usage
+  debit, then returns to `pending` with exactly one new `process:` handoff.
 - Realtime task/output changes reach the browser without HTTP polling.
 
 Never log queue message payloads, signed media URLs, access tokens, or service

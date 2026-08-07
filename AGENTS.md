@@ -51,7 +51,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 1. **Python**: Always use `uv` (never raw `pip`)
 2. **Dependencies**: `pyproject.toml` is the only Python dependency manifest; `uv.lock` is the only resolved lock. Use dependency groups for dev/test tools and install with `uv sync --locked`.
 3. **Models**: Never hardcode LLM model names — use `settings.MODEL_SMART` / `settings.MODEL_FAST` and `utils.llm_router.resolve_model_for_intent`
-4. **Text runtime routing**: production uses `LLM_RUNTIME=api` with explicit `LLM_PROVIDER` (`openai`, `openrouter`, or `custom`); legacy inference remains `custom` when `OPENAI_BASE_URL` is present and `openrouter` otherwise. `LLM_RUNTIME=codex_local` is trusted local development only and is rejected in production.
+4. **Text runtime routing**: production uses `LLM_RUNTIME=api` with explicit `LLM_PROVIDER` (`openai`, `openrouter`, or `custom`); legacy inference remains `custom` when `OPENAI_BASE_URL` is present and `openrouter` otherwise. `LLM_RUNTIME=codex_local` is trusted local development only and is rejected in production. In that local mode, source-grounded chat follow-ups use the constrained local Codex bridge; hosted chat remains on the standard API tool protocol.
 5. **Model defaults SSOT**: provider default model names live only in `config/llm-provider-defaults.json`
 6. **Components**: Use CVA for variants, check `src/components/ui/` first
 7. **Tests**: Never call paid APIs in CI (mock everything)

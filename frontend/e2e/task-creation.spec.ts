@@ -6,7 +6,7 @@ import { setupApiMocks } from './fixtures/mock-api';
  * 
  * Given: Anonymous user on Landing Page
  * When: Enters URL and clicks Generate
- * Then: Redirects to Login, and (in a real flow) eventually to Chat with the task.
+ * Then: Redirects to Login with clear confirmation that the submitted link is preserved.
  * 
  * Note: We cannot easily mock the full auth flow across redirects in a simple E2E 
  * without more complex setup, so we focus on the landing page interaction 
@@ -38,6 +38,8 @@ test.describe('Landing Page Acquisition Flow', () => {
         // Should redirect to login
         await page.waitForURL(/\/login/, { timeout: 30000 });
         await expect(page).toHaveURL(/\/login/)
+        await expect(page.getByText('Your link is saved')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Continue your digest' })).toBeVisible()
     })
 
     test('should disable button for empty URL', async ({ page }) => {

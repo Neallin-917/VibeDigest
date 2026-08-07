@@ -15,6 +15,7 @@ interface MessageRowProps {
   isStreaming: boolean
   liveTaskIds?: Set<string>
   visibleTaskIds?: Set<string>
+  onRetryTask?: (taskId: string) => Promise<boolean>
 }
 
 function areTaskIdSetsEqual(prev?: Set<string>, next?: Set<string>) {
@@ -102,6 +103,7 @@ function MessageRowComponent({
   isStreaming,
   liveTaskIds,
   visibleTaskIds,
+  onRetryTask,
 }: MessageRowProps) {
   if (message.role === 'system') return null
 
@@ -123,7 +125,7 @@ function MessageRowComponent({
     part => part.type === 'text' || isToolUIPart(part)
   ) ?? []
   const dataParts = message.parts && message.parts.length > 0
-    ? renderDataParts(message.parts, liveTaskIds, visibleTaskIds)
+    ? renderDataParts(message.parts, liveTaskIds, visibleTaskIds, onRetryTask)
     : null
 
   return (
@@ -182,6 +184,7 @@ export const MessageRow = memo(MessageRowComponent, (prev, next) => {
   if (prev.isStreaming !== next.isStreaming) return false
   if (!areTaskIdSetsEqual(prev.liveTaskIds, next.liveTaskIds)) return false
   if (!areTaskIdSetsEqual(prev.visibleTaskIds, next.visibleTaskIds)) return false
+  if (prev.onRetryTask !== next.onRetryTask) return false
 
   // If streaming, always re-render to show updates
   if (next.isStreaming) return false

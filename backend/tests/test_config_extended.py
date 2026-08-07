@@ -317,3 +317,13 @@ class TestGetPriceById:
     def test_unknown_price_id_returns_none(self):
         result = Settings.get_price_by_id("nonexistent_product_id")
         assert result is None
+
+
+class TestGetPriceByPlanKey:
+    def test_known_plan_key_returns_config_case_insensitively(self):
+        result = Settings.get_price_by_plan_key("pro_monthly")
+        assert result is not None
+        assert result.name == "Pro Plan (1 Month)"
+
+    def test_unknown_plan_key_returns_none(self):
+        assert Settings.get_price_by_plan_key("no_such_plan") is None

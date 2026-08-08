@@ -28,6 +28,15 @@ const DEMO_FIXTURE_TASKS: Task[] = [
         status: "completed",
         created_at: "2026-01-01T09:00:00.000Z",
     },
+    {
+        id: "local-demo-ai-infrastructure",
+        video_url: "https://www.youtube.com/watch?v=NyP-euljCHM",
+        video_title: "Inside America’s AI Strategy: Infrastructure, Regulation, and Global Competition",
+        thumbnail_url: "https://i.ytimg.com/vi/NyP-euljCHM/maxresdefault.jpg",
+        author: "All-In Podcast",
+        status: "completed",
+        created_at: "2025-12-31T09:00:00.000Z",
+    },
 ]
 
 export function getDemoFixtureTasks(limit: number) {

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import type { Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
-import { CommunityTemplates, Task } from "./CommunityTemplates"
+import { CommunityTemplates, type CommunityTemplatesLayout, Task } from "./CommunityTemplates"
 import { getDemoFixtureTasks } from "./demoFixtures"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -34,10 +34,12 @@ const toTask = (value: unknown): Task | null => {
 export async function ServerCommunityTemplates({
   limit = 8,
   showHeader = true,
+  layout = "gallery",
   locale,
 }: {
   limit?: number
   showHeader?: boolean
+  layout?: CommunityTemplatesLayout
   locale: Locale
 }) {
   const t = createTranslator(locale)
@@ -55,6 +57,7 @@ export async function ServerCommunityTemplates({
         showHeader={showHeader}
         initialTasks={getDemoFixtureTasks(limit)}
         initialStatus="ready"
+        layout={layout}
         locale={locale}
         copy={copy}
       />
@@ -103,6 +106,7 @@ export async function ServerCommunityTemplates({
       showHeader={showHeader}
       initialTasks={initialTasks}
       initialStatus={error ? "unavailable" : "ready"}
+      layout={layout}
       locale={locale}
       copy={copy}
     />

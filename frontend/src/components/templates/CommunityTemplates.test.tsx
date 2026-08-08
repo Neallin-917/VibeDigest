@@ -25,6 +25,22 @@ const tasks: Task[] = [
         status: "completed",
         created_at: "2026-07-29T00:00:00Z",
     },
+    {
+        id: "example-3",
+        video_url: "https://www.youtube.com/watch?v=example-3",
+        video_title: "Third example",
+        thumbnail_url: "https://i.ytimg.com/vi/example-3/maxresdefault.jpg",
+        status: "completed",
+        created_at: "2026-07-28T00:00:00Z",
+    },
+    {
+        id: "example-4",
+        video_url: "https://www.youtube.com/watch?v=example-4",
+        video_title: "Fourth example",
+        thumbnail_url: "https://i.ytimg.com/vi/example-4/maxresdefault.jpg",
+        status: "completed",
+        created_at: "2026-07-27T00:00:00Z",
+    },
 ]
 
 const copy = {
@@ -97,5 +113,32 @@ describe("CommunityTemplates", () => {
 
         expect(await screen.findByText(copy.unavailable)).toHaveAttribute("role", "status")
         consoleError.mockRestore()
+    })
+
+    it("keeps the landing preview balanced by revealing its fourth card on wide screens", () => {
+        render(
+            <CommunityTemplates
+                initialTasks={tasks}
+                limit={4}
+                layout="landingPreview"
+                locale="en"
+                copy={copy}
+            />
+        )
+
+        expect(screen.getByText("Fourth example").closest("a")).toHaveClass("hidden", "xl:flex")
+    })
+
+    it("does not reserve a fourth column when only three landing examples are available", () => {
+        const { container } = render(
+            <CommunityTemplates
+                initialTasks={tasks.slice(0, 3)}
+                layout="landingPreview"
+                locale="en"
+                copy={copy}
+            />
+        )
+
+        expect(container.querySelector(".grid")).not.toHaveClass("xl:grid-cols-4")
     })
 })

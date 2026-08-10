@@ -39,10 +39,13 @@ async def test_create_checkout_session(api_client, mock_db_client):
             mock_ac_instance.__aexit__.return_value = None
 
             with patch("api.routes.payments.httpx.AsyncClient", return_value=mock_ac_instance):
-                response = await api_client.post("/api/create-checkout-session", data={"price_id": "price_1"})
+                response = await api_client.post(
+                    "/api/create-checkout-session", data={"plan_key": "pro_monthly"}
+                )
                 assert response.status_code == 200
                 assert response.json()["url"] == "http://creem.com/pay"
                 mock_db_client.create_payment_order.assert_called()
+                mock_settings.get_price_by_plan_key.assert_called_once_with("pro_monthly")
 
 @pytest.mark.asyncio
 async def test_create_checkout_session_error(api_client, mock_db_client):

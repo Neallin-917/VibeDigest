@@ -4,8 +4,6 @@ import type { ChatUIMessagePart, ChatUIDataParts } from '@/lib/chat-ui'
 
 type TaskDataBucket = {
   taskStatus?: ChatUIDataParts['task-status']
-  showProgress: boolean
-  showPlan: boolean
 }
 
 function getTaskId(part: ChatUIMessagePart) {
@@ -18,8 +16,8 @@ function getTaskId(part: ChatUIMessagePart) {
 export function renderDataParts(
   parts: ChatUIMessagePart[],
   liveTaskIds?: Set<string>,
-  onOpenPanel?: (taskId: string) => void,
-  visibleTaskIds?: Set<string>
+  visibleTaskIds?: Set<string>,
+  onRetryTask?: (taskId: string) => Promise<boolean>
 ) {
   const buckets = new Map<string, TaskDataBucket>()
 
@@ -29,20 +27,11 @@ export function renderDataParts(
     if (!taskId) return
     if (visibleTaskIds && !visibleTaskIds.has(taskId)) return
 
-    const bucket = buckets.get(taskId) ?? {
-      showPlan: false,
-      showProgress: false,
-    }
+    const bucket = buckets.get(taskId) ?? {}
 
     switch (part.type) {
       case 'data-task-status':
         bucket.taskStatus = part.data
-        break
-      case 'data-task-progress':
-        bucket.showProgress = true
-        break
-      case 'data-task-plan':
-        bucket.showPlan = true
         break
       default:
         break
@@ -55,10 +44,8 @@ export function renderDataParts(
     <TaskDataGroup
       key={taskId}
       taskStatus={bucket.taskStatus}
-      showProgress={bucket.showProgress}
-      showPlan={bucket.showPlan}
       live={liveTaskIds?.has(taskId) ?? false}
-      onOpenPanel={onOpenPanel}
+      onRetryTask={onRetryTask}
     />
   ))
 }

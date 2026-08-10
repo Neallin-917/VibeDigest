@@ -8,7 +8,7 @@ from dependencies import (
 )
 from fastapi import APIRouter, Body, Depends, Form, Header, HTTPException
 from services.output_intent import build_output_intent
-from services.task_queue import GuestQuotaExceededError, TaskQueue
+from services.task_queue import GuestQuotaExceededError, QuotaExceededError, TaskQueue
 from utils.url import normalize_video_url
 
 router = APIRouter()
@@ -57,6 +57,8 @@ def process_video(
 
     except GuestQuotaExceededError as exc:
         raise HTTPException(status_code=402, detail="Guest quota exceeded") from exc
+    except QuotaExceededError as exc:
+        raise HTTPException(status_code=402, detail="Quota exceeded") from exc
     except Exception as exc:
         logger.exception("Error creating or enqueueing task: %s", exc)
         raise HTTPException(
@@ -104,6 +106,46 @@ def retry_output(
             detail="Task queue is temporarily unavailable",
         ) from exc
     return {"message": "Retry queued"}
+
+
+@router.post("/retry-task")
+def retry_task(
+    task_id: str = Form(...),
+    user_id: str = Depends(get_current_user),
+    authorization: str | None = Header(None),
+    x_guest_id: str | None = Header(None, alias="X-Guest-Id"),
+    db: DBClient = Depends(get_db_client),
+    queue: TaskQueue = Depends(get_task_queue),
+):
+    """Requeue a terminal task without charging a second submission."""
+    task = db.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    is_guest = authorization is None or not authorization.startswith("Bearer ")
+    if is_guest:
+        if not x_guest_id or task.get("guest_id") != x_guest_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+    elif str(task.get("user_id")) != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    if task.get("status") != "error":
+        raise HTTPException(status_code=409, detail="Only failed tasks can be retried")
+
+    database_user_id = GUEST_DATABASE_USER_ID if is_guest else user_id
+    try:
+        queue.submit_retry_task(
+            task_id=task_id,
+            user_id=database_user_id,
+            guest_id=x_guest_id if is_guest else None,
+        )
+    except Exception as exc:
+        logger.exception("Failed to enqueue task retry %s", task_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Task queue is temporarily unavailable",
+        ) from exc
+
+    return {"message": "Task retry queued"}
 
 
 @router.patch("/tasks/{task_id}")

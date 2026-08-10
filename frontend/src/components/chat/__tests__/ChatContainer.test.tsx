@@ -39,6 +39,10 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.thinking') return 'Thinking...'
       if (key === 'chat.genericError') return 'Something went wrong.'
       if (key === 'chat.retry') return 'Retry'
+      if (key === 'taskForm.quotaExceeded.description') return 'Your plan limit has been reached.'
+      if (key === 'taskForm.quotaExceeded.confirm') return 'View Plans'
+      if (key === 'chat.followUpPlaceholder') return 'Ask a follow-up about this source...'
+      if (key === 'chat.followUpInputLabel') return 'Follow-up question about this source'
       return key
     },
     locale: 'en',
@@ -46,8 +50,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
 }))
 
 vi.mock('../ChatInput', () => ({
-  ChatInput: ({ onSubmit, isLoading, disabled }: any) => (
-    <div data-testid="chat-input">
+  ChatInput: ({ onSubmit, isLoading, disabled, placeholder, inputLabel }: any) => (
+    <div data-testid="chat-input" data-placeholder={placeholder} data-label={inputLabel}>
       <button onClick={() => onSubmit('test message')} disabled={isLoading || disabled}>Send</button>
     </div>
   )
@@ -121,6 +125,30 @@ describe('ChatContainer', () => {
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument()
     expect(screen.getByTestId('chat-input')).toBeInTheDocument()
     expect(await screen.findByText('Hello')).toBeInTheDocument()
+  })
+
+  it('frames the composer as a source-grounded follow-up when a task is active', () => {
+    const messages: ChatUIMessage[] = [createTextMessage('A completed result', 'assistant', 'result-1')]
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(<ChatContainer activeTaskId="task-123" />)
+
+    expect(screen.getByTestId('chat-input')).toHaveAttribute(
+      'data-placeholder',
+      'Ask a follow-up about this source...'
+    )
+    expect(screen.getByTestId('chat-input')).toHaveAttribute(
+      'data-label',
+      'Follow-up question about this source'
+    )
   })
 
   it('sends message via ChatInput when authenticated', async () => {
@@ -313,17 +341,12 @@ describe('ChatContainer', () => {
             {
               type: 'data-task-status',
               id: 'task-status-task-123',
-              data: { taskId: 'task-123', status: 'pending', progress: 0 },
-            } as any,
-            {
-              type: 'data-task-progress',
-              id: 'task-progress-task-123',
-              data: { taskId: 'task-123' },
-            } as any,
-            {
-              type: 'data-task-plan',
-              id: 'task-plan-task-123',
-              data: { taskId: 'task-123' },
+              data: {
+                taskId: 'task-123',
+                status: 'pending',
+                progress: 0,
+                videoUrl: 'https://www.youtube.com/watch?v=test123',
+              },
             } as any,
           ],
         },
@@ -371,6 +394,33 @@ describe('ChatContainer', () => {
 
       expect(mockSendMessage).not.toHaveBeenCalled()
       expect(mockSetMessages).not.toHaveBeenCalled()
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+
+  it('localizes a quota rejection and links to plans', async () => {
+    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=quota123')
+    const originalFetch = global.fetch
+    try {
+      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          code: 'QUOTA_EXCEEDED',
+          details: 'Quota exceeded',
+        }),
+      } as Response)
+
+      render(<ChatContainer isAuthenticated={true} />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Your plan limit has been reached.')).toBeInTheDocument()
+      })
+      expect(screen.getByRole('link', { name: 'View Plans' })).toHaveAttribute(
+        'href',
+        '/en/settings/pricing',
+      )
+      expect(screen.queryByText('Quota exceeded')).not.toBeInTheDocument()
     } finally {
       global.fetch = originalFetch
     }
@@ -527,25 +577,20 @@ describe('ChatContainer', () => {
     expect(screen.queryByText('chat.tools.status.videoTask')).not.toBeInTheDocument()
   })
 
-  it('renders real task progress from persisted message data', async () => {
+  it('renders an inline task artifact from persisted task data', async () => {
     const messages: ChatUIMessage[] = [{
-      id: 'assistant-task-progress',
+      id: 'assistant-inline-task',
       role: 'assistant',
       parts: [
         {
           type: 'data-task-status',
           id: 'task-status-new-task',
-          data: { taskId: 'new-task', status: 'pending', progress: 0 },
-        } as any,
-        {
-          type: 'data-task-progress',
-          id: 'task-progress-new-task',
-          data: { taskId: 'new-task' },
-        } as any,
-        {
-          type: 'data-task-plan',
-          id: 'task-plan-new-task',
-          data: { taskId: 'new-task' },
+          data: {
+            taskId: 'new-task',
+            status: 'pending',
+            progress: 0,
+            videoUrl: 'https://www.youtube.com/watch?v=new-task',
+          },
         } as any,
       ],
     }]
@@ -562,7 +607,7 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer activeTaskId="new-task" />)
 
-    expect(await screen.findByText('chat.tools.status.videoTask')).toBeInTheDocument()
+    expect(await screen.findByTestId('inline-task-artifact')).toBeInTheDocument()
   })
 
   it('renders only the latest status card when history repeats the same task', async () => {
@@ -570,17 +615,12 @@ describe('ChatContainer', () => {
       {
         type: 'data-task-status',
         id: 'task-status-repeated-task',
-        data: { taskId: 'repeated-task', status: 'pending', progress: 0 },
-      },
-      {
-        type: 'data-task-progress',
-        id: 'task-progress-repeated-task',
-        data: { taskId: 'repeated-task' },
-      },
-      {
-        type: 'data-task-plan',
-        id: 'task-plan-repeated-task',
-        data: { taskId: 'repeated-task' },
+        data: {
+          taskId: 'repeated-task',
+          status: 'pending',
+          progress: 0,
+          videoUrl: 'https://www.youtube.com/watch?v=repeated-task',
+        },
       },
     ] as ChatUIMessage['parts']
     const messages: ChatUIMessage[] = [
@@ -601,6 +641,6 @@ describe('ChatContainer', () => {
 
     render(<ChatContainer activeTaskId="repeated-task" />)
 
-    expect(await screen.findAllByText('chat.tools.status.videoTask')).toHaveLength(1)
+    expect(await screen.findAllByTestId('inline-task-artifact')).toHaveLength(1)
   })
 })

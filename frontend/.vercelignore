@@ -1,0 +1,14 @@
+node_modules
+.next
+.next-test
+.next-demo
+coverage
+test-results
+playwright-report
+blob-report
+playwright
+.vercel
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

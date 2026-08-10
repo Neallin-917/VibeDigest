@@ -1,7 +1,7 @@
 """
 Core summary generation engine.
 
-This module handles the V4 dynamic two-phase summary generation:
+This module handles the V5 dynamic two-phase summary generation:
 - Phase 1: Analyze content and plan which sections to generate
 - Phase 2: Generate full summary with planned sections
 """
@@ -13,13 +13,13 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from prompts import (
     AVAILABLE_SECTION_TYPES,
-    SUMMARY_V4_PHASE1_SYSTEM,
-    SUMMARY_V4_PHASE1_USER,
-    SUMMARY_V4_PHASE2_SYSTEM,
-    SUMMARY_V4_PHASE2_USER,
+    SUMMARY_V5_PHASE1_SYSTEM,
+    SUMMARY_V5_PHASE1_USER,
+    SUMMARY_V5_PHASE2_SYSTEM,
+    SUMMARY_V5_PHASE2_USER,
     SECTION_INSTRUCTION_TEMPLATES,
 )
-from services.summarizer.models import SummaryResponseV4, ContentPlan
+from services.summarizer.models import ContentPlan, SummaryResponseV5
 from services.summarizer.config import get_llm
 from utils.language_utils import normalize_lang_code
 from utils.trace_utils import build_trace_config
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class SummaryEngine:
     """
-    Core engine for generating V4 dynamic summaries.
+    Core engine for generating V5 dynamic summaries.
 
     Uses a two-phase approach:
     - Phase 1: Analyze content and plan which sections to generate
@@ -63,16 +63,16 @@ class SummaryEngine:
         trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
-        Generate a V4 dynamic summary of the transcript.
+        Generate a V5 dynamic summary of the transcript.
 
         Args:
             transcript: The transcript text to summarize
             target_language: Target language code
-            video_title: Optional video title (unused in V4)
+            video_title: Optional video title (unused in V5)
             trace_metadata: Optional tracing metadata
 
         Returns:
-            JSON string containing the V4 summary with dynamic sections
+            JSON string containing the V5 summary with dynamic sections and optional UI blocks
         """
         if not self.config.is_llm_available:
             # Keep the established public failure contract; ``is_llm_available``
@@ -81,28 +81,28 @@ class SummaryEngine:
 
         target_language = normalize_lang_code(target_language)
 
-        return await self._summarize_v4_dynamic(
+        return await self._summarize_v5_dynamic(
             transcript,
             target_language,
             trace_metadata=trace_metadata,
         )
 
-    async def _summarize_v4_dynamic(
+    async def _summarize_v5_dynamic(
         self,
         transcript: str,
         target_language: str,
         trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """V4 Two-phase dynamic summary using structured output."""
+        """V5 two-phase dynamic summary using structured output."""
         language_name = self.config.language_map.get(target_language, "English")
 
         # Phase 1: Analyze content and plan sections
         transcript_sample = transcript[:2000] if len(transcript) > 2000 else transcript
 
-        phase1_system = SUMMARY_V4_PHASE1_SYSTEM.format(
+        phase1_system = SUMMARY_V5_PHASE1_SYSTEM.format(
             available_sections=AVAILABLE_SECTION_TYPES
         )
-        phase1_user = SUMMARY_V4_PHASE1_USER.format(transcript_sample=transcript_sample)
+        phase1_user = SUMMARY_V5_PHASE1_USER.format(transcript_sample=transcript_sample)
 
         lc_config_p1 = build_trace_config(
             base=trace_metadata,
@@ -121,7 +121,7 @@ class SummaryEngine:
         plan_dict = await self._invoke_and_parse_json(llm_p1, ContentPlan, messages_p1, lc_config_p1)
 
         planned_sections = plan_dict.get("planned_sections", ["quotes", "insights"])[:5]
-        logger.info(f"V4 Phase 1 plan: {planned_sections} (confidence: {plan_dict.get('confidence', 'N/A')})")
+        logger.info(f"V5 Phase 1 plan: {planned_sections} (confidence: {plan_dict.get('confidence', 'N/A')})")
 
         # Build section instructions
         section_instructions = "\n".join([
@@ -130,7 +130,7 @@ class SummaryEngine:
         ])
 
         # Phase 2: Generate summary with planned sections
-        phase2_system = SUMMARY_V4_PHASE2_SYSTEM.format(
+        phase2_system = SUMMARY_V5_PHASE2_SYSTEM.format(
             language_name=language_name,
             target_language=target_language,
             content_form=plan_dict.get("content_form", "casual"),
@@ -139,7 +139,7 @@ class SummaryEngine:
             planned_sections=", ".join(planned_sections),
             section_instructions=section_instructions,
         )
-        phase2_user = SUMMARY_V4_PHASE2_USER.format(
+        phase2_user = SUMMARY_V5_PHASE2_USER.format(
             content_form=plan_dict.get("content_form", "casual"),
             info_structure=plan_dict.get("info_structure", "thematic"),
             cognitive_goal=plan_dict.get("cognitive_goal", "digest"),
@@ -166,10 +166,10 @@ class SummaryEngine:
             HumanMessage(content=phase2_user),
         ]
 
-        summary_dict = await self._invoke_and_parse_json(llm_p2, SummaryResponseV4, messages_p2, lc_config_p2)
+        summary_dict = await self._invoke_and_parse_json(llm_p2, SummaryResponseV5, messages_p2, lc_config_p2)
 
         # Ensure version and language are set correctly
-        summary_dict["version"] = 4
+        summary_dict["version"] = 5
         summary_dict["language"] = target_language
 
         # Add content_type if not present

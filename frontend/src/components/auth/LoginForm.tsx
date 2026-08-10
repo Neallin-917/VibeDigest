@@ -1,12 +1,12 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useSyncExternalStore } from "react"
 import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Mail, Sparkles } from "lucide-react"
+import { CheckCircle2, Mail, Sparkles } from "lucide-react"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { LanguageInlineSelect } from "@/components/i18n/LanguageInlineSelect"
 
@@ -14,6 +14,11 @@ interface LoginFormProps {
     className?: string
     isModal?: boolean
 }
+
+const subscribeToPendingHandoff = () => () => undefined
+const getPendingHandoffSnapshot = () =>
+    typeof window !== "undefined" && Boolean(window.localStorage.getItem("vibedigest_pending_message")?.trim())
+const getPendingHandoffServerSnapshot = () => false
 
 export function LoginForm({ className, isModal = false }: LoginFormProps) {
     const [email, setEmail] = useState("")
@@ -26,6 +31,21 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
     const { t, locale } = useI18n()
     const searchParams = useSearchParams()
     const nextUrl = searchParams.get('next')
+    const hasPendingMessage = useSyncExternalStore(
+        subscribeToPendingHandoff,
+        getPendingHandoffSnapshot,
+        getPendingHandoffServerSnapshot
+    )
+    const isChatHandoff = useMemo(() => {
+        try {
+            return nextUrl
+                ? new URL(nextUrl, "https://vibedigest.invalid").pathname === `/${locale}/chat`
+                : false
+        } catch {
+            return false
+        }
+    }, [locale, nextUrl])
+    const hasPendingHandoff = isChatHandoff && hasPendingMessage
 
     const getErrorMessage = (errorMsg: string) => {
         if (errorMsg.includes("Invalid login credentials")) return t("auth.errors.invalidCredentials") || errorMsg
@@ -126,11 +146,25 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 <div className="mx-auto bg-emerald-500/10 dark:bg-emerald-500/20 p-3 rounded-full w-fit mb-2 shadow-[0_0_20px_rgba(62,207,142,0.15)]">
                     <Sparkles className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                 </div>
+                {hasPendingHandoff && (
+                    <p className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        {t("auth.handoffReady")}
+                    </p>
+                )}
                 <CardTitle className="font-bold text-2xl text-gray-900 dark:text-white">
-                    {isSignUp ? (t("auth.createAccount") || "Create Account") : t("auth.welcomeBack")}
+                    {isSignUp
+                        ? (t("auth.createAccount") || "Create Account")
+                        : hasPendingHandoff
+                            ? t("auth.continueDigest")
+                            : t("auth.welcomeBack")}
                 </CardTitle>
                 <CardDescription className="text-gray-500 dark:text-gray-400">
-                    {isSignUp ? (t("auth.signUpToContinue") || "Sign up to get started") : t("auth.signInToContinue", { appName: t("brand.name") })}
+                    {isSignUp
+                        ? (t("auth.signUpToContinue") || "Sign up to get started")
+                        : hasPendingHandoff
+                            ? t("auth.handoffDescription")
+                            : t("auth.signInToContinue", { appName: t("brand.name") })}
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 relative z-10">

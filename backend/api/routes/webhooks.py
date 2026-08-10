@@ -17,6 +17,34 @@ logger = logging.getLogger(__name__)
 CREEM_WEBHOOK_SECRET = settings.CREEM_WEBHOOK_SECRET
 COINBASE_WEBHOOK_SECRET = settings.COINBASE_WEBHOOK_SECRET
 
+
+def _provider_id(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    if isinstance(value, dict):
+        identifier = value.get("id")
+        return identifier if isinstance(identifier, str) and identifier else None
+    return None
+
+
+def _provider_period_end(subscription: object) -> str | None:
+    """Normalize Creem's recorded period end; never invent a billing period."""
+    if not isinstance(subscription, dict):
+        return None
+    raw_value = subscription.get("current_period_end_date")
+    if not isinstance(raw_value, str) or not raw_value.strip():
+        return None
+
+    try:
+        value = datetime.datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        logger.warning("Creem subscription has an invalid period end: %r", raw_value)
+        return None
+
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.timezone.utc)
+    return value.astimezone(datetime.timezone.utc).isoformat()
+
 @router.post("/creem")
 async def creem_webhook(
     request: Request,
@@ -58,8 +86,7 @@ async def creem_webhook(
         checkout_id = obj.get("id")
         metadata = obj.get("metadata", {})
         user_id = metadata.get("user_id")
-        customer = obj.get("customer", {})
-        customer_id = customer.get("id") if isinstance(customer, dict) else customer
+        customer_id = _provider_id(obj.get("customer"))
         product = obj.get("product", {})
         subscription = obj.get("subscription", {})
 
@@ -94,21 +121,18 @@ async def creem_webhook(
         )
         product_id = product.get("id") if isinstance(product, dict) else product
 
-        if billing_type == "recurring" and subscription:
-            # Subscription purchase - activate Pro
-            # Calculate period_end (Creem doesn't provide this directly, estimate from billing_period)
-            billing_period = product.get("billing_period", "every-month")
-            now = datetime.datetime.now(datetime.timezone.utc)
-            if "year" in billing_period:
-                period_end = now + datetime.timedelta(days=365)
-            else:
-                period_end = now + datetime.timedelta(days=30)
-
-            if user_id:
+        if billing_type == "recurring":
+            period_end = _provider_period_end(subscription)
+            if user_id and period_end:
                 db.update_subscription_by_user(
-                    user_id, "pro", period_end.isoformat()
+                    user_id, "pro", period_end
                 )
                 logger.info(f"Activated Pro subscription for user {user_id}")
+            elif user_id:
+                logger.warning(
+                    "Skipping subscription activation for user %s: Creem period end is missing",
+                    user_id,
+                )
 
         else:
             # One-time payment (Credits)
@@ -119,38 +143,36 @@ async def creem_webhook(
 
     elif event_type == "subscription.paid":
         # Recurring payment success - renew subscription
-        subscription = obj
-        customer_id = subscription.get("customer")
-        product = subscription.get("product", {})
-        billing_period = (
-            product.get("billing_period", "every-month")
-            if isinstance(product, dict)
-            else "every-month"
-        )
+        customer_id = _provider_id(obj.get("customer"))
+        period_end = _provider_period_end(obj)
 
-        now = datetime.datetime.now(datetime.timezone.utc)
-        if "year" in str(billing_period):
-            period_end = now + datetime.timedelta(days=365)
-        else:
-            period_end = now + datetime.timedelta(days=30)
-
-        if customer_id:
-            db.update_subscription(customer_id, "pro", period_end.isoformat())
+        if customer_id and period_end:
+            db.update_subscription(customer_id, "pro", period_end)
             logger.info(f"Renewed Pro subscription for customer {customer_id}")
-
-    elif event_type in ("subscription.canceled", "subscription.expired"):
-        # Subscription canceled or expired - downgrade to free
-        subscription = obj
-        customer_id = subscription.get("customer")
-
-        if customer_id:
-            # Set period_end to now to immediately downgrade
-            db.update_subscription(
+        elif customer_id:
+            logger.warning(
+                "Skipping subscription renewal for customer %s: Creem period end is missing",
                 customer_id,
-                "free",
-                datetime.datetime.now(datetime.timezone.utc).isoformat(),
             )
-            logger.info(f"Canceled subscription for customer {customer_id}")
+
+    elif event_type in ("subscription.canceled", "subscription.scheduled_cancel"):
+        # A cancellation remains entitled through Creem's paid period. The task
+        # submission transaction enforces the recorded end time when it arrives.
+        customer_id = _provider_id(obj.get("customer"))
+        period_end = _provider_period_end(obj)
+        if customer_id and period_end:
+            db.update_subscription(customer_id, "pro", period_end)
+            logger.info("Recorded subscription cancellation for customer %s", customer_id)
+        elif customer_id:
+            logger.warning(
+                "Skipping cancellation update for customer %s: Creem period end is missing",
+                customer_id,
+            )
+
+    elif event_type == "subscription.expired":
+        # Creem may retry a failed renewal. Keep the last provider-recorded
+        # period end and let the task transaction expire access when appropriate.
+        logger.info("Received subscription.expired; retaining recorded period end")
 
     return {"status": "success"}
 

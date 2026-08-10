@@ -4,7 +4,7 @@ import {
   sanitizeIncomingMessages,
   sanitizeStoredMessages,
 } from './chat-message-boundary'
-import type { ChatUIMessage, StoredChatMessageRow } from './chat-ui'
+import { chatDataSchemas, type ChatUIMessage, type StoredChatMessageRow } from './chat-ui'
 
 function createTextMessage(
   text: string,
@@ -20,6 +20,11 @@ function createTextMessage(
 }
 
 describe('chat-message-boundary', () => {
+  it('accepts legacy task reference parts used by completed demo threads', () => {
+    expect(chatDataSchemas['task-progress'].safeParse({ taskId: 'task-123' }).success).toBe(true)
+    expect(chatDataSchemas['task-plan'].safeParse({ taskId: 'task-123' }).success).toBe(true)
+  })
+
   it('keeps valid incoming messages and rejects empty assistant placeholders', () => {
     const { validMessages, invalidMessages } = sanitizeIncomingMessages([
       createTextMessage('hello', 'user', 'user-1'),

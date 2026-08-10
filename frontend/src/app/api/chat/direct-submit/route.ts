@@ -15,16 +15,17 @@ import {
   upsertChatState,
 } from '../persistence'
 
-const E2E_MOCK_USER = {
-  id: '11111111-1111-1111-1111-111111111111',
-  email: 'tester@vibedigest.io',
-} as const
-
 type DirectSubmitPayload = {
   threadId?: string
   videoUrl?: string
   originalText?: string
   uiLocale?: string
+}
+
+function isMockSubmissionMode() {
+  return env.NEXT_PUBLIC_E2E_MOCK === '1' || (
+    process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_LOCAL_DEMO === '1'
+  )
 }
 
 function buildDirectSubmitMessages(params: {
@@ -49,17 +50,25 @@ function buildDirectSubmitMessages(params: {
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient()
-  let user: { id: string; email?: string } | null = null
-  let accessToken: string | undefined
-  let backendHeaders: Record<string, string> = {}
-
-  if (env.NEXT_PUBLIC_E2E_MOCK === '1') {
-    user = E2E_MOCK_USER
-    backendHeaders = {
-      'X-Guest-Id': 'e2e-guest-user',
+  try {
+    const body = (await req.json()) as DirectSubmitPayload
+    if (!body.videoUrl || !body.originalText || !body.threadId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
-  } else {
+
+    if (isMockSubmissionMode()) {
+      const { taskId, messages } = buildDirectSubmitMessages({
+        videoUrl: body.videoUrl,
+        originalText: body.originalText,
+      })
+
+      return NextResponse.json({
+        task_id: taskId,
+        messages,
+      })
+    }
+
+    const supabase = await createClient()
     const {
       data: { user: authUser },
     } = await supabase.auth.getUser()
@@ -76,29 +85,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Session invalid' }, { status: 401 })
     }
 
-    user = authUser
-    accessToken = session.access_token
-    backendHeaders = {
-      Authorization: `Bearer ${accessToken}`,
-    }
-  }
-
-    try {
-        const body = (await req.json()) as DirectSubmitPayload
-        if (!body.videoUrl || !body.originalText || !body.threadId) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-        }
-
-    if (env.NEXT_PUBLIC_E2E_MOCK === '1') {
-      const { taskId, messages } = buildDirectSubmitMessages({
-        videoUrl: body.videoUrl,
-        originalText: body.originalText,
-      })
-
-      return NextResponse.json({
-        task_id: taskId,
-        messages,
-      })
+    const user = authUser
+    const backendHeaders = {
+      Authorization: `Bearer ${session.access_token}`,
     }
 
     const restoredThread = await restoreArchivedThreadIfNeeded({
@@ -125,7 +114,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: 'Task creation failed',
-          code: 'TASK_CREATION_FAILED',
+          code: res.status === 402 ? 'QUOTA_EXCEEDED' : 'TASK_CREATION_FAILED',
           details: sanitizeErrorMessage(errorText || `Backend returned status ${res.status}`),
         },
         { status: res.status }
@@ -145,21 +134,19 @@ export async function POST(req: Request) {
       originalText: body.originalText,
     })
 
-    if (env.NEXT_PUBLIC_E2E_MOCK !== '1') {
-      const shouldSetDerivedTitle =
-        !restoredThread?.title || restoredThread.title === 'New Chat'
+    const shouldSetDerivedTitle =
+      !restoredThread?.title || restoredThread.title === 'New Chat'
 
-      await upsertChatState({
-        threadId: body.threadId,
-        user: { id: user.id, email: user.email },
-        supabase,
-        messages,
-        taskIdToBind: taskId,
-        threadTitle: shouldSetDerivedTitle
-          ? deriveThreadTitle(body.originalText, body.videoUrl)
-          : restoredThread.title,
-      })
-    }
+    await upsertChatState({
+      threadId: body.threadId,
+      user: { id: user.id, email: user.email },
+      supabase,
+      messages,
+      taskIdToBind: taskId,
+      threadTitle: shouldSetDerivedTitle
+        ? deriveThreadTitle(body.originalText, body.videoUrl)
+        : restoredThread.title,
+    })
 
     return NextResponse.json({
       task_id: taskId,
@@ -171,7 +158,7 @@ export async function POST(req: Request) {
       {
         error: 'Direct submit failed',
         code: 'DIRECT_SUBMIT_FAILED',
-        details: error instanceof Error ? error.message : 'Unexpected error',
+        details: 'Unable to process this video right now.',
       },
       { status: 500 }
     )

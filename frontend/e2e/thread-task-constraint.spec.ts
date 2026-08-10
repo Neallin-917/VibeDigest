@@ -93,16 +93,6 @@ test.describe('Thread-Task 1:1 Constraint', () => {
                       videoUrl: 'https://www.youtube.com/watch?v=test1',
                     },
                   },
-                  {
-                    type: 'data-task-progress',
-                    id: 'task-progress-task-123',
-                    data: { taskId: 'task-123' },
-                  },
-                  {
-                    type: 'data-task-plan',
-                    id: 'task-plan-task-123',
-                    data: { taskId: 'task-123' },
-                  },
                 ],
               },
             ],
@@ -189,16 +179,6 @@ test.describe('Thread-Task 1:1 Constraint', () => {
                     progress: 0,
                     videoUrl: 'https://www.youtube.com/watch?v=new-video',
                   },
-                },
-                {
-                  type: 'data-task-progress',
-                  id: 'task-progress-task-new-thread',
-                  data: { taskId: 'task-new-thread' },
-                },
-                {
-                  type: 'data-task-plan',
-                  id: 'task-plan-task-new-thread',
-                  data: { taskId: 'task-new-thread' },
                 },
               ],
             },

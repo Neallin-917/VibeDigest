@@ -1,57 +1,72 @@
 'use client'
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
-import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Button } from '@/components/ui/button'
+import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
+import { supportsVideoEmbed } from '@/components/tasks/VideoEmbed'
+import { useI18n } from '@/components/i18n/I18nProvider'
+import { KnowledgeUiBlocks } from './KnowledgeUiBlocks'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase'
+import { isLocalUiDemo } from '@/lib/local-ui-demo'
 import {
   type ChatUIDataParts,
   type TaskLifecycleStatus,
 } from '@/lib/chat-ui'
 import { normalizeTaskStatus, sanitizeErrorMessage } from '@/lib/safe-error'
-import { getTaskPlanState, type TaskSnapshot, type TaskPlanStepKey } from '@/lib/task-progress'
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock3,
-  Loader2,
-} from 'lucide-react'
-import { useI18n } from '@/components/i18n/I18nProvider'
 import { subscribeToTask } from '@/lib/task-live'
-import { getTaskDisplayTitle } from '@/lib/task-display-title'
+import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
+import {
+  parseCurrentSummary,
+  pickPreferredSummaryOutput,
+  type CurrentSummary,
+  type SummaryOutputCandidate,
+} from '@/lib/summary-contract'
 
 type TaskDataGroupProps = {
   taskStatus?: ChatUIDataParts['task-status']
-  showProgress: boolean
-  showPlan: boolean
   live?: boolean
-  onOpenPanel?: (taskId: string) => void
+  onRetryTask?: (taskId: string) => Promise<boolean>
 }
+
+type TaskSnapshot = {
+  taskId: string
+  status: TaskLifecycleStatus
+  progress?: number
+  videoTitle?: string
+  thumbnailUrl?: string
+  videoUrl?: string
+  errorMessage?: string
+}
+
+type AudioData = {
+  audioUrl: string
+  coverUrl?: string
+}
+
+type EvidenceItem = {
+  label: string
+  text: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isStandaloneTimestamp = (value: string) => /^\d{1,2}:\d{2}(?::\d{2})?$/.test(value)
+
+const asString = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined
 
 function mapTaskRow(row: Record<string, unknown>, fallbackTaskId: string): TaskSnapshot {
   return {
     taskId: typeof row.id === 'string' ? row.id : fallbackTaskId,
     status: normalizeTaskStatus(row.status),
     progress: typeof row.progress === 'number' ? row.progress : 0,
-    videoTitle: typeof row.video_title === 'string' ? row.video_title : undefined,
-    thumbnailUrl: typeof row.thumbnail_url === 'string' ? row.thumbnail_url : undefined,
-    videoUrl: typeof row.video_url === 'string' ? row.video_url : undefined,
-    errorMessage: typeof row.error_message === 'string' ? row.error_message : undefined,
-  }
-}
-
-function getStatusIcon(status: TaskLifecycleStatus) {
-  switch (status) {
-    case 'completed':
-      return <CheckCircle2 className="size-4 text-emerald-500" />
-    case 'failed':
-      return <AlertCircle className="size-4 text-red-500" />
-    case 'processing':
-      return <Loader2 className="size-4 animate-spin text-blue-500" />
-    default:
-      return <Clock3 className="size-4 text-amber-500" />
+    videoTitle: asString(row.video_title),
+    thumbnailUrl: asString(row.thumbnail_url),
+    videoUrl: asString(row.video_url),
+    errorMessage: asString(row.error_message),
   }
 }
 
@@ -61,7 +76,16 @@ function resolveTaskSnapshot(
 ) {
   if (!seed) return liveSnapshot
   if (!liveSnapshot) return seed
-  return liveSnapshot.taskId === seed.taskId ? liveSnapshot : seed
+  if (liveSnapshot.taskId !== seed.taskId) return seed
+
+  return {
+    ...seed,
+    ...liveSnapshot,
+    videoTitle: liveSnapshot.videoTitle ?? seed.videoTitle,
+    thumbnailUrl: liveSnapshot.thumbnailUrl ?? seed.thumbnailUrl,
+    videoUrl: liveSnapshot.videoUrl ?? seed.videoUrl,
+    errorMessage: liveSnapshot.errorMessage ?? seed.errorMessage,
+  }
 }
 
 function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false) {
@@ -70,201 +94,527 @@ function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false
   useEffect(() => {
     if (!live || !seed?.taskId) return
 
-    const taskId = seed.taskId
-    const unsubscribe = subscribeToTask(taskId, row => {
-      setLiveSnapshot(mapTaskRow(row, taskId))
+    return subscribeToTask(seed.taskId, row => {
+      setLiveSnapshot(mapTaskRow(row, seed.taskId))
     })
-
-    return () => {
-      unsubscribe()
-    }
   }, [live, seed?.taskId])
 
   return resolveTaskSnapshot(seed, liveSnapshot)
 }
 
-function TaskStatusCard({
-  snapshot,
-  showProgress,
-  showPlan,
-  onOpenPanel,
-}: {
-  snapshot: TaskSnapshot
-  showProgress: boolean
-  showPlan: boolean
-  onOpenPanel?: (taskId: string) => void
-}) {
-  const { t } = useI18n()
-  const normalizedSnapshot = {
-    ...snapshot,
-    status: normalizeTaskStatus(snapshot.status),
-    errorMessage: snapshot.errorMessage
-      ? sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
-      : undefined,
+function parseAudioContent(content: string | undefined): AudioData | null {
+  if (!content) return null
+
+  try {
+    const parsed = JSON.parse(content) as { audioUrl?: unknown; coverUrl?: unknown }
+    if (typeof parsed.audioUrl !== 'string') return null
+    return {
+      audioUrl: parsed.audioUrl,
+      coverUrl: typeof parsed.coverUrl === 'string' ? parsed.coverUrl : undefined,
+    }
+  } catch {
+    return content.startsWith('http') ? { audioUrl: content } : null
   }
-  const displayTitle = getTaskDisplayTitle(
+}
+
+function useTaskOutputs(taskId: string | undefined, locale: string, enabled = true) {
+  const [summary, setSummary] = useState<CurrentSummary | null>(null)
+  const [audioData, setAudioData] = useState<AudioData | null>(null)
+  const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
+
+  useEffect(() => {
+    if (!taskId || !supabase) return
+
+    let cancelled = false
+
+    const refresh = async () => {
+      const { data } = await supabase
+        .from('task_outputs')
+        .select('kind, content, status, locale, created_at')
+        .eq('task_id', taskId)
+        .in('kind', ['summary', 'audio'])
+        .order('created_at', { ascending: false })
+
+      if (cancelled || !data) return
+
+      const outputs = data as SummaryOutputCandidate[]
+      const summaryOutput = pickPreferredSummaryOutput(outputs, locale)
+      setSummary(summaryOutput ? parseCurrentSummary(summaryOutput.content) : null)
+
+      const audioOutput = outputs.find(output => output.kind === 'audio')
+      setAudioData(audioOutput ? parseAudioContent(asString(audioOutput.content)) : null)
+    }
+
+    void refresh()
+
+    const channel = supabase
+      .channel(`inline_task_outputs_${taskId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'task_outputs', filter: `task_id=eq.${taskId}` },
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          const next = payload.new
+          if (!isRecord(next)) return
+          const kind = asString(next.kind)
+          if (kind === 'summary' || kind === 'audio') void refresh()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      void supabase.removeChannel(channel)
+    }
+  }, [locale, supabase, taskId])
+
+  return { summary, audioData }
+}
+
+function createDemoSummary(locale: string): CurrentSummary {
+  const isChinese = locale.toLowerCase().startsWith('zh')
+
+  if (isChinese) {
+    return {
+      version: 4,
+      language: 'zh',
+      tl_dr: 'AI 的价值不在于增加工具数量，而在于把反馈、判断和行动连成更短的闭环。',
+      overview: '本地演示用的固定内容。',
+      keypoints: [
+        { title: '先获得可用反馈', detail: '把关键结果提前展示，用户不必等待整段任务结束。', evidence: 'fixture' },
+        { title: '界面只保留结论', detail: '播放器下方直接呈现一个结论和少量关键洞察。', evidence: 'fixture' },
+      ],
+      uiBlocks: [
+        {
+          kind: 'comparison_table',
+          id: 'demo-comparison',
+          title: '信息呈现方式',
+          columns: ['纯文字', '结构化 UI'],
+          rows: [
+            { label: '对比关系', values: ['分散在段落中', '维度并列展示'], evidence: 'fixture' },
+            { label: '来源依据', values: ['难以快速核对', '逐行保留依据'], evidence: 'fixture' },
+          ],
+        },
+        {
+          kind: 'bar_chart',
+          id: 'demo-chart',
+          title: '本地演示的组件覆盖',
+          unit: '项',
+          values: [
+            { label: '洞察', value: 1, evidence: 'fixture' },
+            { label: '对比表', value: 2, evidence: 'fixture' },
+            { label: '柱状图', value: 3, evidence: 'fixture' },
+          ],
+        },
+      ],
+      sections: [],
+    }
+  }
+
+  return {
+    version: 4,
+    language: 'en',
+    tl_dr: 'AI becomes useful when feedback, judgment, and action form a shorter loop.',
+    overview: 'Deterministic content for the local visual demo.',
+    keypoints: [
+      { title: 'Show useful feedback early', detail: 'Surface the first meaningful result before the whole task is complete.', evidence: 'fixture' },
+      { title: 'Keep the interface focused', detail: 'Place one conclusion and only the essential insights under the player.', evidence: 'fixture' },
+    ],
+    uiBlocks: [
+      {
+        kind: 'comparison_table',
+        id: 'demo-comparison',
+        title: 'How information is presented',
+        columns: ['Plain text', 'Structured UI'],
+        rows: [
+          { label: 'Comparison', values: ['Buried in prose', 'Dimensions stay aligned'], evidence: 'fixture' },
+          { label: 'Source basis', values: ['Hard to scan', 'Retained per row'], evidence: 'fixture' },
+        ],
+      },
+      {
+        kind: 'bar_chart',
+        id: 'demo-chart',
+        title: 'Local demo component coverage',
+        unit: 'blocks',
+        values: [
+          { label: 'Insight', value: 1, evidence: 'fixture' },
+          { label: 'Table', value: 2, evidence: 'fixture' },
+          { label: 'Chart', value: 3, evidence: 'fixture' },
+        ],
+      },
+    ],
+    sections: [],
+  }
+}
+
+function useLocalDemoArtifact(
+  seed: ChatUIDataParts['task-status'] | undefined,
+  locale: string,
+  enabled: boolean
+) {
+  const [snapshot, setSnapshot] = useState<TaskSnapshot | null>(null)
+  const [summary, setSummary] = useState<CurrentSummary | null>(null)
+
+  useEffect(() => {
+    if (!enabled || !seed?.taskId || !seed.videoUrl) return
+
+    const isChinese = locale.toLowerCase().startsWith('zh')
+    const videoTitle = isChinese
+      ? '本地演示：AI 如何缩短反馈闭环'
+      : 'Local demo: shortening the feedback loop with AI'
+
+    const metadataTimer = window.setTimeout(() => {
+      setSnapshot({
+        taskId: seed.taskId,
+        status: 'processing',
+        progress: 35,
+        videoTitle,
+        videoUrl: seed.videoUrl,
+      })
+    }, 600)
+
+    const summaryTimer = window.setTimeout(() => {
+      setSnapshot({
+        taskId: seed.taskId,
+        status: 'completed',
+        progress: 100,
+        videoTitle,
+        videoUrl: seed.videoUrl,
+      })
+      setSummary(createDemoSummary(locale))
+    }, 1_700)
+
+    return () => {
+      window.clearTimeout(metadataTimer)
+      window.clearTimeout(summaryTimer)
+    }
+  }, [enabled, locale, seed?.taskId, seed?.videoUrl])
+
+  return { snapshot, summary }
+}
+
+function getStageLabel(
+  t: ReturnType<typeof useI18n>['t'],
+  status: TaskLifecycleStatus,
+  progress?: number
+) {
+  if (status === 'failed') return t('chat.tools.status.statusFailed')
+  if (status === 'completed') return t('chat.tools.status.statusReady')
+  if (status === 'pending') return t('chat.tools.status.statusQueued')
+  if ((progress ?? 0) >= 70) return t('chat.tools.status.steps.summarizeLabel')
+  if ((progress ?? 0) >= 30) return t('chat.tools.status.steps.transcribeLabel')
+  return t('chat.tools.status.steps.ingestLabel')
+}
+
+function KnowledgeCard({
+  title,
+  children,
+  tone = 'default',
+  meta,
+}: {
+  title: string
+  children: React.ReactNode
+  tone?: 'default' | 'lead'
+  meta?: string
+}) {
+  return (
+    <section
+      className={cn(
+        'relative overflow-hidden rounded-2xl px-5',
+        tone === 'lead'
+          ? 'border border-primary/20 bg-primary/[0.045] py-5'
+          : 'border border-border/80 bg-surface-raised/80 py-4'
+      )}
+    >
+      {tone === 'lead' ? (
+        <span aria-hidden="true" className="absolute inset-y-5 left-0 w-0.5 rounded-r-full bg-primary" />
+      ) : null}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3
+          className={cn(
+            'font-semibold',
+            tone === 'lead'
+              ? 'text-[11px] uppercase tracking-[0.09em] text-primary'
+              : 'text-sm text-foreground'
+          )}
+        >
+          {title}
+        </h3>
+        {meta ? (
+          <span aria-hidden="true" className="text-xs font-medium tabular-nums text-muted-foreground/70">
+            {meta}
+          </span>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function collectEvidence(summary: CurrentSummary): EvidenceItem[] {
+  const items: EvidenceItem[] = []
+  const seen = new Set<string>()
+
+  const add = (label: string, evidence: string) => {
+    const text = evidence.trim()
+    if (!text || isStandaloneTimestamp(text) || seen.has(text)) return
+    seen.add(text)
+    items.push({ label, text })
+  }
+
+  summary.keypoints.forEach((keypoint) => {
+    add(keypoint.title, keypoint.evidence)
+  })
+
+  summary.uiBlocks?.forEach((block) => {
+    if (block.kind === 'comparison_table') {
+      block.rows.forEach((row) => add(`${block.title}: ${row.label}`, row.evidence))
+      return
+    }
+
+    if (block.kind === 'bar_chart') {
+      block.values.forEach((value) => add(`${block.title}: ${value.label}`, value.evidence))
+      return
+    }
+
+    block.steps.forEach((step) => add(`${block.title}: ${step.title}`, step.evidence))
+  })
+
+  return items.slice(0, 8)
+}
+
+function EvidenceDisclosure({ title, items }: { title: string; items: EvidenceItem[] }) {
+  if (items.length === 0) return null
+
+  return (
+    <details className="rounded-2xl border border-border/80 bg-surface-raised/80 px-5 py-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2">
+        <span>{title}</span>
+        <span className="text-xs font-medium tabular-nums text-muted-foreground">{String(items.length).padStart(2, '0')}</span>
+      </summary>
+      <ol className="mt-4 space-y-3 border-t border-border/70 pt-4">
+        {items.map((item, index) => (
+          <li key={`${item.label}-${index}`} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3">
+            <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <div>
+              <p className="text-xs font-medium text-foreground">{item.label}</p>
+              <blockquote className="mt-1 border-l border-primary/40 pl-3 text-sm leading-6 text-muted-foreground">
+                {item.text}
+              </blockquote>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </details>
+  )
+}
+
+function SummaryContinuation({
+  summary,
+  visibleKeypointCount,
+  title,
+  sectionsTitle,
+}: {
+  summary: CurrentSummary
+  visibleKeypointCount: number
+  title: string
+  sectionsTitle: string
+}) {
+  const remainingKeypoints = summary.keypoints.slice(visibleKeypointCount)
+  const hasMoreContent = remainingKeypoints.length > 0 || summary.sections.length > 0
+
+  if (!hasMoreContent) return null
+
+  return (
+    <details className="rounded-2xl border border-border/80 bg-surface-raised/80 px-5 py-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2">
+        <span>{title}</span>
+        <span aria-hidden="true" className="text-base font-normal text-muted-foreground">+</span>
+      </summary>
+      <div className="mt-4 space-y-6 border-t border-border/70 pt-4">
+        {remainingKeypoints.length > 0 ? (
+          <ol>
+            {remainingKeypoints.map((keypoint, index) => (
+              <li
+                key={`${keypoint.title}-${index}`}
+                className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 border-t border-border/70 py-3 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
+                  {String(visibleKeypointCount + index + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold leading-5 text-foreground">{keypoint.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
+        {summary.sections.length > 0 ? (
+          <div className="space-y-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+              {sectionsTitle}
+            </p>
+            {summary.sections.map((section, index) => (
+              <section key={`${section.section_type}-${section.title ?? index}`} className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0">
+                {section.title ? <h4 className="text-sm font-semibold text-foreground">{section.title}</h4> : null}
+                {section.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{section.description}</p> : null}
+                {section.items.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {section.items.map((item, itemIndex) => (
+                      <li key={`${item.content}-${itemIndex}`} className="text-sm leading-6 text-muted-foreground">
+                        {item.content}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </details>
+  )
+}
+
+function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskDataGroupProps) {
+  const { t, locale } = useI18n()
+  const [isRetrying, setIsRetrying] = useState(false)
+  const isDemo = isLocalUiDemo()
+  const liveSnapshot = useLiveTaskSnapshot(taskStatus, live && !isDemo)
+  const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo)
+  const snapshot = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
+  const { summary: persistedSummary, audioData } = useTaskOutputs(snapshot?.taskId, locale, !isDemo)
+  const summary = isDemo ? demoArtifact.summary : persistedSummary
+
+  if (!snapshot || !snapshot.videoUrl) return null
+
+  const status = normalizeTaskStatus(snapshot.status)
+  const title = getTaskDisplayTitle(
     snapshot.videoTitle,
     snapshot.videoUrl,
     t('chat.tools.status.videoTask')
   )
+  const hasSourceMetadata = isUsableTaskTitle(snapshot.videoTitle) || Boolean(snapshot.thumbnailUrl)
+  const canRenderVideo = supportsVideoEmbed(snapshot.videoUrl)
+  const mediaType = canRenderVideo ? 'video' : 'audio'
+  const canRenderMedia = canRenderVideo || Boolean(audioData?.audioUrl)
+  const showPlayer = canRenderMedia && (hasSourceMetadata || status === 'completed')
+  const conclusion = summary?.tl_dr || summary?.overview
+  const visibleKeypointCount = 3
+  const keypoints = summary?.keypoints?.slice(0, visibleKeypointCount) ?? []
+  const evidenceItems = summary ? collectEvidence(summary) : []
+  const stageLabel = getStageLabel(t, status, snapshot.progress)
+  const safeError = snapshot.errorMessage
+    ? sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
+    : null
+  const canRetry = status === 'failed' && Boolean(onRetryTask)
+  const failureMessage = safeError ?? (
+    status === 'failed' ? t('chat.directSubmit.unavailable') : null
+  )
 
-  const statusLabel =
-    normalizedSnapshot.status === 'completed'
-      ? t('chat.tools.status.statusReady')
-      : normalizedSnapshot.status === 'failed'
-        ? t('chat.tools.status.statusFailed')
-        : normalizedSnapshot.status === 'processing'
-          ? t('chat.tools.status.statusProcessing')
-          : t('chat.tools.status.statusQueued')
-
-  const plan = getTaskPlanState(normalizedSnapshot)
-  const showDetailedProgress = normalizedSnapshot.status !== 'completed'
-
-  const getStepCopy = (key: TaskPlanStepKey) => {
-    switch (key) {
-      case 'queued':
-        return {
-          label: t('chat.tools.status.steps.queuedLabel'),
-          description: t('chat.tools.status.steps.queuedDesc'),
-        }
-      case 'ingest':
-        return {
-          label: t('chat.tools.status.steps.ingestLabel'),
-          description: t('chat.tools.status.steps.ingestDesc'),
-        }
-      case 'transcribe':
-        return {
-          label: t('chat.tools.status.steps.transcribeLabel'),
-          description: t('chat.tools.status.steps.transcribeDesc'),
-        }
-      case 'summarize':
-        return {
-          label: t('chat.tools.status.steps.summarizeLabel'),
-          description: t('chat.tools.status.steps.summarizeDesc'),
-        }
-      case 'finalize':
-        return {
-          label: t('chat.tools.status.steps.finalizeLabel'),
-          description: t('chat.tools.status.steps.finalizeDesc'),
-        }
-    }
+  const handleRetry = async () => {
+    if (!onRetryTask || isRetrying) return
+    setIsRetrying(true)
+    const accepted = await onRetryTask(snapshot.taskId)
+    if (!accepted) setIsRetrying(false)
   }
 
   return (
-    <Card className="w-full overflow-hidden border border-border bg-surface-raised shadow-sm">
-      <div className="space-y-4 p-4">
-        <div className="flex items-start gap-3">
-          {snapshot.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- dynamic external thumbnail URLs are rendered directly without Next image optimization
-            <img
-              src={snapshot.thumbnailUrl}
-              alt={displayTitle}
-              className="h-14 w-24 rounded-md object-cover"
-            />
-          ) : null}
-          <div className="min-w-0 flex-1 space-y-2">
-            <h3 className="line-clamp-2 text-sm font-medium leading-6 text-foreground">
-              {displayTitle}
-            </h3>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {getStatusIcon(normalizedSnapshot.status)}
-              <span>{statusLabel}</span>
-            </div>
-          </div>
-        </div>
+    <article className="w-full space-y-3" data-testid="inline-task-artifact">
+      {showPlayer ? (
+        <VideoPlayer
+          mediaType={mediaType}
+          videoUrl={snapshot.videoUrl}
+          title={title}
+          coverUrl={snapshot.thumbnailUrl}
+          audioUrl={audioData?.audioUrl}
+          audioCoverUrl={audioData?.coverUrl}
+          sourceUrl={snapshot.videoUrl}
+        />
+      ) : (
+        <section className="rounded-2xl border border-border bg-surface-raised px-5 py-4">
+          <p className="truncate text-sm font-medium text-foreground">{title}</p>
+          <p className="mt-1 text-sm text-muted-foreground" role="status" aria-live="polite">
+            {stageLabel}
+          </p>
+        </section>
+      )}
 
-        {showProgress && showDetailedProgress ? (
-          <div className="space-y-2">
-            <div>
-              <div className="text-sm font-semibold text-foreground">{t('chat.tools.status.processingPlan')}</div>
-              <div className="text-xs text-muted-foreground">{t('chat.tools.status.processingPlanDesc')}</div>
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{t('chat.tools.status.progressCount', { completed: plan.completedCount, total: plan.totalCount })}</span>
-              <span>{plan.progressPercent}%</span>
-            </div>
-            <Progress value={plan.progressPercent} className="h-1.5 bg-muted" />
-          </div>
-        ) : null}
+      {showPlayer && !summary && status !== 'completed' && !safeError ? (
+        <p className="px-1 text-sm text-muted-foreground" role="status" aria-live="polite">
+          {stageLabel}
+        </p>
+      ) : null}
 
-        {showPlan && showDetailedProgress ? (
-          <div className="space-y-4">
-            {plan.steps.map((step, index) => {
-              const copy = getStepCopy(step.key)
-
-              return (
-                <div key={step.key} className="flex gap-3">
-                  <div
-                    className={cn(
-                      'mt-0.5 flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium',
-                      step.state === 'complete'
-                        ? 'border-success/30 bg-success/10 text-success'
-                        : step.state === 'current'
-                          ? 'border-processing/30 bg-processing/10 text-processing'
-                          : step.state === 'failed'
-                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                            : 'border-border bg-surface-subtle text-muted-foreground'
-                    )}
-                  >
-                    {index + 1}
-                  </div>
-                  <div className="min-w-0 space-y-1">
-                    <div
-                      className={cn(
-                        'text-sm font-medium',
-                        step.state === 'pending' ? 'text-muted-foreground' : 'text-foreground'
-                      )}
-                    >
-                      {copy.label}
-                    </div>
-                    <div className="text-sm leading-6 text-muted-foreground">{copy.description}</div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
-
-        {normalizedSnapshot.errorMessage ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {normalizedSnapshot.errorMessage}
-          </div>
-        ) : null}
-
-        {normalizedSnapshot.status === 'completed' && onOpenPanel ? (
-          <div className="pt-1">
-            <Button
-              onClick={() => onOpenPanel(snapshot.taskId)}
-              size="sm"
-              className="h-9 px-4 text-xs font-medium"
+      {failureMessage ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+          <p>{failureMessage}</p>
+          {canRetry ? (
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="rounded-lg border border-destructive/30 bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background disabled:cursor-wait disabled:opacity-60"
             >
-              {t('chat.tools.status.viewSummary')}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </Card>
-  )
-}
+              {isRetrying ? t('chat.retryQueued') : t('chat.retry')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
-function TaskDataGroupComponent({
-  taskStatus,
-  showProgress,
-  showPlan,
-  live = false,
-  onOpenPanel,
-}: TaskDataGroupProps) {
-  const snapshot = useLiveTaskSnapshot(taskStatus, live)
+      {conclusion ? (
+        <KnowledgeCard title={t('tasks.summaryStructured.tldrTitle')} tone="lead">
+          <p className="text-[17px] font-medium leading-7 text-foreground">{conclusion}</p>
+        </KnowledgeCard>
+      ) : null}
 
-  if (!snapshot) return null
+      {keypoints.length > 0 ? (
+        <KnowledgeCard
+          title={t('tasks.summaryStructured.keypointsTitle')}
+          meta={String(keypoints.length).padStart(2, '0')}
+        >
+          <ol>
+            {keypoints.map((keypoint, index) => (
+              <li
+                key={`${keypoint.title}-${index}`}
+                className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 border-t border-border/70 py-3 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold leading-5 text-foreground">{keypoint.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </KnowledgeCard>
+      ) : null}
 
-  return (
-    <TaskStatusCard
-      snapshot={snapshot}
-      showProgress={showProgress}
-      showPlan={showPlan}
-      onOpenPanel={onOpenPanel}
-    />
+      {summary?.uiBlocks?.length ? <KnowledgeUiBlocks blocks={summary.uiBlocks} /> : null}
+
+      {summary ? (
+        <SummaryContinuation
+          summary={summary}
+          visibleKeypointCount={visibleKeypointCount}
+          title={t('tasks.summaryStructured.continueReading')}
+          sectionsTitle={t('tasks.summaryStructured.sectionsTitle')}
+        />
+      ) : null}
+
+      <EvidenceDisclosure
+        title={t('tasks.summaryStructured.evidenceLabel')}
+        items={evidenceItems}
+      />
+
+      {status === 'completed' && !summary && !safeError ? (
+        <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
+      ) : null}
+    </article>
   )
 }
 

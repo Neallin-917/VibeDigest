@@ -21,24 +21,22 @@ export const taskStatusDataSchema = z.object({
   errorMessage: z.string().optional(),
 })
 
-export const taskProgressDataSchema = z.object({
-  taskId: z.string(),
-})
-
-export const taskPlanDataSchema = z.object({
+// Older completed demo threads persisted this lightweight progress marker.
+// Keep it readable so a follow-up can validate its complete conversation history.
+export const legacyTaskReferenceDataSchema = z.object({
   taskId: z.string(),
 })
 
 export const chatDataSchemas = {
   'task-status': taskStatusDataSchema,
-  'task-progress': taskProgressDataSchema,
-  'task-plan': taskPlanDataSchema,
+  'task-progress': legacyTaskReferenceDataSchema,
+  'task-plan': legacyTaskReferenceDataSchema,
 } as const
 
 export type ChatUIDataParts = {
   'task-status': z.infer<typeof taskStatusDataSchema>
-  'task-progress': z.infer<typeof taskProgressDataSchema>
-  'task-plan': z.infer<typeof taskPlanDataSchema>
+  'task-progress': z.infer<typeof legacyTaskReferenceDataSchema>
+  'task-plan': z.infer<typeof legacyTaskReferenceDataSchema>
 }
 
 export type ChatUITools = InferUITools<ChatToolSet>
@@ -119,16 +117,6 @@ export function createTaskDataParts(params: {
           videoUrl,
           errorMessage,
         },
-      },
-      {
-        type: 'data-task-progress',
-        id: `task-progress-${taskId}`,
-        data: { taskId },
-      },
-      {
-        type: 'data-task-plan',
-        id: `task-plan-${taskId}`,
-        data: { taskId },
       },
     ],
     metadata: { createdAt: new Date().toISOString() },

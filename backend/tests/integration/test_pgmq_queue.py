@@ -10,8 +10,13 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import scoped_session, sessionmaker
 
+from api.routes.system import TASK_SUBMISSION_READINESS_SQL
 from db_client import DBClient
-from services.task_queue import GuestQuotaExceededError, PostgresTaskQueue
+from services.task_queue import (
+    GuestQuotaExceededError,
+    PostgresTaskQueue,
+    QuotaExceededError,
+)
 
 pytestmark = [pytest.mark.integration, pytest.mark.pgmq]
 
@@ -87,6 +92,21 @@ def _create_queue(db: DBClient, queue_name: str) -> None:
     )
 
 
+def test_task_submission_database_contract_is_ready_after_migrations(
+    pgmq_db: DBClient,
+):
+    rows = pgmq_db._execute_query(TASK_SUBMISSION_READINESS_SQL)
+
+    assert rows == [{
+        "submission_function_ready": True,
+        "queue_schema_ready": True,
+        "task_intent_ready": True,
+        "output_intent_ready": True,
+        "output_provenance_ready": True,
+        "monthly_quota_ready": True,
+    }]
+
+
 def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
     queue_name = f"video_processing_test_{uuid4().hex[:12]}"
     _create_queue(pgmq_db, queue_name)
@@ -149,6 +169,66 @@ def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
         {"job_id": jobs[0].job_id},
     )
     assert handoff == [{"status": "completed"}]
+
+
+def test_retry_task_resets_terminal_state_and_reuses_the_process_message_contract(
+    pgmq_db: DBClient,
+):
+    queue_name = f"video_processing_retry_{uuid4().hex[:12]}"
+    _create_queue(pgmq_db, queue_name)
+    queue = PostgresTaskQueue(pgmq_db, queue_name=queue_name)
+
+    submission = queue.submit_process_video(
+        video_url=f"https://example.com/retry/{uuid4()}",
+        user_id=AUTH_USER_ID,
+        guest_id=None,
+    )
+    original_job = queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="error",
+        progress=100,
+        error="temporary provider outage",
+    )
+    queue.archive(
+        job_id=original_job.job_id,
+        message_id=original_job.message_id,
+        status="failed",
+    )
+
+    retry_message_id = queue.submit_retry_task(
+        task_id=submission.task_id,
+        user_id=AUTH_USER_ID,
+        guest_id=None,
+    )
+    duplicate_retry_message_id = queue.submit_retry_task(
+        task_id=submission.task_id,
+        user_id=AUTH_USER_ID,
+        guest_id=None,
+    )
+
+    assert duplicate_retry_message_id == retry_message_id
+    retried_task = pgmq_db.get_task(submission.task_id)
+    assert retried_task is not None
+    assert retried_task["status"] == "pending"
+    assert retried_task["progress"] == 0
+    assert retried_task["error_message"] == ""
+
+    retry_job = queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+    assert retry_job.message == {
+        "version": 1,
+        "kind": "process_video",
+        "job_id": retry_job.job_id,
+        "task_id": submission.task_id,
+    }
+    assert retry_job.message_id == retry_message_id
 
 
 def test_default_chat_title_backfill_is_useful_and_idempotent(pgmq_db: DBClient):
@@ -340,6 +420,66 @@ def test_guest_quota_is_enforced_inside_submission_transaction(pgmq_db: DBClient
         {"guest_id": guest_id},
     )
     assert usage == [{"usage_count": 1}]
+
+
+def test_authenticated_basic_quota_resets_atomically_each_calendar_month(
+    pgmq_db: DBClient,
+):
+    queue_name = f"video_processing_account_quota_{uuid4().hex[:12]}"
+    _create_queue(pgmq_db, queue_name)
+    queue = PostgresTaskQueue(pgmq_db, queue_name=queue_name)
+
+    pgmq_db._execute_query(
+        """
+        insert into public.profiles (
+          id, tier, usage_count, usage_limit, extra_credits, usage_reset_at
+        ) values (
+          cast(:user_id as uuid), 'free', 3, 3, 0, now() + interval '1 day'
+        )
+        on conflict (id) do update
+          set tier = 'free',
+              usage_count = 3,
+              usage_limit = 3,
+              extra_credits = 0,
+              usage_reset_at = now() + interval '1 day'
+        """,
+        {"user_id": AUTH_USER_ID},
+    )
+
+    with pytest.raises(QuotaExceededError):
+        queue.submit_process_video(
+            video_url=f"https://example.com/account-over-limit/{uuid4()}",
+            user_id=AUTH_USER_ID,
+            guest_id=None,
+        )
+
+    pgmq_db._execute_query(
+        """
+        update public.profiles
+           set usage_reset_at = now() - interval '1 second'
+         where id = cast(:user_id as uuid)
+        """,
+        {"user_id": AUTH_USER_ID},
+    )
+
+    submission = queue.submit_process_video(
+        video_url=f"https://example.com/account-reset/{uuid4()}",
+        user_id=AUTH_USER_ID,
+        guest_id=None,
+    )
+    profile = pgmq_db._execute_query(
+        """
+        select usage_count, usage_limit, usage_reset_at > now() as resets_in_future
+          from public.profiles
+         where id = cast(:user_id as uuid)
+        """,
+        {"user_id": AUTH_USER_ID},
+    )
+
+    assert submission.resolution == "created"
+    assert profile == [
+        {"usage_count": 1, "usage_limit": 3, "resets_in_future": True}
+    ]
 
 
 def test_guest_quota_is_safe_under_concurrent_submissions(pgmq_db: DBClient):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
-from services.summarizer.models import SummaryResponseV4
+from services.summarizer.models import SummaryResponseV4, SummaryResponseV5
 
 
 def _coerce_summary_payload(summary: Any) -> Dict[str, Any]:
@@ -35,7 +35,7 @@ def _require_non_empty(value: str, field_name: str) -> None:
 
 
 def parse_summary_payload_v4(summary: Any) -> Dict[str, Any]:
-    """Validate and normalize a persisted summary payload against the strict V4 contract."""
+    """Validate persisted V4/V5 summaries and drop invalid optional V5 UI blocks."""
 
     payload = _coerce_summary_payload(summary)
     version_value = payload.get("version")
@@ -48,7 +48,7 @@ def parse_summary_payload_v4(summary: Any) -> Dict[str, Any]:
     if version < 4:
         raise ValueError("Summary payload must be V4 or newer")
 
-    validated = SummaryResponseV4.model_validate(payload)
+    validated = (SummaryResponseV5 if version >= 5 else SummaryResponseV4).model_validate(payload)
 
     _require_non_empty(validated.language, "language")
     _require_non_empty(validated.overview, "overview")

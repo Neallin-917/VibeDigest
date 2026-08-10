@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">VibeDigest</title>
+  <desc id="description">A play symbol distilled into three concise knowledge lines.</desc>
+  <defs>
+    <linearGradient id="glass" x1="72" y1="40" x2="440" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17483B"/>
+      <stop offset="0.48" stop-color="#0A2A22"/>
+      <stop offset="1" stop-color="#061A15"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0" cy="0" r="1" gradientTransform="translate(122 62) rotate(50) scale(360 430)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.14"/>
+      <stop offset="0.58" stop-color="#FFFFFF" stop-opacity="0.025"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mint" x1="142" y1="122" x2="346" y2="382" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#91F7C3"/>
+      <stop offset="1" stop-color="#62DFA5"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="64" y1="24" x2="442" y2="482" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#glass)"/>
+  <rect width="512" height="512" rx="112" fill="url(#sheen)"/>
+  <rect x="7" y="7" width="498" height="498" rx="105" fill="none" stroke="url(#rim)" stroke-width="2"/>
+  <path
+    d="M174 111c-31-18-70 4-70 40v210c0 36 39 58 70 40l183-105c31-18 31-62 0-80L174 111Z"
+    fill="url(#mint)"
+  />
+  <path d="M166 194h106" fill="none" stroke="#0A2921" stroke-linecap="round" stroke-width="30"/>
+  <path d="M166 256h154" fill="none" stroke="#0A2921" stroke-linecap="round" stroke-width="30"/>
+  <path d="M166 318h106" fill="none" stroke="#0A2921" stroke-linecap="round" stroke-width="30"/>
+</svg>

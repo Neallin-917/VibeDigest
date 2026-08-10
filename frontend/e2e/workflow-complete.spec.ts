@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
 import { ChatPage } from './pages/ChatPage'
-import { TaskPage } from './pages/TaskPage'
 import { createMockTask, createMockTaskOutput } from './fixtures/testData'
 import { setupApiMocks } from './fixtures/mock-api'
 
@@ -18,16 +17,48 @@ test.describe('Complete Task Workflow (Mocked)', () => {
       })
     })
 
-    let taskStatus = 'processing';
+    await page.route('**/api/chat/direct-submit', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          task_id: 'mock-task-123',
+          messages: [
+            {
+              id: 'mock-user-message',
+              role: 'user',
+              parts: [{ type: 'text', text: 'https://youtube.com/watch?v=dQw4w9WgXcQ' }],
+            },
+            {
+              id: 'mock-assistant-message',
+              role: 'assistant',
+              parts: [
+                {
+                  type: 'data-task-status',
+                  id: 'task-status-mock-task-123',
+                  data: {
+                    taskId: 'mock-task-123',
+                    status: 'completed',
+                    progress: 100,
+                    videoTitle: 'Never Gonna Give You Up',
+                    videoUrl: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      })
+    })
+
     await page.route('**/rest/v1/tasks*', async (route) => {
       const url = route.request().url();
       const isSingle = route.request().headers()['accept']?.includes('vnd.pgrst.object');
       
       if (url.includes('id=eq.mock-task-123')) {
         const data = createMockTask({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            status: taskStatus as any,
-            progress: taskStatus === 'processing' ? 45 : 100
+            status: 'completed',
+            progress: 100,
         });
         
         await route.fulfill({
@@ -35,7 +66,6 @@ test.describe('Complete Task Workflow (Mocked)', () => {
           contentType: 'application/json',
           body: JSON.stringify(isSingle ? data : [data])
         })
-        if (taskStatus === 'processing') taskStatus = 'completed';
       } else {
         await route.fulfill({
           status: 200,
@@ -124,23 +154,18 @@ test.describe('Complete Task Workflow (Mocked)', () => {
   })
 
   test('user can submit a video and see the completed results', async ({ page }) => {
-    page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
-
     const chatPage = new ChatPage(page);
-    const taskPage = new TaskPage(page);
 
     await chatPage.goto();
     await expect(chatPage.welcomeHeading).toContainText(/digest today/i);
 
     await chatPage.submitMessage('https://youtube.com/watch?v=dQw4w9WgXcQ');
 
-    // Simulate navigation to task details
-    await page.goto('/en/chat?task=mock-task-123');
-    
-    await taskPage.expectTaskCardVisible('Never Gonna Give You Up');
-    
-    await taskPage.expectContentVisible('AI Summary Content');
-    await expect(page.getByTestId('header-key-insights')).toBeVisible()
-    await expect(page.getByText('Intro').last()).toBeVisible()
+    const artifact = page.getByTestId('inline-task-artifact')
+    await expect(artifact).toBeVisible()
+    await expect(artifact.getByTitle('Never Gonna Give You Up')).toBeVisible()
+    await expect(artifact.getByText('AI Summary Content')).toBeVisible()
+    await expect(artifact.getByRole('heading', { name: 'Key Points' })).toBeVisible()
+    await expect(artifact.getByRole('list').getByText('Intro', { exact: true })).toBeVisible()
   })
 })

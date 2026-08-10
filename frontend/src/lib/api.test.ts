@@ -116,6 +116,8 @@ describe('ApiClient', () => {
                     body: expect.any(FormData)
                 })
             )
+            const options = fetchSpy.mock.calls[0]?.[1] as RequestInit
+            expect((options.body as FormData).get('plan_key')).toBe('price-123')
         })
     })
 

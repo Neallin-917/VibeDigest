@@ -15,16 +15,26 @@ logger = logging.getLogger(__name__)
 CREEM_API_BASE = settings.CREEM_API_BASE
 CREEM_API_KEY = settings.CREEM_API_KEY
 
+
+def _resolve_price(plan_key: str | None, price_id: str | None):
+    """Prefer stable application plan keys; retain legacy provider IDs briefly."""
+    if plan_key:
+        return settings.get_price_by_plan_key(plan_key)
+    if price_id:
+        return settings.get_price_by_id(price_id)
+    return None
+
 @router.post("/create-crypto-charge")
 async def create_crypto_charge(
-    price_id: str = Form(...),  # We map price_id to amount manually for now
+    plan_key: str | None = Form(None),
+    price_id: str | None = Form(None),
     user_id: str = Depends(get_current_user),
     db: DBClient = Depends(get_db_client),
     coinbase_client: CoinbaseClient = Depends(get_coinbase_client)
 ):
     """Create Coinbase Commerce Charge (USDC Only)."""
 
-    price = settings.get_price_by_id(price_id)
+    price = _resolve_price(plan_key, price_id)
     if not price:
         raise HTTPException(status_code=400, detail="Invalid Price ID")
 
@@ -46,7 +56,7 @@ async def create_crypto_charge(
             "metadata": {
                 "user_id": user_id,
                 "order_id": order["id"],  # Link back to our DB
-                "price_id": price_id,
+                "price_id": price.id,
             },
             "redirect_url": settings.FRONTEND_URL + "/settings/pricing?success=true",
             "cancel_url": settings.FRONTEND_URL + "/settings/pricing?canceled=true",
@@ -67,12 +77,13 @@ async def create_crypto_charge(
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(
-    price_id: str = Form(...),  # This is now Creem product_id
+    plan_key: str | None = Form(None),
+    price_id: str | None = Form(None),
     user_id: str = Depends(get_current_user),
     db: DBClient = Depends(get_db_client)
 ):
     """Create Creem Checkout Session."""
-    price = settings.get_price_by_id(price_id)
+    price = _resolve_price(plan_key, price_id)
     if not price:
         raise HTTPException(status_code=400, detail="Invalid Product ID")
 
@@ -94,7 +105,7 @@ async def create_checkout_session(
                             "Content-Type": "application/json",
                         },
                         json={
-                            "product_id": price_id,
+                            "product_id": price.id,
                             "success_url": settings.FRONTEND_URL
                             + "/settings/pricing?success=true",
                             "metadata": {"user_id": user_id},

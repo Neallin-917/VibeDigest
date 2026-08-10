@@ -4,9 +4,10 @@ Pydantic models for the Summarizer service.
 These models define the structured output schemas for content classification
 and summary generation.
 """
-from typing import Any, Dict, List, Optional
+import math
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
 
 class ContentClassification(BaseModel):
@@ -116,6 +117,110 @@ class SummaryResponseV4(BaseModel):
     content_type: Optional[ContentClassification] = Field(
         None, description="Classification metadata"
     )
+
+
+# -----------------------------------------------------------------------------
+# V5 Knowledge UI blocks
+# -----------------------------------------------------------------------------
+# The model may choose a display intent, but the client only receives one of
+# these validated data shapes. It never receives executable HTML, JSX, SVG, or
+# chart configuration from the model.
+
+
+class ComparisonTableRow(BaseModel):
+    label: str = Field(..., min_length=1, max_length=80)
+    values: List[str] = Field(..., min_length=2, max_length=4)
+    evidence: str = Field(..., min_length=1, max_length=500)
+
+
+class ComparisonTableBlock(BaseModel):
+    kind: Literal["comparison_table"]
+    id: str = Field(..., min_length=1, max_length=80)
+    title: str = Field(..., min_length=1, max_length=120)
+    columns: List[str] = Field(..., min_length=2, max_length=4)
+    rows: List[ComparisonTableRow] = Field(..., min_length=2, max_length=5)
+
+    @model_validator(mode="after")
+    def validate_row_widths(self):
+        if any(len(row.values) != len(self.columns) for row in self.rows):
+            raise ValueError("Comparison table rows must match the number of columns")
+        return self
+
+
+class BarChartValue(BaseModel):
+    label: str = Field(..., min_length=1, max_length=80)
+    value: float
+    evidence: str = Field(..., min_length=1, max_length=500)
+
+    @field_validator("value")
+    @classmethod
+    def value_must_be_finite(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("Chart value must be finite")
+        if value < 0:
+            raise ValueError("Chart value must be non-negative")
+        return value
+
+
+class BarChartBlock(BaseModel):
+    kind: Literal["bar_chart"]
+    id: str = Field(..., min_length=1, max_length=80)
+    title: str = Field(..., min_length=1, max_length=120)
+    unit: str = Field(..., min_length=1, max_length=32)
+    values: List[BarChartValue] = Field(..., min_length=3, max_length=5)
+
+
+class StepItem(BaseModel):
+    title: str = Field(..., min_length=1, max_length=120)
+    detail: str = Field(..., min_length=1, max_length=500)
+    evidence: str = Field(..., min_length=1, max_length=500)
+
+
+class StepsBlock(BaseModel):
+    kind: Literal["steps"]
+    id: str = Field(..., min_length=1, max_length=80)
+    title: str = Field(..., min_length=1, max_length=120)
+    steps: List[StepItem] = Field(..., min_length=3, max_length=7)
+
+
+KnowledgeUiBlock = Annotated[
+    Union[ComparisonTableBlock, BarChartBlock, StepsBlock],
+    Field(discriminator="kind"),
+]
+_knowledge_ui_block_adapter = TypeAdapter(KnowledgeUiBlock)
+
+
+class SummaryResponseV5(SummaryResponseV4):
+    """V5 summary with a small, validated set of optional knowledge UI blocks."""
+
+    version: int = Field(default=5)
+    ui_blocks: List[KnowledgeUiBlock] = Field(default_factory=list, max_length=2)
+
+    @field_validator("ui_blocks", mode="before")
+    @classmethod
+    def drop_invalid_ui_blocks(cls, value: Any) -> List[Dict[str, Any]]:
+        if not isinstance(value, list):
+            return []
+
+        valid_blocks: List[Dict[str, Any]] = []
+        for candidate in value[:2]:
+            try:
+                valid_blocks.append(_knowledge_ui_block_adapter.validate_python(candidate).model_dump())
+            except ValidationError:
+                continue
+        return valid_blocks
+
+    @field_validator("ui_blocks")
+    @classmethod
+    def keep_one_block_per_kind(cls, blocks: List[KnowledgeUiBlock]) -> List[KnowledgeUiBlock]:
+        seen_kinds = set()
+        unique_blocks: List[KnowledgeUiBlock] = []
+        for block in blocks:
+            if block.kind in seen_kinds:
+                continue
+            seen_kinds.add(block.kind)
+            unique_blocks.append(block)
+        return unique_blocks
 
 
 # ============================================================================

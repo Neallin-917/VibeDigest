@@ -20,10 +20,10 @@ import {
     useProfileQuery,
 } from "@/hooks/useAccountQueries"
 
-// Creem Product IDs
-const PRO_MONTHLY_PRODUCT_ID = "prod_5XoWWMZN6ptDexocrwyqT0"
-const PRO_ANNUAL_PRODUCT_ID = "prod_1pLnYf7AwktcAhRhkjiJTh"
-const CREDIT_PACK_PRODUCT_ID = "prod_5VVI5ldN9dtI7tbHaST5OB"
+// Provider product IDs remain server-only. The browser sends stable plan keys.
+const PRO_MONTHLY_PLAN_KEY = "pro_monthly"
+const PRO_ANNUAL_PLAN_KEY = "pro_annual"
+const CREDIT_PACK_PLAN_KEY = "credit_pack"
 type BillingAction = "pro" | "topup" | "portal"
 
 export default function PricingPage() {
@@ -47,7 +47,7 @@ export default function PricingPage() {
     const profileLoading = userLoading || Boolean(user && accountProfileLoading)
     const profileError = userError ?? accountProfileError
 
-    const handleCheckout = async (priceId: string, action: Exclude<BillingAction, "portal">) => {
+    const handleCheckout = async (planKey: string, action: Exclude<BillingAction, "portal">) => {
         setActionError(null)
         setLoadingAction(action)
         try {
@@ -59,10 +59,10 @@ export default function PricingPage() {
 
             let url = ""
             if (paymentMethod === 'crypto') {
-                const res = await ApiClient.createCryptoCharge(priceId, session.access_token)
+                const res = await ApiClient.createCryptoCharge(planKey, session.access_token)
                 url = res.url
             } else {
-                const res = await ApiClient.createCheckoutSession(priceId, session.access_token)
+                const res = await ApiClient.createCheckoutSession(planKey, session.access_token)
                 url = res.url
             }
 
@@ -296,7 +296,7 @@ export default function PricingPage() {
                                     className="w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-semibold shadow-lg shadow-emerald-500/20"
                                     size="xl"
                                     onClick={() => handleCheckout(
-                                        isAnnual ? PRO_ANNUAL_PRODUCT_ID : PRO_MONTHLY_PRODUCT_ID,
+                                        isAnnual ? PRO_ANNUAL_PLAN_KEY : PRO_MONTHLY_PLAN_KEY,
                                         "pro",
                                     )}
                                     disabled={loadingAction !== null}
@@ -334,7 +334,7 @@ export default function PricingPage() {
                             <Button
                                 className="w-full"
                                 variant="secondary"
-                                onClick={() => handleCheckout(CREDIT_PACK_PRODUCT_ID, "topup")}
+                                onClick={() => handleCheckout(CREDIT_PACK_PLAN_KEY, "topup")}
                                 disabled={!profileKnown || loadingAction !== null}
                             >
                                 {loadingAction === "topup"

@@ -51,7 +51,8 @@ create table if not exists public.tasks (
   keywords text[],
   view_count bigint,
   upload_date timestamptz,
-  duration integer check (duration is null or duration >= 0)
+  duration integer check (duration is null or duration >= 0),
+  output_intent jsonb not null default '{}'::jsonb
 );
 
 create table if not exists public.task_outputs (
@@ -67,7 +68,9 @@ create table if not exists public.task_outputs (
   error_message text,
   attempt integer not null default 0 check (attempt >= 0),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  intent jsonb not null default '{}'::jsonb,
+  provenance jsonb not null default '{}'::jsonb
 );
 
 create table if not exists public.guest_usage (

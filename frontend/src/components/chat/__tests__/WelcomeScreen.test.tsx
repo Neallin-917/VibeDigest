@@ -55,8 +55,8 @@ describe('WelcomeScreen', () => {
 
   it('streams and renders server-started examples', async () => {
     const mockExamples = [
-      { id: '1', video_title: 'Video 1', video_url: 'url1' },
-      { id: '2', video_title: 'Video 2', video_url: 'url2' }
+      { id: '1', video_title: 'Video 1', video_url: 'url1', thumbnail_url: undefined },
+      { id: '2', video_title: 'Video 2', video_url: 'url2', thumbnail_url: undefined }
     ]
 
     render(
@@ -104,7 +104,7 @@ describe('WelcomeScreen', () => {
         onSelectExample={onSelect}
         onSubmit={vi.fn()}
         initialExamples={resolvedExamples([
-          { id: '1', video_title: 'Video 1', video_url: 'url1' },
+          { id: '1', video_title: 'Video 1', video_url: 'url1', thumbnail_url: undefined },
         ])}
       />
     )
@@ -114,6 +114,7 @@ describe('WelcomeScreen', () => {
       id: '1',
       video_title: 'Video 1',
       video_url: 'url1',
+      thumbnail_url: undefined,
     })
   })
 

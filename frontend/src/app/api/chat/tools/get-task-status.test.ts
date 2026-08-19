@@ -32,30 +32,33 @@ function makeSupabaseMock(results: Array<{ data: any; error?: any }>) {
 
 function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     return {
-        supabase: makeSupabaseMock([{ data: null }]) as any,
+        supabase: makeSupabaseMock([{ data: null }]) as unknown as ToolContext['supabase'],
         user: { id: 'test-user-id' },
         accessToken: 'valid-token',
-        messages: [],
-        previewCache: null,
-        setPreviewCache: vi.fn(),
-        threadId: undefined,
         ...overrides,
     };
 }
 
-const execOpts = { toolCallId: 'tc1', messages: [], abortSignal: undefined as any, context: {} };
-
 type GetTaskStatusExecute = NonNullable<typeof getTaskStatusTool.execute>;
+type GetTaskStatusInput = Parameters<GetTaskStatusExecute>[0];
+type GetTaskStatusOptions = Omit<Parameters<GetTaskStatusExecute>[1], 'context'>;
 
-function createGetTaskStatusTool(context: ToolContext): { execute: GetTaskStatusExecute } {
-    const execute: GetTaskStatusExecute = (input, options) =>
+const execOpts: GetTaskStatusOptions = {
+    toolCallId: 'tc1',
+    messages: [],
+    abortSignal: new AbortController().signal,
+};
+
+function createGetTaskStatusTool(context: ToolContext): {
+    execute: (input: GetTaskStatusInput, options: GetTaskStatusOptions) => ReturnType<GetTaskStatusExecute>;
+} {
+    const execute = (input: GetTaskStatusInput, options: GetTaskStatusOptions) =>
         getTaskStatusTool.execute!(input, {
             ...options,
             context: {
                 supabase: context.supabase,
                 user: context.user,
                 accessToken: context.accessToken,
-                getPreviewCache: () => context.previewCache,
             },
         });
 

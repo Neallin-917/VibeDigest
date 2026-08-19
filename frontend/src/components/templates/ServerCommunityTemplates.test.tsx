@@ -1,17 +1,24 @@
 import { render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+type QueryError = {
+    code: string
+    message: string
+    details: string
+    hint: string
+}
+
+type QueryResult = {
+    data: Array<Record<string, unknown>> | null
+    error: QueryError | null
+}
+
 const queryState = vi.hoisted(() => ({
     result: {
         data: [],
-        error: null as null | {
-            code: string
-            message: string
-            details: string
-            hint: string
-        },
+        error: null,
     },
-}))
+}) as { result: QueryResult })
 
 const fixtureMode = vi.hoisted(() => ({ enabled: false }))
 

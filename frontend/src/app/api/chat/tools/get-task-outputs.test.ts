@@ -23,6 +23,8 @@ function makeSupabase(params: {
     outputsQuery.eq.mockReturnValue(outputsQuery);
     outputsQuery.in.mockResolvedValue(outputResult);
 
+    // The tool only calls `from`; do not pretend this narrow test double is a
+    // fully initialized Supabase client.
     return {
         from: vi.fn((table: string) => {
             if (table === 'tasks') {
@@ -42,7 +44,7 @@ function makeSupabase(params: {
                 select: vi.fn().mockReturnValue(outputsQuery),
             };
         }),
-    } as ToolContext['supabase'];
+    } as unknown as ToolContext['supabase'];
 }
 
 function execute(context: { supabase: ToolContext['supabase']; user: ToolContext['user'] }) {

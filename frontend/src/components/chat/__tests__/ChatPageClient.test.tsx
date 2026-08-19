@@ -179,6 +179,7 @@ describe('ChatPageClient', () => {
           id: 'public-demo',
           video_url: 'https://www.youtube.com/watch?v=public-demo',
           video_title: 'Public demo',
+          thumbnail_url: undefined,
         }}
       />
     )

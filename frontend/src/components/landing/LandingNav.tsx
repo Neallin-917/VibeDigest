@@ -30,6 +30,14 @@ const navItems: NavItem[] = [
     { id: "faq", key: "faq", href: "/faq" },
 ]
 
+const desktopNavLinkClass =
+    "relative px-3 py-2 text-[13px] font-medium tracking-[0.01em] transition-colors duration-200 ease-out " +
+    "text-slate-600 hover:text-slate-950 focus-visible:text-slate-950 focus-visible:outline-none " +
+    "dark:text-zinc-400 dark:hover:text-white dark:focus-visible:text-white " +
+    "after:absolute after:bottom-1 after:left-3 after:right-3 after:h-px after:origin-left after:scale-x-0 " +
+    "after:bg-current after:opacity-70 after:transition-transform after:duration-200 after:ease-out " +
+    "hover:after:scale-x-100 focus-visible:after:scale-x-100"
+
 export function LandingNav() {
     const { locale, t } = useI18n()
 
@@ -65,11 +73,7 @@ export function LandingNav() {
                                 <Link
                                     key={item.id}
                                     href={`/${locale}${item.href}`}
-                                    className={cn(
-                                        "px-4 py-2 rounded-full text-[13px] font-medium tracking-wide transition-all duration-300",
-                                        "text-slate-600 hover:text-slate-900 hover:bg-slate-100",
-                                        "dark:text-zinc-400 dark:hover:text-white dark:hover:bg-white/5"
-                                    )}
+                                    className={desktopNavLinkClass}
                                 >
                                     {labels[item.key]}
                                 </Link>
@@ -77,10 +81,7 @@ export function LandingNav() {
                                 <Link
                                     key={item.id}
                                     href={`/${locale}/#${item.id}`}
-                                    className={cn(
-                                        "relative px-4 py-2 rounded-full text-[13px] font-medium tracking-wide transition-colors duration-200",
-                                        "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
-                                    )}
+                                    className={desktopNavLinkClass}
                                 >
                                     {labels[item.key]}
                                 </Link>

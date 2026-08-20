@@ -77,6 +77,19 @@ describe("LandingNav", () => {
         expect(faqLink).toHaveAttribute("href", "/en/faq")
     })
 
+    it("uses a fine underline for desktop navigation feedback", () => {
+        render(<LandingNav />)
+
+        const demosLink = screen.getAllByText("Demos")[0].closest("a")
+        expect(demosLink).toHaveClass(
+            "after:scale-x-0",
+            "hover:after:scale-x-100",
+            "focus-visible:after:scale-x-100",
+            "after:duration-200"
+        )
+        expect(demosLink).not.toHaveClass("hover:bg-slate-100")
+    })
+
     it("handles scroll state", () => {
         render(<LandingNav />)
         fireEvent.scroll(window, { target: { scrollY: 100 } })

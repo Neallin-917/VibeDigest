@@ -45,11 +45,14 @@ export async function runLocalCodex(prompt: string, signal?: AbortSignal): Promi
   }
 
   const timeoutMs = (env.CODEX_LOCAL_TIMEOUT_SECONDS ?? DEFAULT_TIMEOUT_MS / 1000) * 1000
-  const runnerPath = path.resolve(process.cwd(), '..', 'backend', 'scripts', 'run_local_codex_chat.py')
+  // This bridge is development-only. Its runtime workspace path must not cause
+  // Turbopack to trace the whole repository into the production route bundle.
+  const workspaceRoot = path.resolve(/* turbopackIgnore: true */ process.cwd(), '..')
+  const runnerPath = path.join(workspaceRoot, 'backend', 'scripts', 'run_local_codex_chat.py')
 
   return new Promise((resolve, reject) => {
     const child = spawn('uv', ['run', 'python', runnerPath], {
-      cwd: path.resolve(process.cwd(), '..'),
+      cwd: workspaceRoot,
       env: localCodexEnvironment(),
       stdio: ['pipe', 'pipe', 'pipe'],
     })

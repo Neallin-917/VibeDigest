@@ -1,282 +1,193 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { CommunityTemplates, type Task } from "./CommunityTemplates"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { CommunityTemplates, type SourceShelfItem, type Task } from "./CommunityTemplates"
+
+const navigation = vi.hoisted(() => ({ replace: vi.fn() }))
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/en/explore",
+  useRouter: () => ({ replace: navigation.replace }),
+}))
+
+const sources: SourceShelfItem[] = [
+  {
+    source: {
+      id: "latent-space",
+      name: "Latent Space",
+      channelUrl: "https://www.youtube.com/@LatentSpacePod",
+      aliases: ["latent space"],
+      topics: ["agents"],
+      featured: true,
+      order: 1,
+    },
+    count: 8,
+  },
+  {
+    source: {
+      id: "lennys-podcast",
+      name: "Lenny's Podcast",
+      channelUrl: "https://www.youtube.com/@LennysPodcast",
+      aliases: ["lenny's podcast"],
+      topics: ["product"],
+      featured: true,
+      order: 2,
+    },
+    count: 5,
+  },
+]
 
 const tasks: Task[] = [
-    {
-        id: "example-1",
-        video_url: "https://www.youtube.com/watch?v=example-1",
-        video_title: "Leading example",
-        thumbnail_url: "https://i.ytimg.com/vi/example-1/maxresdefault.jpg",
-        author: "Latent Space",
-        status: "completed",
-        created_at: "2026-07-30T00:00:00Z",
-    },
-    {
-        id: "example-2",
-        video_url: "https://www.youtube.com/watch?v=example-2",
-        video_title: "Later example",
-        thumbnail_url: "https://i.ytimg.com/vi/example-2/maxresdefault.jpg",
-        author: "Lenny's Podcast",
-        status: "completed",
-        created_at: "2026-07-29T00:00:00Z",
-    },
-    {
-        id: "example-3",
-        video_url: "https://www.youtube.com/watch?v=example-3",
-        video_title: "Third example",
-        thumbnail_url: "https://i.ytimg.com/vi/example-3/maxresdefault.jpg",
-        author: "Every",
-        status: "completed",
-        created_at: "2026-07-28T00:00:00Z",
-    },
-    {
-        id: "example-4",
-        video_url: "https://www.youtube.com/watch?v=example-4",
-        video_title: "Fourth example",
-        thumbnail_url: "https://i.ytimg.com/vi/example-4/maxresdefault.jpg",
-        author: "a16z",
-        status: "completed",
-        created_at: "2026-07-27T00:00:00Z",
-    },
+  {
+    id: "example-1",
+    video_url: "https://www.youtube.com/watch?v=example-1",
+    video_title: "Leading example",
+    thumbnail_url: "https://i.ytimg.com/vi/example-1/maxresdefault.jpg",
+    author: "Latent Space",
+    status: "completed",
+    created_at: "2026-07-30T00:00:00Z",
+    takeaway: "The leading takeaway is already prepared.",
+    keyPointCount: 8,
+    source: sources[0].source,
+  },
+  {
+    id: "example-2",
+    video_url: "https://www.youtube.com/watch?v=example-2",
+    video_title: "Later example",
+    thumbnail_url: "https://i.ytimg.com/vi/example-2/maxresdefault.jpg",
+    author: "Lenny's Podcast",
+    status: "completed",
+    created_at: "2026-07-29T00:00:00Z",
+    takeaway: "A second concise takeaway.",
+    keyPointCount: 6,
+    source: sources[1].source,
+  },
 ]
 
 const copy = {
-    loading: "Loading",
-    title: "Community examples",
-    hint: "Try an example",
-    unavailable: "Examples are temporarily unavailable.",
+  loading: "Loading",
+  title: "Community examples",
+  hint: "Try an example",
+  unavailable: "Examples are temporarily unavailable.",
+}
+
+function renderGallery(overrides: Partial<React.ComponentProps<typeof CommunityTemplates>> = {}) {
+  return render(
+    <CommunityTemplates
+      initialTasks={tasks}
+      sourceItems={sources}
+      totalCount={13}
+      locale="en"
+      copy={copy}
+      intro={{
+        eyebrow: "VibeDigest Agent output",
+        title: "Podcasts, already organized",
+        description: "Open a finished digest.",
+      }}
+      {...overrides}
+    />
+  )
 }
 
 describe("CommunityTemplates", () => {
-    beforeEach(() => {
-        window.history.replaceState(null, "", "/en/explore")
+  beforeEach(() => {
+    navigation.replace.mockReset()
+  })
+
+  it("prioritizes only the leading thumbnail and supplies responsive image sizes", () => {
+    renderGallery()
+
+    const leadingImage = screen.getByRole("img", { name: "Leading example" })
+    const laterImage = screen.getByRole("img", { name: "Later example" })
+    expect(leadingImage).toHaveAttribute("loading", "eager")
+    expect(leadingImage).toHaveAttribute("fetchpriority", "high")
+    expect(leadingImage).toHaveAttribute("sizes")
+    expect(laterImage).toHaveAttribute("loading", "lazy")
+  })
+
+  it("shows a concise status when the server could not load examples", () => {
+    renderGallery({ initialStatus: "unavailable" })
+    expect(screen.getByRole("status")).toHaveTextContent(copy.unavailable)
+  })
+
+  it("keeps the landing preview dense and symmetrical", () => {
+    const previewTasks = Array.from({ length: 4 }, (_, index) => ({
+      ...tasks[index % tasks.length],
+      id: `preview-${index}`,
+      video_title: `Preview ${index + 1}`,
+    }))
+    const { container } = renderGallery({
+      initialTasks: previewTasks,
+      layout: "landingPreview",
+      intro: undefined,
     })
 
-    afterEach(() => {
-        window.history.replaceState(null, "", "/en/explore")
+    expect(screen.getByText("Preview 4")).toBeInTheDocument()
+    expect(container.querySelector(".grid")).toHaveClass("sm:grid-cols-2", "xl:grid-cols-4")
+  })
+
+  it("keeps source filtering on the same page and preserves the search query", () => {
+    renderGallery({ initialQuery: "agents" })
+
+    expect(screen.getByRole("link", { name: /Latent Space/ })).toHaveAttribute(
+      "href",
+      "/en/explore?show=latent-space&q=agents"
+    )
+    expect(screen.getByRole("link", { name: "All" })).toHaveAttribute(
+      "href",
+      "/en/explore?q=agents"
+    )
+  })
+
+  it("debounces search into a server-rendered URL without adding a workflow step", async () => {
+    const user = userEvent.setup()
+    renderGallery()
+    await user.type(screen.getByRole("searchbox", { name: "Search content" }), "simulation")
+
+    await waitFor(() => {
+      expect(navigation.replace).toHaveBeenLastCalledWith(
+        "/en/explore?q=simulation",
+        { scroll: false }
+      )
     })
+  })
 
-    it("prioritizes only the leading thumbnail", () => {
-        render(
-            <CommunityTemplates
-                initialTasks={tasks}
-                limit={4}
-                locale="en"
-                copy={copy}
-            />
-        )
+  it("opens the exact episode externally and the digest internally", () => {
+    renderGallery({ initialSource: "latent-space", initialQuery: "AI" })
 
-        const leadingImage = screen.getByRole("img", { name: "Leading example" })
-        const laterImage = screen.getByRole("img", { name: "Later example" })
+    expect(screen.getAllByRole("link", { name: "Original episode" })[0]).toHaveAttribute(
+      "href",
+      tasks[0].video_url
+    )
+    expect(screen.getAllByRole("link", { name: "View digest" })[0]).toHaveAttribute(
+      "href",
+      "/en/tasks/example-1/Leading-example?fromShow=latent-space&fromQuery=AI"
+    )
+  })
 
-        expect(leadingImage).toHaveAttribute("loading", "eager")
-        expect(leadingImage).toHaveAttribute("fetchpriority", "high")
-        expect(laterImage).toHaveAttribute("loading", "lazy")
-        expect(laterImage).toHaveAttribute("fetchpriority", "auto")
-        expect(leadingImage.closest("a")).toHaveClass("aspect-video")
-        expect(screen.getByText("Leading example")).toHaveClass("line-clamp-2")
-    })
+  it("uses a full-width horizontal result when a filter has only one item", () => {
+    const { container } = renderGallery({ initialTasks: [tasks[0]], totalCount: 1 })
 
-    it("shows a concise status when the server could not load examples", () => {
-        render(
-            <CommunityTemplates
-                initialStatus="unavailable"
-                locale="en"
-                copy={copy}
-            />
-        )
+    expect(container.querySelector(".lg\\:col-span-12")).toBeInTheDocument()
+    expect(screen.getByText("Leading example").closest("article")).toHaveClass(
+      "lg:grid",
+      "lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]"
+    )
+  })
 
-        expect(screen.getByRole("status")).toHaveTextContent(copy.unavailable)
-    })
+  it("shows an editorial lead plus a compact two-column feed for a large inventory", () => {
+    const manyTasks = Array.from({ length: 18 }, (_, index) => ({
+      ...tasks[index % tasks.length],
+      id: `many-${index}`,
+      video_title: `Episode ${index + 1}`,
+    }))
+    const { container } = renderGallery({ initialTasks: manyTasks, totalCount: 43, hasMore: true })
 
-    it("renders a four-column landing preview from podcast sources", () => {
-        const { container } = render(
-            <CommunityTemplates
-                initialTasks={tasks}
-                limit={4}
-                layout="landingPreview"
-                locale="en"
-                copy={copy}
-            />
-        )
-
-        expect(screen.getByText("Fourth example")).toBeInTheDocument()
-        expect(container.querySelector(".grid")).toHaveClass("lg:grid-cols-3", "xl:grid-cols-4")
-    })
-
-    it("filters the curated episodes by source", async () => {
-        const user = userEvent.setup()
-        render(
-            <CommunityTemplates
-                initialTasks={tasks}
-                locale="en"
-                copy={copy}
-            />
-        )
-
-        await user.click(screen.getByRole("button", { name: /Latent Space/ }))
-
-        expect(screen.getByText("Leading example")).toBeInTheDocument()
-        expect(screen.queryByText("Later example")).not.toBeInTheDocument()
-        expect(window.location.search).toBe("?show=latent-space")
-
-        const resultsSection = screen.getByRole("heading", { name: "Ready to read" }).parentElement
-        const resultsGrid = resultsSection?.querySelector(".grid")
-        expect(resultsGrid).toHaveClass("max-w-[21rem]")
-        expect(resultsGrid).not.toHaveClass("bg-slate-200", "border")
-    })
-
-    it("opens the exact episode instead of the source channel", () => {
-        render(<CommunityTemplates initialTasks={tasks} locale="en" copy={copy} />)
-
-        const links = screen.getAllByRole("link", { name: /Original episode/ })
-        expect(links[0]).toHaveAttribute("href", tasks[0].video_url)
-        expect(links[0]).toHaveAttribute("target", "_blank")
-        expect(links[0]).toHaveAttribute("rel", "noopener noreferrer")
-    })
-
-    it("keeps source and search state in the URL without leaving the library", async () => {
-        const user = userEvent.setup()
-        render(<CommunityTemplates initialTasks={tasks} locale="en" copy={copy} />)
-
-        await user.click(screen.getByRole("button", { name: /Latent Space/ }))
-        await user.type(screen.getByRole("searchbox", { name: "Search content" }), "missing topic")
-
-        expect(window.location.search).toBe("?show=latent-space&q=missing+topic")
-        expect(screen.getByRole("status")).toHaveTextContent("No finished digests match this filter yet.")
-
-        await user.click(screen.getByRole("button", { name: "Clear filters" }))
-
-        expect(window.location.search).toBe("")
-        expect(screen.getByText("Leading example")).toBeInTheDocument()
-        expect(screen.getByRole("searchbox", { name: "Search content" })).toHaveValue("")
-    })
-
-    it("hydrates source and search state from the URL props", () => {
-        window.history.replaceState(null, "", "/en/explore?show=a16z&q=Fourth")
-
-        render(
-            <CommunityTemplates
-                initialTasks={tasks}
-                locale="en"
-                copy={copy}
-                initialSource="a16z"
-                initialQuery="Fourth"
-            />
-        )
-
-        expect(screen.getByRole("button", { name: /a16z/ })).toHaveAttribute("aria-pressed", "true")
-        expect(screen.getByRole("searchbox", { name: "Search content" })).toHaveValue("Fourth")
-        expect(screen.getByText("Fourth example")).toBeInTheDocument()
-        expect(screen.queryByText("Leading example")).not.toBeInTheDocument()
-        expect(screen.getByRole("link", { name: "View digest" })).toHaveAttribute(
-            "href",
-            "/en/tasks/example-4/Fourth-example?fromShow=a16z&fromQuery=Fourth"
-        )
-    })
-
-    it("puts source browsing before finished output", () => {
-        render(<CommunityTemplates initialTasks={tasks} locale="en" copy={copy} />)
-
-        const readyHeading = screen.getByRole("heading", { name: "Ready to read" })
-        const sourceHeading = screen.getByRole("heading", { name: "Browse by show" })
-
-        expect(sourceHeading.compareDocumentPosition(readyHeading) & Node.DOCUMENT_POSITION_FOLLOWING)
-            .toBeTruthy()
-    })
-
-    it("places search beside the library intro while keeping show filters first-level", () => {
-        const { container } = render(
-            <CommunityTemplates
-                initialTasks={tasks}
-                locale="en"
-                copy={copy}
-                showHeader={false}
-                intro={{
-                    eyebrow: "VibeDigest Agent output",
-                    title: "Podcasts, already organized",
-                    description: "Open a finished digest.",
-                }}
-            />
-        )
-
-        const header = container.querySelector("header")
-        const searchbox = screen.getByRole("searchbox", { name: "Search content" })
-        const sourceHeading = screen.getByRole("heading", { name: "Browse by show" })
-
-        expect(header).toContainElement(searchbox)
-        expect(header).toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(20rem,36rem)]")
-        expect(header?.compareDocumentPosition(sourceHeading) & Node.DOCUMENT_POSITION_FOLLOWING)
-            .toBeTruthy()
-        expect(screen.getAllByRole("searchbox")).toHaveLength(1)
-    })
-
-    it("reveals every source with finished content and hides empty tracked sources", async () => {
-        const user = userEvent.setup()
-        const tasksWithAnthropic: Task[] = [
-            ...tasks,
-            {
-                ...tasks[0],
-                id: "example-no-priors",
-                video_title: "No Priors example",
-                author: "No Priors",
-            },
-            {
-                ...tasks[0],
-                id: "example-anthropic",
-                video_title: "Anthropic example",
-                author: "Anthropic",
-            },
-        ]
-        render(<CommunityTemplates initialTasks={tasksWithAnthropic} locale="en" copy={copy} />)
-
-        await user.click(screen.getByRole("button", { name: "Browse all shows" }))
-
-        expect(screen.getByRole("button", { name: /Anthropic/ })).toBeInTheDocument()
-        expect(screen.queryByRole("button", { name: /The MAD Podcast/ })).not.toBeInTheDocument()
-    })
-
-    it("renders a database-backed source without adding it to the frontend catalog", () => {
-        const dynamicTask: Task = {
-            ...tasks[0],
-            id: "dynamic-source-task",
-            author: "Database Author",
-            source: {
-                id: "new-ai-show",
-                name: "New AI Show",
-                channelUrl: "https://www.youtube.com/@NewAIShow",
-                aliases: ["new ai show"],
-                topics: ["agents"],
-                featured: true,
-                order: 1,
-            },
-        }
-
-        render(<CommunityTemplates initialTasks={[dynamicTask]} locale="en" copy={copy} />)
-
-        expect(screen.getByRole("button", { name: /New AI Show/ })).toBeInTheDocument()
-        expect(screen.getAllByText("New AI Show")).toHaveLength(2)
-        expect(screen.getByRole("link", { name: "Original episode" })).toHaveAttribute(
-            "href",
-            dynamicTask.video_url
-        )
-    })
-
-    it("reveals more finished episodes without navigating away", async () => {
-        const user = userEvent.setup()
-        const manyTasks = Array.from({ length: 12 }, (_, index) => ({
-            ...tasks[index % tasks.length],
-            id: `many-${index}`,
-            video_title: `Episode ${index + 1}`,
-        }))
-        render(<CommunityTemplates initialTasks={manyTasks} locale="en" copy={copy} />)
-
-        expect(screen.queryByText("Episode 11")).not.toBeInTheDocument()
-        await user.click(screen.getByRole("button", { name: "Load more" }))
-
-        expect(screen.getByText("Episode 11")).toBeInTheDocument()
-        expect(screen.getByText("Episode 12")).toBeInTheDocument()
-    })
+    expect(screen.getByText("Episode 18")).toBeInTheDocument()
+    expect(container.querySelectorAll("[class*='content-visibility:auto']")).toHaveLength(12)
+    expect(screen.getByRole("link", { name: "Load more" })).toHaveAttribute(
+      "href",
+      "/en/explore?page=2"
+    )
+  })
 })

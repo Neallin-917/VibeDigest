@@ -86,13 +86,14 @@ export default async function ExplorePage({
     searchParams,
 }: {
     params: Promise<{ lang: string }>
-    searchParams: Promise<{ show?: string | string[]; q?: string | string[] }>
+    searchParams: Promise<{ show?: string | string[]; q?: string | string[]; page?: string | string[] }>
 }) {
     const [{ lang }, queryState] = await Promise.all([params, searchParams])
     const locale = isLocale(lang) ? lang : DEFAULT_LOCALE
     const copy = EXPLORE_COPY[locale]
     const initialSource = typeof queryState.show === "string" ? queryState.show : "all"
     const initialQuery = typeof queryState.q === "string" ? queryState.q.slice(0, 120) : ""
+    const initialPage = typeof queryState.page === "string" ? Number.parseInt(queryState.page, 10) : 1
 
     return (
         <div className="min-h-screen bg-transparent font-sans text-slate-800 dark:text-[#F5F5F5]">
@@ -105,12 +106,12 @@ export default async function ExplorePage({
             <main className="relative z-10 mx-auto min-h-screen w-full max-w-[1440px] px-5 pb-14 pt-24 sm:px-8 md:pt-28 lg:px-14">
                 <Suspense fallback={<TemplatesSkeleton />}>
                     <ServerCommunityTemplates
-                        limit={100}
                         showHeader={false}
                         locale={locale}
                         intro={copy}
                         initialSource={initialSource}
                         initialQuery={initialQuery}
+                        page={Number.isFinite(initialPage) ? initialPage : 1}
                     />
                 </Suspense>
             </main>

@@ -40,6 +40,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 | `make start-backend`   | Start backend (FastAPI)  |
 | `make start-worker`    | Start durable task worker |
 | `make process-podcast-supply` | Run a bounded Codex subscription supply batch |
+| `make backfill-podcasts` | Advance one bounded historical discovery batch |
 | `make test-frontend`   | Run frontend unit tests  |
 | `make test-backend`    | Run backend tests        |
 | `make start-dev`       | Start API + worker against the dev Cloud DB |
@@ -48,7 +49,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 
 - **Primary Product**: Cloud SaaS — Next.js on Vercel, FastAPI on Railway, Supabase Auth/Postgres/Realtime.
 - **Task Execution**: FastAPI validates commands; private Postgres transactions persist `workload_kind`, deduplicate/create state, and enqueue an ID-only PGMQ job. The Railway `hosted_api` worker consumes only `user_submission` from `video_processing`.
-- **Podcast Supply**: A bounded Railway cron syncs `config/podcast-sources.json`, discovers recent episodes, and atomically submits `catalog_supply` tasks to `podcast_supply`. A bounded trusted private `trusted_codex` worker reuses the canonical pipeline with ChatGPT-managed Codex authentication. Only completed tasks with a valid summary can become public.
+- **Podcast Supply**: A bounded Railway cron syncs `config/podcast-sources.json`, discovers recent episodes, advances a durable historical cursor, and atomically submits `catalog_supply` tasks to `podcast_supply`. A bounded trusted private `trusted_codex` worker reuses the canonical pipeline with ChatGPT-managed Codex authentication. Only completed tasks that pass the database-owned public quality projection can become public.
 - **Product Boundary**: The product remains Vercel UI + Railway API/hosted Worker + Supabase. ADR 0001 explicitly adds a replaceable trusted private runner for internal catalog supply; it is not a user-facing runtime or an alternative state/queue path.
 - **Agent Plugin Incubator**: `agent-plugin/` packages Codex Skill + MCP; credentialed video extraction lives in `backend/services/video_intake/`, never in Skill files.
 - **Control Plane**: Next's `POST /api/chat/direct-submit` forwards to FastAPI's canonical `POST /api/process-video`; request handlers never execute long-running pipelines in-process.

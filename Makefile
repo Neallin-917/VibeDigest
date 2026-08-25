@@ -1,7 +1,7 @@
 .PHONY: all install start test lint lint-backend clean help
 .PHONY: install-backend install-frontend
 .PHONY: dev dev-stop start-backend start-worker start-frontend start-dev
-.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts process-podcast-supply
+.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts backfill-podcasts process-podcast-supply
 .PHONY: stop restart-dev rebuild-dev
 .PHONY: perf perf-frontend perf-check perf-update-baseline
 .PHONY: ops-audit
@@ -37,6 +37,7 @@ help:
 	@echo "  make create-demo-task - Create and process the default demo task"
 	@echo "  make sync-podcast-sources - Sync the podcast source catalog into Postgres"
 	@echo "  make discover-podcasts - Discover and enqueue recent podcast episodes"
+	@echo "  make backfill-podcasts - Advance bounded historical podcast backfill"
 	@echo "  make process-podcast-supply - Process a bounded catalog batch with Codex subscription"
 	@echo "  make lint          - Run formatters and linters"
 	@echo "  make clean         - Clean up temporary files"
@@ -176,6 +177,14 @@ discover-podcasts:
 		$(if $(PODCAST_SOURCE),--source "$(PODCAST_SOURCE)",) \
 		$(if $(PODCAST_SINCE_DAYS),--since-days "$(PODCAST_SINCE_DAYS)",) \
 		$(if $(PODCAST_MAX_ENQUEUES),--max-enqueues "$(PODCAST_MAX_ENQUEUES)",)
+
+backfill-podcasts:
+	uv run python backend/scripts/podcasts/discover.py \
+		--mode backfill \
+		$(if $(PODCAST_SOURCE),--source "$(PODCAST_SOURCE)",) \
+		$(if $(PODCAST_SINCE_DAYS),--since-days "$(PODCAST_SINCE_DAYS)",) \
+		$(if $(PODCAST_MAX_ENQUEUES),--max-enqueues "$(PODCAST_MAX_ENQUEUES)",) \
+		$(if $(PODCAST_BACKFILL_WINDOW),--backfill-window "$(PODCAST_BACKFILL_WINDOW)",)
 
 process-podcast-supply:
 	uv run python backend/scripts/tasks/process_catalog_supply.py \

@@ -28,6 +28,7 @@ class PodcastSourceConfig:
     featured: bool
     active: bool
     discovery_enabled: bool
+    backfill_enabled: bool
     auto_publish: bool
     catalog_order: int
     min_duration_seconds: int
@@ -37,6 +38,9 @@ class PodcastSourceConfig:
 @dataclass(frozen=True)
 class PodcastSource(PodcastSourceConfig):
     id: str
+    backfill_cursor: int = 0
+    backfill_last_checked_at: datetime | None = None
+    backfill_completed_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -63,6 +67,7 @@ class DiscoveryStats:
     episodes_already_linked: int = 0
     episodes_filtered: int = 0
     source_failures: int = 0
+    sources_completed_backfill: int = 0
 
 
 class EpisodeDiscoverer(Protocol):
@@ -71,6 +76,7 @@ class EpisodeDiscoverer(Protocol):
         source: PodcastSource,
         *,
         candidate_limit: int,
+        offset: int = 0,
     ) -> list[DiscoveredEpisode]: ...
 
 
@@ -115,6 +121,7 @@ def load_podcast_catalog(path: Path) -> list[PodcastSourceConfig]:
                 featured=bool(raw.get("featured", False)),
                 active=bool(raw.get("active", True)),
                 discovery_enabled=bool(raw.get("discovery_enabled", False)),
+                backfill_enabled=bool(raw.get("backfill_enabled", False)),
                 auto_publish=bool(raw.get("auto_publish", False)),
                 catalog_order=int(raw.get("catalog_order", index + 1)),
                 min_duration_seconds=int(raw.get("min_duration_seconds", 600)),
@@ -142,6 +149,7 @@ class PodcastRepository:
                 "featured": source.featured,
                 "active": source.active,
                 "discovery_enabled": source.discovery_enabled,
+                "backfill_enabled": source.backfill_enabled,
                 "auto_publish": source.auto_publish,
                 "catalog_order": source.catalog_order,
                 "min_duration_seconds": source.min_duration_seconds,
@@ -154,13 +162,13 @@ class PodcastRepository:
             INSERT INTO public.podcast_sources (
                 slug, name, description, source_type, source_url, avatar_url,
                 aliases, topics, featured, active, discovery_enabled,
-                auto_publish, catalog_order, min_duration_seconds,
+                backfill_enabled, auto_publish, catalog_order, min_duration_seconds,
                 max_new_per_run
             )
             SELECT
                 slug, name, description, source_type, source_url, avatar_url,
                 aliases, topics, featured, active, discovery_enabled,
-                auto_publish, catalog_order, min_duration_seconds,
+                backfill_enabled, auto_publish, catalog_order, min_duration_seconds,
                 max_new_per_run
             FROM (
                 SELECT
@@ -183,6 +191,7 @@ class PodcastRepository:
                     (item->>'featured')::boolean AS featured,
                     (item->>'active')::boolean AS active,
                     (item->>'discovery_enabled')::boolean AS discovery_enabled,
+                    (item->>'backfill_enabled')::boolean AS backfill_enabled,
                     (item->>'auto_publish')::boolean AS auto_publish,
                     (item->>'catalog_order')::integer AS catalog_order,
                     (item->>'min_duration_seconds')::integer AS min_duration_seconds,
@@ -200,6 +209,7 @@ class PodcastRepository:
                 featured = EXCLUDED.featured,
                 active = EXCLUDED.active,
                 discovery_enabled = EXCLUDED.discovery_enabled,
+                backfill_enabled = EXCLUDED.backfill_enabled,
                 auto_publish = EXCLUDED.auto_publish,
                 catalog_order = EXCLUDED.catalog_order,
                 min_duration_seconds = EXCLUDED.min_duration_seconds,
@@ -209,21 +219,45 @@ class PodcastRepository:
         )
         return len(sources)
 
-    def list_sources(self, source_slug: str | None = None) -> list[PodcastSource]:
-        predicate = "AND slug = :source_slug" if source_slug else "AND discovery_enabled = true"
+    def list_sources(
+        self,
+        source_slug: str | None = None,
+        *,
+        discovery_enabled_only: bool = True,
+        exclude_completed_backfill: bool = False,
+        backfill_enabled_only: bool = False,
+    ) -> list[PodcastSource]:
+        predicate_parts: list[str] = []
+        if source_slug:
+            predicate_parts.append("slug = :source_slug")
+        elif discovery_enabled_only:
+            predicate_parts.append("discovery_enabled = true")
+        elif backfill_enabled_only:
+            predicate_parts.append("backfill_enabled = true")
+        if exclude_completed_backfill:
+            predicate_parts.append("backfill_completed_at IS NULL")
+        predicate = f"AND {' AND '.join(predicate_parts)}" if predicate_parts else ""
         rows = self.db._execute_query(
             f"""
             SELECT
                 id, slug, name, description, source_type, source_url, avatar_url,
-                aliases, topics, featured, active, discovery_enabled,
+                aliases, topics, featured, active, discovery_enabled, backfill_enabled,
                 auto_publish, catalog_order, min_duration_seconds,
-                max_new_per_run
+                max_new_per_run, last_checked_at, backfill_cursor,
+                backfill_last_checked_at, backfill_completed_at
             FROM public.podcast_sources
             WHERE active = true
               {predicate}
-            ORDER BY catalog_order ASC, slug ASC
+            ORDER BY
+              CASE WHEN :backfill_mode THEN backfill_last_checked_at ELSE last_checked_at END
+                ASC NULLS FIRST,
+              catalog_order ASC,
+              slug ASC
             """,
-            {"source_slug": source_slug} if source_slug else {},
+            {
+                "source_slug": source_slug,
+                "backfill_mode": backfill_enabled_only or exclude_completed_backfill,
+            },
         )
         return [
             PodcastSource(
@@ -239,10 +273,14 @@ class PodcastRepository:
                 featured=bool(row.get("featured")),
                 active=bool(row.get("active")),
                 discovery_enabled=bool(row.get("discovery_enabled")),
+                backfill_enabled=bool(row.get("backfill_enabled")),
                 auto_publish=bool(row.get("auto_publish")),
                 catalog_order=int(row.get("catalog_order") or 1000),
                 min_duration_seconds=int(row.get("min_duration_seconds") or 0),
                 max_new_per_run=int(row.get("max_new_per_run") or 1),
+                backfill_cursor=int(row.get("backfill_cursor") or 0),
+                backfill_last_checked_at=row.get("backfill_last_checked_at"),
+                backfill_completed_at=row.get("backfill_completed_at"),
             )
             for row in rows
         ]
@@ -329,6 +367,31 @@ class PodcastRepository:
             {"source_id": source_id, "error": error},
         )
 
+    def advance_backfill_cursor(
+        self,
+        source_id: str,
+        *,
+        next_cursor: int,
+        completed: bool,
+    ) -> None:
+        self.db._execute_query(
+            """
+            UPDATE public.podcast_sources
+               SET backfill_cursor = greatest(:next_cursor, 0),
+                   backfill_last_checked_at = now(),
+                   backfill_completed_at = CASE
+                     WHEN :completed THEN now()
+                     ELSE null
+                   END
+             WHERE id = CAST(:source_id AS uuid)
+            """,
+            {
+                "source_id": source_id,
+                "next_cursor": next_cursor,
+                "completed": completed,
+            },
+        )
+
 
 class YouTubeChannelDiscoverer:
     def __init__(self, *, timeout_seconds: float = 45.0) -> None:
@@ -341,6 +404,7 @@ class YouTubeChannelDiscoverer:
         source: PodcastSource,
         *,
         candidate_limit: int,
+        offset: int = 0,
     ) -> list[DiscoveredEpisode]:
         source_url = source.source_url
         if source.source_type == "youtube_channel":
@@ -355,7 +419,7 @@ class YouTubeChannelDiscoverer:
             "--skip-download",
             "--flat-playlist",
             "--playlist-items",
-            f"1:{max(candidate_limit, 1)}",
+            f"{max(offset + 1, 1)}:{max(offset + candidate_limit, 1)}",
             "--ignore-errors",
             "--dump-single-json",
             "--socket-timeout",
@@ -443,18 +507,31 @@ class PodcastDiscoveryService:
         self,
         *,
         source_slug: str | None = None,
+        mode: str = "recent",
         since_days: int = 7,
         max_enqueues: int = 4,
         candidate_multiplier: int = 4,
+        backfill_window: int = 12,
     ) -> DiscoveryStats:
+        if mode not in {"recent", "backfill"}:
+            raise ValueError("mode must be 'recent' or 'backfill'")
         if since_days <= 0:
             raise ValueError("since_days must be greater than zero")
         if max_enqueues <= 0:
             raise ValueError("max_enqueues must be greater than zero")
+        if candidate_multiplier <= 0:
+            raise ValueError("candidate_multiplier must be greater than zero")
+        if backfill_window <= 0:
+            raise ValueError("backfill_window must be greater than zero")
 
         cutoff = datetime.now(UTC) - timedelta(days=since_days)
         stats = DiscoveryStats()
-        sources = self.repository.list_sources(source_slug)
+        sources = self.repository.list_sources(
+            source_slug,
+            discovery_enabled_only=mode == "recent",
+            backfill_enabled_only=mode == "backfill",
+            exclude_completed_backfill=mode == "backfill" and source_slug is None,
+        )
         if source_slug and not sources:
             raise ValueError(f"Unknown active podcast source: {source_slug}")
         for source in sources:
@@ -463,15 +540,25 @@ class PodcastDiscoveryService:
             stats.sources_checked += 1
             remaining = max_enqueues - stats.episodes_queued
             per_source_limit = min(source.max_new_per_run, remaining)
-            candidate_limit = max(per_source_limit * candidate_multiplier, per_source_limit)
+            if mode == "recent":
+                candidate_limit = max(per_source_limit * candidate_multiplier, per_source_limit)
+                discovery_offset = 0
+            else:
+                candidate_limit = max(backfill_window, per_source_limit)
+                discovery_offset = source.backfill_cursor
             try:
                 episodes = await self.discoverer.discover(
                     source,
                     candidate_limit=candidate_limit,
+                    offset=discovery_offset,
                 )
+                episodes_consumed = 0
                 for episode in episodes:
+                    if per_source_limit <= 0 or stats.episodes_queued >= max_enqueues:
+                        break
+                    episodes_consumed += 1
                     stats.episodes_seen += 1
-                    if not _is_episode_eligible(episode, source, cutoff):
+                    if not _is_episode_eligible(episode, source, cutoff, mode=mode):
                         stats.episodes_filtered += 1
                         continue
 
@@ -488,7 +575,7 @@ class PodcastDiscoveryService:
                             user_id=self.demo_user_id,
                             output_intent={
                                 "target_locale": "zh",
-                                "source": "podcast_discovery",
+                                "source": "podcast_backfill" if mode == "backfill" else "podcast_discovery",
                                 "podcast_source_slug": source.slug,
                             },
                             publish_on_complete=source.auto_publish,
@@ -499,6 +586,15 @@ class PodcastDiscoveryService:
                     except Exception as exc:
                         self.repository.mark_episode_error(record.id, str(exc))
                         raise
+                if mode == "backfill":
+                    completed = not episodes
+                    self.repository.advance_backfill_cursor(
+                        source.id,
+                        next_cursor=source.backfill_cursor + episodes_consumed,
+                        completed=completed,
+                    )
+                    if completed:
+                        stats.sources_completed_backfill += 1
                 self.repository.mark_source_checked(source.id)
             except Exception as exc:
                 stats.source_failures += 1
@@ -537,12 +633,17 @@ def _is_episode_eligible(
     episode: DiscoveredEpisode,
     source: PodcastSource,
     cutoff: datetime,
+    *,
+    mode: str,
 ) -> bool:
-    if episode.published_at is not None and episode.published_at < cutoff:
-        return False
     if (
         episode.duration_seconds is not None
         and episode.duration_seconds < source.min_duration_seconds
     ):
         return False
+    if episode.published_at is not None:
+        if mode == "recent" and episode.published_at < cutoff:
+            return False
+        if mode == "backfill" and episode.published_at >= cutoff:
+            return False
     return True

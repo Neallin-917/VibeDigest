@@ -28,6 +28,23 @@ CHAT_TITLE_BACKFILL_MIGRATION = (
 )
 
 
+def _valid_public_summary() -> dict[str, object]:
+    return {
+        "version": 5,
+        "language": "zh",
+        "tl_dr": "这是一条已经通过质量门禁、可以直接展示在公开播客库中的核心结论。",
+        "overview": (
+            "This deliberately complete overview is longer than the publication threshold "
+            "and represents a source-grounded summary produced by the canonical pipeline."
+        ),
+        "keypoints": [
+            {"title": "Point one", "detail": "Detailed explanation one.", "evidence": "Evidence one."},
+            {"title": "Point two", "detail": "Detailed explanation two.", "evidence": "Evidence two."},
+            {"title": "Point three", "detail": "Detailed explanation three.", "evidence": "Evidence three."},
+        ],
+    }
+
+
 @pytest.fixture(scope="module")
 def pgmq_db() -> DBClient:
     database_url = os.getenv(
@@ -178,7 +195,7 @@ def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
     assert handoff == [{"status": "completed"}]
 
 
-def test_podcast_submission_uses_queue_and_publishes_only_after_summary(
+def test_podcast_submission_uses_queue_and_publishes_only_after_quality_gate(
     pgmq_db: DBClient,
 ):
     user_queue_name = f"video_processing_user_{uuid4().hex[:12]}"
@@ -221,16 +238,62 @@ def test_podcast_submission_uses_queue_and_publishes_only_after_summary(
     ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
     assert len(catalog_jobs) == 1
 
-    summary = next(
-        output
-        for output in pgmq_db.get_task_outputs(submission.task_id)
-        if output["kind"] == "summary"
+    source_slug = f"quality-source-{uuid4().hex[:10]}"
+    source_rows = pgmq_db._execute_query(
+        """
+        insert into public.podcast_sources (slug, name, source_url, active, auto_publish)
+        values (:slug, :name, :source_url, true, true)
+        returning id
+        """,
+        {
+            "slug": source_slug,
+            "name": "Quality Source",
+            "source_url": f"https://example.com/source/{source_slug}",
+        },
     )
+    pgmq_db._execute_query(
+        """
+        insert into public.podcast_episodes (
+          source_id, external_id, video_url, title, task_id, discovery_status
+        )
+        values (
+          cast(:source_id as uuid), :external_id, :video_url, :title,
+          cast(:task_id as uuid), 'queued'
+        )
+        """,
+        {
+            "source_id": source_rows[0]["id"],
+            "external_id": uuid4().hex,
+            "video_url": video_url,
+            "title": "A quality-gated podcast episode",
+            "task_id": submission.task_id,
+        },
+    )
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="processing",
+        progress=90,
+        video_title="A quality-gated podcast episode",
+        thumbnail_url="https://i.ytimg.com/vi/quality/maxresdefault.jpg",
+        author="Quality Source",
+    )
+
+    outputs = pgmq_db.get_task_outputs(submission.task_id)
+    summary = next(output for output in outputs if output["kind"] == "summary")
+    script = next(output for output in outputs if output["kind"] == "script")
     pgmq_db.update_output_status(
         summary["id"],
         status="completed",
         progress=100,
-        content='{"overview":"ready"}',
+        content=json.dumps(_valid_public_summary(), ensure_ascii=False),
+        locale="zh",
+    )
+    pgmq_db.update_output_status(
+        script["id"],
+        status="completed",
+        progress=100,
+        content="A complete transcript is available for source-grounded reading.",
+        locale="zh",
     )
     pgmq_db.update_task_status(
         submission.task_id,
@@ -253,6 +316,10 @@ def test_podcast_submission_uses_queue_and_publishes_only_after_summary(
     assert published_task is not None
     assert published_task["publication_status"] == "published"
     assert published_task["published_at"] is not None
+    assert published_task["publication_block_reason"] is None
+    assert published_task["public_keypoint_count"] == 3
+    assert published_task["public_quality_score"] == 100
+    assert published_task["podcast_source_slug"] == source_slug
     assert duplicate.task_id == submission.task_id
     assert duplicate.resolution == "reused_completed"
     assert profile == [{"usage_count": 0}]
@@ -275,6 +342,56 @@ def test_podcast_submission_uses_queue_and_publishes_only_after_summary(
     republished_task = pgmq_db.get_task(submission.task_id)
     assert republished_task is not None
     assert republished_task["publication_status"] == "published"
+
+
+def test_catalog_task_with_incomplete_summary_stays_out_of_public_library(
+    pgmq_db: DBClient,
+):
+    queue_name = f"podcast_quality_reject_{uuid4().hex[:12]}"
+    _create_queue(pgmq_db, queue_name)
+    user_id = str(uuid4())
+    pgmq_db._execute_query(
+        "insert into auth.users (id, email) values (cast(:id as uuid), :email)",
+        {"id": user_id, "email": f"{user_id}@example.com"},
+    )
+    submission = PostgresTaskQueue(
+        pgmq_db,
+        catalog_queue_name=queue_name,
+    ).submit_catalog_video(
+        video_url=f"https://www.youtube.com/watch?v={uuid4().hex[:11]}",
+        user_id=user_id,
+        output_intent={"target_locale": "zh"},
+        publish_on_complete=True,
+    )
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="processing",
+        progress=90,
+        video_title="Incomplete summary fixture",
+        thumbnail_url="https://i.ytimg.com/vi/incomplete/maxresdefault.jpg",
+    )
+    outputs = pgmq_db.get_task_outputs(submission.task_id)
+    for output in outputs:
+        pgmq_db.update_output_status(
+            output["id"],
+            status="completed",
+            progress=100,
+            content='{"version":5,"language":"zh","overview":"too short","keypoints":[]}'
+            if output["kind"] == "summary"
+            else "Transcript exists, but the summary contract is incomplete.",
+            locale="zh",
+        )
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="completed",
+        progress=100,
+    )
+
+    task = pgmq_db.get_task(submission.task_id)
+    assert task is not None
+    assert task["publication_status"] == "pending_review"
+    assert task["published_at"] is None
+    assert task["publication_block_reason"] == "summary_contract_invalid"
 
 
 def test_legacy_catalog_submission_cannot_route_to_user_queue(pgmq_db: DBClient):

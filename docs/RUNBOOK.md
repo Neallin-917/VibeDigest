@@ -35,7 +35,8 @@ is development-only and connects to the configured Cloud development database.
    it rejects traffic when either canonical submission function, workload
    classification, retry routing, `podcast_supply`, publication state, podcast
    tables, output intent, or monthly quota contract is absent.
-5. Run `make sync-podcast-sources`, then verify the expected active source rows.
+5. Run `make sync-podcast-sources`, then verify the expected discovery and
+   backfill-enabled source rows.
 6. Deploy the podcast cron with `DATABASE_URL`, `PODCAST_TASK_QUEUE_NAME`, and
    `VIBEDIGEST_DEMO_USER_ID`. It does not need an LLM API key. Run it once
    manually before enabling the schedule.
@@ -69,15 +70,19 @@ release must not proceed unless that CI job passes.
 
 ## Podcast discovery schedule
 
-The cron runs every six hours in UTC, looks back seven days, and enqueues at
-most four new episodes per run. `config/podcast-sources.json` is the reviewed
-source of truth; only rows with `discovery_enabled=true` run automatically.
+The cron runs every six hours in UTC. Each pass looks back seven days and
+enqueues at most four recent episodes, then advances one resumable historical
+window and enqueues at most one older episode. `config/podcast-sources.json` is
+the reviewed source of truth; recent discovery requires
+`discovery_enabled=true`, while historical import requires
+`backfill_enabled=true`.
 The job must exit after one pass. Railway skips a scheduled invocation while a
 previous invocation is still running, so repeated long executions are an
 incident rather than a reason to add an overlapping scheduler.
 
-Monitor `podcast_sources.last_checked_at`, `last_success_at`, and `last_error`,
-plus `podcast_episodes.discovery_status`. A queue submission failure remains
+Monitor `podcast_sources.last_checked_at`, `last_success_at`, `last_error`,
+`backfill_cursor`, `backfill_last_checked_at`, and `backfill_completed_at`, plus
+`podcast_episodes.discovery_status`. A queue submission failure remains
 retryable: the episode ledger is retained and the canonical task submission is
 idempotent. Do not delete episode rows to force retries.
 
@@ -103,8 +108,9 @@ durable queue intact; do not redirect catalog work to `video_processing`.
 - Podcast source checks advance on schedule without exceeding the per-run cap.
 - Catalog summary provenance reports `catalog_supply`, `trusted_codex`,
   `codex_local`, and `chatgpt_subscription`.
-- Public queries return only `publication_status='published'` tasks with a
-  completed summary.
+- Public queries return only `publication_status='published'` tasks whose
+  database projection reports a valid V4+ summary, takeaway, three sourced key
+  points, transcript, title, and thumbnail.
 
 Never log queue message payloads, signed media URLs, access tokens, or service
 credentials.

@@ -68,10 +68,10 @@ Frontend (Next.js App Router)
 
 Railway podcast cron
   -> syncs the curated source registry
-  -> discovers bounded recent episodes
+  -> discovers bounded recent episodes and advances historical cursors
   -> atomically submits catalog_supply jobs to podcast_supply
   -> trusted private Codex worker processes a bounded batch
-  -> completed summaries appear in the public library
+  -> quality-gated summaries appear in the public library
 ```
 
 The implementation details live in the codemaps under `docs/codemaps/`.
@@ -92,6 +92,7 @@ The implementation details live in the codemaps under `docs/codemaps/`.
 | `make create-demo-task` | Create and process the default public demo task |
 | `make sync-podcast-sources` | Sync the curated podcast source registry without discovery |
 | `make discover-podcasts` | Discover recent episodes and enqueue a bounded set through PGMQ |
+| `make backfill-podcasts` | Inspect one bounded historical window and enqueue older episodes through PGMQ |
 | `make process-podcast-supply` | Process a bounded `podcast_supply` batch with the existing Codex subscription login |
 | `cd frontend && npm run demo:chat` | Start the local visual demo with deterministic landing-page cases |
 | `cd frontend && npx playwright test e2e/smoke.spec.ts --project=chromium-guest` | Run browser smoke with the same deterministic demo cases |
@@ -104,6 +105,9 @@ Podcast discovery reads `config/podcast-sources.json`. A normal run requires
 `DATABASE_URL` and `VIBEDIGEST_DEMO_USER_ID`; use
 `PODCAST_SOURCE=latent-space make discover-podcasts` for one source. The default
 run looks back seven days and enqueues at most four episodes.
+Historical import is cursor-based and resumable. Use
+`PODCAST_SOURCE=latent-space PODCAST_MAX_ENQUEUES=1 make backfill-podcasts` for
+a controlled batch; normal scheduled runs add at most one historical episode.
 Run `PODCAST_MAX_JOBS=4 make process-podcast-supply` on the trusted machine to
 process a bounded batch. This command requires an existing ChatGPT-managed
 Codex login and refuses API-key Codex authentication.

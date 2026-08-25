@@ -72,9 +72,10 @@ execution location; Supabase remains the sole task, queue, and result plane.
 7. The worker stops the heartbeat before retry/archive. Archive and handoff
    completion share a transaction; failed attempts use bounded backoff, and the
    final attempt persists a terminal error before archival.
-8. Separately, a short-lived cron discovers configured podcast episodes and
-   atomically persists `catalog_supply` into `podcast_supply`. A bounded trusted
-   Codex worker runs the same pipeline; the cron never runs it.
+8. Separately, a short-lived cron discovers configured recent episodes, advances
+   a durable historical cursor, and atomically persists `catalog_supply` into
+   `podcast_supply`. A bounded trusted Codex worker runs the same pipeline; the
+   cron never runs it. A database projection owns public quality and ranking.
 
 ## Ownership Boundaries
 

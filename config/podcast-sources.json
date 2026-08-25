@@ -10,6 +10,9 @@
       "avatar_url": "https://yt3.googleusercontent.com/dGyATx87Fp_s1nZvnupUFSnMqbAPZ6nqRby9Esk1m6YE41iBq-9Z8iGoIgHTCT9SiDBUpP2V=s900-c-k-c0x00ffffff-no-rj",
       "aliases": ["y combinator", "ycombinator"],
       "topics": ["product", "startups"],
+      "discovery_enabled": true,
+      "backfill_enabled": true,
+      "auto_publish": true,
       "catalog_order": 6
     },
     {
@@ -22,6 +25,7 @@
       "topics": ["ai-coding", "product", "startups"],
       "featured": true,
       "discovery_enabled": true,
+      "backfill_enabled": true,
       "auto_publish": true,
       "catalog_order": 4
     },
@@ -35,6 +39,7 @@
       "topics": ["product", "startups"],
       "featured": true,
       "discovery_enabled": true,
+      "backfill_enabled": true,
       "auto_publish": true,
       "catalog_order": 2
     },
@@ -77,6 +82,7 @@
       "topics": ["agents", "ai-coding", "research"],
       "featured": true,
       "discovery_enabled": true,
+      "backfill_enabled": true,
       "auto_publish": true,
       "catalog_order": 1
     },
@@ -98,6 +104,9 @@
       "avatar_url": "https://yt3.googleusercontent.com/Xhx80as-0fhg_Ag59pOnrTQvbf6zGbFDgxWhYUWYR77GMYQXUVJpRxeWyPyQm2fJhA-qw1ao=s900-c-k-c0x00ffffff-no-rj",
       "aliases": ["dwarkesh patel", "dwarkeshpatel"],
       "topics": ["agents", "research"],
+      "discovery_enabled": true,
+      "backfill_enabled": true,
+      "auto_publish": true,
       "catalog_order": 11
     },
     {
@@ -120,6 +129,7 @@
       "topics": ["agents", "product", "startups"],
       "featured": true,
       "discovery_enabled": true,
+      "backfill_enabled": true,
       "auto_publish": true,
       "catalog_order": 3
     },
@@ -181,6 +191,9 @@
       "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_mzrMszjXcIm7EdsK_QfN9Pk7YXbiXj9fihf86JaB8=s900-c-k-c0x00ffffff-no-rj",
       "aliases": ["the pragmatic engineer", "pragmatic engineer", "thepragmaticengineer"],
       "topics": ["ai-coding", "product"],
+      "discovery_enabled": true,
+      "backfill_enabled": true,
+      "auto_publish": true,
       "catalog_order": 18
     },
     {
@@ -231,6 +244,9 @@
       "avatar_url": "https://yt3.googleusercontent.com/ajVemEB89DAOemsbfuMY6ZOWXJAACx3cbty9z21jeqRKODaVkDBSRun1b1xfQJljEsziOWS_Mg=s900-c-k-c0x00ffffff-no-rj",
       "aliases": ["ai engineer", "aidotengineer"],
       "topics": ["agents", "ai-coding", "research"],
+      "discovery_enabled": true,
+      "backfill_enabled": true,
+      "auto_publish": true,
       "catalog_order": 23
     },
     {
@@ -241,6 +257,9 @@
       "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_nDvyq2NoPL626bk1IbxQ94SfQsD-B0qgZchghtQNkLWoEz=s900-c-k-c0x00ffffff-no-rj",
       "aliases": ["andrej karpathy", "andrejkarpathy", "karpathy"],
       "topics": ["ai-coding", "research"],
+      "discovery_enabled": true,
+      "backfill_enabled": true,
+      "auto_publish": true,
       "catalog_order": 24
     },
     {
@@ -251,6 +270,9 @@
       "avatar_url": "https://yt3.googleusercontent.com/ux-GXUpB4PkI-qXVOpj9gGEiCkytT0Q78ka4srlxOm_Y3m1gEh5qy8Vu6vTjGSDztMT0NybtC7I=s900-c-k-c0x00ffffff-no-rj",
       "aliases": ["anthropic", "anthropic-ai"],
       "topics": ["agents", "research", "ai-coding"],
+      "discovery_enabled": true,
+      "backfill_enabled": true,
+      "auto_publish": true,
       "catalog_order": 25
     },
     {
@@ -300,6 +322,9 @@
       "avatar_url": "https://yt3.googleusercontent.com/xofhdRNoyqgAB_YpJgAQeasGtE6gTEXpR2v1vyMmtqlRCmoEUIsTGJcavUORLhhKQk3b9UeUFw=s900-c-k-c0x00ffffff-no-rj",
       "aliases": ["google deepmind", "googledeepmind", "deepmind"],
       "topics": ["research", "agents"],
+      "discovery_enabled": true,
+      "backfill_enabled": true,
+      "auto_publish": true,
       "catalog_order": 30
     },
     {
@@ -361,6 +386,7 @@
       "topics": ["agents", "research", "startups"],
       "featured": true,
       "discovery_enabled": true,
+      "backfill_enabled": true,
       "auto_publish": true,
       "catalog_order": 5
     },

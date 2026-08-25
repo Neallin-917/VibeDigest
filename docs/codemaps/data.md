@@ -16,7 +16,8 @@ guest_usage is keyed by X-Guest-Id.
 ```
 
 - `tasks`: owner, optional `guest_id`, normalized video URL, persisted
-  `workload_kind`, metadata, status, progress, terminal error, and publication.
+  `workload_kind`, metadata, status, progress, terminal error, publication, and
+  lightweight public-library quality/search projection.
 - `task_outputs`: script/raw transcript/summary/classification/audio/
   comprehension artifacts.
 - `chat_threads` / `chat_messages`: Cloud chat persistence; message content
@@ -24,7 +25,8 @@ guest_usage is keyed by X-Guest-Id.
 - `guest_usage`: guest trial quota.
 - `vibedigest_private.task_queue_handoffs`: server-only idempotency and terminal
   acknowledgement record.
-- `podcast_sources`: curated supply registry and bounded discovery settings.
+- `podcast_sources`: curated supply registry, bounded discovery settings, and
+  resumable historical backfill cursor.
 - `podcast_episodes`: stable `(source_id, external_id)` discovery ledger and its
   optional canonical `task_id`.
 - `pgmq.q_video_processing`, `pgmq.q_podcast_supply`, and archive tables:
@@ -69,9 +71,12 @@ validates current database state by entity ID.
 
 `tasks.publication_status` is one of `private`, `processing`, `pending_review`,
 `published`, or `hidden`. Browser roles can read demo tasks and outputs only
-when the task is `published`. The task publication trigger permits that state
-only after the task and its summary output are both completed. Discovery can
-request automatic publication, but cannot bypass this completion gate.
+when the task is `published`. Task/output triggers permit that state only after
+the quality projection confirms a valid V4+ summary, takeaway, at least three
+sourced key points, transcript, title, and thumbnail. The same projection owns
+card takeaway, key-point count, quality score, source slug, source date, and
+search text, so the library does not download full summary JSON for every card.
+Discovery can request automatic publication, but cannot bypass this gate.
 
 The private schema is revoked from `PUBLIC`; browser roles never receive direct
 queue access.

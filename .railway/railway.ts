@@ -156,7 +156,7 @@ export default defineRailway(() => {
       ],
     },
     deploy: {
-      startCommand: "python scripts/podcasts/discover.py --since-days 7 --max-enqueues 4",
+      startCommand: "python scripts/podcasts/discover.py --mode both --since-days 7 --max-enqueues 4 --backfill-max-enqueues 1 --backfill-window 12",
       cronSchedule: "0 */6 * * *",
       restartPolicyType: "NEVER",
     },

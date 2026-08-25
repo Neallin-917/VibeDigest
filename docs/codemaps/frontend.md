@@ -67,6 +67,7 @@ src/app/
 | --- | --- | --- |
 | Chat workspace | `src/components/chat/` | Conversation UI and task data parts |
 | Task presentation | `src/components/tasks/` | Video/audio/transcript rendering and Realtime listener |
+| Public podcast library | `src/components/templates/ServerCommunityTemplates.tsx` + `CommunityTemplates.tsx` | Server-filtered 18-item pages, source aggregation, projected card data, responsive editorial/compact layout |
 | Inline knowledge blocks | `src/components/chat/KnowledgeUiBlocks.tsx` | Whitelisted table, chart, and steps renderers for validated V5 summary data |
 | App shell | `src/components/layout/` | Navigation, sidebar, feedback |
 | Shared primitives | `src/components/ui/` | Check here before creating a component; use CVA for variants |
@@ -90,6 +91,8 @@ messages cross the single `chat-message-boundary.ts` validation boundary.
 - Keep task loading calm and explicit; avoid decorative skeletons, shimmer, and
   redundant progress surfaces.
 - Keep browser-visible errors sanitized through `safe-error.ts`.
+- Keep public-library filtering in URL state and Server Components. Load more on
+  the same route; do not send every card's complete summary payload to the client.
 - Treat model-selected UI as data, not markup: `summary-contract.ts` validates
   `ui_blocks` again in the browser and `KnowledgeUiBlocks.tsx` renders only the
   approved table, bar-chart, and steps shapes. Malformed blocks disappear while

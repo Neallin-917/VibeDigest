@@ -45,8 +45,26 @@ def parse_args() -> argparse.Namespace:
         help="Podcast catalog JSON path.",
     )
     parser.add_argument("--source", help="Discover one active source slug, even if its schedule is disabled.")
+    parser.add_argument(
+        "--mode",
+        choices=("recent", "backfill", "both"),
+        default="recent",
+        help="Run recent discovery, bounded historical backfill, or both in sequence.",
+    )
     parser.add_argument("--since-days", type=int, default=7)
     parser.add_argument("--max-enqueues", type=int, default=4)
+    parser.add_argument(
+        "--backfill-window",
+        type=int,
+        default=12,
+        help="How many older playlist items to inspect per source when mode=backfill.",
+    )
+    parser.add_argument(
+        "--backfill-max-enqueues",
+        type=int,
+        default=1,
+        help="Maximum historical episodes to enqueue when mode=both.",
+    )
     parser.add_argument(
         "--sync-only",
         action="store_true",
@@ -79,14 +97,31 @@ async def run(args: argparse.Namespace) -> int:
         task_queue=PostgresTaskQueue(db),
         demo_user_id=demo_user_id,
     )
-    stats = await service.run(
-        source_slug=args.source,
-        since_days=args.since_days,
-        max_enqueues=args.max_enqueues,
-    )
-    result = {"catalog_sources_synced": synced, **vars(stats)}
+    modes = ("recent", "backfill") if args.mode == "both" else (args.mode,)
+    mode_results: dict[str, dict[str, int]] = {}
+    failures = 0
+    for mode in modes:
+        max_enqueues = (
+            args.backfill_max_enqueues if mode == "backfill" and args.mode == "both"
+            else args.max_enqueues
+        )
+        stats = await service.run(
+            source_slug=args.source,
+            mode=mode,
+            since_days=args.since_days,
+            max_enqueues=max_enqueues,
+            backfill_window=args.backfill_window,
+        )
+        mode_results[mode] = vars(stats)
+        failures += stats.source_failures
+
+    result: dict[str, object] = {"catalog_sources_synced": synced}
+    if args.mode == "both":
+        result.update(mode_results)
+    else:
+        result.update(mode_results[args.mode])
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
-    return 1 if stats.source_failures else 0
+    return 1 if failures else 0
 
 
 def main() -> int:

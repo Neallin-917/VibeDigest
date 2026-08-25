@@ -2,11 +2,11 @@ import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import type { Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
-import { parseCurrentSummary, pickPreferredSummaryOutput, type SummaryOutputCandidate } from "@/lib/summary-contract"
 import {
   CommunityTemplates,
   type CommunityTemplatesIntro,
   type CommunityTemplatesLayout,
+  type SourceShelfItem,
   Task,
 } from "./CommunityTemplates"
 import { getDemoFixtureTasks } from "./demoFixtures"
@@ -22,6 +22,10 @@ const PODCAST_TOPICS = new Set<PodcastTopic>([
   "startups",
   "research",
 ])
+
+const PAGE_SIZE = 18
+const MAX_PAGE = 20
+const DEFAULT_PREVIEW_LIMIT = 4
 
 const toPodcastSource = (value: unknown): PodcastSource | undefined => {
   if (!isRecord(value)) return undefined
@@ -64,7 +68,7 @@ const sourceFromTaskRow = (value: Record<string, unknown>) => {
   return undefined
 }
 
-const toTask = (value: unknown, locale: Locale): Task | null => {
+const toTask = (value: unknown): Task | null => {
   if (!isRecord(value)) return null
   if (
     typeof value.id !== "string" ||
@@ -75,21 +79,6 @@ const toTask = (value: unknown, locale: Locale): Task | null => {
     return null
   }
 
-  const taskOutputs = Array.isArray(value.task_outputs)
-    ? value.task_outputs.filter(isRecord).map((output) => ({
-        kind: typeof output.kind === "string" ? output.kind : "",
-        content: output.content,
-        status: typeof output.status === "string" ? output.status : null,
-        locale: typeof output.locale === "string" ? output.locale : null,
-        created_at: typeof output.created_at === "string" ? output.created_at : null,
-      }))
-    : []
-  const preferredSummary = pickPreferredSummaryOutput(
-    taskOutputs as SummaryOutputCandidate[],
-    locale
-  )
-  const summary = preferredSummary ? parseCurrentSummary(preferredSummary.content) : null
-
   return {
     id: value.id,
     video_url: value.video_url,
@@ -99,21 +88,95 @@ const toTask = (value: unknown, locale: Locale): Task | null => {
     thumbnail_url: typeof value.thumbnail_url === "string" ? value.thumbnail_url : undefined,
     author: typeof value.author === "string" ? value.author : undefined,
     author_image_url: typeof value.author_image_url === "string" ? value.author_image_url : undefined,
-    task_outputs: taskOutputs,
-    takeaway: summary?.tl_dr || summary?.overview,
-    keyPointCount: summary?.keypoints.length,
+    takeaway: typeof value.public_takeaway === "string" ? value.public_takeaway : undefined,
+    keyPointCount: typeof value.public_keypoint_count === "number"
+      ? value.public_keypoint_count
+      : undefined,
     source: sourceFromTaskRow(value),
   }
 }
 
+function normalizeQuery(value: string | undefined) {
+  return (value || "").trim().slice(0, 120)
+}
+
+function normalizeSource(value: string | undefined) {
+  const source = (value || "").trim()
+  return source === "all" || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(source)
+    ? source || "all"
+    : "all"
+}
+
+function normalizePage(value: number | undefined) {
+  if (!value || Number.isNaN(value)) return 1
+  return Math.max(1, Math.min(value, MAX_PAGE))
+}
+
+function applySearchLike<T extends { ilike: (column: string, pattern: string) => T }>(
+  query: T,
+  search: string,
+) {
+  const trimmed = normalizeQuery(search)
+  if (!trimmed) return query
+  const pattern = trimmed.replace(/[%_]+/g, " ").replace(/\s+/g, "%")
+  return query.ilike("library_search_text", `%${pattern}%`)
+}
+
+function sortSources(items: SourceShelfItem[]) {
+  return [...items].sort((left, right) =>
+    (left.source.order ?? 1000) - (right.source.order ?? 1000)
+    || Number(right.source.featured) - Number(left.source.featured)
+    || right.count - left.count
+    || left.source.name.localeCompare(right.source.name)
+  )
+}
+
+async function fetchSourceShelf(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<SourceShelfItem[]> {
+  const { data, error } = await supabase
+    .from("podcast_library_source_counts")
+    .select(`
+      slug,
+      name,
+      source_url,
+      avatar_url,
+      aliases,
+      topics,
+      featured,
+      catalog_order,
+      published_count
+    `)
+    .limit(200)
+
+  if (error) {
+    console.error("Failed to fetch podcast source shelf", {
+      code: error.code,
+      message: error.message,
+    })
+    return []
+  }
+
+  const sourceItems = (data || []).flatMap((row) => {
+    const source = toPodcastSource(row)
+    if (!source) return []
+    const count = typeof row.published_count === "number"
+      ? row.published_count
+      : Number(row.published_count) || 0
+    return [{ source, count }]
+  })
+  return sortSources(sourceItems)
+}
+
 export async function ServerCommunityTemplates({
-  limit = 8,
+  limit,
   showHeader = true,
   layout = "gallery",
   locale,
   intro,
   initialSource,
   initialQuery,
+  page = 1,
 }: {
   limit?: number
   showHeader?: boolean
@@ -122,6 +185,7 @@ export async function ServerCommunityTemplates({
   intro?: CommunityTemplatesIntro
   initialSource?: string
   initialQuery?: string
+  page?: number
 }) {
   const t = createTranslator(locale)
   const copy = {
@@ -131,30 +195,47 @@ export async function ServerCommunityTemplates({
     unavailable: t("landing.communityUnavailable"),
   }
 
+  const normalizedQuery = normalizeQuery(initialQuery)
+  const normalizedSource = normalizeSource(initialSource)
+  const normalizedPage = normalizePage(page)
+  const pageLimit = normalizedPage * PAGE_SIZE
+  const previewLimit = Math.max(1, Math.min(limit ?? DEFAULT_PREVIEW_LIMIT, 8))
+
   if (shouldUseDemoFixtures()) {
+    const fixtureLimit = layout === "landingPreview" ? previewLimit : Math.max(pageLimit, 8)
+    const fixtureTasks = getDemoFixtureTasks(fixtureLimit)
     return (
       <CommunityTemplates
-        limit={limit}
         showHeader={showHeader}
-        initialTasks={getDemoFixtureTasks(limit)}
+        initialTasks={fixtureTasks}
         initialStatus="ready"
         layout={layout}
         locale={locale}
         copy={copy}
         intro={intro}
-        initialSource={initialSource}
-        initialQuery={initialQuery}
+        initialSource={normalizedSource}
+        initialQuery={normalizedQuery}
+        sourceItems={sortSources(
+          fixtureTasks.reduce<SourceShelfItem[]>((acc, task) => {
+            const source = task.source
+            if (!source) return acc
+            const current = acc.find((item) => item.source.id === source.id)
+            if (current) current.count += 1
+            else acc.push({ source, count: 1 })
+            return acc
+          }, [])
+        )}
+        totalCount={fixtureTasks.length}
+        hasMore={false}
+        currentPage={normalizedPage}
       />
     )
   }
 
   const supabase = await createClient()
 
-  // Artificial delay for testing (Uncomment to test Skeleton)
-  // await new Promise(resolve => setTimeout(resolve, 3000))
-
-  const { data, error } = await supabase
-    .from('tasks')
+  const createTasksQuery = (queryLimit: number) => supabase
+    .from("tasks")
     .select(`
       id,
       video_url,
@@ -164,8 +245,10 @@ export async function ServerCommunityTemplates({
       created_at,
       author,
       author_image_url,
-      publication_status,
-      task_outputs!inner(kind, content, status, locale, created_at),
+      public_takeaway,
+      public_keypoint_count,
+      public_quality_score,
+      library_source_published_at,
       podcast_episodes(
         source:podcast_sources(
           slug,
@@ -179,40 +262,85 @@ export async function ServerCommunityTemplates({
         )
       )
     `)
-    .eq('is_demo', true)
-    .eq('status', 'completed')
-    .eq('publication_status', 'published')
-    .eq('task_outputs.kind', 'summary')
-    .eq('task_outputs.status', 'completed')
-    .order('published_at', { ascending: false })
-    .limit(limit)
+    .eq("is_demo", true)
+    .eq("status", "completed")
+    .eq("publication_status", "published")
+    .order("library_source_published_at", { ascending: false, nullsFirst: false })
+    .order("public_quality_score", { ascending: false, nullsFirst: false })
+    .order("published_at", { ascending: false })
+    .limit(queryLimit)
 
-  if (error) {
+  if (layout === "landingPreview") {
+    const { data, error } = await createTasksQuery(previewLimit)
+    const initialTasks = (data || [])
+      .map((task) => toTask(task))
+      .filter((task): task is Task => Boolean(task))
+
+    return (
+      <CommunityTemplates
+        showHeader={showHeader}
+        initialTasks={initialTasks}
+        initialStatus={error ? "unavailable" : "ready"}
+        layout={layout}
+        locale={locale}
+        copy={copy}
+        intro={intro}
+        totalCount={initialTasks.length}
+      />
+    )
+  }
+
+  const activeSource = normalizedSource
+
+  let totalQuery = supabase
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("is_demo", true)
+    .eq("status", "completed")
+    .eq("publication_status", "published")
+
+  totalQuery = applySearchLike(totalQuery, normalizedQuery)
+  if (activeSource !== "all") totalQuery = totalQuery.eq("podcast_source_slug", activeSource)
+
+  let tasksQuery = createTasksQuery(pageLimit)
+  tasksQuery = applySearchLike(tasksQuery, normalizedQuery)
+  if (activeSource !== "all") tasksQuery = tasksQuery.eq("podcast_source_slug", activeSource)
+
+  const [sourceItems, { count: totalCount, error: totalError }, { data, error }] = await Promise.all([
+    fetchSourceShelf(supabase),
+    totalQuery,
+    tasksQuery,
+  ])
+
+  if (error || totalError) {
     console.error("Failed to fetch public demo tasks", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+      tasksCode: error?.code,
+      tasksMessage: error?.message,
+      countCode: totalError?.code,
+      countMessage: totalError?.message,
     })
   }
 
-  // Transform data to match Task interface
   const initialTasks = (data || [])
-    .map((task) => toTask(task, locale))
+    .map((task) => toTask(task))
     .filter((task): task is Task => Boolean(task))
+  const readyCount = totalCount ?? initialTasks.length
 
   return (
     <CommunityTemplates
-      limit={limit}
       showHeader={showHeader}
       initialTasks={initialTasks}
-      initialStatus={error ? "unavailable" : "ready"}
+      initialStatus={error || totalError ? "unavailable" : "ready"}
       layout={layout}
       locale={locale}
       copy={copy}
       intro={intro}
-      initialSource={initialSource}
-      initialQuery={initialQuery}
+      initialSource={activeSource}
+      initialQuery={normalizedQuery}
+      sourceItems={sourceItems}
+      totalCount={readyCount}
+      hasMore={normalizedPage < MAX_PAGE && readyCount > pageLimit}
+      currentPage={normalizedPage}
     />
   )
 }

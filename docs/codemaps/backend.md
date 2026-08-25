@@ -134,7 +134,7 @@ trusted catalog runner (Bounded Consumer)
 | `worker.py` | PGMQ claim, heartbeat, capability guard, bounded drain | `TaskWorker`, `serve`, `drain_worker` |
 | `services/execution_policy.py` | Workload/profile/queue mapping and provenance | `WorkloadKind`, `WorkerProfile` |
 | `services/task_queue.py` | Versioned PGMQ messages | `PostgresTaskQueue` |
-| `services/podcast_discovery.py` | Source catalog sync, recent-episode discovery, bounded enqueue | `PodcastDiscoveryService` |
+| `services/podcast_discovery.py` | Source catalog sync, recent discovery, resumable historical backfill, bounded enqueue | `PodcastDiscoveryService` |
 | `services/job_handlers.py` | Pipeline attempt and output retry | `run_pipeline`, `handle_retry_output` |
 | `workflow.py` | LangGraph state machine | `app` (compiled graph) |
 | `services/summarizer/` | LLM summarization and validated V4/V5 output contracts | `Summarizer`, `SummaryResponseV5` |
@@ -177,11 +177,13 @@ archive only after terminal persistence is confirmed.
 ```
 
 Podcast discovery is a short-lived scheduled producer, not a second worker. It
-only reads source metadata, records episode identities, and calls
-`PostgresTaskQueue.submit_catalog_video`. Per-source and per-run caps bound work.
+only reads source metadata, records episode identities, advances per-source
+historical cursors, and calls `PostgresTaskQueue.submit_catalog_video`.
+Per-source and per-run caps bound work.
 A separate bounded trusted runner drains `podcast_supply`; both worker profiles
 reuse the same pipeline. A database publication trigger keeps unfinished or
-summary-less tasks out of the public library.
+tasks that fail the summary/transcript/metadata quality projection out of the
+public library.
 
 ## Test Layout
 

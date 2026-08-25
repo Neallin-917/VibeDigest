@@ -22,6 +22,7 @@ import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
 import { ArrowLeft } from "lucide-react"
 import { cache } from "react"
+import { TranscriptPanel } from "@/components/tasks/TranscriptPanel"
 
 type Props = {
     params: Promise<{
@@ -126,6 +127,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
             .from('task_outputs')
             .select('kind, content, status, locale, created_at')
             .eq('task_id', id)
+            .eq('kind', 'summary')
             .order('created_at', { ascending: false })
         outputs = data || []
     }
@@ -341,6 +343,10 @@ export default async function TaskDetailPage(props: Props) {
                         </div>
                     </aside>
                 </div>
+
+                {status === "completed" && (
+                    <TranscriptPanel taskId={id} locale={locale} />
+                )}
             </div>
         </div>
     )

@@ -166,7 +166,15 @@ def test_repository_syncs_catalog_and_maps_database_rows():
 
     repository.mark_episode_error("episode-1", "provider failed")
     repository.mark_source_checked(source.id)
+    success_query, success_params = db._execute_query.call_args.args
+    assert "CAST(:error AS text) IS NULL" in success_query
+    assert success_params["error"] is None
+
     repository.mark_source_checked(source.id, "provider failed")
+    error_query, error_params = db._execute_query.call_args.args
+    assert "left(CAST(:error AS text), 2000)" in error_query
+    assert error_params["error"] == "provider failed"
+
     repository.advance_backfill_cursor(source.id, next_cursor=12, completed=False)
 
 

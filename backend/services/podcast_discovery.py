@@ -360,8 +360,14 @@ class PodcastRepository:
             """
             UPDATE public.podcast_sources
                SET last_checked_at = now(),
-                   last_success_at = CASE WHEN :error IS NULL THEN now() ELSE last_success_at END,
-                   last_error = CASE WHEN :error IS NULL THEN null ELSE left(:error, 2000) END
+                   last_success_at = CASE
+                     WHEN CAST(:error AS text) IS NULL THEN now()
+                     ELSE last_success_at
+                   END,
+                   last_error = CASE
+                     WHEN CAST(:error AS text) IS NULL THEN null
+                     ELSE left(CAST(:error AS text), 2000)
+                   END
              WHERE id = CAST(:source_id AS uuid)
             """,
             {"source_id": source_id, "error": error},

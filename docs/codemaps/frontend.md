@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-> Last verified: 2026-07-30
+> Last verified: 2026-08-25
 > Scope: current Cloud UI implementation, not historical performance analysis
 
 ## Product boundary
@@ -56,6 +56,7 @@ src/app/
 └── api/
     ├── process-video/                # authenticated FastAPI proxy
     ├── chat/                         # streamed AI chat and tools
+    ├── tasks/[id]/transcript/        # RLS-scoped, on-demand transcript read
     ├── threads/                      # thread persistence
     ├── image-proxy/                  # constrained media proxy
     └── health/backend-origin/        # deployment diagnostic
@@ -66,7 +67,7 @@ src/app/
 | Area | Owner | Notes |
 | --- | --- | --- |
 | Chat workspace | `src/components/chat/` | Conversation UI and task data parts |
-| Task presentation | `src/components/tasks/` | Video/audio/transcript rendering and Realtime listener |
+| Task presentation | `src/components/tasks/` | Video/audio rendering, Realtime listener, and an on-demand transcript panel that bounds initial DOM work |
 | Public podcast library | `src/components/templates/ServerCommunityTemplates.tsx` + `CommunityTemplates.tsx` | Server-filtered 18-item pages, source aggregation, projected card data, responsive editorial/compact layout |
 | Inline knowledge blocks | `src/components/chat/KnowledgeUiBlocks.tsx` | Whitelisted table, chart, and steps renderers for validated V5 summary data |
 | App shell | `src/components/layout/` | Navigation, sidebar, feedback |
@@ -93,6 +94,9 @@ messages cross the single `chat-message-boundary.ts` validation boundary.
 - Keep browser-visible errors sanitized through `safe-error.ts`.
 - Keep public-library filtering in URL state and Server Components. Load more on
   the same route; do not send every card's complete summary payload to the client.
+- Fetch only summary outputs for the first task-detail render. The transcript is
+  fetched through the RLS-scoped task route after explicit expansion and is
+  rendered in bounded batches on the same page.
 - Treat model-selected UI as data, not markup: `summary-contract.ts` validates
   `ui_blocks` again in the browser and `KnowledgeUiBlocks.tsx` renders only the
   approved table, bar-chart, and steps shapes. Malformed blocks disappear while

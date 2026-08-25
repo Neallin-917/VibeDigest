@@ -1,5 +1,3 @@
-"use client"
-
 export type ScriptRawPayloadV1 = {
   version?: number
   language?: string
@@ -25,5 +23,4 @@ export function formatSeconds(seconds: number) {
   if (h > 0) return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}`
   return `${m.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}`
 }
-
 

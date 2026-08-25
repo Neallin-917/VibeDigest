@@ -3,16 +3,26 @@ import contextlib
 import logging
 import os
 import signal
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from dependencies import get_db_client
+from services.execution_policy import (
+    ExecutionProfile,
+    WorkerProfile,
+    parse_workload_kind,
+    resolve_worker_profile,
+    validate_worker_runtime,
+)
 from services.job_handlers import (
     NonRetryableJobError,
     handle_retry_output,
     run_pipeline,
 )
 from services.task_queue import JOB_SCHEMA_VERSION, PostgresTaskQueue, QueuedJob
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +82,11 @@ class TaskWorker:
         self,
         queue: PostgresTaskQueue,
         config: WorkerConfig,
+        profile: ExecutionProfile | None = None,
     ) -> None:
         self.queue = queue
         self.config = config
+        self.profile = profile or resolve_worker_profile(WorkerProfile.HOSTED_API)
 
     async def run_once(self) -> bool:
         jobs = await asyncio.to_thread(
@@ -195,6 +207,7 @@ class TaskWorker:
             task = await asyncio.to_thread(db.get_task, task_id)
             if not task:
                 raise PermanentJobError(f"Task {task_id} does not exist")
+            self._assert_workload_allowed(task)
             if task.get("status") == "completed":
                 return
             await run_pipeline(
@@ -212,6 +225,11 @@ class TaskWorker:
             output = await asyncio.to_thread(db.get_output, output_id)
             if not output:
                 raise PermanentJobError(f"Output {output_id} does not exist")
+            task_id = self._required_record_string(output, "task_id")
+            task = await asyncio.to_thread(db.get_task, task_id)
+            if not task:
+                raise PermanentJobError(f"Task {task_id} does not exist")
+            self._assert_workload_allowed(task)
             if output.get("status") == "completed":
                 return
             await handle_retry_output(
@@ -221,6 +239,20 @@ class TaskWorker:
             return
 
         raise PermanentJobError(f"Unsupported queue job kind: {kind!r}")
+
+    def _assert_workload_allowed(self, task: dict[str, Any]) -> None:
+        try:
+            workload = parse_workload_kind(task.get("workload_kind"))
+        except ValueError as exc:
+            raise PermanentJobError(str(exc)) from exc
+        if workload not in self.profile.allowed_workloads:
+            allowed = ", ".join(
+                sorted(item.value for item in self.profile.allowed_workloads)
+            )
+            raise PermanentJobError(
+                f"Worker profile {self.profile.name.value} cannot execute "
+                f"workload {workload.value}; allowed: {allowed}"
+            )
 
     async def _heartbeat(
         self,
@@ -289,10 +321,64 @@ class TaskWorker:
         return value
 
 
+async def verify_codex_subscription(
+    *,
+    codex_factory: Callable[..., Any] | None = None,
+) -> str:
+    """Fail startup unless the local Codex session is ChatGPT-managed."""
+    from openai_codex import AsyncCodex, CodexConfig
+
+    factory = codex_factory or AsyncCodex
+    config = CodexConfig(codex_bin=settings.CODEX_LOCAL_BINARY)
+    async with factory(config) as codex:
+        response = await codex.account(refresh_token=False)
+
+    account_container = getattr(response, "account", None)
+    account = getattr(account_container, "root", account_container)
+    if account is None or getattr(account, "type", None) != "chatgpt":
+        raise RuntimeError(
+            "trusted_codex worker requires an existing ChatGPT subscription login"
+        )
+
+    plan = getattr(account, "plan_type", "unknown")
+    return str(getattr(plan, "value", plan))
+
+
+async def drain_worker(worker: TaskWorker, *, max_jobs: int) -> int:
+    """Process a bounded batch so a scheduler cannot create an endless run."""
+    if max_jobs <= 0:
+        raise ValueError("max_jobs must be greater than zero")
+    processed = 0
+    while processed < max_jobs:
+        if not await worker.run_once():
+            break
+        processed += 1
+    return processed
+
+
+def _is_railway() -> bool:
+    return bool(os.getenv("RAILWAY_PROJECT_ID"))
+
+
+async def build_worker() -> TaskWorker:
+    profile = resolve_worker_profile()
+    validate_worker_runtime(
+        profile,
+        llm_runtime=settings.LLM_RUNTIME,
+        llm_provider=settings.LLM_PROVIDER,
+        is_railway=_is_railway(),
+    )
+    if profile.requires_chatgpt_auth:
+        plan = await verify_codex_subscription()
+        logger.info("Codex subscription preflight passed (plan=%s)", plan)
+
+    queue = PostgresTaskQueue(get_db_client(), queue_name=profile.queue_name)
+    return TaskWorker(queue, WorkerConfig.from_env(), profile)
+
+
 async def serve() -> None:
-    config = WorkerConfig.from_env()
-    queue = PostgresTaskQueue(get_db_client())
-    worker = TaskWorker(queue, config)
+    worker = await build_worker()
+    queue = worker.queue
     stop_event = asyncio.Event()
 
     loop = asyncio.get_running_loop()

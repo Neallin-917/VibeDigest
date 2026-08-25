@@ -132,7 +132,54 @@ class TestModelSmartFast:
         s.LLM_RUNTIME = "codex_local"
 
         with patch.dict(os.environ, {"RAILWAY_PROJECT_ID": "production-project"}):
-            with pytest.raises(RuntimeError, match="only allowed on trusted local"):
+            with pytest.raises(RuntimeError, match="only allowed on trusted private"):
+                s._validate_required_env()
+
+    def test_trusted_codex_worker_is_allowed_on_non_railway_private_runner(self):
+        s = Settings()
+        s.LLM_RUNTIME = "codex_local"
+
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "WORKER_PROFILE": "trusted_codex",
+                "RAILWAY_PROJECT_ID": "",
+                "DEV_AUTH_BYPASS": "false",
+                "MOCK_MODE": "false",
+            },
+            clear=False,
+        ):
+            s._validate_required_env()
+
+    def test_podcast_discovery_process_does_not_require_an_llm_api_key(self):
+        s = Settings()
+        s.SUPABASE_URL = "https://example.supabase.co"
+        s.SUPABASE_SERVICE_KEY = "service-key"
+        s.SUPABASE_JWT_SECRET = "jwt-secret"
+        s.OPENAI_API_KEY = None
+        s.LLM_RUNTIME = "api"
+
+        with patch.dict(
+            os.environ,
+            {
+                "VIBEDIGEST_PROCESS_ROLE": "podcast_discovery",
+                "DATABASE_URL": "postgresql://example",
+                "OPENROUTER_API_KEY": "",
+            },
+            clear=False,
+        ):
+            s._validate_required_env()
+
+    def test_unknown_process_role_is_rejected(self):
+        s = Settings()
+
+        with patch.dict(
+            os.environ,
+            {"VIBEDIGEST_PROCESS_ROLE": "mystery"},
+            clear=False,
+        ):
+            with pytest.raises(RuntimeError, match="VIBEDIGEST_PROCESS_ROLE"):
                 s._validate_required_env()
 
     def test_default_provider_is_openrouter_when_no_custom_base_url(self):

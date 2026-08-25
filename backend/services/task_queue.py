@@ -5,8 +5,9 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from db_client import DBClient
+from services.execution_policy import CATALOG_QUEUE_NAME, USER_QUEUE_NAME
 
-DEFAULT_QUEUE_NAME = "video_processing"
+DEFAULT_QUEUE_NAME = USER_QUEUE_NAME
 JOB_SCHEMA_VERSION = 1
 
 
@@ -52,6 +53,15 @@ class TaskQueue(Protocol):
         output_intent: dict[str, Any] | None = None,
     ) -> TaskSubmission: ...
 
+    def submit_catalog_video(
+        self,
+        *,
+        video_url: str,
+        user_id: str,
+        output_intent: dict[str, Any] | None = None,
+        publish_on_complete: bool = False,
+    ) -> TaskSubmission: ...
+
     def submit_retry_output(
         self,
         *,
@@ -76,6 +86,7 @@ class PostgresTaskQueue:
         self,
         db: DBClient,
         queue_name: str | None = None,
+        catalog_queue_name: str | None = None,
         guest_quota_limit: int | None = None,
     ) -> None:
         self.db = db
@@ -83,6 +94,11 @@ class PostgresTaskQueue:
             queue_name
             or os.getenv("TASK_QUEUE_NAME", "").strip()
             or DEFAULT_QUEUE_NAME
+        )
+        self.catalog_queue_name = (
+            catalog_queue_name
+            or os.getenv("PODCAST_TASK_QUEUE_NAME", "").strip()
+            or CATALOG_QUEUE_NAME
         )
         dev_bypass = (os.getenv("DEV_AUTH_BYPASS") or "").strip().lower() in {
             "1",
@@ -108,7 +124,7 @@ class PostgresTaskQueue:
         rows = self.db._execute_query(
             """
             SELECT *
-            FROM vibedigest_private.submit_video_task(
+            FROM vibedigest_private.submit_user_video_task(
                 CAST(:user_id AS uuid),
                 :video_url,
                 :guest_id,
@@ -126,6 +142,39 @@ class PostgresTaskQueue:
                 "queue_name": self.queue_name,
             },
         )
+        return self._parse_submission(rows)
+
+    def submit_catalog_video(
+        self,
+        *,
+        video_url: str,
+        user_id: str,
+        output_intent: dict[str, Any] | None = None,
+        publish_on_complete: bool = False,
+    ) -> TaskSubmission:
+        rows = self.db._execute_query(
+            """
+            SELECT *
+            FROM vibedigest_private.submit_catalog_video_task(
+                CAST(:user_id AS uuid),
+                :video_url,
+                CAST(:output_intent AS jsonb),
+                :queue_name,
+                :publish_on_complete
+            )
+            """,
+            {
+                "user_id": user_id,
+                "video_url": video_url,
+                "output_intent": json.dumps(output_intent or {}, ensure_ascii=False),
+                "queue_name": self.catalog_queue_name,
+                "publish_on_complete": publish_on_complete,
+            },
+        )
+        return self._parse_submission(rows)
+
+    @staticmethod
+    def _parse_submission(rows: list[dict[str, Any]]) -> TaskSubmission:
         if not rows:
             raise RuntimeError("Task submission returned no result")
         row = rows[0]
@@ -158,14 +207,16 @@ class PostgresTaskQueue:
                 CAST(:output_id AS uuid),
                 CAST(:user_id AS uuid),
                 :guest_id,
-                :queue_name
+                :user_queue_name,
+                :catalog_queue_name
             )
             """,
             {
                 "output_id": output_id,
                 "user_id": user_id,
                 "guest_id": guest_id,
-                "queue_name": self.queue_name,
+                "user_queue_name": self.queue_name,
+                "catalog_queue_name": self.catalog_queue_name,
             },
         )
         if not rows or rows[0].get("message_id") is None:
@@ -186,14 +237,16 @@ class PostgresTaskQueue:
                 CAST(:task_id AS uuid),
                 CAST(:user_id AS uuid),
                 :guest_id,
-                :queue_name
+                :user_queue_name,
+                :catalog_queue_name
             )
             """,
             {
                 "task_id": task_id,
                 "user_id": user_id,
                 "guest_id": guest_id,
-                "queue_name": self.queue_name,
+                "user_queue_name": self.queue_name,
+                "catalog_queue_name": self.catalog_queue_name,
             },
         )
         if not rows or rows[0].get("message_id") is None:

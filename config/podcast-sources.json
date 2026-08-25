@@ -1,0 +1,438 @@
+{
+  "version": 1,
+  "source_of_record_url": "https://onepod.site/sources/",
+  "sources": [
+    {
+      "slug": "y-combinator",
+      "name": "Y Combinator",
+      "description": "创业者、AI 公司和早期产品构建者的一手访谈。",
+      "source_url": "https://www.youtube.com/@ycombinator",
+      "avatar_url": "https://yt3.googleusercontent.com/dGyATx87Fp_s1nZvnupUFSnMqbAPZ6nqRby9Esk1m6YE41iBq-9Z8iGoIgHTCT9SiDBUpP2V=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["y combinator", "ycombinator"],
+      "topics": ["product", "startups"],
+      "catalog_order": 6
+    },
+    {
+      "slug": "every",
+      "name": "Every",
+      "description": "围绕 AI、知识工作、组织和软件产品的深度内容。",
+      "source_url": "https://www.youtube.com/@EveryInc",
+      "avatar_url": "https://yt3.googleusercontent.com/n6p0RudkPKoaFsxiZfunvI5MpqS443Qfbf2E4mmAy1k0etF4M7etYyJAJ_RMknfit6Tnxx4Du4g=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["every", "everyinc"],
+      "topics": ["ai-coding", "product", "startups"],
+      "featured": true,
+      "discovery_enabled": true,
+      "auto_publish": true,
+      "catalog_order": 4
+    },
+    {
+      "slug": "lennys-podcast",
+      "name": "Lenny's Podcast",
+      "description": "产品增长、创业和团队建设的一线经验。",
+      "source_url": "https://www.youtube.com/@LennysPodcast",
+      "avatar_url": "https://yt3.googleusercontent.com/Wk7-4UW17JqDXgVWDiE7s1gJxDkt_UwNa2oNw8OYRwc9deiCv2V2fFAdNgByDi0K9AAF0YMj=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["lenny's podcast", "lennys podcast", "lenny rachitsky", "lennyspodcast"],
+      "topics": ["product", "startups"],
+      "featured": true,
+      "discovery_enabled": true,
+      "auto_publish": true,
+      "catalog_order": 2
+    },
+    {
+      "slug": "cnbc-television",
+      "name": "CNBC Television",
+      "description": "全球商业、科技公司、市场和宏观经济的即时视频内容。",
+      "source_url": "https://www.youtube.com/@CNBCtelevision",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_lZSh1UFSJgpq7hCgJp4W72-gZ1Fc6Lh5wN7hQOGk7LvVw=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["cnbc television", "cnbctelevision"],
+      "catalog_order": 7
+    },
+    {
+      "slug": "peter-yang",
+      "name": "Peter Yang",
+      "description": "产品、创作者经济和 AI 工作流相关访谈。",
+      "source_url": "https://www.youtube.com/@PeterYangYT",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_k0xbR9-CBYMh3YOZJnMQr00qwnbA_aAChW3z0I8lNcGRE=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["peter yang", "peteryangyt"],
+      "topics": ["product", "ai-coding"],
+      "catalog_order": 8
+    },
+    {
+      "slug": "the-all-in-podcast",
+      "name": "The All-In Podcast",
+      "description": "硅谷投资人和创业者围绕 AI、科技政策、资本市场和商业趋势的圆桌讨论。",
+      "source_url": "https://www.youtube.com/@allin",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_nPfH_2C5hQamMDz9i_b5mcFXYzym_qSV6mQqa6GQ=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["the all-in podcast", "all-in", "allin"],
+      "topics": ["startups"],
+      "catalog_order": 9
+    },
+    {
+      "slug": "latent-space",
+      "name": "Latent Space",
+      "description": "面向 AI 工程师和研究者的技术访谈与行业讨论。",
+      "source_url": "https://www.youtube.com/@LatentSpacePod",
+      "avatar_url": "https://yt3.googleusercontent.com/pSTHcffCXEverYEPdjM0iIRPH-IUT4d2biIMZ_Z7bhyf6sME-laFer9vEfpFbM5tqFYJV-UsLQ=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["latent space", "latentspacepod"],
+      "topics": ["agents", "ai-coding", "research"],
+      "featured": true,
+      "discovery_enabled": true,
+      "auto_publish": true,
+      "catalog_order": 1
+    },
+    {
+      "slug": "mad-podcast",
+      "name": "The MAD Podcast (Matt Turck)",
+      "description": "数据、AI、基础设施和企业软件创业者访谈。",
+      "source_url": "https://www.youtube.com/@DataDrivenNYC",
+      "avatar_url": "https://yt3.googleusercontent.com/zELsyYmenYTQanNFH9Vti3fuVN2Dkky0AGvVlMUeTvssEiWIdIKKmwNxtrgmAKWGeN4F9RnNIc=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["the mad podcast", "the mad podcast matt turck", "data driven nyc", "datadrivennyc", "matt turck"],
+      "topics": ["startups", "research"],
+      "catalog_order": 10
+    },
+    {
+      "slug": "dwarkesh-patel",
+      "name": "Dwarkesh Patel",
+      "description": "AI 研究者、创业者和思想家的长访谈，偏技术前沿和长期判断。",
+      "source_url": "https://www.youtube.com/@DwarkeshPatel",
+      "avatar_url": "https://yt3.googleusercontent.com/Xhx80as-0fhg_Ag59pOnrTQvbf6zGbFDgxWhYUWYR77GMYQXUVJpRxeWyPyQm2fJhA-qw1ao=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["dwarkesh patel", "dwarkeshpatel"],
+      "topics": ["agents", "research"],
+      "catalog_order": 11
+    },
+    {
+      "slug": "lex-fridman",
+      "name": "Lex Fridman",
+      "description": "AI、科学、工程和思想领域的长访谈。",
+      "source_url": "https://www.youtube.com/@lexfridman",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_ljfMy9kUR1PH9VRf-XsTsPqFMgORC_zodOQVEAm4hx36lC=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["lex fridman", "lexfridman"],
+      "topics": ["research"],
+      "catalog_order": 12
+    },
+    {
+      "slug": "a16z",
+      "name": "a16z",
+      "description": "科技趋势、创业、投资和 AI 行业观点。",
+      "source_url": "https://www.youtube.com/@a16z",
+      "avatar_url": "https://yt3.googleusercontent.com/hkiO7UAtALrbqOcewo4CIrbd0j8XDeWttKkdtihfX1emeV4iUMwjIe1KKn4zd6wT2OOwANDnIA=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["a16z", "andreessen horowitz"],
+      "topics": ["agents", "product", "startups"],
+      "featured": true,
+      "discovery_enabled": true,
+      "auto_publish": true,
+      "catalog_order": 3
+    },
+    {
+      "slug": "south-park-commons",
+      "name": "South Park Commons",
+      "description": "技术创业者、研究者和产品构建者的深度对话。",
+      "source_url": "https://www.youtube.com/@southparkcommons",
+      "avatar_url": "https://yt3.googleusercontent.com/rTHi9Q-VulPPgZLDdamX57N_db9TognfYKHMG9liMbpFmSNAA5hTm7nyU0QLXgfU3E50LurN3wE=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["south park commons", "southparkcommons"],
+      "topics": ["research", "startups"],
+      "catalog_order": 13
+    },
+    {
+      "slug": "stanford-gsb",
+      "name": "Stanford GSB",
+      "description": "商业、领导力和技术趋势相关公开访谈。",
+      "source_url": "https://www.youtube.com/@stanfordgsb",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_lWoHJNSE1UPPiFdCG4_aQZ1apKXrKI7nZ_sFlKwhNwRl0=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["stanford gsb", "stanford graduate school of business", "stanfordgsb"],
+      "topics": ["product", "startups", "research"],
+      "catalog_order": 14
+    },
+    {
+      "slug": "the-information-bottleneck",
+      "name": "The Information Bottleneck",
+      "description": "围绕 AI、信息理论、机器学习和研究进展的高密度讨论。",
+      "source_url": "https://www.youtube.com/@information_bottleneck",
+      "avatar_url": "https://yt3.googleusercontent.com/EbwDzvpWpmaANk7zXT0pGg7VsuKMnr0pzUyPOZ4taaxwFNClImJVfkajSeziUxmGMksaQMlUTw=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["the information bottleneck", "information bottleneck", "information_bottleneck"],
+      "topics": ["research"],
+      "catalog_order": 15
+    },
+    {
+      "slug": "google-developers",
+      "name": "Google for Developers",
+      "description": "开发者工具、AI API、平台能力和工程实践。",
+      "source_url": "https://www.youtube.com/@GoogleDevelopers",
+      "avatar_url": "https://yt3.googleusercontent.com/WZ_63J_-745xyW_DGxGi3VUyTZAe0Jvhw2ZCg7fdz-tv9esTbNPZTFR9X79QzA0ArIrMjYJCDA=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["google for developers", "google developers", "googledevelopers"],
+      "topics": ["ai-coding", "agents"],
+      "catalog_order": 16
+    },
+    {
+      "slug": "tbpn",
+      "name": "TBPN",
+      "description": "科技商业、AI 创业和硅谷实时讨论。",
+      "source_url": "https://www.youtube.com/@TBPNLive",
+      "avatar_url": "https://yt3.googleusercontent.com/1QdlbXwJRXYY6leF-ULTE8ahNmTYEgezebSqVDZqI2DLGSkRCCcvcUtdkAhOj5mLB8C0AK_J=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["tbpn", "tbpnlive"],
+      "topics": ["startups", "product"],
+      "catalog_order": 17
+    },
+    {
+      "slug": "pragmatic-engineer",
+      "name": "The Pragmatic Engineer",
+      "description": "工程管理、软件行业和开发者职业观察。",
+      "source_url": "https://www.youtube.com/@ThePragmaticEngineer",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_mzrMszjXcIm7EdsK_QfN9Pk7YXbiXj9fihf86JaB8=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["the pragmatic engineer", "pragmatic engineer", "thepragmaticengineer"],
+      "topics": ["ai-coding", "product"],
+      "catalog_order": 18
+    },
+    {
+      "slug": "20vc-with-harry-stebbings",
+      "name": "20VC with Harry Stebbings",
+      "description": "Harry Stebbings 主持的 VC、创业融资、AI 公司和增长访谈。",
+      "source_url": "https://www.youtube.com/@20VC",
+      "avatar_url": "https://yt3.googleusercontent.com/Du3wg7EZp9LaKFfVcOuKbEn0xFPryiiQgGQ9sJ9u11UCOmAAhp_5g9x9w1Fux5ijjfqb0COq=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["20vc with harry stebbings", "20vc", "harry stebbings"],
+      "topics": ["startups"],
+      "catalog_order": 19
+    },
+    {
+      "slug": "david-senra",
+      "name": "David Senra",
+      "description": "与创始人对话，提炼创业史、公司建设和商业判断。",
+      "source_url": "https://www.youtube.com/@DavidSenra",
+      "avatar_url": "https://yt3.googleusercontent.com/2yUUt7GiVvaIvJFypoy-IjPbfwpe9dfYlYfr0mI03b3BYN6MqJGbdFpNgdDbYH4F3uuB5aYmpg=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["david senra", "davidsenra", "founders podcast"],
+      "topics": ["startups"],
+      "catalog_order": 20
+    },
+    {
+      "slug": "joseph-noel-walker",
+      "name": "Joseph Noel Walker",
+      "description": "科技、社会、科学和商业人物的深度访谈。",
+      "source_url": "https://www.youtube.com/@josephnoelwalker",
+      "avatar_url": "https://yt3.googleusercontent.com/uGltCcucH3lJaaL4NpGKCGmfkxVvOs5oi1vJG_XBv8tkoDEYF0FtGzEx4LRm-nKH4KCG7yQy=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["joseph noel walker", "josephnoelwalker", "joe walker podcast"],
+      "topics": ["research"],
+      "catalog_order": 21
+    },
+    {
+      "slug": "acquired",
+      "name": "Acquired",
+      "description": "用长篇公司史拆解伟大科技公司、商业模式和创始人决策。",
+      "source_url": "https://www.youtube.com/@AcquiredFM",
+      "avatar_url": "https://yt3.googleusercontent.com/T76mIN42SrBDYIJDuBsJ-_zCkkoV37vhZ-VAsUx0rPb5YCzr99l1vzXMUsNTP9ZQsN6e-RxI=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["acquired", "acquiredfm"],
+      "topics": ["startups", "product"],
+      "catalog_order": 22
+    },
+    {
+      "slug": "ai-engineer",
+      "name": "AI Engineer",
+      "description": "面向 AI 工程师、创始人和研究者的会议演讲与技术访谈。",
+      "source_url": "https://www.youtube.com/@aiDotEngineer",
+      "avatar_url": "https://yt3.googleusercontent.com/ajVemEB89DAOemsbfuMY6ZOWXJAACx3cbty9z21jeqRKODaVkDBSRun1b1xfQJljEsziOWS_Mg=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["ai engineer", "aidotengineer"],
+      "topics": ["agents", "ai-coding", "research"],
+      "catalog_order": 23
+    },
+    {
+      "slug": "andrej-karpathy",
+      "name": "Andrej Karpathy",
+      "description": "AI 教育、深度学习、编程和技术直觉讲解。",
+      "source_url": "https://www.youtube.com/@AndrejKarpathy",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_nDvyq2NoPL626bk1IbxQ94SfQsD-B0qgZchghtQNkLWoEz=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["andrej karpathy", "andrejkarpathy", "karpathy"],
+      "topics": ["ai-coding", "research"],
+      "catalog_order": 24
+    },
+    {
+      "slug": "anthropic",
+      "name": "Anthropic",
+      "description": "Claude、AI 安全、模型能力和研究进展发布。",
+      "source_url": "https://www.youtube.com/@anthropic-ai",
+      "avatar_url": "https://yt3.googleusercontent.com/ux-GXUpB4PkI-qXVOpj9gGEiCkytT0Q78ka4srlxOm_Y3m1gEh5qy8Vu6vTjGSDztMT0NybtC7I=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["anthropic", "anthropic-ai"],
+      "topics": ["agents", "research", "ai-coding"],
+      "catalog_order": 25
+    },
+    {
+      "slug": "big-technology",
+      "name": "Big Technology",
+      "description": "Alex Kantrowitz 主持的科技新闻与大公司访谈，常覆盖 AI、平台和硅谷权力结构。",
+      "source_url": "https://www.youtube.com/@BigTechnologyPodcast",
+      "avatar_url": "https://yt3.googleusercontent.com/DxVHHiAYSavR5rIwm4EUzZ7Z8nyIHaQn-QB_4r_bNEeU2jXQBp9Gcb6Vz24HWG7XIWW9Yd1YFg=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["big technology", "bigtechnologypodcast"],
+      "topics": ["startups"],
+      "catalog_order": 26
+    },
+    {
+      "slug": "brett-malinowski",
+      "name": "Brett Malinowski",
+      "description": "AI 工具、自动化和创业机会拆解。",
+      "source_url": "https://www.youtube.com/@TheBrettWay",
+      "avatar_url": "https://yt3.googleusercontent.com/jVlCb_H_mcYd9UkwcSLvoTDG3SRTobvGUQ22PLtogxFGJpbbXOVXhdzY9wULJe6hVLFbfdu2vQ=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["brett malinowski", "thebrettway"],
+      "topics": ["agents", "startups"],
+      "catalog_order": 27
+    },
+    {
+      "slug": "core-memory-ashlee-vance",
+      "name": "Core Memory (Ashlee Vance)",
+      "description": "Ashlee Vance 主持的科技人物和硬科技公司访谈。",
+      "source_url": "https://www.youtube.com/@CoreMemoryVideos",
+      "avatar_url": "https://yt3.googleusercontent.com/2y1DAilVrHF9KEtSAxsKu7uVfGGa5ZQys0HVECGhFSbENPQ4ifLKAHgInkg2HIrAwRUAiPX3=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["core memory", "ashlee vance", "corememoryvideos"],
+      "topics": ["research", "startups"],
+      "catalog_order": 28
+    },
+    {
+      "slug": "goldman-sachs",
+      "name": "Goldman Sachs",
+      "description": "高盛关于市场、科技投资、AI 资本开支和宏观趋势的公开观点。",
+      "source_url": "https://www.youtube.com/@GoldmanSachs",
+      "avatar_url": "https://yt3.googleusercontent.com/DPQOZV-Fjm88XC9XBA1YwhB3LiaXRfdr0ZysHVl2PTP2fSNSesBm6pk9HwTUUC73M05x7ZkJIug=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["goldman sachs", "goldmansachs"],
+      "catalog_order": 29
+    },
+    {
+      "slug": "google-deepmind",
+      "name": "Google DeepMind",
+      "description": "AI 研究、模型能力和前沿科学应用。",
+      "source_url": "https://www.youtube.com/@googledeepmind",
+      "avatar_url": "https://yt3.googleusercontent.com/xofhdRNoyqgAB_YpJgAQeasGtE6gTEXpR2v1vyMmtqlRCmoEUIsTGJcavUORLhhKQk3b9UeUFw=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["google deepmind", "googledeepmind", "deepmind"],
+      "topics": ["research", "agents"],
+      "catalog_order": 30
+    },
+    {
+      "slug": "hard-fork",
+      "name": "Hard Fork",
+      "description": "纽约时报科技播客，追踪 AI、平台、监管和消费科技的最新变化。",
+      "source_url": "https://www.youtube.com/@hardfork",
+      "avatar_url": "https://yt3.googleusercontent.com/11kb6ShkX3k0W3_NQhogENqJB4BpJEssk4tdeqNOxLbsShQDgUTIwF6NVdsCm_IbCq5jqCM1=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["hard fork", "hardfork"],
+      "catalog_order": 31
+    },
+    {
+      "slug": "how-i-write-david-perell",
+      "name": "How I Write (David Perell)",
+      "description": "创作者、写作者和创业者关于表达、内容和个人知识系统的访谈。",
+      "source_url": "https://www.youtube.com/@DavidPerellChannel",
+      "avatar_url": "https://yt3.googleusercontent.com/kPbhWUm1xRu12N3Y6Ct1RvMeRqQDj2jSqznUhR312hwdMYlW9QaZLcZTMfSjxn7IcuwQPJo-=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["how i write", "david perell", "davidperellchannel"],
+      "topics": ["product"],
+      "catalog_order": 32
+    },
+    {
+      "slug": "huberman-lab",
+      "name": "Huberman Lab",
+      "description": "神经科学、健康、认知表现和行为科学的长内容。",
+      "source_url": "https://www.youtube.com/@hubermanlab",
+      "avatar_url": "https://yt3.googleusercontent.com/aIeHXiBl7R6DEQd8DAVpNBS9oWSUqajmfKNpIaBBK2Il8BrQHyAMsgYVi3tNtLb_xLud7l3t=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["huberman lab", "hubermanlab"],
+      "topics": ["research"],
+      "catalog_order": 33
+    },
+    {
+      "slug": "invest-like-the-best",
+      "name": "Invest Like the Best",
+      "description": "投资人和公司创始人的长期主义访谈，覆盖科技、商业模式和资本配置。",
+      "source_url": "https://www.youtube.com/@ILTB_Podcast",
+      "avatar_url": "https://yt3.googleusercontent.com/78AMaBuqLsXiEDcsRDGdorTMEOJR9_ybvMKZ5dwtqnj_POrIzHMmRUsBy5da255luUCsd9fA=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["invest like the best", "iltb podcast", "iltb_podcast"],
+      "topics": ["startups"],
+      "catalog_order": 34
+    },
+    {
+      "slug": "mckay-wrigley",
+      "name": "Mckay Wrigley",
+      "description": "AI coding、产品构建和个人自动化实践。",
+      "source_url": "https://www.youtube.com/@realmckaywrigley",
+      "avatar_url": "https://yt3.googleusercontent.com/ytc/AIdro_m114mcpiz4WMxjxkci1z8z3XXCP64yYoL2Z4wsjM2bNdWO=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["mckay wrigley", "realmckaywrigley"],
+      "topics": ["ai-coding", "agents"],
+      "catalog_order": 35
+    },
+    {
+      "slug": "no-priors",
+      "name": "No Priors",
+      "description": "AI 创业者、研究者和投资人访谈。",
+      "source_url": "https://www.youtube.com/@NoPriorsPodcast",
+      "avatar_url": "https://yt3.googleusercontent.com/HQXIpkLms_iVMi_Ob5Cie3PNcZ3smOT7HeNLIAWvBO-lZMdiax2N5LH1blWMxUtMrJCcXyNZ=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["no priors", "no priors podcast", "nopriorspodcast"],
+      "topics": ["agents", "research", "startups"],
+      "featured": true,
+      "discovery_enabled": true,
+      "auto_publish": true,
+      "catalog_order": 5
+    },
+    {
+      "slug": "patrick-boyle",
+      "name": "Patrick Boyle",
+      "description": "用金融和商业视角拆解市场、科技泡沫、宏观和资本结构。",
+      "source_url": "https://www.youtube.com/@PBoyle",
+      "avatar_url": "https://yt3.googleusercontent.com/cq4tU8wKdp_Y7yZIBxwAsSzecE-3VYDLkRXGo08-FuFwP_fwl7aMDTWY-_OEWGSw5iWDu-S29w=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["patrick boyle", "pboyle"],
+      "catalog_order": 36
+    },
+    {
+      "slug": "product-pathways",
+      "name": "Product Pathways",
+      "description": "面向产品经理和 AI 产品构建者的产品方法、组织和实战讨论。",
+      "source_type": "youtube_channel",
+      "source_url": "https://www.youtube.com/channel/UCFHnDTQrRshnLzLUJ3mvGQQ",
+      "avatar_url": "https://yt3.googleusercontent.com/nbYOlBIdjOt7d0sNBZIAA56CLWF3BpJA0oc6Z1zcP2Sadxczv6xxG863c4XjaOU9ppywgDdSyV4=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["product pathways", "ucfhndtqrrshnlzluj3mvgqq"],
+      "topics": ["product", "agents"],
+      "catalog_order": 37
+    },
+    {
+      "slug": "real-vision",
+      "name": "Real Vision",
+      "description": "宏观、市场、科技投资和风险资产的深度访谈。",
+      "source_url": "https://www.youtube.com/@RealVisionFinance",
+      "avatar_url": "https://yt3.googleusercontent.com/AB1DrmCzUFAlZSzlYhxQArRe2_Uwg4SewQlXcwvht9VmF95Bc-_Wje_rprG4HYE9cBO0cyvh=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["real vision", "realvisionfinance"],
+      "catalog_order": 38
+    },
+    {
+      "slug": "sequoia-capital",
+      "name": "Sequoia Capital",
+      "description": "Sequoia 的创业、AI builder 和技术公司访谈，包括 Training Data 系列。",
+      "source_type": "youtube_channel",
+      "source_url": "https://www.youtube.com/channel/UCWrF0oN6unbXrWsTN7RctTw",
+      "avatar_url": "https://yt3.googleusercontent.com/uCN-D7KzMQY-Ti-xTsNAwilXVFFMYjEBRju_mXrR22HUYxJZjVZgP_SnamO9KbPo2XN-nE3O-A=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["sequoia capital", "sequoia", "ucwrf0on6unbxrwstn7rcttw"],
+      "topics": ["startups", "agents"],
+      "catalog_order": 39
+    },
+    {
+      "slug": "stratechery",
+      "name": "Stratechery",
+      "description": "Ben Thompson 对科技平台、商业模式、AI 和产业结构的策略分析。",
+      "source_url": "https://www.youtube.com/@Stratechery",
+      "avatar_url": "https://yt3.googleusercontent.com/G3KKbnKufJOIVSn2K-p-4DrmYkR50LHZileEND4IhJ38sLdznQIYOUShN7qqvG1G5vPvB63Mml8=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["stratechery", "ben thompson"],
+      "topics": ["product"],
+      "catalog_order": 40
+    },
+    {
+      "slug": "ai-daily-brief",
+      "name": "The AI Daily Brief",
+      "description": "每日 AI 新闻、产品动态和行业趋势。",
+      "source_url": "https://www.youtube.com/@TheAIDailyBrief",
+      "avatar_url": "https://yt3.googleusercontent.com/kNdRN_Aa_xXvA1Y2KxcephehAzzbvyYbnm2xGg7MjUZ11yHpVah2GqsprxIXlA57uhdl97yF=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["the ai daily brief", "ai daily brief", "theaidailybrief"],
+      "topics": ["research", "startups"],
+      "catalog_order": 41
+    },
+    {
+      "slug": "tiago-forte",
+      "name": "Tiago Forte",
+      "description": "知识管理、生产力和创作者工作流。",
+      "source_url": "https://www.youtube.com/@TiagoForte",
+      "avatar_url": "https://yt3.googleusercontent.com/CqC4SrpXMCHA9b39JDtbXxefJ0TlHmaxFpAxSKqDCBVIudLl50gtlYA5fmIIGFlc4mjE1-uw6w=s900-c-k-c0x00ffffff-no-rj",
+      "aliases": ["tiago forte", "tiagoforte"],
+      "topics": ["product", "ai-coding"],
+      "catalog_order": 42
+    }
+  ]
+}

@@ -46,6 +46,9 @@ def test_create_task(db_client_instance, mock_session):
     args, _ = mock_session.execute.call_args
     assert "is_demo" in args[0].text
     assert args[1]["is_demo"] is False
+    assert args[1]["publication_status"] == "private"
+    assert args[1]["publish_on_complete"] is False
+    assert args[1]["workload_kind"] == "user_submission"
     mock_session.commit.assert_called()
 
 
@@ -67,6 +70,8 @@ def test_create_task_can_mark_demo(db_client_instance, mock_session):
     assert result["is_demo"] is True
     args, _ = mock_session.execute.call_args
     assert args[1]["is_demo"] is True
+    assert args[1]["publication_status"] == "processing"
+    assert args[1]["workload_kind"] == "catalog_supply"
 
 
 def test_find_latest_inflight_task(db_client_instance, mock_session):
@@ -124,6 +129,9 @@ def test_find_latest_task_with_valid_script_uses_text_safe_content_check(db_clie
 
     assert result["id"] == "task_cached"
     args, _ = mock_session.execute.call_args
+    assert "t.guest_id IS NULL" in args[0].text
+    assert ":guest_id" not in args[0].text
+    assert "guest_id" not in args[1]
     assert "CAST(o.content AS TEXT)" in args[0].text
     assert "BTRIM(CAST(o.content AS TEXT)) <> 'null'" in args[0].text
     assert "'null'::jsonb" not in args[0].text

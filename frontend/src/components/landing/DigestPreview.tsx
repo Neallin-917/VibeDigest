@@ -1,8 +1,7 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
-import { ArrowUpRight, CheckCircle2, MessageCircleQuestion, Sparkles } from "lucide-react"
+import { ArrowRight, CheckCircle2, MessageCircleQuestion, Sparkles } from "lucide-react"
 import { useI18n } from "@/components/i18n/I18nProvider"
 
 /** A product-accurate preview of VibeDigest's Brief → key points → follow-up flow. */
@@ -16,17 +15,11 @@ export function DigestPreview() {
         >
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/80 to-transparent" />
 
-            <div className="relative aspect-[16/8.6] overflow-hidden border-b border-slate-100 bg-slate-900 dark:border-white/10">
-                <Image
-                    src="https://i.ytimg.com/vi_webp/zgNvts_2TUE/maxresdefault.webp"
-                    alt=""
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 540px"
-                    className="object-cover opacity-80"
-                    referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/25 to-transparent" />
+            <div className="relative aspect-[16/8.6] overflow-hidden border-b border-slate-100 bg-[#101914] dark:border-white/10">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(52,211,153,0.2),transparent_32%),radial-gradient(circle_at_20%_85%,rgba(52,211,153,0.09),transparent_36%)]" />
+                <div className="absolute inset-0 bg-grid opacity-25" />
+                <div className="absolute -right-14 bottom-[-7rem] size-72 rounded-full border border-emerald-300/15" />
+                <div className="absolute -right-2 bottom-[-8rem] size-72 rounded-full border border-emerald-300/10" />
                 <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
                     <span className="rounded-full border border-white/20 bg-black/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85 backdrop-blur-sm">
                         {t("landing.previewKicker")}
@@ -79,7 +72,7 @@ export function DigestPreview() {
                 className="group flex items-center justify-between border-t border-slate-100 px-5 py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/[0.045] dark:hover:text-white sm:px-6"
             >
                 <span>{t("landing.previewOpen")}</span>
-                <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
             </Link>
         </section>
     )

@@ -42,7 +42,7 @@ services:
       - ./config/llm-provider-defaults.json:/app/llm-provider-defaults.json:ro
       - ./temp:/app/temp
       - ./downloads:/app/downloads
-    command: python worker.py
+    command: sh -c "WORKER_PROFILE=hosted_api LLM_RUNTIME=api python worker.py"
     env_file:
       - path: .env
       - path: .env.local

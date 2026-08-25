@@ -24,9 +24,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic routes from Tasks indicating public content (demos)
   const { data: tasks } = await supabase
     .from('tasks')
-    .select('id, created_at, video_title')
+    .select('id, created_at, video_title, task_outputs!inner(id)')
     .eq('status', 'completed')
     .eq('is_demo', true)
+    .eq('publication_status', 'published')
+    .eq('task_outputs.kind', 'summary')
+    .eq('task_outputs.status', 'completed')
     .order('created_at', { ascending: false })
     .limit(1000)
 

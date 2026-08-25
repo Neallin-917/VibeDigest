@@ -1,16 +1,19 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { cva } from "class-variance-authority"
-import Link from "next/link"
 import Image from "next/image"
-import { PlayCircle, Loader2, Sparkles } from "lucide-react"
-import { createClient } from "@/lib/supabase"
+import Link from "next/link"
+import { ArrowRight, ChevronDown, ExternalLink, Search } from "lucide-react"
 import type { Locale } from "@/lib/i18n"
+import { findPodcastSource, PODCAST_SOURCES, type PodcastSource } from "@/lib/podcast-sources"
+import { cn } from "@/lib/utils"
 
 export type TaskOutput = {
     kind: string
-    content: string | object
+    content: unknown
+    status?: string | null
+    locale?: string | null
+    created_at?: string | null
 }
 
 export type Task = {
@@ -23,125 +26,198 @@ export type Task = {
     author?: string
     author_image_url?: string
     task_outputs?: TaskOutput[]
+    takeaway?: string
+    keyPointCount?: number
+    durationLabel?: string
+    source?: PodcastSource
 }
-
-const communityGrid = cva("grid grid-cols-1 gap-6 sm:grid-cols-2", {
-    variants: {
-        layout: {
-            gallery: "lg:grid-cols-3 xl:grid-cols-4",
-            landingPreview: "lg:grid-cols-3",
-            landingPreviewWide: "lg:grid-cols-3 xl:grid-cols-4",
-        },
-    },
-    defaultVariants: {
-        layout: "gallery",
-    },
-})
 
 export type CommunityTemplatesLayout = "gallery" | "landingPreview"
 
-const getPlatformFromUrl = (url: string) => {
-    try {
-        const urlObj = new URL(url)
-        const hostname = urlObj.hostname.toLowerCase()
-        if (hostname.includes('bilibili')) return 'Bilibili'
-        if (hostname.includes('youtube') || hostname.includes('youtu.be')) return 'YouTube'
-        if (hostname.includes('tiktok')) return 'TikTok'
-        if (hostname.includes('apple.com')) return 'Apple Podcast'
-        if (hostname.includes('xiaoyuzhoufm.com')) return 'Xiaoyuzhou'
-        return 'Web'
-    } catch {
-        return 'Link'
-    }
+export type CommunityTemplatesIntro = {
+    eyebrow: string
+    title: string
+    description: string
 }
 
-function TemplateCard({
-    task,
-    locale,
-    highPriorityThumbnail = false,
-    className,
-}: {
-    task: Task
-    locale: Locale
-    highPriorityThumbnail?: boolean
-    className?: string
-}) {
-    const platform = getPlatformFromUrl(task.video_url)
-    const showAuthor = task.author && task.author !== "Unknown"
+type CommunityCopy = {
+    loading: string
+    title: string
+    hint: string
+    unavailable: string
+}
+
+type PodcastCopy = {
+    sourceShelf: string
+    all: string
+    showAll: string
+    showLess: string
+    curated: string
+    recent: string
+    read: string
+    source: string
+    search: string
+    searchPlaceholder: string
+    empty: string
+    clearFilters: string
+    loadMore: string
+    episodeUnit: string
+    keyPointUnit: string
+}
+
+const PODCAST_COPY: Record<Locale, PodcastCopy> = {
+    en: {
+        sourceShelf: "Browse by show", all: "All", showAll: "Browse all shows", showLess: "Show less",
+        curated: "Ready to read", recent: "More organized episodes", read: "View digest",
+        source: "Original episode", search: "Search content", searchPlaceholder: "Search by episode, show, or topic",
+        empty: "No finished digests match this filter yet.", clearFilters: "Clear filters",
+        loadMore: "Load more",
+        episodeUnit: "digests", keyPointUnit: "key points",
+    },
+    zh: {
+        sourceShelf: "按节目浏览", all: "全部", showAll: "浏览全部节目", showLess: "收起节目",
+        curated: "可以直接阅读", recent: "更多整理内容", read: "查看整理", source: "原节目",
+        search: "搜索内容", searchPlaceholder: "输入节目、嘉宾或主题",
+        empty: "没有符合当前筛选的整理内容。", clearFilters: "清除筛选",
+        loadMore: "加载更多",
+        episodeUnit: "期整理", keyPointUnit: "个关键观点",
+    },
+    ja: {
+        sourceShelf: "番組から探す", all: "すべて", showAll: "すべての番組を見る", showLess: "折りたたむ",
+        curated: "すぐに読める整理内容", recent: "その他の整理内容", read: "整理内容を見る", source: "元のエピソード",
+        search: "内容を検索", searchPlaceholder: "エピソード、番組、トピックを検索",
+        empty: "現在の条件に一致する整理内容はありません。", clearFilters: "絞り込みを解除",
+        loadMore: "さらに読み込む",
+        episodeUnit: "件の整理", keyPointUnit: "の要点",
+    },
+}
+
+const localeDateTag: Record<Locale, string> = { en: "en-US", zh: "zh-CN", ja: "ja-JP" }
+
+function taskDetailHref(task: Task, locale: Locale, sourceId = "all", query = "") {
+    const slug = encodeURIComponent((task.video_title || "podcast").trim().replace(/\s+/g, "-"))
+    const returnState = new URLSearchParams()
+    if (sourceId !== "all") returnState.set("fromShow", sourceId)
+    const trimmedQuery = query.trim()
+    if (trimmedQuery) returnState.set("fromQuery", trimmedQuery.slice(0, 120))
+    const search = returnState.toString()
+    return `/${locale}/tasks/${task.id}/${slug}${search ? `?${search}` : ""}`
+}
+
+function sourceForTask(task: Task) {
+    return task.source ?? findPodcastSource(task.author, task.video_url)
+}
+
+function metadataForTask(task: Task, locale: Locale, copy: PodcastCopy) {
+    const values: string[] = []
+    if (task.durationLabel) values.push(task.durationLabel)
+    if (task.keyPointCount) values.push(`${task.keyPointCount} ${copy.keyPointUnit}`)
+    if (values.length === 0) {
+        values.push(new Intl.DateTimeFormat(localeDateTag[locale], { month: "short", day: "numeric" }).format(new Date(task.created_at)))
+    }
+    return values.join(" · ")
+}
+
+function SourceMark({ source, size = "large" }: { source: PodcastSource; size?: "compact" | "small" | "large" }) {
+    const sizeClass = size === "large"
+        ? "size-12 rounded-lg"
+        : size === "small"
+            ? "size-9 rounded-md"
+            : "size-7 rounded-md"
+    const imageSize = size === "large" ? "48px" : size === "small" ? "36px" : "28px"
 
     return (
-        <Link
-            href={`/${locale}/chat?task=${task.id}`}
-            className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:border-slate-300 hover:shadow-lg dark:border-white/10 dark:bg-zinc-900/60 dark:bg-gradient-to-br dark:from-white/[0.05] dark:to-transparent dark:hover:border-white/20 dark:hover:shadow-[0_8px_32px_rgba(62,207,142,0.15)] ${className ?? ""}`}
-        >
-            {/* Thumbnail Area */}
-            <div className="relative aspect-video w-full overflow-hidden bg-slate-100 dark:bg-black/40 shrink-0">
+        <span className={cn(
+            "relative shrink-0 overflow-hidden border border-slate-200 bg-white dark:border-white/10 dark:bg-zinc-900",
+            sizeClass
+        )}>
+            {source.avatarUrl ? (
+                <Image src={source.avatarUrl} alt="" fill sizes={imageSize} className="object-cover" />
+            ) : (
+                <span className="flex size-full items-center justify-center text-xs font-semibold text-slate-600 dark:text-zinc-300" aria-hidden="true">
+                    {source.name.slice(0, 1).toUpperCase()}
+                </span>
+            )}
+        </span>
+    )
+}
+
+function EpisodeCard({ task, locale, copy, priority = false, sourceId = "all", query = "" }: { task: Task; locale: Locale; copy: PodcastCopy; priority?: boolean; sourceId?: string; query?: string }) {
+    const source = sourceForTask(task)
+    if (!source) return null
+    const title = task.video_title || task.video_url
+
+    return (
+        <article className="group flex flex-col border border-slate-200 bg-white/70 transition-colors hover:border-emerald-500/50 dark:border-white/15 dark:bg-black/20 dark:hover:border-emerald-400/50">
+            <Link href={taskDetailHref(task, locale, sourceId, query)} className="relative block aspect-video overflow-hidden bg-slate-100 dark:bg-zinc-950">
                 {task.thumbnail_url ? (
                     <Image
-                        src={task.thumbnail_url}
-                        alt={task.video_title || "Video thumbnail"}
-                        fill
-                        className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:contrast-[1.1]"
+                        src={task.thumbnail_url} alt={title} fill
+                        className="object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.025]"
                         referrerPolicy="no-referrer"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                        loading={highPriorityThumbnail ? "eager" : "lazy"}
-                        fetchPriority={highPriorityThumbnail ? "high" : "auto"}
+                        unoptimized
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1119px) 33vw, 25vw"
+                        loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"}
                     />
                 ) : (
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <PlayCircle className="h-12 w-12 text-white/20 group-hover:text-primary transition-colors duration-300" />
-                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center"><SourceMark source={source} /></div>
                 )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-70" />
+            </Link>
 
-                {/* Gradient Overlay - Cinematic Fade */}
-                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
-
-                {/* Platform Badge */}
-                <div className="absolute top-3 left-3 flex items-center gap-2">
-                    <span className="rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-md px-2.5 py-1 text-[10px] font-medium text-slate-700 dark:text-white/80 border border-slate-200 dark:border-white/10">
-                        {platform}
-                    </span>
+            <div className="flex flex-1 flex-col px-4 pb-3 pt-3">
+                <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    <SourceMark source={source} size="compact" />
+                    <span className="truncate">{source.name}</span>
+                </div>
+                <Link href={taskDetailHref(task, locale, sourceId, query)} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-[1.4] tracking-[-0.02em] text-slate-950 transition-colors hover:text-emerald-700 dark:text-white dark:hover:text-emerald-400">{title}</h3>
+                </Link>
+                <p className="mt-2 border-b border-slate-200 pb-2.5 text-[11px] text-slate-500 dark:border-white/10 dark:text-zinc-500">
+                    {metadataForTask(task, locale, copy)}
+                </p>
+                <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+                    <Link
+                        href={taskDetailHref(task, locale, sourceId, query)}
+                        className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:text-zinc-950 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-zinc-950"
+                    >{copy.read}</Link>
+                    <a
+                        href={task.video_url || source.channelUrl} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-slate-600 transition-colors hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-zinc-300 dark:hover:text-emerald-400"
+                    >
+                        {copy.source}<ExternalLink className="size-3.5" aria-hidden="true" />
+                    </a>
                 </div>
             </div>
+        </article>
+    )
+}
 
-            {/* Content Area */}
-            <div className="flex flex-1 flex-col p-4">
-                <h3 className="font-semibold text-foreground line-clamp-2 text-sm leading-snug group-hover:text-slate-900 dark:group-hover:text-white transition-colors mb-2">
-                    {task.video_title || task.video_url}
-                </h3>
-
-                {/* Author Info */}
-                <div className="mt-auto flex items-center justify-between gap-3">
-                    {showAuthor ? (
-                        <div className="flex items-center gap-2 min-w-0">
-                            {task.author_image_url ? (
-                                <div className="relative h-5 w-5 shrink-0 rounded-full overflow-hidden border border-slate-200 dark:border-white/10">
-                                    <Image
-                                        src={task.author_image_url}
-                                        alt={task.author || "Author"}
-                                        fill
-                                        className="object-cover"
-                                        referrerPolicy="no-referrer"
-                                        sizes="24px"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="h-5 w-5 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center border border-slate-300 dark:border-white/10 shrink-0">
-                                    <span className="text-[10px] text-slate-600 dark:text-white/70 font-bold leading-none">
-                                        {(task.author || "U").charAt(0).toUpperCase()}
-                                    </span>
-                                </div>
-                            )}
-                            <span className="text-xs font-medium text-slate-600 dark:text-white/60 truncate">
-                                {task.author}
-                            </span>
-                        </div>
-                    ) : (
-                        <div className="h-5" />
-                    )}
-                </div>
+function RecentEpisodeRow({ task, locale, sourceId = "all", query = "" }: { task: Task; locale: Locale; sourceId?: string; query?: string }) {
+    const source = sourceForTask(task)
+    if (!source) return null
+    return (
+        <Link
+            href={taskDetailHref(task, locale, sourceId, query)}
+            className="group grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-slate-200 px-2 py-3 transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/10 dark:hover:bg-white/[0.035]"
+        >
+            <SourceMark source={source} size="small" />
+            <div className="min-w-0 md:grid md:grid-cols-[minmax(0,1.4fr)_minmax(10rem,0.6fr)] md:items-center md:gap-6">
+                <p className="truncate text-sm font-semibold text-slate-900 dark:text-zinc-100">{task.video_title || task.video_url}</p>
+                <p className="mt-1 truncate text-xs text-emerald-700 md:mt-0 dark:text-emerald-400">{source.name}</p>
             </div>
+            <ArrowRight className="size-4 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-600 dark:text-zinc-600 dark:group-hover:text-emerald-400" aria-hidden="true" />
         </Link>
+    )
+}
+
+function episodeGridClass(taskCount: number) {
+    return cn(
+        "grid w-full grid-cols-1 justify-start gap-px",
+        taskCount === 1 && "max-w-[21rem]",
+        taskCount === 2 && "sm:max-w-[42rem] sm:grid-cols-2",
+        taskCount === 3 && "sm:max-w-[42rem] sm:grid-cols-2 lg:max-w-[63rem] lg:grid-cols-3",
+        taskCount >= 4 && "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
     )
 }
 
@@ -152,158 +228,211 @@ type CommunityTemplatesProps = {
     initialStatus?: "ready" | "unavailable"
     layout?: CommunityTemplatesLayout
     locale: Locale
-    copy: {
-        loading: string
-        title: string
-        hint: string
-        unavailable: string
-    }
+    copy: CommunityCopy
+    intro?: CommunityTemplatesIntro
+    initialSource?: string
+    initialQuery?: string
 }
 
-export function CommunityTemplates({
-    limit,
-    showHeader = true,
-    initialTasks = [],
-    initialStatus = "ready",
-    layout = "gallery",
-    locale,
-    copy,
-}: CommunityTemplatesProps) {
-    const [tasks, setTasks] = useState<Task[]>(initialTasks)
-    const [loading, setLoading] = useState(initialTasks.length === 0 && initialStatus === "ready")
-    const [isUnavailable, setIsUnavailable] = useState(initialStatus === "unavailable")
-    const supabase = useMemo(() => createClient(), [])
+export function CommunityTemplates({ showHeader = true, initialTasks = [], initialStatus = "ready", layout = "gallery", locale, copy, intro, initialSource = "all", initialQuery = "" }: CommunityTemplatesProps) {
+    const tasks = initialTasks
+    const knownInitialSourceIds = useMemo(() => new Set([
+        ...PODCAST_SOURCES.map((source) => source.id),
+        ...initialTasks.map((task) => task.source?.id).filter((id): id is string => Boolean(id)),
+    ]), [initialTasks])
+    const normalizedInitialSource = initialSource === "all" || knownInitialSourceIds.has(initialSource)
+        ? initialSource
+        : "all"
+    const [selectedSource, setSelectedSource] = useState(normalizedInitialSource)
+    const [showAllSources, setShowAllSources] = useState(false)
+    const [visibleTaskCount, setVisibleTaskCount] = useState(10)
+    const [query, setQuery] = useState(initialQuery.slice(0, 120))
+    const podcastCopy = PODCAST_COPY[locale]
+
+    const updateLibraryUrl = (sourceId: string, nextQuery: string, mode: "push" | "replace") => {
+        if (typeof window === "undefined") return
+        const params = new URLSearchParams(window.location.search)
+        if (sourceId === "all") params.delete("show")
+        else params.set("show", sourceId)
+        const trimmedQuery = nextQuery.trim()
+        if (trimmedQuery) params.set("q", trimmedQuery)
+        else params.delete("q")
+        const search = params.toString()
+        const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`
+        if (mode === "push") window.history.pushState(null, "", nextUrl)
+        else window.history.replaceState(null, "", nextUrl)
+    }
+
+    const selectSource = (sourceId: string) => {
+        if (sourceId === selectedSource) return
+        setSelectedSource(sourceId)
+        setVisibleTaskCount(10)
+        updateLibraryUrl(sourceId, query, "push")
+    }
+
+    const clearFilters = () => {
+        setSelectedSource("all")
+        setQuery("")
+        setVisibleTaskCount(10)
+        updateLibraryUrl("all", "", "replace")
+    }
 
     useEffect(() => {
-        if (initialTasks.length > 0 || initialStatus === "unavailable") {
-            return
+        const syncFromHistory = () => {
+            const params = new URLSearchParams(window.location.search)
+            const source = params.get("show") || "all"
+            setSelectedSource(source === "all" || knownInitialSourceIds.has(source) ? source : "all")
+            setQuery((params.get("q") || "").slice(0, 120))
+            setVisibleTaskCount(10)
         }
+        window.addEventListener("popstate", syncFromHistory)
+        return () => window.removeEventListener("popstate", syncFromHistory)
+    }, [knownInitialSourceIds])
 
-        let cancelled = false
+    const podcastTasks = useMemo(() => tasks.filter((task) => Boolean(sourceForTask(task))), [tasks])
+    const sourceCounts = useMemo(() => {
+        const counts = new Map<string, number>()
+        podcastTasks.forEach((task) => {
+            const source = sourceForTask(task)
+            if (source) counts.set(source.id, (counts.get(source.id) ?? 0) + 1)
+        })
+        return counts
+    }, [podcastTasks])
+    const filteredTasks = useMemo(() => {
+        const normalizedQuery = query.trim().toLowerCase()
+        return podcastTasks.filter((task) => {
+            const source = sourceForTask(task)
+            if (!source || (selectedSource !== "all" && source.id !== selectedSource)) return false
+            if (!normalizedQuery) return true
+            return [task.video_title, task.author, task.takeaway, source.name]
+                .filter(Boolean).some((value) => value?.toLowerCase().includes(normalizedQuery))
+        })
+    }, [podcastTasks, query, selectedSource])
 
-        async function fetchDemoTasks() {
-            setLoading(true)
-            const timeoutMs = 6000
-            let timeoutId: ReturnType<typeof setTimeout> | null = null
-            const timeout = new Promise<null>((resolve) => {
-                timeoutId = setTimeout(() => resolve(null), timeoutMs)
-            })
+    const availableSources = useMemo(() => {
+        const sources = new Map<string, PodcastSource>()
+        podcastTasks.forEach((task) => {
+            const source = sourceForTask(task)
+            if (source) sources.set(source.id, source)
+        })
+        return [...sources.values()].sort((left, right) =>
+            (left.order ?? 1000) - (right.order ?? 1000) || left.name.localeCompare(right.name)
+        )
+    }, [podcastTasks])
+    const featuredSources = useMemo(() => [
+        ...availableSources.filter((source) => source.featured),
+        ...availableSources.filter((source) => !source.featured),
+    ].slice(0, 5), [availableSources])
 
-            try {
-                let query = supabase
-                    .from('tasks')
-                    .select(`
-                        id, 
-                        video_url, 
-                        video_title, 
-                        thumbnail_url, 
-                        status, 
-                        created_at, 
-                        author, 
-                        author_image_url
-                    `)
-                    .eq('is_demo', true)
-                    .eq('status', 'completed')
-                    .order('created_at', { ascending: false })
+    if (initialStatus === "unavailable") return <p className="py-10 text-sm text-slate-500 dark:text-zinc-400" role="status">{copy.unavailable}</p>
 
-                if (limit) {
-                    query = query.limit(limit)
-                }
+    const selectedSourceNeedsExpansion = selectedSource !== "all" && !featuredSources.some((source) => source.id === selectedSource)
+    const sourcesExpanded = showAllSources || selectedSourceNeedsExpansion
+    const visibleSources = sourcesExpanded ? availableSources : featuredSources
+    const canToggleAllSources = availableSources.length > featuredSources.length
+    const cardTasks = filteredTasks.slice(0, 4)
+    const recentTasks = filteredTasks.slice(4, visibleTaskCount)
 
-                const result = await Promise.race([query, timeout])
-
-                if (cancelled || result === null) {
-                    if (result === null && !cancelled) {
-                        console.warn("Demo tasks fetch timed out.")
-                        setIsUnavailable(true)
-                    }
-                    return
-                }
-
-                const { data, error } = result
-
-                if (data) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    setTasks(data as any as Task[])
-                } else if (error) {
-                    console.error("Error fetching demo tasks:", error)
-                    setIsUnavailable(true)
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    console.error("Error fetching demo tasks:", error)
-                    setIsUnavailable(true)
-                }
-            } finally {
-                if (timeoutId) {
-                    clearTimeout(timeoutId)
-                }
-                if (!cancelled) {
-                    setLoading(false)
-                }
-            }
-        }
-
-        fetchDemoTasks()
-
-        return () => {
-            // Prevent state updates after unmount.
-            cancelled = true
-        }
-    }, [initialStatus, limit, initialTasks.length, supabase])
-
-    if (loading) {
+    if (layout === "landingPreview") {
+        if (cardTasks.length === 0) return null
         return (
-            <div className="flex items-center justify-center py-12 text-muted-foreground/70" role="status" aria-live="polite">
-                <Loader2 className="h-6 w-6 animate-spin mr-3 text-primary" />
-                <span className="text-sm font-medium">{copy.loading}</span>
+            <div className={episodeGridClass(cardTasks.length)}>
+                {cardTasks.map((task, index) => <EpisodeCard key={task.id} task={task} locale={locale} copy={podcastCopy} priority={index === 0} sourceId={selectedSource} query={query} />)}
             </div>
         )
     }
 
-    if (isUnavailable) {
-        return (
-            <p className="py-4 text-sm text-slate-500 dark:text-zinc-400" role="status" aria-live="polite">
-                {copy.unavailable}
-            </p>
-        )
-    }
-
-    if (tasks.length === 0) {
-        return null
-    }
-
-    const gridLayout = layout === "landingPreview" && tasks.length >= 4
-        ? "landingPreviewWide"
-        : layout
+    const searchField = (
+        <section id="podcast-search" aria-label={podcastCopy.search} className="w-full scroll-mt-24">
+            <label className="relative block w-full">
+                <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-zinc-300">{podcastCopy.search}</span>
+                <span className="relative block">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" aria-hidden="true" />
+                    <input
+                        type="search"
+                        value={query}
+                        maxLength={120}
+                        onChange={(event) => {
+                            const nextQuery = event.target.value
+                            setQuery(nextQuery)
+                            setVisibleTaskCount(10)
+                            updateLibraryUrl(selectedSource, nextQuery, "replace")
+                        }}
+                        placeholder={podcastCopy.searchPlaceholder}
+                        className="h-12 w-full rounded-xl border border-slate-300 bg-white/80 pl-11 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/15 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                    />
+                </span>
+            </label>
+        </section>
+    )
 
     return (
-        <div className="space-y-6">
-            {showHeader && (
-                <div className="flex items-end justify-between px-1">
-                    <div className="flex flex-col gap-1">
-                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                            <Sparkles className="h-5 w-5 text-primary" />
-                            {copy.title}
-                        </h2>
-                        <span className="text-sm text-slate-500 dark:text-white/40 font-medium tracking-wide">
-                            {copy.hint}
-                        </span>
+        <div className="space-y-8">
+            {intro && (
+                <header className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,36rem)] lg:items-end lg:gap-12">
+                    <div className="max-w-3xl">
+                        <p className="mb-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">{intro.eyebrow}</p>
+                        <h1 className="font-display text-4xl font-bold tracking-[-0.035em] text-slate-950 sm:text-5xl dark:text-white">{intro.title}</h1>
+                        <p className="mt-3 text-base text-slate-600 dark:text-zinc-400">{intro.description}</p>
                     </div>
-                </div>
+                    <div className="w-full lg:justify-self-end lg:pb-1">{searchField}</div>
+                </header>
             )}
 
-            <div className={communityGrid({ layout: gridLayout })}>
-                {tasks.map((task, index) => (
-                    <TemplateCard
-                        key={task.id}
-                        task={task}
-                        locale={locale}
-                        highPriorityThumbnail={index === 0}
-                        className={layout === "landingPreview" && index >= 3 ? "hidden xl:flex" : undefined}
-                    />
-                ))}
-            </div>
+            {showHeader && <div><h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">{copy.title}</h2><p className="mt-2 text-sm text-slate-600 dark:text-zinc-400">{copy.hint}</p></div>}
+
+            <section id="podcast-sources" aria-labelledby="podcast-source-heading" className="scroll-mt-24 border-b border-slate-200 pb-6 dark:border-white/10">
+                <h2 id="podcast-source-heading" className="mb-3 text-base font-semibold text-slate-950 dark:text-zinc-100">{podcastCopy.sourceShelf}</h2>
+                <div className={cn("flex items-center gap-x-5 gap-y-4", sourcesExpanded ? "flex-wrap" : "overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible sm:pb-0")}>
+                    <button type="button" onClick={() => selectSource("all")} aria-pressed={selectedSource === "all"} className={cn("min-h-11 shrink-0 rounded-full border px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500", selectedSource === "all" ? "border-emerald-600 text-emerald-700 dark:border-emerald-400 dark:text-white" : "border-slate-200 text-slate-600 hover:border-emerald-500/50 dark:border-white/10 dark:text-zinc-400")}>{podcastCopy.all}</button>
+                    {visibleSources.map((source) => {
+                        const count = sourceCounts.get(source.id) ?? 0
+                        return (
+                            <button key={source.id} type="button" onClick={() => selectSource(source.id)} aria-pressed={selectedSource === source.id} className={cn("flex min-h-12 shrink-0 items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500", selectedSource === source.id ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-400/10 dark:text-white" : "hover:bg-slate-100 dark:hover:bg-white/[0.04]") }>
+                                <SourceMark source={source} size="small" />
+                                <span><span className="block text-sm font-semibold text-slate-900 dark:text-zinc-100">{source.name}</span><span className="mt-0.5 block text-[11px] text-slate-500 dark:text-zinc-500">{count} {podcastCopy.episodeUnit}</span></span>
+                            </button>
+                        )
+                    })}
+                    {canToggleAllSources && !selectedSourceNeedsExpansion && (
+                        <button type="button" onClick={() => setShowAllSources((value) => !value)} className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:ml-auto dark:text-emerald-400 dark:hover:text-emerald-300">
+                            {sourcesExpanded ? podcastCopy.showLess : podcastCopy.showAll}<ChevronDown className={cn("size-4 transition-transform", sourcesExpanded && "rotate-180")} aria-hidden="true" />
+                        </button>
+                    )}
+                </div>
+            </section>
+
+            {!intro && <div className="max-w-xl">{searchField}</div>}
+
+            <section id="podcast-curated" aria-labelledby="podcast-curated-heading" className="scroll-mt-24">
+                <h2 id="podcast-curated-heading" className="mb-4 text-lg font-semibold text-slate-950 dark:text-zinc-100">{podcastCopy.curated}</h2>
+                {cardTasks.length > 0 ? (
+                    <div className={episodeGridClass(cardTasks.length)}>
+                        {cardTasks.map((task, index) => <EpisodeCard key={task.id} task={task} locale={locale} copy={podcastCopy} priority={index === 0} sourceId={selectedSource} query={query} />)}
+                    </div>
+                ) : (
+                    <div className="border border-dashed border-slate-300 px-5 py-10 text-center dark:border-white/15">
+                        <p className="text-sm text-slate-500 dark:text-zinc-500" role="status">{podcastCopy.empty}</p>
+                        {(selectedSource !== "all" || query) && (
+                            <button type="button" onClick={clearFilters} className="mt-4 inline-flex min-h-11 items-center rounded-full border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-500 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/15 dark:text-zinc-300 dark:hover:border-emerald-400 dark:hover:text-emerald-400">
+                                {podcastCopy.clearFilters}
+                            </button>
+                        )}
+                    </div>
+                )}
+            </section>
+
+            {recentTasks.length > 0 && (
+                <section id="podcast-topics" aria-labelledby="podcast-recent-heading" className="scroll-mt-24">
+                    <h2 id="podcast-recent-heading" className="mb-3 text-lg font-semibold text-slate-950 dark:text-zinc-100">{podcastCopy.recent}</h2>
+                    <div className="border border-slate-200 dark:border-white/10">{recentTasks.map((task) => <RecentEpisodeRow key={task.id} task={task} locale={locale} sourceId={selectedSource} query={query} />)}</div>
+                    {filteredTasks.length > visibleTaskCount && (
+                        <button type="button" onClick={() => setVisibleTaskCount((count) => count + 12)} className="mt-4 inline-flex min-h-11 items-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-500/60 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/15 dark:text-zinc-300 dark:hover:border-emerald-400/60 dark:hover:text-emerald-400">
+                            {podcastCopy.loadMore}
+                        </button>
+                    )}
+                </section>
+            )}
         </div>
     )
 }

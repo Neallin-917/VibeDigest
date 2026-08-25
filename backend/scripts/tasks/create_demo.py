@@ -28,20 +28,15 @@ from utils.env_loader import load_env  # noqa: E402
 
 load_env()
 
-from constants import OutputKind  # noqa: E402
 from db_client import DBClient  # noqa: E402
+from services.task_queue import PostgresTaskQueue, TaskQueue  # noqa: E402
 from utils.url import normalize_video_url  # noqa: E402
 
 
 DEFAULT_DEMO_URL = "https://www.youtube.com/watch?v=7rzYDM6vMtI"
 DEMO_USER_ENV_KEYS = ("VIBEDIGEST_DEMO_USER_ID", "DEMO_USER_ID")
-INITIAL_OUTPUT_KINDS = [
-    OutputKind.SCRIPT.value,
-    OutputKind.SUMMARY.value,
-]
-
 logger = logging.getLogger(__name__)
-WorkflowRunner = Callable[[str, str, str], Awaitable[None]]
+CatalogRunner = Callable[[int], Awaitable[int]]
 
 
 @dataclass(frozen=True)
@@ -79,41 +74,40 @@ def resolve_demo_user_id(db: DBClient, explicit_user_id: str | None = None) -> s
     return str(rows[0]["id"])
 
 
-def _load_workflow_runner() -> WorkflowRunner:
-    from services.job_handlers import run_pipeline
+def _load_catalog_runner() -> CatalogRunner:
+    from scripts.tasks.process_catalog_supply import run
 
-    return run_pipeline
+    return run
 
 
 async def create_demo_task(
     *,
     db: DBClient,
+    task_queue: TaskQueue,
     video_url: str,
     user_id: str | None = None,
     video_title: str | None = None,
     run_workflow: bool = True,
-    workflow_runner: WorkflowRunner | None = None,
+    workflow_runner: CatalogRunner | None = None,
 ) -> DemoTaskResult:
     normalized_url = normalize_video_url(video_url)
     if not normalized_url:
         raise ValueError("Invalid video URL")
 
     resolved_user_id = resolve_demo_user_id(db, user_id)
-    task = db.create_task(
+    submission = task_queue.submit_catalog_video(
         user_id=resolved_user_id,
         video_url=normalized_url,
-        video_title=video_title,
-        is_demo=True,
+        publish_on_complete=True,
+        output_intent={"source": "manual_demo"},
     )
-    if not task:
-        raise RuntimeError("Failed to create demo task")
-
-    task_id = str(task["id"])
-    db.ensure_task_outputs(task_id, resolved_user_id, INITIAL_OUTPUT_KINDS)
+    task_id = submission.task_id
+    if video_title:
+        db.update_task_status(task_id, video_title=video_title)
 
     if run_workflow:
-        runner = workflow_runner or _load_workflow_runner()
-        await runner(task_id, normalized_url, resolved_user_id)
+        runner = workflow_runner or _load_catalog_runner()
+        await runner(1)
 
     latest_task: dict[str, Any] | None = None
     try:
@@ -125,7 +119,7 @@ async def create_demo_task(
         task_id=task_id,
         user_id=resolved_user_id,
         video_url=normalized_url,
-        status=str((latest_task or task).get("status") or ""),
+        status=str((latest_task or {}).get("status") or "pending"),
         ran_workflow=run_workflow,
     )
 
@@ -159,10 +153,12 @@ async def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = parse_args()
     db = DBClient()
+    task_queue = PostgresTaskQueue(db)
 
     try:
         result = await create_demo_task(
             db=db,
+            task_queue=task_queue,
             video_url=args.url,
             user_id=args.user_id,
             video_title=args.title,

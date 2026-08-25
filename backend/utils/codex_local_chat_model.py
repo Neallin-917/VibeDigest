@@ -1,8 +1,9 @@
 """LangChain adapter for trusted local Codex inference.
 
 The adapter deliberately creates an ephemeral, read-only Codex thread per
-request. It is intended for local development only: production keeps using an
-HTTP model provider, while CI continues to use mocks and replay fixtures.
+request. It is used by trusted local development and the bounded internal
+catalog-supply worker. Hosted product services keep using an HTTP provider,
+while CI continues to use mocks and replay fixtures.
 """
 
 from __future__ import annotations
@@ -119,9 +120,15 @@ class CodexLocalChatModel(BaseChatModel):
         prompt = render_messages_as_prompt(messages)
         semaphore = self._get_semaphore(self.max_concurrency)
         async with semaphore:
-            response_text = await asyncio.wait_for(
-                self._run_codex_turn(prompt), timeout=self.timeout_seconds
-            )
+            try:
+                response_text = await asyncio.wait_for(
+                    self._run_codex_turn(prompt), timeout=self.timeout_seconds
+                )
+            except TimeoutError as exc:
+                raise TimeoutError(
+                    "Codex local inference timed out after "
+                    f"{self.timeout_seconds} seconds"
+                ) from exc
 
         response_text = _apply_stop_sequences(response_text, stop)
         return ChatResult(

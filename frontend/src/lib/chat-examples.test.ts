@@ -37,8 +37,11 @@ describe("getChatExamples", () => {
       next?: { revalidate?: number }
     }]
     expect(requestUrl.searchParams.get("select")).toBe(
-      "id,video_url,video_title,thumbnail_url"
+      "id,video_url,video_title,thumbnail_url,task_outputs!inner(id)"
     )
+    expect(requestUrl.searchParams.get("publication_status")).toBe("eq.published")
+    expect(requestUrl.searchParams.get("task_outputs.kind")).toBe("eq.summary")
+    expect(requestUrl.searchParams.get("task_outputs.status")).toBe("eq.completed")
     expect(requestUrl.searchParams.get("limit")).toBe(String(CHAT_EXAMPLE_LIMIT))
     expect(requestInit.next?.revalidate).toBe(300)
   })
@@ -71,6 +74,9 @@ describe("getChatExamples", () => {
     expect(requestUrl.searchParams.get("id")).toBe(`eq.${taskId}`)
     expect(requestUrl.searchParams.get("is_demo")).toBe("eq.true")
     expect(requestUrl.searchParams.get("status")).toBe("eq.completed")
+    expect(requestUrl.searchParams.get("publication_status")).toBe("eq.published")
+    expect(requestUrl.searchParams.get("task_outputs.kind")).toBe("eq.summary")
+    expect(requestUrl.searchParams.get("task_outputs.status")).toBe("eq.completed")
     expect(requestUrl.searchParams.get("limit")).toBe("1")
   })
 

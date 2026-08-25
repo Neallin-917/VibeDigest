@@ -10,22 +10,25 @@ import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
 
 const EXPLORE_COPY = {
     en: {
-        title: "Explore community summaries",
-        description: "Browse real examples created with VibeDigest.",
+        eyebrow: "VibeDigest Agent output",
+        title: "Podcasts, already organized",
+        description: "Open a finished digest with the summary, key ideas, transcript, and source-grounded follow-up.",
         privacy: "Privacy Policy",
         terms: "Terms of Service",
         copyright: "All rights reserved.",
     },
     zh: {
-        title: "探索社区摘要",
-        description: "浏览使用 VibeDigest 创建的真实示例。",
+        eyebrow: "VibeDigest Agent 输出",
+        title: "已经整理好的播客",
+        description: "直接查看摘要、关键观点和逐字稿，也可以基于原内容继续追问。",
         privacy: "隐私政策",
         terms: "服务条款",
         copyright: "保留所有权利。",
     },
     ja: {
-        title: "コミュニティの要約を見る",
-        description: "VibeDigestで作成された実例を閲覧できます。",
+        eyebrow: "VibeDigest Agent の出力",
+        title: "整理済みのポッドキャスト",
+        description: "要約、重要ポイント、文字起こしを読み、元の内容に基づいて続けて質問できます。",
         privacy: "プライバシーポリシー",
         terms: "利用規約",
         copyright: "All rights reserved.",
@@ -34,19 +37,19 @@ const EXPLORE_COPY = {
 
 const SEO_COPY: Record<string, { title: string; description: string }> = {
     en: {
-        title: "Explore AI Video Summaries | VibeDigest",
+        title: "Ready-made Podcast Digests | VibeDigest",
         description:
-            "Browse a curated library of AI-generated video summaries. Discover insights from tutorials, news, tech reviews, and more.",
+            "Browse finished podcast digests created by the VibeDigest Agent, including summaries, key ideas, transcripts, and follow-up.",
     },
     zh: {
-        title: "探索 AI 视频摘要 | VibeDigest",
+        title: "播客整理内容库 | VibeDigest",
         description:
-            "浏览精选的 AI 视频摘要库，快速获取教程、新闻、评测等内容的核心要点。",
+            "浏览由 VibeDigest Agent 整理完成的公开播客内容，包括摘要、关键观点、逐字稿和继续追问。",
     },
     ja: {
-        title: "AI動画要約を探索 | VibeDigest",
+        title: "整理済みポッドキャスト | VibeDigest",
         description:
-            "厳選されたAI動画要約ライブラリを閲覧。チュートリアル、ニュース、テクレビューなどのインサイトを発見。",
+            "VibeDigest Agent が整理したポッドキャストの要約、重要ポイント、文字起こしを閲覧できます。",
     },
 }
 
@@ -78,48 +81,45 @@ export async function generateMetadata({
     }
 }
 
-export default async function ExplorePage({ params }: { params: Promise<{ lang: string }> }) {
-    const { lang } = await params
+export default async function ExplorePage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ lang: string }>
+    searchParams: Promise<{ show?: string | string[]; q?: string | string[] }>
+}) {
+    const [{ lang }, queryState] = await Promise.all([params, searchParams])
     const locale = isLocale(lang) ? lang : DEFAULT_LOCALE
     const copy = EXPLORE_COPY[locale]
+    const initialSource = typeof queryState.show === "string" ? queryState.show : "all"
+    const initialQuery = typeof queryState.q === "string" ? queryState.q.slice(0, 120) : ""
 
     return (
-        <div className="min-h-screen bg-transparent text-slate-800 dark:text-[#F5F5F5] font-sans flex flex-col">
+        <div className="min-h-screen bg-transparent font-sans text-slate-800 dark:text-[#F5F5F5]">
             <LandingNav />
 
-            {/* Background Blobs (Light Mode) */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none dark:hidden -z-10">
-                <div className="blob blob-1"></div>
-                <div className="blob blob-2"></div>
-                <div className="blob blob-3"></div>
+            <div className="fixed inset-0 -z-10 bg-[color:var(--background)] dark:bg-[#090b0b]">
+                <div className="absolute inset-0 hidden bg-grid opacity-30 dark:block" />
             </div>
 
-            {/* Dark Mode Background */}
-            <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-[#0A0A0A]">
-                <div className="absolute inset-0 bg-grid opacity-30" />
-            </div>
-
-            <main className="flex-1 w-full max-w-6xl mx-auto px-6 py-24 relative z-10">
-                <div className="mb-12 text-center max-w-2xl mx-auto">
-                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-white/70">
-                        {copy.title}
-                    </h1>
-                    <p className="text-base text-slate-600 dark:text-gray-400">
-                        {copy.description}
-                    </p>
-
-                </div>
-
+            <main className="relative z-10 mx-auto min-h-screen w-full max-w-[1440px] px-5 pb-14 pt-24 sm:px-8 md:pt-28 lg:px-14">
                 <Suspense fallback={<TemplatesSkeleton />}>
-                    <ServerCommunityTemplates limit={100} showHeader={false} locale={locale} />
+                    <ServerCommunityTemplates
+                        limit={100}
+                        showHeader={false}
+                        locale={locale}
+                        intro={copy}
+                        initialSource={initialSource}
+                        initialQuery={initialQuery}
+                    />
                 </Suspense>
             </main>
 
-            <footer className="py-8 text-center text-slate-500 dark:text-gray-600 text-xs border-t border-slate-200 dark:border-white/5 relative z-10 bg-white/50 dark:bg-[#0A0A0A] backdrop-blur-sm">
+            <footer className="relative z-10 border-t border-slate-200 bg-white/50 py-8 text-center text-xs text-slate-500 backdrop-blur-sm dark:border-white/5 dark:bg-[#090b0b] dark:text-zinc-600">
                 <p>© {new Date().getFullYear()} VibeDigest. {copy.copyright}</p>
                 <div className="mt-3 flex justify-center gap-5">
-                    <Link href={`/${locale}/privacy`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{copy.privacy}</Link>
-                    <Link href={`/${locale}/terms`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{copy.terms}</Link>
+                    <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center transition-colors hover:text-slate-900 dark:hover:text-white">{copy.privacy}</Link>
+                    <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center transition-colors hover:text-slate-900 dark:hover:text-white">{copy.terms}</Link>
                 </div>
             </footer>
         </div>

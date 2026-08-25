@@ -33,7 +33,7 @@ export function LandingUserButton() {
     }
 
     if (isPending) {
-        return <div className="h-8 w-20" aria-hidden="true" />
+        return <div className="h-11 w-20 md:h-9" aria-hidden="true" />
     }
 
     if (!user) {
@@ -42,7 +42,7 @@ export function LandingUserButton() {
                 asChild
                 variant="outline"
                 size="sm"
-                className="gap-2 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                className="h-11 gap-2 border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10 md:h-9"
             >
                 <Link href={`/${locale}/login`}>
                     {t("auth.signUp")}
@@ -72,7 +72,7 @@ export function LandingUserButton() {
                 <DropdownMenuTrigger asChild>
                     <button
                         aria-label={t("chat.moreOptionsHint")}
-                        className="flex items-center gap-2 rounded-full hover:ring-2 hover:ring-primary/50 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="flex h-11 w-11 items-center justify-center gap-2 rounded-full transition-all hover:ring-2 hover:ring-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
                         {avatarUrl ? (
                             <Image

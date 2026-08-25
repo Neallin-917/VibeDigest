@@ -50,6 +50,7 @@ describe("LandingNav", () => {
     beforeEach(() => {
         vi.clearAllMocks()
             ; (usePathname as any).mockReturnValue("/en")
+        Object.defineProperty(window, "scrollY", { value: 0, writable: true, configurable: true })
     })
 
     it("renders core elements", () => {
@@ -66,9 +67,9 @@ describe("LandingNav", () => {
         const logoLink = screen.getByText("Logo").closest("a")
         expect(logoLink).toHaveAttribute("href", "/en#hero")
 
-        // Mobile and Desktop menus might both render "Demos" - verify text exists
-        // (Detailed href check omitted due to testing-library duplicate element complexity)
-        expect(screen.getAllByText("Demos").length).toBeGreaterThan(0)
+        const libraryLinks = screen.getAllByText("Demos").map((node) => node.closest("a"))
+        expect(libraryLinks.length).toBeGreaterThan(0)
+        libraryLinks.forEach((link) => expect(link).toHaveAttribute("href", "/en/explore"))
     })
 
     it("renders router links correctly", () => {
@@ -80,20 +81,32 @@ describe("LandingNav", () => {
     it("uses a fine underline for desktop navigation feedback", () => {
         render(<LandingNav />)
 
-        const demosLink = screen.getAllByText("Demos")[0].closest("a")
-        expect(demosLink).toHaveClass(
+        const libraryLink = screen.getAllByText("Demos")[0].closest("a")
+        expect(libraryLink).toHaveClass(
             "after:scale-x-0",
             "hover:after:scale-x-100",
             "focus-visible:after:scale-x-100",
             "after:duration-200"
         )
-        expect(demosLink).not.toHaveClass("hover:bg-slate-100")
+        expect(libraryLink).not.toHaveClass("hover:bg-slate-100")
     })
 
-    it("handles scroll state", () => {
+    it("marks the shared library navigation item as current on the explore route", () => {
+        ; (usePathname as any).mockReturnValue("/en/explore")
         render(<LandingNav />)
-        fireEvent.scroll(window, { target: { scrollY: 100 } })
-        // Could verify class change if we specifically test for it, 
-        // but verifying no crash is sufficient for this level.
+
+        const currentLinks = screen.getAllByText("Demos").map((node) => node.closest("a"))
+        currentLinks.forEach((link) => expect(link).toHaveAttribute("aria-current", "page"))
+        expect(currentLinks[0]).toHaveClass("after:scale-x-100", "text-slate-950")
+    })
+
+    it("adds a readable navigation surface after scrolling", () => {
+        render(<LandingNav />)
+        Object.defineProperty(window, "scrollY", { value: 100, writable: true, configurable: true })
+        fireEvent.scroll(window)
+
+        const navSurface = screen.getByRole("navigation").firstElementChild
+        expect(navSurface).toHaveAttribute("data-scrolled", "true")
+        expect(navSurface).toHaveClass("bg-white/90", "backdrop-blur-xl")
     })
 })

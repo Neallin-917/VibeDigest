@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { useEffect, useState } from "react"
 
 type NavItem = {
     id: string
@@ -23,7 +25,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
     { id: "hero", key: "product" },
-    { id: "demos", key: "demos" },
+    { id: "library", key: "demos", href: "/explore" },
     { id: "features", key: "features" },
     { id: "how-it-works", key: "howItWorks" },
     { id: "pricing", key: "pricing" },
@@ -40,6 +42,15 @@ const desktopNavLinkClass =
 
 export function LandingNav() {
     const { locale, t } = useI18n()
+    const pathname = usePathname()
+    const [isScrolled, setIsScrolled] = useState(false)
+
+    useEffect(() => {
+        const updateScrolledState = () => setIsScrolled(window.scrollY > 24)
+        updateScrolledState()
+        window.addEventListener("scroll", updateScrolledState, { passive: true })
+        return () => window.removeEventListener("scroll", updateScrolledState)
+    }, [])
 
     // Labels for navigation items
     const labels: Record<string, string> = {
@@ -50,14 +61,24 @@ export function LandingNav() {
         pricing: t("landing.navPricing"),
         faq: t("landing.navFAQ"),
     }
+    const hrefForItem = (item: NavItem) => item.href
+        ? `/${locale}${item.href}`
+        : `/${locale}/#${item.id}`
+    const isCurrentItem = (item: NavItem) => Boolean(item.href && pathname === `/${locale}${item.href}`)
 
     return (
         <nav aria-label={t("nav.menu")} className="pointer-events-none fixed left-0 right-0 top-4 z-50 flex h-14 items-center px-6">
-            <div className="max-w-7xl mx-auto w-full flex items-center justify-between pointer-events-auto">
+            <div
+                data-scrolled={isScrolled}
+                className={cn(
+                    "pointer-events-auto mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between transition-[background-color,border-color,box-shadow] duration-200",
+                    isScrolled && "rounded-2xl border border-slate-200/80 bg-white/90 px-3 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-black/25"
+                )}
+            >
                 {/* Left: Brand Logo */}
                 <Link
                     href={`/${locale}/#hero`}
-                    className="flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80"
+                    className="inline-flex min-h-11 flex-shrink-0 cursor-pointer items-center transition-opacity hover:opacity-80"
                 >
                     <BrandLogo textClassName="text-lg tracking-tight" />
                 </Link>
@@ -68,26 +89,22 @@ export function LandingNav() {
                         "flex items-center gap-1 rounded-full border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm",
                         "dark:border-white/10 dark:bg-zinc-900"
                     )}>
-                        {navItems.slice(1).map((item) => (
-                            item.href ? (
+                        {navItems.slice(1).map((item) => {
+                            const isCurrent = isCurrentItem(item)
+                            return (
                                 <Link
                                     key={item.id}
-                                    href={`/${locale}${item.href}`}
-                                    className={desktopNavLinkClass}
-                                >
-                                    {labels[item.key]}
-                                </Link>
-                            ) : (
-                                <Link
-                                    key={item.id}
-                                    href={`/${locale}/#${item.id}`}
-                                    className={desktopNavLinkClass}
+                                    href={hrefForItem(item)}
+                                    aria-current={isCurrent ? "page" : undefined}
+                                    className={cn(
+                                        desktopNavLinkClass,
+                                        isCurrent && "text-slate-950 after:scale-x-100 dark:text-white"
+                                    )}
                                 >
                                     {labels[item.key]}
                                 </Link>
                             )
-
-                        ))}
+                        })}
                     </div>
                 </div>
 
@@ -108,7 +125,7 @@ export function LandingNav() {
                                 <button
                                     type="button"
                                     aria-label={t("nav.menu")}
-                                    className="p-2 -mr-2 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10 transition-colors"
+                                    className="-mr-3 flex h-11 w-11 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
                                 >
                                     <Menu className="w-5 h-5" />
                                 </button>
@@ -133,30 +150,23 @@ export function LandingNav() {
                                         {t("auth.goToDashboard")}
                                     </Link>
                                 </DropdownMenuItem>
-                                {navItems.slice(1).map((item) => (
-                                    item.href ? (
-                                        <DropdownMenuItem
-                                            key={item.id}
-                                            asChild
-                                        >
-                                            <Link href={`/${locale}${item.href}`} className="cursor-pointer text-slate-700 dark:text-white/70 w-full">
-                                                {labels[item.key]}
-                                            </Link>
-                                        </DropdownMenuItem>
-                                    ) : (
-                                        <DropdownMenuItem
-                                            key={item.id}
-                                            asChild
-                                        >
+                                {navItems.slice(1).map((item) => {
+                                    const isCurrent = isCurrentItem(item)
+                                    return (
+                                        <DropdownMenuItem key={item.id} asChild>
                                             <Link
-                                                href={`/${locale}/#${item.id}`}
-                                                className="cursor-pointer w-full text-slate-700 dark:text-white/70"
+                                                href={hrefForItem(item)}
+                                                aria-current={isCurrent ? "page" : undefined}
+                                                className={cn(
+                                                    "w-full cursor-pointer text-slate-700 dark:text-white/70",
+                                                    isCurrent && "font-semibold text-slate-950 dark:text-white"
+                                                )}
                                             >
                                                 {labels[item.key]}
                                             </Link>
                                         </DropdownMenuItem>
                                     )
-                                ))}
+                                })}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>

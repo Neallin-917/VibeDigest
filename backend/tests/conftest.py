@@ -183,10 +183,23 @@ async def async_client(test_db) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_db_client] = lambda: test_db_client
     task_queue = MagicMock()
 
-    def submit_process_video(*, video_url, user_id, guest_id, output_intent=None):
+    def submit_process_video(
+        *,
+        video_url,
+        user_id,
+        guest_id,
+        output_intent=None,
+        is_demo=False,
+        publish_on_complete=False,
+    ):
         if guest_id and test_db_client.get_task_count(guest_id) >= 1:
             raise GuestQuotaExceededError("Guest quota exceeded")
-        task = test_db_client.create_task(user_id=user_id, video_url=video_url)
+        task = test_db_client.create_task(
+            user_id=user_id,
+            video_url=video_url,
+            is_demo=is_demo,
+            publish_on_complete=publish_on_complete,
+        )
         task_id = str(task["id"])
         for kind in ("script", "summary"):
             test_db_client.create_task_output(task_id, user_id, kind=kind)

@@ -18,7 +18,8 @@ const queryState = vi.hoisted(() => ({
         data: [],
         error: null,
     },
-}) as { result: QueryResult })
+    eqCalls: [] as Array<[string, unknown]>,
+}) as { result: QueryResult; eqCalls: Array<[string, unknown]> })
 
 const fixtureMode = vi.hoisted(() => ({ enabled: false }))
 
@@ -26,7 +27,10 @@ vi.mock("@/lib/supabase/server", () => ({
     createClient: async () => {
         const query = {
             select: () => query,
-            eq: () => query,
+            eq: (column: string, value: unknown) => {
+                queryState.eqCalls.push([column, value])
+                return query
+            },
             order: () => query,
             limit: () => Promise.resolve(queryState.result),
         }
@@ -49,11 +53,16 @@ vi.mock("./CommunityTemplates", () => ({
         initialTasks,
     }: {
         initialStatus: string
-        initialTasks: Array<{ video_title?: string }>
+        initialTasks: Array<{ video_title?: string; source?: { name: string } }>
     }) => (
-        <div data-testid="community-status">
-            {initialStatus}:{initialTasks.map(task => task.video_title).join(",")}
-        </div>
+        <>
+            <div data-testid="community-status">
+                {initialStatus}:{initialTasks.map(task => task.video_title).join(",")}
+            </div>
+            <div data-testid="community-sources">
+                {initialTasks.map(task => task.source?.name ?? "").join(",")}
+            </div>
+        </>
     ),
 }))
 
@@ -62,6 +71,7 @@ import { ServerCommunityTemplates } from "./ServerCommunityTemplates"
 describe("ServerCommunityTemplates", () => {
     afterEach(() => {
         fixtureMode.enabled = false
+        queryState.eqCalls = []
     })
 
     it("uses deterministic fixtures in local smoke mode", async () => {
@@ -70,7 +80,7 @@ describe("ServerCommunityTemplates", () => {
         render(await ServerCommunityTemplates({ limit: 2, showHeader: false, locale: "en" }))
 
         expect(screen.getByTestId("community-status")).toHaveTextContent(
-            "ready:How AI shortens the feedback loop,State of the Claw — Peter Steinberger"
+            "ready:From Prediction to Simulation: Teaching AI to Shape the Future,84 minutes of enterprise sales alpha | Jen Abel"
         )
     })
 
@@ -96,5 +106,49 @@ describe("ServerCommunityTemplates", () => {
         render(await ServerCommunityTemplates({ limit: 3, showHeader: false, locale: "en" }))
 
         expect(screen.getByTestId("community-status")).toHaveTextContent("ready")
+        expect(queryState.eqCalls).toContainEqual(["task_outputs.kind", "summary"])
+        expect(queryState.eqCalls).toContainEqual(["task_outputs.status", "completed"])
+        expect(queryState.eqCalls).toContainEqual(["publication_status", "published"])
+    })
+
+    it("accepts PostgREST one-to-one podcast episode relations", async () => {
+        queryState.result = {
+            data: [{
+                id: "task-1",
+                video_url: "https://www.youtube.com/watch?v=episode",
+                video_title: "A catalog episode",
+                status: "completed",
+                created_at: "2026-08-25T10:00:00Z",
+                task_outputs: [{
+                    kind: "summary",
+                    status: "completed",
+                    locale: "zh",
+                    created_at: "2026-08-25T10:05:00Z",
+                    content: {
+                        version: 5,
+                        language: "zh",
+                        tl_dr: "摘要",
+                        overview: "概览",
+                        keypoints: [],
+                    },
+                }],
+                podcast_episodes: {
+                    source: {
+                        slug: "latent-space",
+                        name: "Latent Space",
+                        source_url: "https://www.youtube.com/@LatentSpacePod",
+                        aliases: [],
+                        topics: ["agents"],
+                        featured: true,
+                        catalog_order: 1,
+                    },
+                },
+            }],
+            error: null,
+        }
+
+        render(await ServerCommunityTemplates({ limit: 3, showHeader: false, locale: "zh" }))
+
+        expect(screen.getByTestId("community-sources")).toHaveTextContent("Latent Space")
     })
 })

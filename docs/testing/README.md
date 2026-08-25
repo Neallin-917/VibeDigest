@@ -100,8 +100,9 @@ Routing rules:
 - `LLM_RUNTIME=api` uses an explicit `LLM_PROVIDER` when configured. The
   backwards-compatible fallback is `custom` when `OPENAI_BASE_URL` is present,
   otherwise OpenRouter.
-- `LLM_RUNTIME=codex_local` is a manual, trusted-machine path only; it must
-  never be selected by CI or hosted environments.
+- `LLM_RUNTIME=codex_local` is a trusted-machine path for local debugging and
+  the bounded `trusted_codex` catalog worker; it must never be selected by CI
+  or Railway services.
 
 ### LLM test markers
 
@@ -130,11 +131,13 @@ developer shell or CI job.
 
 ### Local Codex development boundary
 
-The backend can use `LLM_RUNTIME=codex_local` during a manual local debugging
-session. It runs the local Codex app-server through the Python SDK with an
+The backend can use `LLM_RUNTIME=codex_local` during manual local debugging or
+through the bounded `trusted_codex` catalog worker. It runs the local Codex
+app-server through the Python SDK with an
 ephemeral, read-only, no-approval thread. In development only, the Next.js
 chat route uses the same logged-in Codex runtime through a constrained local
-bridge for source-grounded follow-ups. This is intentionally not an E2E or CI
+bridge for source-grounded follow-ups. Catalog-worker unit tests mock the
+ChatGPT account response and model calls. This is intentionally not an E2E or CI
 transport: Codex usage limits and agent semantics are different from the
 production API. Hosted chat always retains the standard API provider and its
 application-owned tool protocol.

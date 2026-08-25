@@ -44,6 +44,10 @@ create table if not exists public.tasks (
   thumbnail_url text,
   is_deleted boolean not null default false,
   is_demo boolean not null default false,
+  publication_status text not null default 'private'
+    check (publication_status in ('private', 'processing', 'pending_review', 'published', 'hidden')),
+  publish_on_complete boolean not null default false,
+  published_at timestamptz,
   author text,
   author_url text,
   author_image_url text,
@@ -52,7 +56,9 @@ create table if not exists public.tasks (
   view_count bigint,
   upload_date timestamptz,
   duration integer check (duration is null or duration >= 0),
-  output_intent jsonb not null default '{}'::jsonb
+  output_intent jsonb not null default '{}'::jsonb,
+  workload_kind text not null default 'user_submission'
+    check (workload_kind in ('user_submission', 'catalog_supply'))
 );
 
 create table if not exists public.task_outputs (

@@ -3,6 +3,10 @@ import logging
 from typing import Any, cast
 
 from dependencies import get_db_client, get_summarizer
+from services.execution_policy import (
+    WorkloadKind,
+    current_execution_provenance,
+)
 from services.formatting import format_markdown_from_raw_segments
 from services.output_intent import resolve_output_intent
 from services.summarizer.validation import parse_summary_payload_v4
@@ -114,6 +118,7 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
     if kind == "summary":
         task = db_client.get_task(task_id)
         video_title = (task or {}).get("video_title") or ""
+        workload_kind = (task or {}).get("workload_kind") or WorkloadKind.USER_SUBMISSION
         db_client.update_output_status(
             output_id,
             status="processing",
@@ -158,6 +163,7 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
                 "source_task_id": task_id,
                 "source_kind": "script",
                 "transcript_language": transcript_language,
+                **current_execution_provenance(workload_kind),
             },
         )
         return

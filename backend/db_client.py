@@ -134,11 +134,18 @@ class DBClient:
         video_url: str,
         video_title: Optional[str] = None,
         is_demo: bool = False,
+        publish_on_complete: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Create a new task row."""
         query = """
-            INSERT INTO tasks (user_id, video_url, status, progress, video_title, is_demo)
-            VALUES (:user_id, :video_url, 'pending', 0, :video_title, :is_demo)
+            INSERT INTO tasks (
+                user_id, video_url, status, progress, video_title, is_demo,
+                publication_status, publish_on_complete, workload_kind
+            )
+            VALUES (
+                :user_id, :video_url, 'pending', 0, :video_title, :is_demo,
+                :publication_status, :publish_on_complete, :workload_kind
+            )
             RETURNING *;
         """
         rows = self._execute_query(
@@ -148,6 +155,9 @@ class DBClient:
                 "video_url": video_url,
                 "video_title": video_title,
                 "is_demo": is_demo,
+                "publication_status": "processing" if is_demo else "private",
+                "publish_on_complete": publish_on_complete if is_demo else False,
+                "workload_kind": "catalog_supply" if is_demo else "user_submission",
             },
         )
         return rows[0] if rows else None
@@ -389,8 +399,9 @@ class DBClient:
             SELECT
                 id, user_id, guest_id, video_url, status, progress, video_title, thumbnail_url,
                 error_message, created_at, updated_at, is_demo,
+                publication_status, publish_on_complete, published_at,
                 author, author_url, author_image_url, description, keywords,
-                view_count, upload_date, duration, output_intent
+                view_count, upload_date, duration, output_intent, workload_kind
             FROM tasks WHERE id = :task_id
         """
         rows = self._execute_query(query, {"task_id": task_id})
@@ -443,15 +454,15 @@ class DBClient:
         Guest tasks share a database user UUID, so guest ownership must also
         include guest_id. Authenticated tasks require guest_id IS NULL.
         """
-        query = """
+        owner_predicate = (
+            "t.guest_id IS NULL" if guest_id is None else "t.guest_id = :guest_id"
+        )
+        query = f"""
             SELECT t.*
             FROM tasks t
             JOIN task_outputs o ON o.task_id = t.id
             WHERE t.user_id = :user_id
-              AND (
-                (:guest_id IS NULL AND t.guest_id IS NULL)
-                OR (:guest_id IS NOT NULL AND t.guest_id = :guest_id)
-              )
+              AND {owner_predicate}
               AND t.video_url = :video_url
               AND o.kind = 'script'
               AND o.status = 'completed'
@@ -461,14 +472,10 @@ class DBClient:
             ORDER BY t.created_at DESC
             LIMIT 1
         """
-        rows = self._execute_query(
-            query,
-            {
-                "user_id": user_id,
-                "guest_id": guest_id,
-                "video_url": video_url,
-            },
-        )
+        params = {"user_id": user_id, "video_url": video_url}
+        if guest_id is not None:
+            params["guest_id"] = guest_id
+        rows = self._execute_query(query, params)
         return rows[0] if rows else None
 
     def create_completed_task_output(

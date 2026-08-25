@@ -144,7 +144,22 @@ function taskDetailHref(task: Task, locale: Locale, sourceId = "all", query = ""
 }
 
 function sourceForTask(task: Task) {
-    return task.source ?? findPodcastSource(task.author, task.video_url)
+    const catalogSource = task.source ?? findPodcastSource(task.author, task.video_url)
+    if (catalogSource) return catalogSource
+
+    const fallbackName = task.author?.trim() || "VibeDigest"
+    const fallbackId = fallbackName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || `digest-${task.id}`
+    return {
+        id: fallbackId,
+        name: fallbackName,
+        channelUrl: task.video_url,
+        aliases: [],
+        topics: [],
+        featured: false,
+    } satisfies PodcastSource
 }
 
 function metadataForTask(task: Task, locale: Locale, copy: PodcastCopy) {

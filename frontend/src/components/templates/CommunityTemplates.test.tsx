@@ -175,6 +175,24 @@ describe("CommunityTemplates", () => {
     )
   })
 
+  it("keeps mature legacy output visible when it has no catalog source relation", () => {
+    const legacyTask: Task = {
+      ...tasks[0],
+      id: "legacy-output",
+      author: "Independent AI Show",
+      source: undefined,
+      video_title: "Legacy mature output",
+    }
+    renderGallery({ initialTasks: [legacyTask], totalCount: 1 })
+
+    expect(screen.getByText("Legacy mature output")).toBeInTheDocument()
+    expect(screen.getByText("Independent AI Show")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Original episode" })).toHaveAttribute(
+      "href",
+      legacyTask.video_url
+    )
+  })
+
   it("shows an editorial lead plus a compact two-column feed for a large inventory", () => {
     const manyTasks = Array.from({ length: 18 }, (_, index) => ({
       ...tasks[index % tasks.length],

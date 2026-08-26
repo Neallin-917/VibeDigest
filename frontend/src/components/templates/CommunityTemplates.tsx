@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { track } from "@vercel/analytics"
+import { cva } from "class-variance-authority"
 import { ChevronDown, ExternalLink, Search } from "lucide-react"
 import type { Locale } from "@/lib/i18n"
 import { findPodcastSource, type PodcastSource } from "@/lib/podcast-sources"
@@ -133,6 +134,70 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
 const localeDateTag: Record<Locale, string> = { en: "en-US", zh: "zh-CN", ja: "ja-JP" }
 const FEATURED_COUNT = 6
 
+type EpisodeCardRole = "hero" | "supporting" | "solo" | "standard"
+
+const episodeCardVariants = cva(
+    "group h-full overflow-hidden border border-slate-200 bg-white/80 transition-colors hover:border-emerald-500/50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-emerald-400/50",
+    {
+        variants: {
+            role: {
+                hero: "flex min-h-[25rem] flex-col lg:grid lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]",
+                supporting: "grid min-h-[18rem] grid-rows-[minmax(0,1fr)_auto] lg:min-h-0",
+                solo: "flex min-h-[20rem] flex-col lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]",
+                standard: "flex min-h-[18rem] flex-col",
+            },
+        },
+        defaultVariants: {
+            role: "standard",
+        },
+    }
+)
+
+const episodeMediaVariants = cva(
+    "relative block overflow-hidden bg-slate-100 dark:bg-zinc-950",
+    {
+        variants: {
+            role: {
+                hero: "aspect-[1.38/1] lg:aspect-[1.55/1]",
+                supporting: "aspect-[16/10] lg:aspect-[5/2] lg:min-h-0",
+                solo: "aspect-video lg:aspect-auto lg:min-h-[22rem]",
+                standard: "aspect-[16/10]",
+            },
+        },
+        defaultVariants: {
+            role: "standard",
+        },
+    }
+)
+
+const episodeContentVariants = cva("flex flex-col px-4 pb-4 pt-3", {
+    variants: {
+        role: {
+            hero: "flex-1 lg:flex-none",
+            supporting: "flex-none py-3",
+            solo: "flex-1",
+            standard: "flex-1",
+        },
+    },
+    defaultVariants: {
+        role: "standard",
+    },
+})
+
+const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
+    variants: {
+        role: {
+            hero: "mt-4",
+            supporting: "mt-3 border-t border-slate-200 pt-3 dark:border-white/10",
+            solo: "mt-auto pt-4",
+            standard: "mt-auto pt-4",
+        },
+    },
+    defaultVariants: {
+        role: "standard",
+    },
+})
+
 function taskDetailHref(task: Task, locale: Locale, sourceId = "all", query = "") {
     const slug = encodeURIComponent((task.video_title || "podcast").trim().replace(/\s+/g, "-"))
     const returnState = new URLSearchParams()
@@ -215,7 +280,7 @@ function EpisodeFeatureCard({
     sourceId,
     query,
     priority = false,
-    size = "standard",
+    role = "standard",
 }: {
     task: Task
     locale: Locale
@@ -223,7 +288,7 @@ function EpisodeFeatureCard({
     sourceId: string
     query: string
     priority?: boolean
-    size?: "hero" | "solo" | "standard"
+    role?: EpisodeCardRole
 }) {
     const source = sourceForTask(task)
     if (!source) return null
@@ -232,26 +297,14 @@ function EpisodeFeatureCard({
 
     return (
         <article
-            className={cn(
-                "group h-full overflow-hidden border border-slate-200 bg-white/80 transition-colors dark:border-white/10 dark:bg-white/[0.03]",
-                size === "solo"
-                    ? "flex min-h-[20rem] flex-col lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]"
-                    : "flex flex-col",
-                size === "hero" ? "min-h-[25rem] lg:min-h-[30rem]" : "min-h-[18rem]",
-                "hover:border-emerald-500/50 dark:hover:border-emerald-400/50"
-            )}
+            data-card-role={role}
+            className={episodeCardVariants({ role })}
         >
             <Link
                 href={href}
-                className={cn(
-                    "relative block overflow-hidden bg-slate-100 dark:bg-zinc-950",
-                    size === "hero"
-                        ? "aspect-[1.38/1] lg:aspect-[1.55/1]"
-                        : size === "solo"
-                            ? "aspect-video lg:aspect-auto lg:min-h-[22rem]"
-                            : "aspect-[16/10]"
-                )}
-                onClick={() => track("library_digest_open", { source: source.id, area: size })}
+                data-slot="episode-card-media"
+                className={episodeMediaVariants({ role })}
+                onClick={() => track("library_digest_open", { source: source.id, area: role })}
             >
                 {task.thumbnail_url ? (
                     <Image
@@ -260,10 +313,12 @@ function EpisodeFeatureCard({
                         fill
                         referrerPolicy="no-referrer"
                         className="object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.02]"
-                        sizes={size === "hero"
+                        sizes={role === "hero"
                             ? "(max-width: 1024px) 100vw, 58vw"
-                            : size === "solo"
+                            : role === "solo"
                                 ? "(max-width: 1024px) 100vw, 62vw"
+                                : role === "supporting"
+                                    ? "(max-width: 1024px) 100vw, 42vw"
                                 : "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 34vw"}
                         loading={priority ? "eager" : "lazy"}
                         fetchPriority={priority ? "high" : "auto"}
@@ -276,7 +331,7 @@ function EpisodeFeatureCard({
                 <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
             </Link>
 
-            <div className="flex flex-1 flex-col px-4 pb-4 pt-3">
+            <div data-slot="episode-card-content" className={episodeContentVariants({ role })}>
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
                     <SourceMark source={source} size="compact" />
                     <span className="truncate">{source.name}</span>
@@ -285,30 +340,40 @@ function EpisodeFeatureCard({
                     <h3
                         className={cn(
                             "tracking-[-0.02em] text-slate-950 transition-colors hover:text-emerald-700 dark:text-white dark:hover:text-emerald-400",
-                            size === "hero" || size === "solo"
+                            role === "hero" || role === "solo"
                                 ? "line-clamp-3 text-[1.65rem] font-semibold leading-[1.15] lg:text-[2rem]"
-                                : "line-clamp-3 text-lg font-semibold leading-[1.3]"
+                                : role === "supporting"
+                                    ? "line-clamp-2 text-base font-semibold leading-[1.3]"
+                                    : "line-clamp-3 text-lg font-semibold leading-[1.3]"
                         )}
                     >
                         {title}
                     </h3>
                 </Link>
-                {task.takeaway ? (
+                {task.takeaway && role !== "supporting" ? (
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-zinc-400">
                         {task.takeaway}
                     </p>
                 ) : null}
-                <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] text-slate-500 dark:border-white/10 dark:text-zinc-500">
-                    {metadataForTask(task, locale, copy)}
-                </p>
-                <div className="mt-auto flex items-center justify-between gap-3 pt-4">
-                    <Link
-                        href={href}
-                        onClick={() => track("library_digest_open", { source: source.id, area: `${size}_cta` })}
-                        className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:text-zinc-950 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-zinc-950"
-                    >
-                        {copy.read}
-                    </Link>
+                {role !== "supporting" ? (
+                    <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] text-slate-500 dark:border-white/10 dark:text-zinc-500">
+                        {metadataForTask(task, locale, copy)}
+                    </p>
+                ) : null}
+                <div data-slot="episode-card-footer" className={episodeFooterVariants({ role })}>
+                    {role === "supporting" ? (
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-500">
+                            {metadataForTask(task, locale, copy)}
+                        </span>
+                    ) : (
+                        <Link
+                            href={href}
+                            onClick={() => track("library_digest_open", { source: source.id, area: `${role}_cta` })}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:text-zinc-950 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-zinc-950"
+                        >
+                            {copy.read}
+                        </Link>
+                    )}
                     <a
                         href={task.video_url || source.channelUrl}
                         target="_blank"
@@ -324,14 +389,111 @@ function EpisodeFeatureCard({
     )
 }
 
-function featureItemClass(count: number, index: number) {
+function balancedFeatureItemClass(count: number) {
     if (count === 1) return "lg:col-span-12"
     if (count === 2) return "lg:col-span-6"
     if (count === 3) return "lg:col-span-4"
-    if (count === 4) return "lg:col-span-6"
-    if (index === 0) return "lg:col-span-7 lg:row-span-2"
-    if (index < 3) return "lg:col-span-5"
-    return count === 5 ? "lg:col-span-6" : "lg:col-span-4"
+    return "lg:col-span-6"
+}
+
+function tailFeatureItemClass(count: number) {
+    return count === 2 ? "lg:col-span-6" : "lg:col-span-4"
+}
+
+function PodcastFeatureGrid({
+    tasks,
+    locale,
+    copy,
+    sourceId,
+    query,
+}: {
+    tasks: Task[]
+    locale: Locale
+    copy: PodcastCopy
+    sourceId: string
+    query: string
+}) {
+    if (tasks.length < 5) {
+        const role: EpisodeCardRole = tasks.length === 1 ? "solo" : "standard"
+        return (
+            <div data-feature-layout="balanced" className="grid gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-12">
+                {tasks.map((task, index) => (
+                    <div
+                        key={task.id}
+                        className={cn(
+                            "bg-[color:var(--background)] dark:bg-[#090b0b]",
+                            balancedFeatureItemClass(tasks.length)
+                        )}
+                    >
+                        <EpisodeFeatureCard
+                            task={task}
+                            locale={locale}
+                            copy={copy}
+                            priority={index === 0}
+                            sourceId={sourceId}
+                            query={query}
+                            role={role}
+                        />
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+    const [heroTask, ...restTasks] = tasks
+    const supportingTasks = restTasks.slice(0, 2)
+    const tailTasks = restTasks.slice(2)
+
+    return (
+        <div data-feature-layout="editorial" className="grid gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-12">
+            <div className="bg-[color:var(--background)] dark:bg-[#090b0b] lg:col-span-7">
+                <EpisodeFeatureCard
+                    task={heroTask}
+                    locale={locale}
+                    copy={copy}
+                    priority
+                    sourceId={sourceId}
+                    query={query}
+                    role="hero"
+                />
+            </div>
+            <div
+                data-slot="supporting-stack"
+                className="grid gap-px bg-slate-200 dark:bg-white/10 lg:col-span-5 lg:grid-rows-2"
+            >
+                {supportingTasks.map((task) => (
+                    <div key={task.id} className="bg-[color:var(--background)] dark:bg-[#090b0b]">
+                        <EpisodeFeatureCard
+                            task={task}
+                            locale={locale}
+                            copy={copy}
+                            sourceId={sourceId}
+                            query={query}
+                            role="supporting"
+                        />
+                    </div>
+                ))}
+            </div>
+            {tailTasks.map((task) => (
+                <div
+                    key={task.id}
+                    className={cn(
+                        "bg-[color:var(--background)] dark:bg-[#090b0b]",
+                        tailFeatureItemClass(tailTasks.length)
+                    )}
+                >
+                    <EpisodeFeatureCard
+                        task={task}
+                        locale={locale}
+                        copy={copy}
+                        sourceId={sourceId}
+                        query={query}
+                        role="standard"
+                    />
+                </div>
+            ))}
+        </div>
+    )
 }
 
 function CompactEpisodeRow({
@@ -475,7 +637,7 @@ export function CommunityTemplates({
                             priority={index === 0}
                             sourceId={selectedSource}
                             query={query}
-                            size="standard"
+                            role="standard"
                         />
                     </div>
                 ))}
@@ -598,31 +760,13 @@ export function CommunityTemplates({
                         ) : null}
                     </div>
 
-                    <div className="grid gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-12">
-                        {featuredTasks.map((task, index) => (
-                            <div
-                                key={task.id}
-                                className={cn(
-                                    "bg-[color:var(--background)] dark:bg-[#090b0b]",
-                                    featureItemClass(featuredTasks.length, index)
-                                )}
-                            >
-                                <EpisodeFeatureCard
-                                    task={task}
-                                    locale={locale}
-                                    copy={podcastCopy}
-                                    priority={index === 0}
-                                    sourceId={selectedSource}
-                                    query={query}
-                                    size={featuredTasks.length === 1
-                                        ? "solo"
-                                        : featuredTasks.length >= 5 && index === 0
-                                            ? "hero"
-                                            : "standard"}
-                                />
-                            </div>
-                        ))}
-                    </div>
+                    <PodcastFeatureGrid
+                        tasks={featuredTasks}
+                        locale={locale}
+                        copy={podcastCopy}
+                        sourceId={selectedSource}
+                        query={query}
+                    />
                 </section>
             ) : (
                 <section className="border border-dashed border-slate-300 px-5 py-10 text-center dark:border-white/15">

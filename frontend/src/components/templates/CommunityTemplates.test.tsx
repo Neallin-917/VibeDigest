@@ -175,6 +175,35 @@ describe("CommunityTemplates", () => {
     )
   })
 
+  it("uses intrinsic editorial roles so extra height expands media instead of the hero content", () => {
+    const editorialTasks = Array.from({ length: 6 }, (_, index) => ({
+      ...tasks[index % tasks.length],
+      id: `editorial-${index}`,
+      video_title: `Editorial episode ${index + 1}`,
+    }))
+    const { container } = renderGallery({ initialTasks: editorialTasks, totalCount: 6 })
+
+    expect(container.querySelector("[data-feature-layout='editorial']")).toBeInTheDocument()
+    expect(container.querySelectorAll("[data-card-role='hero']")).toHaveLength(1)
+    expect(container.querySelectorAll("[data-card-role='supporting']")).toHaveLength(2)
+    expect(container.querySelectorAll("[data-card-role='standard']")).toHaveLength(3)
+    expect(container.querySelector(".lg\\:row-span-2")).not.toBeInTheDocument()
+
+    const hero = container.querySelector("[data-card-role='hero']")
+    const heroMedia = hero?.querySelector("[data-slot='episode-card-media']")
+    const heroContent = hero?.querySelector("[data-slot='episode-card-content']")
+    const heroFooter = hero?.querySelector("[data-slot='episode-card-footer']")
+    const supportingMedia = container.querySelector(
+      "[data-card-role='supporting'] [data-slot='episode-card-media']"
+    )
+    expect(hero).toHaveClass("lg:grid-rows-[minmax(0,1fr)_auto]")
+    expect(heroMedia).toHaveClass("lg:aspect-[1.55/1]")
+    expect(heroContent).toHaveClass("lg:flex-none")
+    expect(heroFooter).toHaveClass("mt-4")
+    expect(heroFooter).not.toHaveClass("mt-auto")
+    expect(supportingMedia).toHaveClass("lg:aspect-[5/2]")
+  })
+
   it("keeps mature legacy output visible when it has no catalog source relation", () => {
     const legacyTask: Task = {
       ...tasks[0],

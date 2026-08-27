@@ -248,6 +248,7 @@ function buildLibraryHref(pathname: string, sourceId: string, query: string, pag
 }
 
 function SourceMark({ source, size = "large" }: { source: PodcastSource; size?: "compact" | "small" | "large" }) {
+    const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)
     const sizeClass = size === "large"
         ? "size-12 rounded-lg"
         : size === "small"
@@ -257,13 +258,21 @@ function SourceMark({ source, size = "large" }: { source: PodcastSource; size?: 
 
     return (
         <span
+            data-source-mark={source.id}
             className={cn(
                 "relative shrink-0 overflow-hidden border border-border bg-card",
                 sizeClass
             )}
         >
-            {source.avatarUrl ? (
-                <Image src={source.avatarUrl} alt="" fill sizes={sizes} className="object-cover" />
+            {source.avatarUrl && source.avatarUrl !== failedAvatarUrl ? (
+                <Image
+                    src={source.avatarUrl}
+                    alt=""
+                    fill
+                    sizes={sizes}
+                    className="object-cover"
+                    onError={() => setFailedAvatarUrl(source.avatarUrl ?? null)}
+                />
             ) : (
                 <span className="flex size-full items-center justify-center text-xs font-semibold text-muted-foreground" aria-hidden="true">
                     {source.name.slice(0, 1).toUpperCase()}

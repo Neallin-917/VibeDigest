@@ -3,6 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import withBundleAnalyzer from '@next/bundle-analyzer';
 import path from "path";
 import { loadEnvConfig } from '@next/env';
+import { SECURITY_HEADERS } from "./src/lib/security-headers";
 
 // Load environment variables from the root directory
 const projectRoot = path.resolve(__dirname, "..");
@@ -53,6 +54,14 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react'],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: SECURITY_HEADERS.map((header) => ({ ...header })),
+      },
+    ];
   },
   webpack: (config) => {
     const resolveModules = config.resolve?.modules ?? [];

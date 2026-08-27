@@ -624,11 +624,11 @@ export function CommunityTemplates({
     if (layout === "landingPreview") {
         if (featuredTasks.length === 0) return null
         return (
-            <div className="grid gap-px bg-border-strong sm:grid-cols-2 xl:grid-cols-4 [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card">
+            <div className="grid gap-px bg-border-strong sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card">
                 {featuredTasks.slice(0, 4).map((task, index) => (
                     <div
                         key={task.id}
-                        className="bg-card"
+                        className={cn("bg-card", index >= 2 && "hidden sm:block")}
                     >
                         <EpisodeFeatureCard
                             task={task}

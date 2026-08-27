@@ -135,6 +135,7 @@ describe('ChatInput', () => {
     fireEvent.focus(input)
 
     expect(input).toHaveAttribute('placeholder', 'Ask me anything...')
-    expect(input).toHaveClass('placeholder-slate-500', 'dark:placeholder-zinc-400')
+    expect(input).toHaveClass('placeholder:text-foreground-subtle')
+    expect(input.className).not.toContain('dark:')
   })
 })

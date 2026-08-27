@@ -110,6 +110,14 @@ describe("ServerCommunityTemplates", () => {
     )
   })
 
+  it("builds a source shelf from local fixtures instead of collapsing to all only", async () => {
+    fixtureMode.enabled = true
+    render(await ServerCommunityTemplates({ showHeader: false, locale: "en" }))
+
+    expect(screen.getByTestId("source-shelf")).toHaveTextContent("Latent Space:1")
+    expect(screen.getByTestId("source-shelf")).toHaveTextContent("Lenny's Podcast:1")
+  })
+
   it("marks the client state unavailable when the public task query fails", async () => {
     queryState.tasks = {
       data: null,

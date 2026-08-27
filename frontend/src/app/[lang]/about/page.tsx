@@ -29,7 +29,7 @@ const CONTENT: Record<string, { title: string; subtitle: string; positioning: st
             },
             {
                 title: "Language Learning",
-                description: "Understand foreign content with AI-assisted transcripts and translations."
+                description: "Understand foreign content with multilingual summaries and source-grounded answers."
             }
         ],
         founder: {
@@ -57,7 +57,7 @@ const CONTENT: Record<string, { title: string; subtitle: string; positioning: st
             },
             {
                 title: "语言学习",
-                description: "借助 AI 辅助的逐字稿和翻译，轻松理解外语内容。"
+                description: "借助多语言摘要和基于来源的回答，轻松理解外语内容。"
             }
         ],
         founder: {
@@ -85,7 +85,7 @@ const CONTENT: Record<string, { title: string; subtitle: string; positioning: st
             },
             {
                 title: "語学学習",
-                description: "AIによる文字起こしと翻訳で、外国語コンテンツを理解。"
+                description: "多言語要約と出典に基づく回答で、外国語コンテンツを理解。"
             }
         ],
         founder: {

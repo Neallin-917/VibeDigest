@@ -84,6 +84,27 @@ class TestGetTemperature:
 # ---------------------------------------------------------------------------
 
 class TestModelSmartFast:
+    @pytest.mark.parametrize(
+        ("supabase_url", "jwt_secret", "expected"),
+        [
+            ("https://example.supabase.co", "", "jwks"),
+            ("https://example.supabase.co", "legacy-secret", "jwks+hs256"),
+            ("", "legacy-secret", "hs256"),
+            ("", "", "missing"),
+        ],
+    )
+    def test_jwt_verification_mode(
+        self,
+        supabase_url: str,
+        jwt_secret: str,
+        expected: str,
+    ):
+        s = Settings()
+        s.SUPABASE_URL = supabase_url
+        s.SUPABASE_JWT_SECRET = jwt_secret
+
+        assert s.JWT_VERIFICATION_MODE == expected
+
     def test_openrouter_runtime_contract_uses_shared_defaults(self):
         s = Settings()
         s.OPENAI_BASE_URL = None
@@ -150,6 +171,31 @@ class TestModelSmartFast:
             },
             clear=False,
         ):
+            s._validate_required_env()
+
+    def test_production_application_accepts_jwks_without_legacy_jwt_secret(self):
+        s = Settings()
+        s.SUPABASE_URL = "https://example.supabase.co"
+        s.SUPABASE_SERVICE_KEY = "service-key"
+        s.SUPABASE_JWT_SECRET = ""
+        s.OPENAI_API_KEY = "api-key"
+        s.LLM_RUNTIME = "api"
+
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "DATABASE_URL": "postgresql://example",
+                "DEV_AUTH_BYPASS": "false",
+                "MOCK_MODE": "false",
+                "OPENROUTER_API_KEY": "",
+                "PYTEST_CURRENT_TEST": "",
+                "RAILWAY_PROJECT_ID": "",
+                "VIBEDIGEST_PROCESS_ROLE": "application",
+            },
+            clear=False,
+        ), patch.dict(config_module.sys.modules, clear=False):
+            config_module.sys.modules.pop("pytest", None)
             s._validate_required_env()
 
     def test_podcast_discovery_process_does_not_require_an_llm_api_key(self):

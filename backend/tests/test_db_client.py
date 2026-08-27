@@ -140,12 +140,31 @@ def test_get_task(db_client_instance, mock_session):
     mock_result = MagicMock()
     mock_result.returns_rows = True
     row = MagicMock()
-    row._mapping = {"id": "task_1", "status": "completed"}
+    row._mapping = {
+        "id": "task_1",
+        "status": "completed",
+        "publication_block_reason": "summary_contract_invalid",
+        "public_keypoint_count": 3,
+        "public_quality_score": 100,
+        "podcast_source_slug": "example-show",
+    }
     mock_result.__iter__.return_value = iter([row])
     mock_session.execute.return_value = mock_result
 
     result = db_client_instance.get_task("task_1")
     assert result["id"] == "task_1"
+    assert result["publication_block_reason"] == "summary_contract_invalid"
+    assert result["public_keypoint_count"] == 3
+    assert result["public_quality_score"] == 100
+    assert result["podcast_source_slug"] == "example-show"
+    args, _ = mock_session.execute.call_args
+    for projection_field in (
+        "publication_block_reason",
+        "public_keypoint_count",
+        "public_quality_score",
+        "podcast_source_slug",
+    ):
+        assert projection_field in args[0].text
 
 def test_update_task_status(db_client_instance, mock_session):
     mock_result = MagicMock()

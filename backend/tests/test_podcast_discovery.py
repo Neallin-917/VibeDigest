@@ -89,6 +89,12 @@ def test_catalog_contains_all_onepod_sources_with_bounded_default_tracking():
     assert {source.slug for source in sources if source.backfill_enabled} == {
         source.slug for source in tracked
     }
+    pragmatic_engineer = next(
+        source for source in sources if source.slug == "pragmatic-engineer"
+    )
+    assert pragmatic_engineer.source_url == (
+        "https://www.youtube.com/channel/UCPbwhExawYrn9xxI21TFfyw"
+    )
 
 
 @pytest.mark.parametrize(

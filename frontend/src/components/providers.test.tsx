@@ -32,10 +32,6 @@ vi.mock("@/lib/supabase", () => ({
     }),
 }))
 
-vi.mock("next-themes", () => ({
-    ThemeProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-}))
-
 vi.mock("@/components/i18n/I18nProvider", () => ({
     I18nProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))

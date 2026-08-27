@@ -8,7 +8,7 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 
 ## Product Positioning
 
-- VibeDigest is an AI agent that helps users watch and understand podcasts and long-form video. The primary promise is the agent output: summaries, key ideas, transcripts, and source-grounded follow-up.
+- VibeDigest is an AI agent that helps users watch and understand podcasts and long-form video. The primary promise is the agent output: summaries, key ideas, evidence, and source-grounded follow-up.
 - The public podcast library is a ready-made gallery of mature agent output. It helps users experience and trust the product before submitting their own link, while naturally creating a community content surface.
 - Tracked shows and ingestion frequency are supply-side implementation details, not the product promise. Do not position VibeDigest as a closed AI-podcast directory or foreground source counts and refresh cadence in acquisition copy.
 - Landing pages explain and activate the agent. The public library proves the output. Task detail pages deliver the value. Keep this hierarchy consistent in navigation, copy, and calls to action.
@@ -78,6 +78,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 15. **Queue Integrity**: Task/output state changes, persisted `workload_kind`, and PGMQ submission must share one Postgres transaction. `user_submission` routes to `video_processing`; `catalog_supply` routes to `podcast_supply`, including retries. Queue messages contain entity IDs only, workers are capability-locked, workers must renew visibility leases, and archive is allowed only after a confirmed terminal write.
 16. **Current Product Stage**: VibeDigest is still a small product. Prioritize user experience, frontend responsiveness, perceived and measured performance, and user-facing reliability. Keep baseline protections for credentials, ownership, paid usage, and data loss, but defer heavy defense-in-depth, multi-worker coordination, dedicated security infrastructure, and complex operational consoles until scale, incidents, sensitive-data requirements, or measured load justify them.
 17. **Complexity Budget**: A technical-debt fix must solve a current user problem, a production blocker, or a measured reliability/performance issue. Otherwise document the trigger for revisiting it instead of adding code now.
+18. **Public Transcript Guardrail**: Transcripts are internal processing and retrieval artifacts. Public task details and public HTTP endpoints must not render or return verbatim transcripts. Public surfaces provide summaries, key ideas, evidence, original-source links, and source-grounded follow-up instead.
 
 ## Codex Model Routing
 

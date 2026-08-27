@@ -54,3 +54,44 @@
 - P3: once the ingestion backfill is live, replace local visual fixtures with the newest processed episodes and let real summary key-point counts populate every card.
 
 final result: passed
+
+## Library navigation shell alignment — 2026-08-27
+
+### Evidence
+
+- Source visual truth (reported misalignment): `/var/folders/jv/2vc403h93qq37tj4xg5sgd_w0000gn/T/codex-clipboard-ccf01be7-dfc0-407d-979a-0d651a17e0c5.png` (`2652 × 676`). The source is an approximately 1.85× density capture of the Chinese library's dark-theme top-of-page state.
+- Browser-rendered implementation: `/tmp/vibedigest-library-nav-1440.png` (`1435 × 718`), captured from `http://localhost:3003/zh/explore` at CSS `1440 × 720`, DPR `1`; the browser reserves 5 px for the vertical scrollbar.
+- Full-view comparison: `/tmp/vibedigest-library-nav-layout-comparison-1440.png`. The source was normalized to the same logical `1440 × 367` top-of-page region; the implementation was cropped to its equivalent top region.
+- Mobile implementation: `/tmp/vibedigest-library-nav-390.png` (`385 × 833`), captured at CSS `390 × 844`, DPR `1` with a 5 px scrollbar.
+- State: Chinese library route, initial source filter, page at scroll top. The source is the reported before-state; the wider top-bar boundary is the intentional requested change.
+
+### Findings
+
+- [Resolved P1] The old library top bar ended at the marketing-page frame while the library header, search, source shelf, and cards occupied the broader content frame. It made the global navigation look detached from the browsing surface.
+  - Fix: added a semantic `shell="library"` option to `LandingNav`; `/zh/explore` now uses it. The library shell is `1440px` and uses the same `20 / 32 / 56px` responsive gutters as the library main content. Marketing and reading surfaces retain their `1080px` shell.
+  - Post-fix evidence: at CSS width `1440`, the navigation-frame and source-shelf rectangles are both `left: 56`, `right: 1379`, `width: 1323`. The heading also starts at `left: 56`.
+- Fonts and typography: no typography token, text, or weighting changed. The existing compact navigation hierarchy remains intact.
+- Spacing and layout rhythm: the outer navigation boundary now shares the library grid; its 12 px internal padding remains intentionally independent from main-content padding.
+- Colors and visual tokens: no color, surface, border, radius, or shadow token changed in this patch. The dark/light visual difference in the before/after comparison belongs to the pre-existing working-tree state and is not evaluated as part of this change.
+- Image quality and assets: no image handling or asset changed. The screenshots show unrelated local thumbnail-loading behavior outside this navigation-shell scope.
+- Copy and content: no user-facing copy changed by this patch.
+- Accessibility and responsive reflow: at `390px`, the top-bar frame is `20–365px`; the document scroll width is `385px` within a `390px` viewport, so the change adds no horizontal overflow. The existing mobile menu still replaces desktop navigation.
+
+### Primary interactions and verification
+
+- `npm test -- --run src/components/landing/LandingNav.test.tsx`: passed, 8 tests.
+- `npm run build`: passed.
+- Opened `/zh/explore` in an isolated local preview at desktop and mobile widths; navigation, search, source shelf, and mobile-menu controls rendered in their expected semantic structure.
+- The pre-existing port-3000 preview had a stale-chunk error after a production build. Verification used an isolated port-3003 preview; no new application-origin error was observed there.
+
+### Comparison history
+
+1. Before-state screenshot showed an intentional P1 layout mismatch: a marketing-width (`1080px`) nav against a library-width (`1440px`) content canvas.
+2. Added the page-specific library shell and aligned the library breakpoint gutters without changing marketing-page widths.
+3. Re-captured at CSS `1440px` and `390px`; no actionable P0/P1/P2 issue remains for this requested alignment change.
+
+### Follow-up polish
+
+- No additional polish is needed for this scope. Future new browse surfaces should choose an explicit shell variant instead of inheriting the marketing width by default.
+
+final result: passed

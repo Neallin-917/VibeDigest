@@ -6,6 +6,9 @@ import { cn } from '@/lib/utils'
 import { PlanBadge } from './PlanBadge'
 import { UserAvatarDropdown } from './UserAvatarDropdown'
 import { useI18n } from '@/components/i18n/I18nProvider'
+import { BrandLogo } from '@/components/layout/BrandLogo'
+import { useAppSidebarOptional } from '@/components/layout/AppSidebarContext'
+import Link from 'next/link'
 
 interface TopHeaderProps {
   onMobileMenuClick?: () => void
@@ -13,12 +16,13 @@ interface TopHeaderProps {
 }
 
 function TopHeaderComponent({ onMobileMenuClick, className }: TopHeaderProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const sidebar = useAppSidebarOptional()
 
   return (
     <header className={cn(
       "h-14 flex items-center justify-between px-4 md:px-6 shrink-0 z-30",
-      "bg-slate-100/90 dark:bg-zinc-900/80",
+      "bg-white/90 dark:bg-zinc-950/90",
       "backdrop-blur-xl",
       "border-b border-slate-200/60 dark:border-white/10",
       className
@@ -37,6 +41,15 @@ function TopHeaderComponent({ onMobileMenuClick, className }: TopHeaderProps) {
         >
           <Menu className="w-5 h-5" />
         </button>
+        <Link
+          href={`/${locale}`}
+          className={cn(
+            "inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+            sidebar && !sidebar.isCollapsed && "md:hidden"
+          )}
+        >
+          <BrandLogo textClassName="text-sm" />
+        </Link>
       </div>
 
       {/* Right: PlanBadge + Avatar */}

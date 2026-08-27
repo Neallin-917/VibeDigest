@@ -34,7 +34,7 @@ async def startup_event():
     logger.info(f"Smart Model:   {settings.MODEL_SMART} (Temp: {settings.REASONING_TEMPERATURE})")
     logger.info(f"Fast Model:    {settings.MODEL_FAST} (Temp: {settings.DEFAULT_TEMPERATURE})")
     logger.info(f"OpenAI Base:   {settings.OPENAI_BASE_URL or 'Default'}")
-    logger.info(f"JWT Secret:    {'configured' if settings.SUPABASE_JWT_SECRET else 'MISSING'}")
+    logger.info(f"JWT Verification: {settings.JWT_VERIFICATION_MODE}")
     logger.info(">>> --------------------------- <<<")
 
 # CORS Configuration

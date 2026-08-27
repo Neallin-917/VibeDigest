@@ -9,8 +9,6 @@ import { accountKeys } from "@/hooks/useAccountQueries"
 import { createClient } from "@/lib/supabase"
 import { isLocalUiDemo } from "@/lib/local-ui-demo"
 
-import { ThemeProvider } from "next-themes"
-
 function AccountSessionSync() {
     const queryClient = useQueryClient()
     const isDemo = isLocalUiDemo()
@@ -55,15 +53,9 @@ export function Providers({
     return (
         <QueryClientProvider client={queryClient}>
             <AccountSessionSync />
-            <ThemeProvider
-                attribute="class"
-                defaultTheme="dark"
-                disableTransitionOnChange
-            >
-                <I18nProvider locale={locale} messages={messages}>
-                    {children}
-                </I18nProvider>
-            </ThemeProvider>
+            <I18nProvider locale={locale} messages={messages}>
+                {children}
+            </I18nProvider>
         </QueryClientProvider>
     )
 }

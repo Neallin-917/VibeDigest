@@ -33,10 +33,7 @@ const jakarta = Plus_Jakarta_Sans({
 import { Viewport } from 'next'
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
-  ],
+  themeColor: '#f3f1ea',
   width: 'device-width',
   initialScale: 1,
 }
@@ -60,15 +57,15 @@ export async function generateMetadata({
       title: "VibeDigest",
     },
     title: {
-      default: "VibeDigest - AI Video Summarizer & Transcriber for YouTube",
+      default: "VibeDigest - AI Agent for Podcasts and Long Videos",
       template: "%s | VibeDigest",
     },
-    description: "Free AI Video Summarizer & YouTube to Text Converter. Get instant summaries, transcripts, and structured notes from YouTube videos.",
+    description: "Turn podcasts and long videos into summaries, key ideas, evidence, and source-grounded answers.",
     keywords: [
       "AI video summarizer",
       "YouTube video to text",
       "video summarizer AI",
-      "YouTube transcript generator",
+      "podcast summary agent",
       "summarize YouTube video",
       "video to notes",
       "study assistant",
@@ -81,7 +78,7 @@ export async function generateMetadata({
       locale: getOpenGraphLocale(lang),
       url: buildLocalizedPath(lang, ""),
       title: "VibeDigest - Transform Video & Audio into Structured Knowledge",
-      description: "Efficiently absorb long content. Get AI-powered structured summaries, interactive transcripts, and translations for efficient learning.",
+      description: "Understand long content with structured summaries, key ideas, evidence, and source-grounded follow-up.",
       siteName: "VibeDigest",
       images: [{
         url: "/ai-video-summarizer-transcriber-og.png",
@@ -92,8 +89,8 @@ export async function generateMetadata({
     },
     twitter: {
       card: "summary_large_image",
-      title: "VibeDigest - AI Video Summarizer & Transcriber",
-      description: "Free AI Video Summarizer & YouTube to Text Converter. Get instant summaries and transcripts from YouTube videos.",
+      title: "VibeDigest - AI Podcast and Video Agent",
+      description: "Turn podcasts and long videos into summaries, key ideas, evidence, and source-grounded answers.",
       creator: "@vibedigest",
       site: "@vibedigest",
       images: ["/ai-video-summarizer-transcriber-og.png"],

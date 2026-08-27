@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { vi, describe, it, expect, beforeEach } from "vitest"
 import { LandingNav } from "./LandingNav"
 
@@ -22,7 +22,6 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
                 "landing.navPricing": "Pricing",
                 "landing.navFAQ": "FAQ",
                 "landing.language": "Language",
-                "landing.theme": "Theme",
                 "auth.goToDashboard": "Go to Dashboard"
             }
             return translations[k] || k
@@ -50,7 +49,6 @@ describe("LandingNav", () => {
     beforeEach(() => {
         vi.clearAllMocks()
             ; (usePathname as any).mockReturnValue("/en")
-        Object.defineProperty(window, "scrollY", { value: 0, writable: true, configurable: true })
     })
 
     it("renders core elements", () => {
@@ -97,16 +95,31 @@ describe("LandingNav", () => {
 
         const currentLinks = screen.getAllByText("Demos").map((node) => node.closest("a"))
         currentLinks.forEach((link) => expect(link).toHaveAttribute("aria-current", "page"))
-        expect(currentLinks[0]).toHaveClass("after:scale-x-100", "text-slate-950")
+        expect(currentLinks[0]).toHaveClass("after:scale-x-100", "text-foreground")
     })
 
-    it("adds a readable navigation surface after scrolling", () => {
+    it("keeps a readable navigation surface without scroll listeners", () => {
         render(<LandingNav />)
-        Object.defineProperty(window, "scrollY", { value: 100, writable: true, configurable: true })
-        fireEvent.scroll(window)
 
         const navSurface = screen.getByRole("navigation").firstElementChild
-        expect(navSurface).toHaveAttribute("data-scrolled", "true")
-        expect(navSurface).toHaveClass("bg-white/90", "backdrop-blur-xl")
+        expect(navSurface).toHaveClass("bg-surface/90", "backdrop-blur-xl", "max-w-[1080px]")
+        expect(screen.queryByRole("button", { name: /toggle theme/i })).not.toBeInTheDocument()
+    })
+
+    it("uses the library content canvas for the library navigation shell", () => {
+        render(<LandingNav shell="library" />)
+
+        const navigation = screen.getByRole("navigation")
+        const navSurface = navigation.firstElementChild
+        expect(navigation).toHaveClass("px-5", "sm:px-8", "lg:px-14")
+        expect(navSurface).toHaveClass("max-w-[1440px]")
+    })
+
+    it("removes acquisition links from the desktop content-page navigation", () => {
+        const { container } = render(<LandingNav variant="content" />)
+
+        expect(container.querySelector('[data-slot="desktop-nav-links"]')).not.toBeInTheDocument()
+        expect(screen.getByText("Logo")).toBeInTheDocument()
+        expect(screen.getAllByText("UserButton")[0]).toBeInTheDocument()
     })
 })

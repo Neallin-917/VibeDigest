@@ -8,6 +8,7 @@ const mockSendMessage = vi.fn()
 const mockSetMessages = vi.fn()
 const mockRegenerate = vi.fn()
 const mockStop = vi.fn()
+let mockChatInputText = 'test message'
 
 function createTextMessage(
   text: string,
@@ -50,9 +51,15 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
 }))
 
 vi.mock('../ChatInput', () => ({
-  ChatInput: ({ onSubmit, isLoading, disabled, placeholder, inputLabel }: any) => (
-    <div data-testid="chat-input" data-placeholder={placeholder} data-label={inputLabel}>
-      <button onClick={() => onSubmit('test message')} disabled={isLoading || disabled}>Send</button>
+  ChatInput: ({ onSubmit, isLoading, disabled, placeholder, inputLabel, variant, hideDisclaimer }: any) => (
+    <div
+      data-testid="chat-input"
+      data-placeholder={placeholder}
+      data-label={inputLabel}
+      data-variant={variant}
+      data-hide-disclaimer={String(Boolean(hideDisclaimer))}
+    >
+      <button onClick={() => onSubmit(mockChatInputText)} disabled={isLoading || disabled}>Send</button>
     </div>
   )
 }))
@@ -92,6 +99,7 @@ describe('ChatContainer', () => {
     })
     
     localStorage.clear()
+    mockChatInputText = 'test message'
   })
 
   afterEach(() => {
@@ -109,6 +117,36 @@ describe('ChatContainer', () => {
 
     expect(screen.getByTestId('welcome-screen')).toBeInTheDocument()
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
+  })
+
+  it('renders an inline follow-up composer without the welcome surface in embedded mode', () => {
+    render(<ChatContainer activeTaskId="selected-task" variant="embedded" />)
+
+    expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument()
+    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-variant', 'inline')
+    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-hide-disclaimer', 'true')
+  })
+
+  it('treats URLs as source questions instead of new submissions in embedded mode', () => {
+    mockChatInputText = 'What does https://example.com add to this argument?'
+
+    render(
+      <ChatContainer
+        activeTaskId="selected-task"
+        variant="embedded"
+        allowDirectUrlSubmission={false}
+        isAuthenticated={true}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Send'))
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'user',
+        parts: [{ type: 'text', text: mockChatInputText }],
+      })
+    )
   })
 
   it('renders ChatInput and lazily loads messages when there are messages', async () => {
@@ -608,6 +646,45 @@ describe('ChatContainer', () => {
     render(<ChatContainer activeTaskId="new-task" />)
 
     expect(await screen.findByTestId('inline-task-artifact')).toBeInTheDocument()
+  })
+
+  it('hides duplicated task artifacts when the source is rendered by the detail page', () => {
+    const messages: ChatUIMessage[] = [{
+      id: 'assistant-inline-task',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'data-task-status',
+          id: 'task-status-existing-task',
+          data: {
+            taskId: 'existing-task',
+            status: 'completed',
+            progress: 100,
+            videoUrl: 'https://www.youtube.com/watch?v=existing-task',
+          },
+        } as any,
+      ],
+    }]
+
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(
+      <ChatContainer
+        activeTaskId="existing-task"
+        variant="embedded"
+        showTaskArtifacts={false}
+      />
+    )
+
+    expect(screen.queryByTestId('inline-task-artifact')).not.toBeInTheDocument()
   })
 
   it('renders only the latest status card when history repeats the same task', async () => {

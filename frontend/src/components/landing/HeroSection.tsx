@@ -82,7 +82,7 @@ export function HeroSection() {
                         <span className="text-primary">{t("landing.titleEmphasis")}</span>
                     </h1>
 
-                    <p className="mt-6 max-w-[35rem] text-[15px] leading-7 text-muted-foreground sm:text-base">
+                    <p className="mt-6 max-w-[35rem] text-base leading-7 text-muted-foreground">
                         {renderWithBold(t("landing.smartSummarizationDesc"))}
                     </p>
                     <div className="mt-8 w-full max-w-[34rem]">

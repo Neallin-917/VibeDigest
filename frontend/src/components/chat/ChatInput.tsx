@@ -101,7 +101,7 @@ export function ChatInput({
               data-testid="chat-input"
               className={cn(
                 "w-full border-none bg-transparent text-foreground focus:outline-none focus:ring-0",
-                "py-3.5 text-[15px] font-medium tracking-wide",
+                "py-3.5 text-base font-medium tracking-wide",
                 "placeholder:text-foreground-subtle"
               )}
               placeholder={placeholder ?? t('chat.inputPlaceholder') ?? "Ask anything or paste a URL..."}
@@ -114,7 +114,7 @@ export function ChatInput({
             onClick={isStopMode ? handleStop : undefined}
             disabled={(!input.trim() && !isStopMode) || (isBusy && !isStopMode) || (disabled && !isStopMode)}
             className={cn(
-              "p-2.5 rounded-[1.2rem] shadow-sm transition-colors duration-200 active:scale-95 shrink-0 mr-1",
+              "mr-1 flex size-11 shrink-0 items-center justify-center rounded-[1.2rem] p-0 shadow-sm transition-colors duration-200 active:scale-95",
               isStopMode
                 ? "bg-foreground text-primary-foreground hover:bg-foreground-soft"
                 : (input.trim() && !isLoading && !disabled

@@ -170,11 +170,11 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
 
       <footer className="border-t border-border bg-background py-8 text-center text-xs text-foreground-subtle">
         <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
-          <div className="mt-3 flex justify-center gap-5">
-            <Link href={`/${locale}/about`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>
-            <Link href={`/${locale}/faq`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '常见问题' : locale === 'ja' ? 'よくある質問' : 'FAQ'}</Link>
-            <Link href={`/${locale}/privacy`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '隐私政策' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
-            <Link href={`/${locale}/terms`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '服务条款' : locale === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
+          <div className="mt-1 flex flex-wrap justify-center gap-x-5">
+            <Link href={`/${locale}/about`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>
+            <Link href={`/${locale}/faq`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '常见问题' : locale === 'ja' ? 'よくある質問' : 'FAQ'}</Link>
+            <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '隐私政策' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
+            <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '服务条款' : locale === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
           </div>
       </footer>
 

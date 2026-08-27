@@ -74,7 +74,7 @@ export function PricingSection() {
     ]
 
     return (
-        <section id="pricing" className="scroll-mt-24 px-4 py-24 sm:px-6 md:py-32">
+        <section id="pricing" className="scroll-mt-24 px-4 py-20 sm:px-6 md:py-24 lg:px-10 lg:py-28 xl:px-6">
             <div className="mx-auto max-w-[1080px]">
                 <div className="mb-12 max-w-2xl">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-strong">03 · {t("landing.navPricing")}</p>

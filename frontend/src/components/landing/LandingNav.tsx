@@ -65,7 +65,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
             aria-label={t("nav.menu")}
             className={cn(
                 "pointer-events-none fixed left-0 right-0 top-4 z-50 flex h-14 items-center",
-                isLibraryShell ? "px-5 sm:px-8 lg:px-14" : "px-4 sm:px-6"
+                isLibraryShell ? "px-5 sm:px-8 lg:px-14" : "px-4 sm:px-6 lg:px-10 xl:px-6"
             )}
         >
             <div

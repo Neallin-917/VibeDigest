@@ -24,7 +24,7 @@ export function FeaturesSection() {
     ]
 
     return (
-        <section id="features" className="scroll-mt-24 px-4 py-24 sm:px-6 md:py-32">
+        <section id="features" className="scroll-mt-24 px-4 py-20 sm:px-6 md:py-24 lg:px-10 lg:py-28 xl:px-6">
             <div className="mx-auto grid max-w-[1080px] gap-14 lg:grid-cols-[minmax(0,0.82fr)_minmax(28rem,1.18fr)] lg:gap-20">
                 <div className="lg:sticky lg:top-28 lg:self-start">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-strong">02 · {t("landing.featuresEyebrow")}</p>

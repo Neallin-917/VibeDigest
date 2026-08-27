@@ -20,7 +20,7 @@ export function LandingFAQ() {
     const { locale, t } = useI18n()
 
     return (
-        <section id="landing-faq" aria-labelledby="landing-faq-title" className="scroll-mt-24 px-4 py-24 sm:px-6 md:py-32">
+        <section id="landing-faq" aria-labelledby="landing-faq-title" className="scroll-mt-24 px-4 py-16 sm:px-6 md:py-20 lg:px-10 lg:py-24 xl:px-6">
             <div className="mx-auto grid max-w-[1080px] gap-12 lg:grid-cols-[minmax(0,0.78fr)_minmax(28rem,1.22fr)] lg:gap-20">
                 <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-strong">04 · {t("landing.navFAQ")}</p>

@@ -11,7 +11,7 @@ export function SupportCTA() {
     const { t } = useI18n()
 
     return (
-        <section className="mx-auto mb-20 w-full max-w-[1080px] px-4 sm:px-6">
+        <section className="mx-auto mb-16 w-full max-w-[1080px] px-4 sm:px-6 md:mb-20 lg:px-10 xl:px-0">
             <div
                 className={cn(
                     "relative overflow-hidden rounded-[14px] border p-7 sm:p-9 md:p-11",

@@ -69,7 +69,7 @@ export function HeroSection() {
     }
 
     return (
-        <section id="hero" className="relative overflow-hidden px-4 pb-20 pt-32 sm:px-6 md:pb-28 md:pt-36">
+        <section id="hero" className="relative overflow-hidden px-4 pb-20 pt-32 sm:px-6 md:pb-28 md:pt-36 lg:px-10 xl:px-6">
             <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[42rem] bg-[linear-gradient(to_bottom,rgba(76,103,82,0.055),transparent_72%)]" />
             <div className="mx-auto w-full max-w-[1080px]">
                 <div className="max-w-[760px]">

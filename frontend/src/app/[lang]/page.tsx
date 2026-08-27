@@ -125,7 +125,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
       <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
         <HeroSection />
 
-        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-24 border-y border-border bg-surface-subtle px-4 py-20 text-foreground sm:px-6 md:py-24">
+        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-24 border-y border-border bg-surface-subtle px-4 py-20 text-foreground sm:px-6 md:py-24 lg:px-10 xl:px-6">
           <div className="mx-auto max-w-[1080px]">
             <div className="flex items-end justify-between gap-8">
               <div className="max-w-2xl">

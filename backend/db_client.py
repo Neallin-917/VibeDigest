@@ -400,6 +400,7 @@ class DBClient:
                 id, user_id, guest_id, video_url, status, progress, video_title, thumbnail_url,
                 error_message, created_at, updated_at, is_demo,
                 publication_status, publish_on_complete, published_at,
+                publication_block_reason,
                 author, author_url, author_image_url, description, keywords,
                 view_count, upload_date, duration, output_intent, workload_kind
             FROM tasks WHERE id = :task_id

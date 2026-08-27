@@ -2,7 +2,6 @@ import { GoogleOneTap } from "@/components/auth/GoogleOneTap"
 import { LandingNav } from "@/components/landing/LandingNav"
 import { HeroSection } from "@/components/landing/HeroSection"
 import { FeaturesSection } from "@/components/landing/FeaturesSection"
-import { HowItWorksSection } from "@/components/landing/HowItWorksSection"
 import { PricingSection } from "@/components/landing/PricingSection"
 import { LandingFAQ } from "@/components/landing/LandingFAQ"
 import { SupportCTA } from "@/components/landing/SupportCTA"
@@ -50,17 +49,17 @@ const SEO_COPY: Record<string, { title: string; description: string }> = {
   en: {
     title: "VibeDigest - AI Agent for Podcasts and Long Videos",
     description:
-      "Let an AI agent organize podcasts and long videos into summaries, key ideas, transcripts, and source-grounded follow-up.",
+      "Let an AI agent organize podcasts and long videos into summaries, key ideas, evidence, and source-grounded follow-up.",
   },
   zh: {
     title: "VibeDigest - 帮你看播客的 AI Agent",
     description:
-      "让 AI Agent 把播客和长视频整理成摘要、关键观点、逐字稿，并基于原内容继续回答问题。",
+      "让 AI Agent 把播客和长视频整理成摘要、关键观点和证据，并基于原内容继续回答问题。",
   },
   ja: {
     title: "VibeDigest - ポッドキャストと長尺動画のAI Agent",
     description:
-      "AI Agentがポッドキャストや長尺動画を要約、重要ポイント、文字起こしに整理し、元の内容に基づいて質問に答えます。",
+      "AI Agentがポッドキャストや長尺動画を要約、重要ポイント、根拠に整理し、元の内容に基づいて質問に答えます。",
   },
 }
 
@@ -111,10 +110,10 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-sans text-slate-800 selection:bg-primary/20 selection:text-primary dark:text-zinc-100">
+    <div className="relative flex min-h-screen flex-col bg-background font-sans text-foreground selection:bg-primary/20 selection:text-primary-strong">
       <a
         href="#main-content"
-        className="sr-only fixed left-4 top-4 z-[60] rounded-md bg-emerald-800 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:bg-emerald-400 dark:text-zinc-950 dark:focus:ring-emerald-200 dark:focus:ring-offset-zinc-950"
+        className="sr-only fixed left-4 top-4 z-[60] rounded-md bg-primary-strong px-4 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
       >
         {t("landing.skipToContent")}
       </a>
@@ -126,54 +125,56 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
       <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
         <HeroSection />
 
-        <section id="agent-output" aria-labelledby="community-title" className="mx-auto mb-24 max-w-[1600px] scroll-mt-24 px-6">
-          <div className="flex items-end justify-between gap-8">
-            <div className="max-w-2xl">
-              <h2 id="community-title" className="font-display text-2xl font-bold tracking-[-0.025em] text-slate-900 md:text-3xl dark:text-white">
-                {t("landing.communityTitle")}
-              </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 dark:text-zinc-400">{t("landing.communityHint")}</p>
+        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-24 border-y border-border bg-surface-subtle px-4 py-20 text-foreground sm:px-6 md:py-24">
+          <div className="mx-auto max-w-[1080px]">
+            <div className="flex items-end justify-between gap-8">
+              <div className="max-w-2xl">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">{t("landing.communityEyebrow")}</p>
+                <h2 id="community-title" className="mt-4 text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
+                  {t("landing.communityTitle")}
+                </h2>
+                <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">{t("landing.communityHint")}</p>
+              </div>
+              <Link
+                href={`/${locale}/explore`}
+                className="group hidden min-h-11 shrink-0 items-center gap-2 text-[12px] font-semibold text-primary transition-colors hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:inline-flex"
+              >
+                {t("landing.viewAll")}
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
             </div>
-            <Link
-              href={`/${locale}/explore`}
-              className="group hidden min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:inline-flex dark:text-emerald-400 dark:hover:text-emerald-300"
-            >
-              {t("landing.viewAll")}
-              <span className="transition-transform group-hover:translate-x-1">→</span>
-            </Link>
-          </div>
 
-          <div className="mt-8">
-            <Suspense fallback={<TemplatesSkeleton count={4} layout="landingPreview" />}>
-              <ServerCommunityTemplates limit={4} layout="landingPreview" showHeader={false} locale={locale} />
-            </Suspense>
-          </div>
+            <div className="mt-10 overflow-hidden border border-border-strong bg-border-strong [&_.animate-pulse]:!bg-card/55">
+              <Suspense fallback={<TemplatesSkeleton count={4} layout="landingPreview" />}>
+                <ServerCommunityTemplates limit={4} layout="landingPreview" showHeader={false} locale={locale} />
+              </Suspense>
+            </div>
 
-          <div className="mt-6 flex sm:hidden">
-            <Link
-              href={`/${locale}/explore`}
-              className="group inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
-            >
-              {t("landing.viewAll")}
-              <span className="group-hover:translate-x-1 transition-transform">→</span>
-            </Link>
+            <div className="mt-6 flex sm:hidden">
+              <Link
+                href={`/${locale}/explore`}
+                className="group inline-flex min-h-11 items-center gap-2 text-[12px] font-semibold text-primary transition-colors hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {t("landing.viewAll")}
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
+            </div>
           </div>
         </section>
 
         <FeaturesSection />
-        <HowItWorksSection />
         <PricingSection />
         <LandingFAQ />
         <SupportCTA />
       </main>
 
-      <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-500">
+      <footer className="border-t border-border bg-background py-8 text-center text-xs text-foreground-subtle">
         <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
           <div className="mt-3 flex justify-center gap-5">
-            <Link href={`/${locale}/about`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>
-            <Link href={`/${locale}/faq`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '常见问题' : locale === 'ja' ? 'よくある質問' : 'FAQ'}</Link>
-            <Link href={`/${locale}/privacy`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '隐私政策' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
-            <Link href={`/${locale}/terms`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '服务条款' : locale === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
+            <Link href={`/${locale}/about`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>
+            <Link href={`/${locale}/faq`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '常见问题' : locale === 'ja' ? 'よくある質問' : 'FAQ'}</Link>
+            <Link href={`/${locale}/privacy`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '隐私政策' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
+            <Link href={`/${locale}/terms`} className="transition-colors hover:text-foreground">{locale === 'zh' ? '服务条款' : locale === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
           </div>
       </footer>
 

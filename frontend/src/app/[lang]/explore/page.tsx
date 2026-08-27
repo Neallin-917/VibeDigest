@@ -12,7 +12,7 @@ const EXPLORE_COPY = {
     en: {
         eyebrow: "VibeDigest Agent output",
         title: "Podcasts, already organized",
-        description: "Open a finished digest with the summary, key ideas, transcript, and source-grounded follow-up.",
+        description: "Open a finished digest with the summary, key ideas, evidence, and source-grounded follow-up.",
         privacy: "Privacy Policy",
         terms: "Terms of Service",
         copyright: "All rights reserved.",
@@ -20,7 +20,7 @@ const EXPLORE_COPY = {
     zh: {
         eyebrow: "VibeDigest Agent 输出",
         title: "已经整理好的播客",
-        description: "直接查看摘要、关键观点和逐字稿，也可以基于原内容继续追问。",
+        description: "直接查看摘要、关键观点和支撑证据，也可以基于原内容继续追问。",
         privacy: "隐私政策",
         terms: "服务条款",
         copyright: "保留所有权利。",
@@ -28,7 +28,7 @@ const EXPLORE_COPY = {
     ja: {
         eyebrow: "VibeDigest Agent の出力",
         title: "整理済みのポッドキャスト",
-        description: "要約、重要ポイント、文字起こしを読み、元の内容に基づいて続けて質問できます。",
+        description: "要約、重要ポイント、根拠を読み、元の内容に基づいて続けて質問できます。",
         privacy: "プライバシーポリシー",
         terms: "利用規約",
         copyright: "All rights reserved.",
@@ -39,17 +39,17 @@ const SEO_COPY: Record<string, { title: string; description: string }> = {
     en: {
         title: "Ready-made Podcast Digests | VibeDigest",
         description:
-            "Browse finished podcast digests created by the VibeDigest Agent, including summaries, key ideas, transcripts, and follow-up.",
+            "Browse finished podcast digests created by the VibeDigest Agent, including summaries, key ideas, evidence, and follow-up.",
     },
     zh: {
         title: "播客整理内容库 | VibeDigest",
         description:
-            "浏览由 VibeDigest Agent 整理完成的公开播客内容，包括摘要、关键观点、逐字稿和继续追问。",
+            "浏览由 VibeDigest Agent 整理完成的公开播客内容，包括摘要、关键观点、支撑证据和继续追问。",
     },
     ja: {
         title: "整理済みポッドキャスト | VibeDigest",
         description:
-            "VibeDigest Agent が整理したポッドキャストの要約、重要ポイント、文字起こしを閲覧できます。",
+            "VibeDigest Agent が整理したポッドキャストの要約、重要ポイント、根拠を閲覧できます。",
     },
 }
 
@@ -97,7 +97,7 @@ export default async function ExplorePage({
 
     return (
         <div className="min-h-screen bg-transparent font-sans text-slate-800 dark:text-[#F5F5F5]">
-            <LandingNav />
+            <LandingNav shell="library" />
 
             <div className="fixed inset-0 -z-10 bg-[color:var(--background)] dark:bg-[#090b0b]">
                 <div className="absolute inset-0 hidden bg-grid opacity-30 dark:block" />

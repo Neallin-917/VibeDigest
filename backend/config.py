@@ -69,6 +69,17 @@ class Settings:
     SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
     SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
 
+    @property
+    def JWT_VERIFICATION_MODE(self) -> str:
+        """Describe the configured Supabase JWT verification path."""
+        if self.SUPABASE_URL and self.SUPABASE_JWT_SECRET:
+            return "jwks+hs256"
+        if self.SUPABASE_URL:
+            return "jwks"
+        if self.SUPABASE_JWT_SECRET:
+            return "hs256"
+        return "missing"
+
     # Creem Payment
     CREEM_API_KEY: str = os.getenv("CREEM_API_KEY", "")
     CREEM_WEBHOOK_SECRET: str = os.getenv("CREEM_WEBHOOK_SECRET", "")
@@ -304,9 +315,6 @@ class Settings:
             missing.append("SUPABASE_URL")
         if not self.SUPABASE_SERVICE_KEY:
             missing.append("SUPABASE_SERVICE_KEY")
-
-        if not dev_bypass and not self.SUPABASE_JWT_SECRET:
-            missing.append("SUPABASE_JWT_SECRET")
 
         if process_role != "podcast_discovery":
             has_llm_key = self.LLM_RUNTIME == "codex_local" or bool(

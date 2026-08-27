@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "VibeDigest - AI Video Summarizer & Transcriber",
+    name: "VibeDigest - AI Podcast and Video Agent",
     short_name: "VibeDigest",
     description:
-      "Free AI Video Summarizer & YouTube to Text Converter. Get instant summaries, transcripts, and structured notes from YouTube videos.",
+      "Turn podcasts and long videos into summaries, key ideas, evidence, and source-grounded answers.",
     start_url: "/en",
     display: "standalone",
     background_color: "#ffffff",

@@ -143,7 +143,7 @@ test.describe('Complete Task Workflow (Mocked)', () => {
     await page.goto('/en/chat?task=mock-task-123')
 
     await expect(page.getByText('Opening chat...')).toBeVisible({ timeout: 1500 })
-    await expect(page.locator('h1')).toContainText(/digest today/i)
+    await expect(page.locator('h1')).toContainText(/What do you want to understand today\?/i)
     await expect(page.getByText('Processing plan')).toBeHidden()
     await expect(page.getByLabel(/Chat input/i)).toBeEnabled()
 
@@ -157,7 +157,7 @@ test.describe('Complete Task Workflow (Mocked)', () => {
     const chatPage = new ChatPage(page);
 
     await chatPage.goto();
-    await expect(chatPage.welcomeHeading).toContainText(/digest today/i);
+    await expect(chatPage.welcomeHeading).toContainText(/What do you want to understand today\?/i);
 
     await chatPage.submitMessage('https://youtube.com/watch?v=dQw4w9WgXcQ');
 

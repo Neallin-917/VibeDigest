@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Heading, Text } from "@/components/ui/typography"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, Zap } from "lucide-react"
+import { CheckCircle2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
@@ -45,15 +45,6 @@ export function PricingSection() {
 
     const plans = [
         {
-            key: "free",
-            title: t("pricing.free.title"),
-            price: t("pricing.free.price"),
-            desc: t("pricing.free.desc"),
-            features: freeFeatureKeys.map(k => t(k)),
-            cta: t("landing.getStarted"),
-            highlight: false
-        },
-        {
             key: "pro",
             title: t("pricing.pro.title"),
             price: t("pricing.pro.annualPrice"),
@@ -61,6 +52,15 @@ export function PricingSection() {
             features: proFeatureKeys.map(k => t(k)),
             cta: t("landing.viewPlan"),
             highlight: true
+        },
+        {
+            key: "free",
+            title: t("pricing.free.title"),
+            price: t("pricing.free.price"),
+            desc: t("pricing.free.desc"),
+            features: freeFeatureKeys.map(k => t(k)),
+            cta: t("landing.getStarted"),
+            highlight: false
         },
         {
             key: "topup",
@@ -74,106 +74,106 @@ export function PricingSection() {
     ]
 
     return (
-        <section id="pricing" className="px-6 py-20 scroll-mt-24">
-            <div className="max-w-5xl mx-auto">
-                <div className="text-center mb-12">
-                    <div>
-                        <Heading as="h2" className="text-2xl md:text-4xl font-bold mb-5 font-display text-slate-900 dark:text-white">
-                            {t("landing.simplePricing")}
-                        </Heading>
-                        <Text className="text-slate-600 dark:text-zinc-400 text-base">
-                            {t("landing.simplePricingSubtitle")}
-                        </Text>
-                    </div>
+        <section id="pricing" className="scroll-mt-24 px-4 py-24 sm:px-6 md:py-32">
+            <div className="mx-auto max-w-[1080px]">
+                <div className="mb-12 max-w-2xl">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-strong">03 · {t("landing.navPricing")}</p>
+                    <Heading as="h2" className="mt-5 text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
+                        {t("landing.simplePricing")}
+                    </Heading>
+                    <Text className="mt-4 text-[15px] leading-7 text-muted-foreground">
+                        {t("landing.simplePricingSubtitle")}
+                    </Text>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {plans.map((plan) => (
                         <div
                             key={plan.key}
                             className={cn(
-                                "relative flex flex-col rounded-2xl border p-6 transition-colors duration-200",
+                                "relative flex flex-col rounded-[12px] border p-6 transition-colors duration-200 md:p-8",
                                 plan.highlight
                                     ? cn(
-                                        // Light mode highlight
-                                        "border-emerald-600 bg-white shadow-sm md:-mt-3 md:mb-3 z-10",
-                                        // Dark mode highlight
-                                        "dark:border-emerald-400 dark:bg-zinc-900 dark:shadow-none"
+                                        "border-border-strong bg-accent/65 md:col-span-2"
                                     )
                                     : cn(
-                                        // Light mode normal
-                                        "border-slate-200 bg-white hover:border-slate-300",
-                                        // Dark mode normal
-                                        "dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
+                                        "border-border bg-card/45 hover:border-border-strong"
                                     )
                             )}
                         >
                             {plan.highlight && (
-                                <div className={cn(
-                                    "absolute top-0 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-emerald-800 px-3 py-1 text-[10px] font-bold tracking-wider text-white",
-                                    "dark:bg-emerald-400 dark:text-zinc-950"
-                                )}>
-                                    <Zap className="w-2.5 h-2.5 fill-current" />
+                                <div className="absolute right-6 top-6 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-strong md:right-8 md:top-8">
+                                    <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
                                     {t("landing.mostPopular")}
                                 </div>
                             )}
 
                             <Heading as="h3" className={cn(
-                                "text-base font-bold mb-1",
-                                plan.highlight ? "text-emerald-800 dark:text-emerald-400" : "text-slate-800 dark:text-zinc-100"
+                                "mb-2 pr-28 text-base font-semibold",
+                                plan.highlight ? "text-primary-strong" : "text-foreground"
                             )}>
                                 {plan.title}
                             </Heading>
 
-                            <div className="flex items-baseline gap-1 mb-4">
-                                <span className="text-3xl font-bold text-slate-900 dark:text-white font-display tracking-tight">{plan.price}</span>
-                                {plan.key === 'pro' && <span className="text-xs text-slate-500 dark:text-zinc-500">{t("landing.effectiveMonthly")}</span>}
+                            <div className="mb-4 flex items-baseline gap-2">
+                                <span className={cn(
+                                    "font-semibold tracking-[-0.035em] text-foreground",
+                                    plan.highlight ? "text-[2.5rem]" : "text-[2rem]",
+                                )}>
+                                    {plan.price}
+                                </span>
+                                {plan.key === 'pro' && <span className="text-xs text-foreground-subtle">{t("landing.effectiveMonthly")}</span>}
                             </div>
 
-                            <Text className="text-slate-600 dark:text-zinc-400 mb-6 leading-relaxed text-xs min-h-[32px]">
+                            <Text className={cn(
+                                "mb-6 leading-relaxed text-muted-foreground",
+                                plan.highlight ? "max-w-xl text-sm" : "min-h-[32px] text-xs",
+                            )}>
                                 {plan.desc}
                             </Text>
 
-                            <ul className="space-y-3 mb-6 flex-1">
+                            <div className={cn(
+                                "flex flex-1 flex-col gap-6",
+                                plan.highlight && "lg:flex-row lg:items-end lg:justify-between",
+                            )}>
+                                <ul className={cn(
+                                    "space-y-3",
+                                    plan.highlight && "lg:max-w-sm",
+                                )}>
                                 {plan.features.map((feature, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-xs text-slate-700 dark:text-zinc-300">
+                                    <li key={i} className="flex items-start gap-2 text-[12px] text-foreground-soft">
                                         <CheckCircle2 className={cn(
                                             "w-4 h-4 shrink-0 mt-0.5",
-                                            plan.highlight ? "text-emerald-700 dark:text-emerald-500" : "text-slate-400 dark:text-zinc-600"
+                                            plan.highlight ? "text-primary" : "text-foreground-subtle"
                                         )} />
                                         <span className="leading-snug">{feature}</span>
                                     </li>
                                 ))}
-                            </ul>
+                                </ul>
 
-                            <Button
-                                variant={plan.highlight ? "default" : "outline"}
-                                onClick={handlePlanClick}
-                                className={cn(
-                                    "w-full h-10 rounded-lg font-semibold text-sm transition-all duration-300",
-                                    plan.highlight
-                                        ? cn(
-                                            "border-0 bg-emerald-800 text-white hover:bg-emerald-900 active:translate-y-px",
-                                            "dark:bg-emerald-400 dark:text-zinc-950 dark:hover:bg-emerald-300"
-                                        )
-                                        : cn(
-                                            "bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700 hover:text-slate-900",
-                                            "dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white"
-                                        )
-                                )}
-                            >
-                                {plan.cta}
-                            </Button>
+                                <Button
+                                    variant={plan.highlight ? "default" : "outline"}
+                                    onClick={handlePlanClick}
+                                    className={cn(
+                                        "min-h-11 rounded-[9px] font-semibold text-[13px] transition-[background-color,color,border-color,transform] duration-200",
+                                        plan.highlight
+                                            ? "w-full border-0 bg-primary-strong text-primary-foreground hover:bg-primary active:translate-y-px lg:w-auto lg:min-w-[11rem]"
+                                            : "w-full border-border bg-muted text-foreground-soft hover:bg-secondary hover:text-foreground"
+                                    )}
+                                >
+                                    {plan.cta}
+                                </Button>
+                            </div>
                         </div>
                     ))}
                 </div>
-                <p className="mx-auto mt-6 max-w-xl text-center text-xs leading-relaxed text-slate-500 dark:text-zinc-500">
+                <p className="mt-6 max-w-xl text-xs leading-relaxed text-foreground-subtle">
                     {t("landing.pricingPolicyPrefix")} {" "}
-                    <Link href={`/${locale}/policies/refund`} className="underline underline-offset-2 hover:text-slate-700 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:hover:text-zinc-300 dark:focus-visible:ring-emerald-400 dark:focus-visible:ring-offset-zinc-950">
+                    <Link href={`/${locale}/policies/refund`} className="underline underline-offset-2 hover:text-foreground-soft focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
                         {t("pricing.policies.refund")}
                     </Link>
                     {" "}{t("landing.pricingPolicyConnector")} {" "}
-                    <Link href={`/${locale}/policies/terms`} className="underline underline-offset-2 hover:text-slate-700 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:hover:text-zinc-300 dark:focus-visible:ring-emerald-400 dark:focus-visible:ring-offset-zinc-950">
+                    <Link href={`/${locale}/policies/terms`} className="underline underline-offset-2 hover:text-foreground-soft focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
                         {t("pricing.policies.terms")}
                     </Link>.
                 </p>

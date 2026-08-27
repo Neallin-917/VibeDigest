@@ -137,7 +137,7 @@ const FEATURED_COUNT = 6
 type EpisodeCardRole = "hero" | "supporting" | "solo" | "standard"
 
 const episodeCardVariants = cva(
-    "group h-full overflow-hidden border border-slate-200 bg-white/80 transition-colors hover:border-emerald-500/50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-emerald-400/50",
+    "group h-full overflow-hidden border border-border bg-card/80 transition-colors hover:border-primary-muted/60",
     {
         variants: {
             role: {
@@ -154,7 +154,7 @@ const episodeCardVariants = cva(
 )
 
 const episodeMediaVariants = cva(
-    "relative block overflow-hidden bg-slate-100 dark:bg-zinc-950",
+    "relative block overflow-hidden bg-muted",
     {
         variants: {
             role: {
@@ -188,7 +188,7 @@ const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
     variants: {
         role: {
             hero: "mt-4",
-            supporting: "mt-3 border-t border-slate-200 pt-3 dark:border-white/10",
+            supporting: "mt-3 border-t border-border pt-3",
             solo: "mt-auto pt-4",
             standard: "mt-auto pt-4",
         },
@@ -258,14 +258,14 @@ function SourceMark({ source, size = "large" }: { source: PodcastSource; size?: 
     return (
         <span
             className={cn(
-                "relative shrink-0 overflow-hidden border border-slate-200 bg-white dark:border-white/10 dark:bg-zinc-900",
+                "relative shrink-0 overflow-hidden border border-border bg-card",
                 sizeClass
             )}
         >
             {source.avatarUrl ? (
                 <Image src={source.avatarUrl} alt="" fill sizes={sizes} className="object-cover" />
             ) : (
-                <span className="flex size-full items-center justify-center text-xs font-semibold text-slate-600 dark:text-zinc-300" aria-hidden="true">
+                <span className="flex size-full items-center justify-center text-xs font-semibold text-muted-foreground" aria-hidden="true">
                     {source.name.slice(0, 1).toUpperCase()}
                 </span>
             )}
@@ -332,14 +332,14 @@ function EpisodeFeatureCard({
             </Link>
 
             <div data-slot="episode-card-content" className={episodeContentVariants({ role })}>
-                <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-primary">
                     <SourceMark source={source} size="compact" />
                     <span className="truncate">{source.name}</span>
                 </div>
-                <Link href={href} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                <Link href={href} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <h3
                         className={cn(
-                            "tracking-[-0.02em] text-slate-950 transition-colors hover:text-emerald-700 dark:text-white dark:hover:text-emerald-400",
+                            "tracking-[-0.02em] text-foreground transition-colors hover:text-primary",
                             role === "hero" || role === "solo"
                                 ? "line-clamp-3 text-[1.65rem] font-semibold leading-[1.15] lg:text-[2rem]"
                                 : role === "supporting"
@@ -351,25 +351,25 @@ function EpisodeFeatureCard({
                     </h3>
                 </Link>
                 {task.takeaway && role !== "supporting" ? (
-                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-zinc-400">
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
                         {task.takeaway}
                     </p>
                 ) : null}
                 {role !== "supporting" ? (
-                    <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] text-slate-500 dark:border-white/10 dark:text-zinc-500">
+                    <p className="mt-3 border-t border-border pt-3 text-[11px] text-foreground-subtle">
                         {metadataForTask(task, locale, copy)}
                     </p>
                 ) : null}
                 <div data-slot="episode-card-footer" className={episodeFooterVariants({ role })}>
                     {role === "supporting" ? (
-                        <span className="text-[11px] text-slate-500 dark:text-zinc-500">
+                        <span className="text-[11px] text-foreground-subtle">
                             {metadataForTask(task, locale, copy)}
                         </span>
                     ) : (
                         <Link
                             href={href}
                             onClick={() => track("library_digest_open", { source: source.id, area: `${role}_cta` })}
-                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:text-zinc-950 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-zinc-950"
+                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary-strong px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                         >
                             {copy.read}
                         </Link>
@@ -378,7 +378,7 @@ function EpisodeFeatureCard({
                         href={task.video_url || source.channelUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-slate-600 transition-colors hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-zinc-300 dark:hover:text-emerald-400"
+                        className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                         {copy.source}
                         <ExternalLink className="size-3.5" aria-hidden="true" />
@@ -624,11 +624,11 @@ export function CommunityTemplates({
     if (layout === "landingPreview") {
         if (featuredTasks.length === 0) return null
         return (
-            <div className="grid gap-px bg-slate-200 dark:bg-white/10 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-px bg-border-strong sm:grid-cols-2 xl:grid-cols-4 [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card">
                 {featuredTasks.slice(0, 4).map((task, index) => (
                     <div
                         key={task.id}
-                        className="bg-[color:var(--background)] dark:bg-[#090b0b]"
+                        className="bg-card"
                     >
                         <EpisodeFeatureCard
                             task={task}

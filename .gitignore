@@ -104,6 +104,8 @@ logs/security/
 !/.codex/config.toml
 !/.codex/agents/
 !/.codex/agents/*.toml
+/.playwright-cli/
+/output/
 /.opencode/
 /.shared/
 /.reports/
@@ -120,6 +122,7 @@ backend/logs/
 backend/downloads/
 backend/temp/
 frontend/.next-test/
+frontend/.next-layout-qa/
 frontend/playwright-report/
 frontend/test-results/
 # next-agents-md

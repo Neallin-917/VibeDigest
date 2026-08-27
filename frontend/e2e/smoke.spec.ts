@@ -30,13 +30,12 @@ test.describe('Landing Page', () => {
 
         // Check hero section exists
 
-        await expect(page.locator('h1')).toBeVisible();
-        await expect(page.getByRole('heading', { name: 'Turn one link into a digest you can use.' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Let AI help you watch the whole podcast.' })).toBeVisible();
 
         // The hero should demonstrate the finished product rather than only
         // describing capabilities, and its CTA must lead to public demos.
-        await expect(page.getByRole('region', { name: 'State of the Claw — Peter Steinberger' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Open a finished digest' })).toHaveAttribute('href', '/en/explore');
+        await expect(page.getByRole('region', { name: 'State of the Claw: Peter Steinberger' })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Explore ready-made digests' })).toHaveAttribute('href', '/en/explore');
 
 
 
@@ -64,7 +63,7 @@ test.describe('Landing Page', () => {
 
         // Fixture data makes the landing page representative without relying on
         // a remote Supabase project or production demo rows.
-        await expect(page.getByRole('heading', { name: 'How AI shortens the feedback loop' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'See what the agent has already organized' })).toBeVisible();
 
     });
 

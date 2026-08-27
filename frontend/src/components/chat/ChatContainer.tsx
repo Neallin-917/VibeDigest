@@ -30,6 +30,9 @@ interface ChatContainerProps {
   onSelectExample?: (task: ChatExample) => void
   onChatStarted?: (threadId: string, taskId?: string) => void
   initialExamples?: Promise<ChatExample[]> | null
+  variant?: 'workspace' | 'embedded'
+  allowDirectUrlSubmission?: boolean
+  showTaskArtifacts?: boolean
 }
 
 const NO_TASK_IDS = new Set<string>()
@@ -79,7 +82,10 @@ export function ChatContainer({
   isInteractionLocked = false,
   onSelectExample,
   onChatStarted,
-  initialExamples = null
+  initialExamples = null,
+  variant = 'workspace',
+  allowDirectUrlSubmission = true,
+  showTaskArtifacts = true,
 }: ChatContainerProps) {
 
   const { t, locale } = useI18n()
@@ -238,7 +244,9 @@ export function ChatContainer({
     void preloadMessageRow()
 
     // Direct URL path: detect URL and bypass LLM entirely
-    const detectedUrl = extractAndNormalizeUrl(trimmed)
+    const detectedUrl = allowDirectUrlSubmission
+      ? extractAndNormalizeUrl(trimmed)
+      : null
     if (detectedUrl) {
       return handleDirectUrlSubmission(detectedUrl, trimmed)
     }
@@ -324,25 +332,32 @@ export function ChatContainer({
 
   const handleSubmit = (text: string) => handleSendMessage(text)
 
+  const isEmbedded = variant === 'embedded'
+
   return (
-    <div className="flex flex-col h-full min-h-0 relative">
+    <div className={cn('flex min-h-0 flex-col relative', isEmbedded ? 'w-full' : 'h-full')}>
       <div
         ref={scrollRef}
         onScroll={handleScroll}
         className={cn(
-          'flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 custom-scrollbar',
+          'min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar',
+          isEmbedded
+            ? 'max-h-[34rem] px-0 py-1'
+            : 'flex-1 px-4 py-6 md:px-8',
           status === 'streaming' ? 'scroll-auto' : 'scroll-smooth',
-          messages.length > 0 ? 'pb-44 md:pb-56' : '',
+          messages.length > 0 && !isEmbedded ? 'pb-44 md:pb-56' : '',
         )}
       >
         {messages.length === 0 ? (
-          <WelcomeScreen
-            onSelectExample={onSelectExample || (() => { })}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            isAuthenticated={isAuthenticated}
-            initialExamples={initialExamples}
-          />
+          isEmbedded ? null : (
+            <WelcomeScreen
+              onSelectExample={onSelectExample || (() => { })}
+              onSubmit={handleSubmit}
+              isLoading={isLoading}
+              isAuthenticated={isAuthenticated}
+              initialExamples={initialExamples}
+            />
+          )
         ) : (
           <div className="max-w-3xl mx-auto w-full space-y-8">
             {renderMessages.map((m) => (
@@ -350,8 +365,10 @@ export function ChatContainer({
                 key={m.id}
                 message={m}
                 isStreaming={false}
-                liveTaskIds={latestTaskIdsByMessage.get(m.id)}
-                visibleTaskIds={latestTaskIdsByMessage.get(m.id) ?? NO_TASK_IDS}
+                liveTaskIds={showTaskArtifacts ? latestTaskIdsByMessage.get(m.id) : NO_TASK_IDS}
+                visibleTaskIds={showTaskArtifacts
+                  ? (latestTaskIdsByMessage.get(m.id) ?? NO_TASK_IDS)
+                  : NO_TASK_IDS}
                 onRetryTask={handleTaskRetry}
               />
             ))}
@@ -362,6 +379,7 @@ export function ChatContainer({
                 message={streamingMessage}
                 isStreaming
                 liveTaskIds={NO_TASK_IDS}
+                visibleTaskIds={showTaskArtifacts ? undefined : NO_TASK_IDS}
                 onRetryTask={handleTaskRetry}
               />
             ) : null}
@@ -385,7 +403,7 @@ export function ChatContainer({
       </div>
 
       {displayErrorMessage && (
-        <div className="px-4 md:px-8 pb-4">
+        <div className={cn('pb-4', isEmbedded ? 'pt-3' : 'px-4 md:px-8')}>
           <div className="max-w-3xl mx-auto">
             <div className="flex w-full">
               <div
@@ -424,16 +442,19 @@ export function ChatContainer({
         </div>
       )}
 
-      {messages.length > 0 && (
-        <ChatInput
-          variant="floating"
-          onSubmit={handleSubmit}
-          isLoading={isLoading}
-          disabled={isInteractionLocked}
-          onStop={status === 'streaming' ? stop : undefined}
-          placeholder={hasActiveSource ? t('chat.followUpPlaceholder') : undefined}
-          inputLabel={hasActiveSource ? t('chat.followUpInputLabel') : undefined}
-        />
+      {(messages.length > 0 || isEmbedded) && (
+        <div className={cn(isEmbedded && messages.length > 0 ? 'mt-5' : '')}>
+          <ChatInput
+            variant={isEmbedded ? 'inline' : 'floating'}
+            hideDisclaimer={isEmbedded}
+            onSubmit={handleSubmit}
+            isLoading={isLoading}
+            disabled={isInteractionLocked}
+            onStop={status === 'streaming' ? stop : undefined}
+            placeholder={hasActiveSource ? t('chat.followUpPlaceholder') : undefined}
+            inputLabel={hasActiveSource ? t('chat.followUpInputLabel') : undefined}
+          />
+        </div>
       )}
     </div >
   )

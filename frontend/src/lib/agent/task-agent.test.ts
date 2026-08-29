@@ -86,6 +86,10 @@ describe('runtime configuration', () => {
     expect(TASK_AGENT_INSTRUCTIONS).toContain('search_source and read_source are mandatory before answering')
   })
 
+  it('requires task creation for an explicit supported video-processing request', () => {
+    expect(TASK_AGENT_INSTRUCTIONS).toContain('call create_video_task before writing any reply')
+  })
+
   it('uses explicit smart-tier registry routing rather than message length', () => {
     expect(resolveAgentRuntime('ja')).toEqual({ runtime: 'api', provider: 'openrouter', model: 'fixture-smart', modelTier: 'smart', reasoningEffort: 'provider-default', locale: 'ja' })
     expect(resolveProviderMock).toHaveBeenCalledWith(undefined, 'openrouter')

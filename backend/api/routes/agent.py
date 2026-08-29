@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import os
 import time
 from typing import Annotated, Any, Literal
@@ -16,6 +17,8 @@ from sqlalchemy.exc import DBAPIError
 from db_client import DBClient
 from dependencies import get_db_client
 from services.agent_turns import AgentTurns
+
+logger = logging.getLogger(__name__)
 
 
 async def verify_service_request(request: Request) -> None:
@@ -108,7 +111,7 @@ class ClaimCommand(Command):
     readCount: int = Field(gt=0)
 
 
-def _execute(callback):
+def _execute(callback, *, request_id: str | None = None):
     try:
         return callback()
     except DBAPIError as exc:
@@ -119,6 +122,22 @@ def _execute(callback):
         if not code and details and isinstance(details[0], dict):
             code = details[0].get("C")
         if code == "42501":
+            message = (
+                details[0].get("M")
+                if details and isinstance(details[0], dict)
+                else None
+            )
+            reason = (
+                "agent_forbidden"
+                if message == "agent_forbidden"
+                else "database_permission_denied"
+            )
+            logger.warning(
+                "Agent command rejected request_id=%s database_code=%s reason=%s",
+                request_id or "unknown",
+                code,
+                reason,
+            )
             raise HTTPException(
                 403, "Agent command is not authorized or has expired"
             ) from exc
@@ -135,7 +154,7 @@ DB = Annotated[DBClient, Depends(get_db_client)]
 
 
 @router.post("/turns")
-def accept_turn(command: AcceptCommand, db: DB):
+def accept_turn(command: AcceptCommand, request: Request, db: DB):
     if not os.getenv("AGENT_CONTINUATION_URL"):
         raise HTTPException(503, "Agent continuation is not configured")
     configured_runtime = os.getenv("AGENT_CONTINUATION_RUNTIME", "api")
@@ -162,7 +181,8 @@ def accept_turn(command: AcceptCommand, db: DB):
             task_id=str(command.taskId) if command.taskId else None,
             runtime_config=command.runtimeConfig.model_dump(),
             continuation_queue=queue,
-        )
+        ),
+        request_id=request.headers.get("x-agent-request-id"),
     )
 
 

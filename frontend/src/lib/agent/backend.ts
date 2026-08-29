@@ -1,7 +1,8 @@
 import 'server-only'
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { env } from '@/env'
+import { resolveServerBackendUrl } from '@/lib/backend-url-core'
 import type { ChatUIMessage, StoredChatMessageRow } from '@/lib/chat-ui'
 
 export type AgentRuntimeConfig = {
@@ -59,18 +60,34 @@ export function verifyAgentRequest(request: Request, body: string): boolean {
 }
 
 export async function agentBackend<T>(path: string, payload: unknown, signal?: AbortSignal): Promise<T> {
-  const url = new URL(`/api/internal/agent${path}`, env.BACKEND_API_URL)
+  // Agent commands are server-to-server requests. Use the configured Railway
+  // origin, never the public Cloudflare API domain.
+  const origin = resolveServerBackendUrl({
+    nodeEnv: env.NODE_ENV,
+    backendApiUrl: env.BACKEND_API_URL,
+    backendOriginUrl: env.BACKEND_ORIGIN_URL,
+  })
+  const url = new URL(`/api/internal/agent${path}`, origin)
   const body = JSON.stringify(payload)
   const sentAt = Math.floor(Date.now() / 1000).toString()
+  // Correlate a rejected internal command across Vercel and Railway without
+  // recording user input, identifiers, request bodies, or credentials.
+  const requestId = randomUUID()
   const response = await fetch(url, {
     method: 'POST', body, cache: 'no-store',
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
     headers: {
       'Content-Type': 'application/json', 'x-agent-sent-at': sentAt,
       'x-agent-signature': signAgentRequest('POST', url.pathname, body, sentAt),
+      'x-agent-request-id': requestId,
     },
   })
-  if (!response.ok) throw new AgentServiceError(response.status)
+  if (!response.ok) {
+    console.warn('[Task Agent] internal command rejected', {
+      requestId, path, origin: url.origin, status: response.status,
+    })
+    throw new AgentServiceError(response.status)
+  }
   return await response.json() as T
 }
 

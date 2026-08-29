@@ -157,7 +157,7 @@ test.describe('Complete Task Workflow (Mocked)', () => {
       })
     })
 
-    await page.route('**/api/chat/threads*', async (route) => {
+    await page.route('**/api/chat/threads/*/messages', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

@@ -26,13 +26,7 @@ test.describe('Thread-Task 1:1 Constraint', () => {
   test('should prevent creating a second task in the same thread', async ({ page }) => {
     const chatBodies: Array<{ threadId: string; taskId?: string | null; text: string }> = []
 
-    await page.route('**/api/chat/threads*', async (route) => {
-      const url = new URL(route.request().url())
-      if (url.pathname.endsWith('/messages')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-        return
-      }
-
+    await page.route('**/api/threads', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -115,13 +109,7 @@ test.describe('Thread-Task 1:1 Constraint', () => {
   test('should allow creating task in new thread after constraint error', async ({ page }) => {
     const chatBodies: Array<{ threadId: string; taskId?: string | null; text: string }> = []
 
-    await page.route('**/api/chat/threads*', async (route) => {
-      const url = new URL(route.request().url())
-      if (url.pathname.endsWith('/messages')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-        return
-      }
-
+    await page.route('**/api/threads', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -216,13 +204,7 @@ test.describe('Navigation Cycle Prevention', () => {
       }
     })
 
-    await page.route('**/api/chat/threads*', async (route) => {
-      const url = new URL(route.request().url())
-      if (url.pathname.endsWith('/messages')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-        return
-      }
-
+    await page.route('**/api/threads', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -249,13 +231,7 @@ test.describe('Navigation Cycle Prevention', () => {
   })
 
   test('should allow normal navigation without false positives', async ({ page }) => {
-    await page.route('**/api/chat/threads*', async (route) => {
-      const url = new URL(route.request().url())
-      if (url.pathname.endsWith('/messages')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-        return
-      }
-
+    await page.route('**/api/threads', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

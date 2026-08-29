@@ -105,7 +105,7 @@ describe('proxy', () => {
     })
 
     it('should pass through the authenticated chat-history list without a duplicate session refresh', async () => {
-        const response = await proxy(makeRequest('/api/chat/threads'))
+        const response = await proxy(makeRequest('/api/threads'))
 
         expect(response.status).toBe(200)
         expect(mockUpdateSession).not.toHaveBeenCalled()
@@ -119,7 +119,7 @@ describe('proxy', () => {
     })
 
     it('should still refresh a non-read request to the same API namespace', async () => {
-        await proxy(makeRequest('/api/chat/threads', { method: 'POST' }))
+        await proxy(makeRequest('/api/threads', { method: 'POST' }))
 
         expect(mockUpdateSession).toHaveBeenCalledTimes(1)
     })

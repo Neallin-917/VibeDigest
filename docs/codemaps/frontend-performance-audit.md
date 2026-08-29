@@ -43,7 +43,7 @@ stages:
    loaded only when a code block needs it.
 2. Markdown and tool-message rendering is omitted from a fresh chat entry and
    starts loading as soon as the user submits. The download runs in parallel
-   with direct-submit or chat network work, while unauthenticated users avoid
+   with the Agent chat request, while unauthenticated users avoid
    the download and existing conversations load the renderer automatically.
 
 | Stage | Before | After | Change |
@@ -244,7 +244,7 @@ Priority rules:
 
 **Current design complexity**
 
-- `ChatContainer` owns transport, auth gating, local persistence, direct-submit branching, scroll, and auto-open side effects
+- `ChatContainer` owns Agent transport, auth gating, scroll, and auto-open side effects
 - `ChatWorkspace` mixes panel resizing, mobile detection, routing, dynamic import, and layout orchestration
 - `MessageRow` is memoized, but markdown and tool/data rendering still sit on the hot path
 

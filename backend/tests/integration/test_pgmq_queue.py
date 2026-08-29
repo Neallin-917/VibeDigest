@@ -38,9 +38,21 @@ def _valid_public_summary() -> dict[str, object]:
             "and represents a source-grounded summary produced by the canonical pipeline."
         ),
         "keypoints": [
-            {"title": "Point one", "detail": "Detailed explanation one.", "evidence": "Evidence one."},
-            {"title": "Point two", "detail": "Detailed explanation two.", "evidence": "Evidence two."},
-            {"title": "Point three", "detail": "Detailed explanation three.", "evidence": "Evidence three."},
+            {
+                "title": "Point one",
+                "detail": "Detailed explanation one.",
+                "evidence": "Evidence one.",
+            },
+            {
+                "title": "Point two",
+                "detail": "Detailed explanation two.",
+                "evidence": "Evidence two.",
+            },
+            {
+                "title": "Point three",
+                "detail": "Detailed explanation three.",
+                "evidence": "Evidence three.",
+            },
         ],
     }
 
@@ -86,14 +98,25 @@ def pgmq_db() -> DBClient:
 
     with engine.begin() as connection:
         connection.exec_driver_sql(platform_sql)
+        connection.exec_driver_sql("""CREATE TABLE IF NOT EXISTS public._test_applied_migrations (
+          name text primary key
+        )""")
         raw_connection = connection.connection.driver_connection
         with raw_connection.cursor() as cursor:
+            cursor.execute("SELECT name FROM public._test_applied_migrations")
+            applied = {row[0] for row in cursor.fetchall()}
             for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
+                if migration.name in applied:
+                    continue
                 # Execute migration files through psycopg directly. SQLAlchemy's
                 # exec_driver_sql passes an empty mapping to psycopg2, which
                 # misinterprets literal "%" characters in PL/pgSQL RAISE and
                 # format expressions as DBAPI placeholders.
                 cursor.execute(migration.read_text())
+                cursor.execute(
+                    "INSERT INTO public._test_applied_migrations(name) VALUES (%s)",
+                    (migration.name,),
+                )
 
     client = DBClient()
     client.db_url = database_url
@@ -114,20 +137,24 @@ def test_task_submission_database_contract_is_ready_after_migrations(
 ):
     rows = pgmq_db._execute_query(TASK_SUBMISSION_READINESS_SQL)
 
-    assert rows == [{
-        "submission_function_ready": True,
-        "queue_schema_ready": True,
-        "task_intent_ready": True,
-        "output_intent_ready": True,
-        "output_provenance_ready": True,
-        "monthly_quota_ready": True,
-        "publication_status_ready": True,
-        "podcast_sources_ready": True,
-        "podcast_episodes_ready": True,
-        "workload_kind_ready": True,
-        "catalog_queue_ready": True,
-        "retry_routing_ready": True,
-    }]
+    assert rows == [
+        {
+            "submission_function_ready": True,
+            "queue_schema_ready": True,
+            "task_intent_ready": True,
+            "output_intent_ready": True,
+            "output_provenance_ready": True,
+            "monthly_quota_ready": True,
+            "publication_status_ready": True,
+            "podcast_sources_ready": True,
+            "podcast_episodes_ready": True,
+            "workload_kind_ready": True,
+            "catalog_queue_ready": True,
+            "retry_routing_ready": True,
+            "agent_turns_ready": True,
+            "chat_realtime_ready": True,
+        }
+    ]
 
 
 def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
@@ -228,10 +255,13 @@ def test_podcast_submission_uses_queue_and_publishes_only_after_quality_gate(
     assert queued_task["publication_status"] == "processing"
     assert queued_task["publish_on_complete"] is True
     assert queued_task["workload_kind"] == "catalog_supply"
-    assert PostgresTaskQueue(
-        pgmq_db,
-        queue_name=user_queue_name,
-    ).read(visibility_timeout_seconds=30, max_poll_seconds=1) == []
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
     catalog_jobs = PostgresTaskQueue(
         pgmq_db,
         queue_name=catalog_queue_name,
@@ -424,10 +454,13 @@ def test_legacy_catalog_submission_cannot_route_to_user_queue(pgmq_db: DBClient)
     )
 
     assert rows[0]["resolution"] == "created"
-    assert PostgresTaskQueue(
-        pgmq_db,
-        queue_name=user_queue_name,
-    ).read(visibility_timeout_seconds=30, max_poll_seconds=1) == []
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
     catalog_jobs = PostgresTaskQueue(
         pgmq_db,
         queue_name="podcast_supply",
@@ -545,10 +578,13 @@ def test_catalog_task_retry_returns_to_catalog_queue(pgmq_db: DBClient):
         guest_id=None,
     )
 
-    assert PostgresTaskQueue(
-        pgmq_db,
-        queue_name=user_queue_name,
-    ).read(visibility_timeout_seconds=30, max_poll_seconds=1) == []
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
     retry_job = catalog_worker_queue.read(
         visibility_timeout_seconds=30,
         max_poll_seconds=1,
@@ -602,10 +638,13 @@ def test_catalog_output_retry_returns_to_catalog_queue(pgmq_db: DBClient):
         guest_id=None,
     )
 
-    assert PostgresTaskQueue(
-        pgmq_db,
-        queue_name=user_queue_name,
-    ).read(visibility_timeout_seconds=30, max_poll_seconds=1) == []
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
     retry_job = catalog_worker_queue.read(
         visibility_timeout_seconds=30,
         max_poll_seconds=1,
@@ -726,9 +765,9 @@ def test_default_chat_title_backfill_is_useful_and_idempotent(pgmq_db: DBClient)
         assert first_run[descriptive_thread_id]["title"] == "请总结这期访谈"
         assert first_run[custom_thread_id]["title"] == "Keep my title"
         assert first_run[empty_thread_id]["title"] == "New Chat"
-        assert {
-            row["updated_at"].isoformat() for row in first_run.values()
-        } == {original_updated_at}
+        assert {row["updated_at"].isoformat() for row in first_run.values()} == {
+            original_updated_at
+        }
 
         with raw_connection.cursor() as cursor:
             cursor.execute(CHAT_TITLE_BACKFILL_MIGRATION.read_text())
@@ -860,9 +899,7 @@ def test_authenticated_basic_quota_resets_atomically_each_calendar_month(
     )
 
     assert submission.resolution == "created"
-    assert profile == [
-        {"usage_count": 1, "usage_limit": 3, "resets_in_future": True}
-    ]
+    assert profile == [{"usage_count": 1, "usage_limit": 3, "resets_in_future": True}]
 
 
 def test_guest_quota_is_safe_under_concurrent_submissions(pgmq_db: DBClient):

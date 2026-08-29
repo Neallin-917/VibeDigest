@@ -1,1173 +1,209 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AgentTurn, TurnClient } from '@/lib/agent/backend'
+import type { ChatUIMessagePart } from '@/lib/chat-ui'
+import { AgentServiceError } from '@/lib/agent/backend'
 import { POST } from './route'
-import { NextRequest } from 'next/server'
-import { env } from '@/env'
-import type { ChatUIMessage } from '@/lib/chat-ui'
 
-// Mock env before importing route
-vi.mock('@/env', () => ({
-    env: {
-        AI_SDK_DEBUG: '0',
-        NODE_ENV: 'test',
-        LLM_RUNTIME: 'api',
-        BACKEND_API_URL: 'http://localhost:8000',
-        SERVER_BACKEND_URL: 'http://localhost:8000',
-        MODEL_ALIAS_SMART: undefined,
-        MODEL_ALIAS_FAST: undefined,
-        OPENAI_BASE_URL: undefined,
-        OPENAI_API_KEY: undefined,
-        OPENROUTER_BASE_URL: undefined,
-        OPENROUTER_API_KEY: undefined,
-        NEXT_PUBLIC_E2E_MOCK: '0',
-    }
+const { acceptTurn, createClient, runAgent, resolveRuntime, auth, history } = vi.hoisted(() => ({
+  acceptTurn: vi.fn(), createClient: vi.fn(), runAgent: vi.fn(), resolveRuntime: vi.fn(), auth: vi.fn(), history: vi.fn(),
 }))
-
-// --- Mocks ---
-
-// 1. Mock Supabase Server Client
-// --- Mocks ---
-
-const {
-    mockGetUser,
-    mockSelect,
-    mockInsert,
-    mockUpdate,
-    mockEq,
-    mockIn,
-    mockDelete,
-    mockSingle,
-    mockOrder,
-    mockFrom,
-    mockStreamText,
-    mockConvertToModelMessages,
-    mockValidateUIMessages,
-    mockGetSession,
-    mockGenerateText,
-    mockUpsert,
-    mockCreateUIMessageStream,
-    mockCreateUIMessageStreamResponse,
-    mockRunLocalCodex,
-} = vi.hoisted(() => {
-    return {
-        // Supabase mocks
-        mockGetUser: vi.fn(),
-        mockGetSession: vi.fn(),
-        mockSelect: vi.fn(),
-        mockInsert: vi.fn(),
-        mockUpdate: vi.fn(),
-        mockUpsert: vi.fn(),
-        mockEq: vi.fn(),
-        mockIn: vi.fn(),
-        mockDelete: vi.fn(),
-        mockSingle: vi.fn(),
-        mockOrder: vi.fn(),
-        mockFrom: vi.fn(),
-
-        // AI SDK mocks
-        mockStreamText: vi.fn(),
-        mockConvertToModelMessages: vi.fn(),
-        mockValidateUIMessages: vi.fn(),
-        mockGenerateText: vi.fn(),
-        mockCreateUIMessageStream: vi.fn(),
-        mockCreateUIMessageStreamResponse: vi.fn(),
-        mockRunLocalCodex: vi.fn(),
-    }
-})
-
-// Chainable mock implementation (applied after hoisting)
-mockFrom.mockImplementation((() => ({
-    select: mockSelect,
-    insert: mockInsert,
-    update: mockUpdate,
-    upsert: mockUpsert,
-    delete: mockDelete,
-})) as any)
-
-// Default successful responses (Moved to beforeEach)
-
-vi.mock('@/lib/supabase/server', () => ({
-    createClient: vi.fn(() => ({
-        auth: {
-            getUser: mockGetUser,
-            getSession: mockGetSession
-        },
-        from: mockFrom
-    }))
+vi.mock('@/env', () => ({ env: { AGENT_INTERNAL_SECRET: 'test-only-secret-more-than-32-characters', BACKEND_API_URL: 'https://backend.example.test' } }))
+vi.mock('@/lib/agent/backend', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/agent/backend')>(), agentBackend: acceptTurn, createTurnClient: createClient,
 }))
+vi.mock('@/lib/agent/task-agent', () => ({ runTaskAgent: runAgent, resolveAgentRuntime: resolveRuntime }))
+vi.mock('./auth', () => ({ verifyAuth: auth, isAuthError: (value: object) => 'response' in value }))
 
-vi.mock('ai', async (importOriginal) => {
-    const actual = await importOriginal()
-    return {
-        ...(actual as any),
-        ToolLoopAgent: class {
-            constructor(options: unknown) {
-                mockStreamText(options)
-            }
-
-            stream = vi.fn().mockResolvedValue({ stream: new ReadableStream() })
-        },
-        convertToModelMessages: mockConvertToModelMessages,
-        pruneMessages: vi.fn(({ messages }) => messages),
-        validateUIMessages: mockValidateUIMessages,
-        generateText: mockGenerateText,
-        toUIMessageStream: vi.fn(() => new ReadableStream()),
-        createUIMessageStream: mockCreateUIMessageStream,
-        createUIMessageStreamResponse: mockCreateUIMessageStreamResponse,
-    }
-})
-
-// 3. Mock OpenAI SDK
-vi.mock('@ai-sdk/openai', () => ({
-    createOpenAI: vi.fn(() => ({
-        chat: vi.fn((model: string) => ({ id: model }))
-    }))
-}))
-
-// 4. Mock llm-config
-vi.mock('@/lib/llm-config', () => ({
-    createProviderClient: vi.fn(() => ({
-        chat: vi.fn((model: string) => ({ id: model }))
-    }))
-}))
-
-vi.mock('@/lib/local-codex', () => ({
-    isLocalCodexRuntime: () => (env as { LLM_RUNTIME?: string }).LLM_RUNTIME === 'codex_local',
-    runLocalCodex: mockRunLocalCodex,
-}))
-
-const originalFetch = global.fetch
-let consoleErrorSpy: ReturnType<typeof vi.spyOn>
-let consoleWarnSpy: ReturnType<typeof vi.spyOn>
-let consoleLogSpy: ReturnType<typeof vi.spyOn>
-
-function createTextMessage(
-    text: string,
-    role: ChatUIMessage['role'] = 'user',
-    id = `${role}-${Math.random().toString(36).slice(2, 10)}`
-): ChatUIMessage {
-    return {
-        id,
-        role,
-        parts: [{ type: 'text', text }],
-    }
+const threadId = '11111111-1111-4111-8111-111111111111'
+const userId = '22222222-2222-4222-8222-222222222222'
+const taskId = '44444444-4444-4444-8444-444444444444'
+const turn: AgentTurn = {
+  id: '33333333-3333-4333-8333-333333333333', thread_id: threadId, user_id: userId,
+  input_message_id: 'user-1', task_id: taskId, status: 'running', execution_token: 'PRIVATE_EXECUTION_TOKEN',
+  runtime_config: { runtime: 'api', provider: 'openrouter', model: 'fixture-smart', modelTier: 'smart', reasoningEffort: 'provider-default', locale: 'zh' },
+}
+const message = { id: 'user-1', role: 'user', parts: [{ type: 'text', text: 'Explain this video https://youtu.be/fixture' }] }
+const client = { history } as unknown as TurnClient
+const source: ChatUIMessagePart = { type: 'source-url', sourceId: 'ref-1', url: 'https://youtu.be/fixture?t=45', title: 'Source · 0:45' }
+const task: ChatUIMessagePart = { type: 'data-task-status', id: 'task-status-' + taskId, data: { taskId, status: 'pending' } }
+const request = (body: unknown = { threadId, message }) => new Request('https://frontend.example.test/api/chat', { method: 'POST', body: JSON.stringify(body) })
+async function events(response: Response): Promise<Record<string, unknown>[]> {
+  return (await response.text()).split('\n').filter(line => line.startsWith('data: ') && line !== 'data: [DONE]')
+    .map(line => JSON.parse(line.slice(6)))
 }
 
-function getLastUIStreamOptions() {
-    return mockCreateUIMessageStream.mock.calls.at(-1)?.[0]
-}
-
-function createSelectSingleMock(result: { data: unknown; error?: unknown }) {
-    const chain = {} as {
-        eq: ReturnType<typeof vi.fn>
-        single: ReturnType<typeof vi.fn>
-    }
-    chain.eq = vi.fn(() => chain)
-    chain.single = vi.fn().mockResolvedValue(result)
-    return vi.fn().mockReturnValue(chain)
-}
-
-// --- Tests ---
-
-describe('POST /api/chat', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-        ;(env as any).MODEL_ALIAS_SMART = undefined
-        ;(env as any).MODEL_ALIAS_FAST = undefined
-        ;(env as any).LLM_RUNTIME = 'api'
-        ;(env as any).OPENAI_BASE_URL = undefined
-        ;(env as any).OPENAI_API_KEY = undefined
-        ;(env as any).OPENROUTER_BASE_URL = undefined
-        ;(env as any).OPENROUTER_API_KEY = undefined
-
-        mockFrom.mockImplementation((() => ({
-            select: mockSelect,
-            insert: mockInsert,
-            update: mockUpdate,
-            upsert: mockUpsert,
-            delete: mockDelete,
-        })) as any)
-
-        // Default Auth: User is logged in
-        mockGetUser.mockResolvedValue({
-            data: { user: { id: 'test-user-id' } },
-            error: null
-        })
-        mockGetSession.mockResolvedValue({
-            data: { session: { user: { id: 'test-user-id' }, access_token: 'valid-token' } },
-            error: null
-        })
-
-        // Setup chain returns
-        mockSelect.mockImplementation(() => {
-            const chain = {} as {
-                eq: ReturnType<typeof vi.fn>
-                in: typeof mockIn
-                single: typeof mockSingle
-                order: typeof mockOrder
-            }
-            chain.eq = vi.fn(() => chain)
-            chain.in = mockIn
-            chain.single = mockSingle
-            chain.order = mockOrder
-            return chain
-        })
-        mockUpdate.mockImplementation(() => {
-            const chain = {} as { eq: ReturnType<typeof vi.fn> }
-            chain.eq = vi.fn(() => chain)
-            return chain
-        })
-        mockEq.mockImplementation(() => {
-            return { single: mockSingle, order: mockOrder };
-        })
-        mockIn.mockResolvedValue({ data: [], error: null })
-        mockDelete.mockReturnValue({
-            in: vi.fn().mockResolvedValue({ error: null })
-        })
-
-        // Default successful responses
-        mockSingle.mockResolvedValue({ data: null, error: null })
-        mockOrder.mockResolvedValue({ data: [], error: null })
-        mockInsert.mockResolvedValue({ error: null })
-        mockUpsert.mockResolvedValue({ error: null })
-        mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
-        mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
-            void Promise.resolve(execute({
-                writer: {
-                    write: vi.fn(),
-                    merge: vi.fn(),
-                    onError: vi.fn(),
-                },
-            })).catch(() => undefined)
-            return { options }
-        })
-        mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
-
-        ;(global as any).fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => ({
-                active_provider: 'custom',
-                providers: [
-                    {
-                        provider: 'custom',
-                        defaults: {
-                            smart: 'gpt-5.6-luna',
-                            fast: 'gpt-5.6-luna'
-                        }
-                    }
-                ]
-            })
-        })
-
-        mockStreamText.mockImplementation(() => undefined)
-        mockConvertToModelMessages.mockResolvedValue([])
-        mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
-    })
-
-    afterEach(() => {
-        consoleErrorSpy.mockRestore()
-        consoleWarnSpy.mockRestore()
-        consoleLogSpy.mockRestore()
-        ;(global as any).fetch = originalFetch
-    })
-
-    it('returns 401 if user is not authenticated', async () => {
-        // Setup: No user
-        mockGetUser.mockResolvedValue({ data: { user: null }, error: 'No session' })
-        mockGetSession.mockResolvedValue({ data: { session: null }, error: 'No session' })
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({ message: createTextMessage('hello') })
-        })
-
-        const res = await POST(req)
-
-        expect(res.status).toBe(401)
-        expect(await res.json()).toEqual(expect.objectContaining({ error: 'Unauthorized' }))
-    })
-
-    it('configures a bounded ToolLoopAgent with the resolved model', async () => {
-        // Setup: Thread lookup returns nothing (new thread)
-        mockEq.mockReturnValue({ single: mockSingle.mockResolvedValue({ data: null, error: { code: 'PGRST116' } }) })
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('Hello AI'),
-                threadId: 'thread-123'
-            })
-        })
-
-        const res = await POST(req)
-
-        expect(res.status).toBe(200)
-        expect(mockStreamText).toHaveBeenCalled()
-
-        // Verify system prompt contains default instruction
-        const callArgs = mockStreamText.mock.calls[0][0]
-        expect(callArgs.instructions).toContain('You are VibeDigest Assistant')
-        expect(callArgs.model.id).toBe('openai/gpt-5.6-luna')
-        expect(callArgs.activeTools).toEqual(['get_task_status', 'get_task_outputs'])
-        expect(callArgs.timeout).toEqual({
-            totalMs: 25_000,
-            stepMs: 10_000,
-            firstChunkMs: 8_000,
-            chunkMs: 8_000,
-        })
-    })
-
-    it('uses the local Codex bridge for a development follow-up without a provider key', async () => {
-        const writes: unknown[] = []
-        ;(env as any).LLM_RUNTIME = 'codex_local'
-        mockRunLocalCodex.mockResolvedValue('The source supports this concise local answer.')
-        mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
-            void execute({
-                writer: {
-                    write: (part: unknown) => writes.push(part),
-                    merge: vi.fn(),
-                    onError: vi.fn(),
-                },
-            })
-            return { options }
-        })
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('Which risk needs community help?'),
-                taskId: 'task-123',
-                threadId: 'thread-123',
-            }),
-        })
-
-        const res = await POST(req)
-        await new Promise((resolve) => setTimeout(resolve, 0))
-
-        expect(res.status).toBe(200)
-        expect(mockRunLocalCodex).toHaveBeenCalledWith(
-            expect.stringContaining('Which risk needs community help?'),
-            expect.any(AbortSignal),
-        )
-        expect(mockRunLocalCodex).toHaveBeenCalledWith(
-            expect.stringContaining('SOURCE CONTEXT:'),
-            expect.any(AbortSignal),
-        )
-        expect(mockConvertToModelMessages).not.toHaveBeenCalled()
-        expect(mockStreamText).not.toHaveBeenCalled()
-        expect(writes).toEqual(expect.arrayContaining([
-            expect.objectContaining({ type: 'text-start' }),
-            expect.objectContaining({ type: 'text-delta', delta: 'The source supports this concise local answer.' }),
-            expect.objectContaining({ type: 'text-end' }),
-        ]))
-    })
-
-    it('validates persisted tool messages before converting them for the model', async () => {
-        const persistedMessages = [
-            {
-                id: 'msg-1',
-                role: 'user',
-                content: [{ type: 'text', text: 'Analyze this video' }],
-                created_at: '2024-01-01T00:00:00Z',
-            },
-            {
-                id: 'msg-2',
-                role: 'assistant',
-                content: [
-                    {
-                        type: 'tool-get_task_status',
-                        toolCallId: 'tc-1',
-                        state: 'output-available',
-                        input: { taskId: 'task-1' },
-                        output: { taskId: 'task-1' },
-                    },
-                ],
-                created_at: '2024-01-01T00:00:01Z',
-            },
-        ]
-
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'chat_threads') {
-                return {
-                    select: createSelectSingleMock({
-                        data: { id: 'thread-123', title: 'New Chat' },
-                        error: null,
-                    }),
-                }
-            }
-
-            if (table === 'chat_messages') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            order: vi.fn().mockResolvedValue({
-                                data: persistedMessages,
-                                error: null,
-                            }),
-                        }),
-                    }),
-                }
-            }
-
-            return {
-                select: mockSelect,
-                insert: mockInsert,
-                update: mockUpdate,
-                upsert: mockUpsert,
-            }
-        }) as any)
-
-        mockValidateUIMessages.mockImplementationOnce(async ({ messages, tools }) => {
-            expect(tools).toEqual(expect.objectContaining({
-                get_task_status: expect.any(Object),
-                get_task_outputs: expect.any(Object),
-            }))
-
-            return messages
-        })
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('How is the progress?'),
-                threadId: 'thread-123',
-            }),
-        })
-
-        await POST(req)
-
-        expect(mockValidateUIMessages).toHaveBeenCalledTimes(1)
-        expect(mockConvertToModelMessages).toHaveBeenCalledWith([
-            expect.objectContaining({ id: 'msg-1', role: 'user' }),
-            expect.objectContaining({
-                id: 'msg-2',
-                role: 'assistant',
-                parts: [
-                    expect.objectContaining({
-                        type: 'tool-get_task_status',
-                        toolCallId: 'tc-1',
-                    }),
-                ],
-            }),
-            expect.objectContaining({ role: 'user' }),
-        ])
-
-        const uiStreamOptions = getLastUIStreamOptions()
-        expect(uiStreamOptions.originalMessages[1].parts[0]).toEqual(
-            expect.objectContaining({
-                type: 'tool-get_task_status',
-                toolCallId: 'tc-1',
-            })
-        )
-    })
-
-    it('filters invalid historical messages instead of trying to coerce them', async () => {
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'chat_threads') {
-                return {
-                    select: createSelectSingleMock({
-                        data: { id: 'thread-123', title: 'New Chat' },
-                        error: null,
-                    }),
-                }
-            }
-
-            if (table === 'chat_messages') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            order: vi.fn().mockResolvedValue({
-                                data: [
-                                    {
-                                        id: 'legacy-1',
-                                        role: 'assistant',
-                                        content: 'old plain text payload',
-                                        created_at: '2024-01-01T00:00:00Z',
-                                    },
-                                ],
-                                error: null,
-                            }),
-                        }),
-                    }),
-                }
-            }
-
-            return {
-                select: mockSelect,
-                insert: mockInsert,
-                update: mockUpdate,
-                upsert: mockUpsert,
-            }
-        }) as any)
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('fresh message'),
-                threadId: 'thread-123',
-            }),
-        })
-
-        await POST(req)
-
-        expect(mockValidateUIMessages).toHaveBeenCalledWith(
-            expect.objectContaining({
-                messages: [expect.objectContaining({ id: expect.any(String), role: 'user' })],
-            })
-        )
-        expect(mockConvertToModelMessages).toHaveBeenCalledWith([
-            expect.objectContaining({
-                role: 'user',
-                parts: [{ type: 'text', text: 'fresh message' }],
-            }),
-        ])
-    })
-
-    it('filters persisted assistant placeholders with empty parts before validation', async () => {
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'chat_threads') {
-                return {
-                    select: createSelectSingleMock({
-                        data: { id: 'thread-123', title: 'New Chat' },
-                        error: null,
-                    }),
-                }
-            }
-
-            if (table === 'chat_messages') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            order: vi.fn().mockResolvedValue({
-                                data: [
-                                    {
-                                        id: 'msg-1',
-                                        role: 'user',
-                                        content: [{ type: 'text', text: 'https://www.youtube.com/watch?v=abc' }],
-                                        created_at: '2024-01-01T00:00:00Z',
-                                    },
-                                    {
-                                        id: 'msg-2',
-                                        role: 'assistant',
-                                        content: [],
-                                        created_at: '2024-01-01T00:00:01Z',
-                                    },
-                                ],
-                                error: null,
-                            }),
-                        }),
-                    }),
-                }
-            }
-
-            return {
-                select: mockSelect,
-                insert: mockInsert,
-                update: mockUpdate,
-                upsert: mockUpsert,
-            }
-        }) as any)
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('hi', 'user', 'fresh-user'),
-                threadId: 'thread-123',
-            }),
-        })
-
-        const res = await POST(req)
-
-        expect(res.status).toBe(200)
-        const validatedInput = mockValidateUIMessages.mock.calls[0][0]
-        expect(validatedInput.messages).toEqual([
-            expect.objectContaining({ id: 'msg-1', role: 'user' }),
-            expect.objectContaining({ id: 'fresh-user', role: 'user' }),
-        ])
-        expect(validatedInput.messages).toHaveLength(2)
-    })
-
-    it('returns 400 when the incoming request message is not persistable', async () => {
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: {
-                    id: 'assistant-placeholder',
-                    role: 'assistant',
-                    parts: [],
-                },
-                threadId: 'thread-123',
-            }),
-        })
-
-        const res = await POST(req)
-        const body = await res.json()
-
-        expect(res.status).toBe(400)
-        expect(body).toEqual(
-            expect.objectContaining({
-                error: 'Invalid chat message',
-                details: expect.stringContaining('parts-empty'),
-            })
-        )
-        expect(mockValidateUIMessages).not.toHaveBeenCalled()
-    })
-
-    it('injects RAG context when taskId is provided', async () => {
-        const taskId = 'task-123'
-        const validSummary = JSON.stringify({
-            version: 4,
-            language: 'en',
-            tl_dr: 'Quick take.',
-            overview: 'This is a summary.',
-            keypoints: [
-                { title: 'Key point', detail: 'Useful detail', evidence: 'Evidence quote' }
-            ]
-        })
-
-        // Setup: Task lookup success
-        // We need to carefully mock the chain for specific tables
-
-        // Reset specific mock implementations for this test
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'tasks') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({
-                                data: {
-                                    video_title: 'Test Video',
-                                    video_url: 'http://yt.com/1',
-                                    status: 'completed',
-                                    progress: 100
-                                },
-                                error: null
-                            })
-                        })
-                    })
-                }
-            }
-            if (table === 'task_outputs') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            in: vi.fn().mockResolvedValue({
-                                data: [
-                                    { kind: 'summary', content: validSummary, status: 'completed', locale: null },
-                                    { kind: 'script', content: 'This is a transcript.', status: 'completed' }
-                                ],
-                                error: null
-                            })
-                        })
-                    })
-                }
-            }
-            // Default fallback
-            return {
-                select: mockSelect,
-                insert: mockInsert,
-                update: mockUpdate
-            }
-        }) as any)
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('What is the video about?'),
-                threadId: 'thread-123',
-                taskId: taskId
-            })
-        })
-
-        await POST(req)
-
-        const callArgs = mockStreamText.mock.calls[0][0]
-        expect(callArgs.instructions).toContain('CURRENT VIDEO CONTEXT')
-        expect(callArgs.instructions).toContain('Test Video')
-        expect(callArgs.instructions).toContain('## Summary')
-        expect(callArgs.instructions).toContain('## In Brief')
-        expect(callArgs.instructions).toContain('This is a summary.')
-    })
-
-    it('persists new thread if it does not exist', async () => {
-        // Setup: Thread lookup returns "Not Found"
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'chat_threads') {
-                return {
-                    select: createSelectSingleMock({
-                        data: null,
-                        error: { code: 'PGRST116' },
-                    }),
-                    insert: mockInsert,
-                    update: mockUpdate,
-                }
-            }
-            if (table === 'chat_messages') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({ data: null }),
-                            order: mockOrder
-                        })
-                    }),
-                    insert: mockInsert,
-                    upsert: mockUpsert
-                }
-            }
-            return { select: mockSelect, insert: mockInsert, upsert: mockUpsert }
-        }) as any)
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('New Thread'),
-                threadId: 'new-thread-id'
-            })
-        })
-
-        await POST(req)
-
-        const uiStreamOptions = getLastUIStreamOptions()
-        
-        await uiStreamOptions.onFinish({ 
-            messages: [createTextMessage('New Thread', 'user', 'msg-1')] 
-        })
-
-        expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-            id: 'new-thread-id',
-            user_id: 'test-user-id',
-            title: 'New Thread'
-        }))
-    })
-
-    it('persists new thread with task_id when taskId is provided', async () => {
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'chat_threads') {
-                return {
-                    select: createSelectSingleMock({
-                        data: null,
-                        error: { code: 'PGRST116' },
-                    }),
-                    insert: mockInsert,
-                    update: mockUpdate,
-                }
-            }
-            if (table === 'chat_messages') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            single: vi.fn().mockResolvedValue({ data: null }),
-                            order: mockOrder
-                        })
-                    }),
-                    insert: mockInsert,
-                    upsert: mockUpsert
-                }
-            }
-            return { select: mockSelect, insert: mockInsert, upsert: mockUpsert }
-        }) as any)
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('Bind this thread'),
-                threadId: 'new-thread-id',
-                taskId: 'task-abc'
-            })
-        })
-
-        await POST(req)
-
-        const uiStreamOptions = getLastUIStreamOptions()
-        
-        await uiStreamOptions.onFinish({ 
-            messages: [createTextMessage('Bind this thread', 'user', 'msg-1')] 
-        })
-
-        expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-            id: 'new-thread-id',
-            user_id: 'test-user-id',
-            title: 'Bind this thread',
-            task_id: 'task-abc'
-        }))
-    })
-
-    it('uses fast model for short follow-up with taskId', async () => {
-        ;(env as any).OPENAI_BASE_URL = 'http://localhost:8317/v1'
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('它说领导力的时候有举例吗'),
-                threadId: 'thread-123',
-                taskId: 'task-123'
-            })
-        })
-
-        await POST(req)
-
-        const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('gpt-5.6-luna')
-    })
-
-    it('uses the Luna OpenRouter fast model for short follow-up when provider is unset', async () => {
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('它有提到价格吗'),
-                threadId: 'thread-123',
-                taskId: 'task-123'
-            })
-        })
-
-        await POST(req)
-
-        const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('openai/gpt-5.6-luna')
-    })
-
-    it('returns 503 when createProviderClient throws Missing API Key', async () => {
-        const { createProviderClient } = await import('@/lib/llm-config')
-        vi.mocked(createProviderClient).mockImplementationOnce(() => {
-            throw new Error("Missing API Key for provider: 'custom'. Set OPENAI_API_KEY in the environment.")
-        })
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('Hello'),
-                threadId: 'thread-123'
-            })
-        })
-
-        const res = await POST(req)
-
-        expect(res.status).toBe(503)
-        const body = await res.json()
-        expect(body.error).toBe('Service Configuration Error')
-        expect(body.details).toContain('credentials are missing or invalid')
-    })
-
-    it('returns a stream response with a safe error mapper when the LLM provider is unreachable', async () => {
-        mockStreamText.mockImplementation(() => {
-            throw new Error('Failed after 3 attempts. Last error: Cannot connect to API: connect ECONNREFUSED 127.0.0.1:8045')
-        })
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('Hello'),
-                threadId: 'thread-123'
-            })
-        })
-
-        const res = await POST(req)
-
-        expect(res.status).toBe(200)
-        expect(getLastUIStreamOptions().onError(new Error('ECONNREFUSED'))).toBe(
-            'The AI service is temporarily unavailable. Please try again.'
-        )
-    })
-
-    it('does not expose LLM connection details in streamed errors', async () => {
-        mockStreamText.mockImplementation(() => {
-            throw new Error('ETIMEDOUT: connection timed out to 10.0.0.1:443')
-        })
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('Hello'),
-                threadId: 'thread-123'
-            })
-        })
-
-        const res = await POST(req)
-
-        expect(res.status).toBe(200)
-        expect(getLastUIStreamOptions().onError(new Error('ETIMEDOUT: connection timed out'))).not.toContain(
-            'ETIMEDOUT'
-        )
-    })
-
-    it('uses smart model for long follow-up with taskId', async () => {
-        ;(env as any).OPENAI_BASE_URL = 'http://localhost:8317/v1'
-
-        const longMessage = 'a'.repeat(220)
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage(longMessage),
-                threadId: 'thread-123',
-                taskId: 'task-123'
-            })
-        })
-
-        await POST(req)
-
-        const callArgs = mockStreamText.mock.calls.at(-1)?.[0]
-        expect(callArgs?.model?.id).toBe('gpt-5.6-luna')
-    })
-
-    it('handles persistence in onFinish callback', async () => {
-        // This test is tricky because onFinish is a callback.
-        // We can simulate calling it manually if we capture it from the mock call.
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('Hello'),
-                threadId: 'thread-123'
-            })
-        })
-
-        await POST(req)
-
-        const uiStreamOptions = getLastUIStreamOptions()
-
-        expect(uiStreamOptions).toHaveProperty('onFinish')
-
-        // Execute onFinish manually
-        const finalMessages = [
-            {
-                ...createTextMessage('Hello', 'user', 'msg-1'),
-                metadata: { createdAt: new Date() },
-            },
-            {
-                ...createTextMessage('Hi there', 'assistant', 'msg-2'),
-                metadata: { createdAt: new Date() },
-            }
-        ]
-
-        // Reset mocks to track insertions
-        mockInsert.mockClear()
-
-        // Mock checking if message exists (return null so it inserts)
-        mockSingle.mockResolvedValue({ data: null })
-
-        await uiStreamOptions.onFinish({ messages: finalMessages })
-
-        // Should try to insert messages
-        // We expect at least one insert call for the chat_messages table
-        // Note: The implementation iterates and inserts individually
-        expect(mockInsert).toHaveBeenCalled()
-
-        // Since we didn't mock the specific table for the second pass in detail in this specific test block (relies on global mock),
-        // we just verify that insert was called. 
-        // For more rigor, we'd set up the mockFrom to differentiate 'chat_messages' table calls.
-    })
-
+beforeEach(() => {
+  vi.resetAllMocks()
+  auth.mockResolvedValue({ user: { id: userId }, accessToken: 'PRIVATE_AUTH_TOKEN' })
+  resolveRuntime.mockReturnValue(turn.runtime_config)
+  acceptTurn.mockResolvedValue(turn)
+  createClient.mockReturnValue(client)
+  history.mockResolvedValue({ messages: [] })
+  runAgent.mockImplementation(async (_turn, _client, callbacks) => {
+    callbacks.onText?.('Grounded answer.')
+    callbacks.onPart?.(source)
+    return { saved: true, waiting: false, parts: [{ type: 'text', text: 'Grounded answer.' }, source], metadata: { ...turn.runtime_config, inputTokens: 12 } }
+  })
 })
 
-describe('Chat Title Generation Logic', () => {
-    // Re-setup mocks for this suite since it relies on specific behaviors
-    beforeEach(() => {
-        vi.clearAllMocks()
-        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        // ... (We rely on global mocks but need to reset them) ...
-        mockFrom.mockImplementation((() => ({
-            select: mockSelect,
-            insert: mockInsert,
-            update: mockUpdate,
-            upsert: mockUpsert,
-        })) as any)
+describe('POST /api/chat unified Agent entry', () => {
+  it('accepts immutable user input before inference, using authenticated identity rather than request identity', async () => {
+    const response = await POST(request({ threadId, taskId, locale: 'en', scope: 'source', message, userId: 'attacker' }))
+    await events(response)
+    expect(auth).toHaveBeenCalledOnce()
+    expect(resolveRuntime).toHaveBeenCalledWith('en')
+    expect(acceptTurn).toHaveBeenCalledWith('/turns', {
+      userId, threadId, messageId: 'user-1', parts: message.parts, taskId,
+      title: 'Explain this video', runtimeConfig: { ...turn.runtime_config, scope: 'source' },
+    }, expect.any(AbortSignal))
+    expect(auth.mock.invocationCallOrder[0]).toBeLessThan(acceptTurn.mock.invocationCallOrder[0])
+    expect(acceptTurn.mock.invocationCallOrder[0]).toBeLessThan(runAgent.mock.invocationCallOrder[0])
+    expect(createClient).toHaveBeenCalledWith(turn, expect.any(AbortSignal))
+  })
 
-        mockGetUser.mockResolvedValue({
-            data: { user: { id: 'test-user-id' } },
-            error: null
-        })
-        mockGetSession.mockResolvedValue({
-            data: { session: { user: { id: 'test-user-id' }, access_token: 'valid-token' } },
-            error: null
-        })
+  it('does not start execution until the accepted turn has been durably returned', async () => {
+    let release!: (value: AgentTurn) => void
+    acceptTurn.mockReturnValue(new Promise<AgentTurn>(resolve => { release = resolve }))
+    const pending = POST(request())
+    await vi.waitFor(() => expect(acceptTurn).toHaveBeenCalledOnce())
+    expect(runAgent).not.toHaveBeenCalled()
+    release(turn)
+    await events(await pending)
+    expect(runAgent).toHaveBeenCalledOnce()
+  })
 
-        // Default mocks
-        mockSelect.mockImplementation(() => ({
-            eq: vi.fn(() => ({
-                in: mockIn,
-                single: mockSingle,
-                order: mockOrder
-            })),
-            in: mockIn,
-            single: mockSingle,
-            order: mockOrder
-        }))
-        mockSingle.mockResolvedValue({ data: null, error: null })
-        mockOrder.mockResolvedValue({ data: [], error: null })
-        mockIn.mockResolvedValue({ data: [], error: null })
-        mockInsert.mockResolvedValue({ error: null })
-        mockUpsert.mockResolvedValue({ error: null })
-        mockUpdate.mockImplementation(() => {
-            const chain = {} as { eq: ReturnType<typeof vi.fn> }
-            chain.eq = vi.fn(() => chain)
-            return chain
-        })
-        mockCreateUIMessageStream.mockImplementation(({ execute, ...options }: any) => {
-            void Promise.resolve(execute({
-                writer: {
-                    write: vi.fn(),
-                    merge: vi.fn(),
-                    onError: vi.fn(),
-                },
-            })).catch(() => undefined)
-            return { options }
-        })
-        mockCreateUIMessageStreamResponse.mockImplementation(() => new Response('mock stream'))
-        mockStreamText.mockImplementation(() => undefined)
-        mockGenerateText.mockResolvedValue({ text: 'Generated Title' })
-        mockConvertToModelMessages.mockResolvedValue([])
-        mockValidateUIMessages.mockImplementation(async ({ messages }: { messages: ChatUIMessage[] }) => messages)
+  it('sends standalone URLs through the Agent, with default workspace scope and locale', async () => {
+    await events(await POST(request({ threadId, message: { ...message, parts: [{ type: 'text', text: 'https://youtu.be/fixture' }] } })))
+    expect(acceptTurn).toHaveBeenCalledWith('/turns', expect.objectContaining({ title: 'YouTube · fixture', taskId: null, runtimeConfig: expect.objectContaining({ scope: 'workspace' }) }), expect.any(AbortSignal))
+    expect(resolveRuntime).toHaveBeenCalledWith('zh')
+    expect(runAgent).toHaveBeenCalledOnce()
+  })
 
-        ;(global as any).fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => ({
-                active_provider: 'custom',
-                providers: [
-                    {
-                        provider: 'custom',
-                        defaults: {
-                            smart: 'gpt-5.6-luna',
-                            fast: 'gpt-5.6-luna'
-                        }
-                    }
-                ]
-            })
-        })
+  it('streams a stable assistant ID, text and citations without exposing service credentials', async () => {
+    const response = await POST(request())
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
+    const chunks = await events(response)
+    expect(chunks).toContainEqual({ type: 'start', messageId: 'agent:' + turn.id + ':reply', messageMetadata: expect.objectContaining({ agentTurnId: turn.id, agentState: 'running' }) })
+    expect(chunks).toContainEqual({ type: 'text-delta', id: 'answer', delta: 'Grounded answer.' })
+    expect(chunks).toContainEqual(source)
+    expect(chunks.at(-1)).toMatchObject({ type: 'finish', messageMetadata: { agentState: 'completed', inputTokens: 12 } })
+    expect(JSON.stringify(chunks)).not.toContain('PRIVATE_EXECUTION_TOKEN')
+    expect(JSON.stringify(chunks)).not.toContain('PRIVATE_AUTH_TOKEN')
+  })
+
+  it('projects only allowed public parts even if an executor callback includes a native tool result', async () => {
+    runAgent.mockImplementation(async (_turn, _client, callbacks) => {
+      callbacks.onPart({ type: 'dynamic-tool', toolName: 'search_source', output: 'PRIVATE_TRANSCRIPT' })
+      callbacks.onPart(task)
+      return { saved: true, waiting: true, parts: [task], metadata: {} }
     })
+    const chunks = await events(await POST(request()))
+    expect(chunks).toContainEqual(task)
+    expect(chunks.at(-1)).toMatchObject({ type: 'finish', messageMetadata: { agentState: 'waiting_task' } })
+    expect(chunks.some(chunk => chunk.type === 'text-start')).toBe(false)
+    expect(JSON.stringify(chunks)).not.toContain('PRIVATE_TRANSCRIPT')
+  })
 
-    afterEach(() => {
-        consoleErrorSpy.mockRestore()
-        consoleWarnSpy.mockRestore()
-        consoleLogSpy.mockRestore()
-        ;(global as any).fetch = originalFetch
+  it('forwards browser cancellation to acceptance and execution', async () => {
+    const controller = new AbortController()
+    const req = new Request(request(), { signal: controller.signal })
+    await events(await POST(req))
+    expect(acceptTurn.mock.calls[0][2]).toBe(req.signal)
+    expect(runAgent.mock.calls[0][2].signal).toBe(req.signal)
+  })
+})
+
+describe('chat request validation and safe failures', () => {
+  it.each([
+    {}, { threadId: 'bad', message }, { threadId, message: { ...message, role: 'assistant' } },
+    { threadId, message: { ...message, parts: [] } },
+    { threadId, message: { ...message, parts: [{ type: 'text', text: ' ' }] } },
+    { threadId, message: { ...message, parts: [{ type: 'text', text: 'x'.repeat(30_001) }] } },
+    { threadId, message: { ...message, parts: [{ type: 'tool-result', output: 'untrusted' }] } },
+    { threadId, message: { ...message, parts: [message.parts[0], message.parts[0]] } },
+    { threadId, message, locale: 'fr' }, { threadId, message, scope: 'admin' },
+  ])('rejects an invalid user-message shape before accepting or invoking the model', async body => {
+    const response = await POST(request(body))
+    expect(response.status).toBe(400)
+    expect(acceptTurn).not.toHaveBeenCalled()
+    expect(runAgent).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 for malformed JSON', async () => {
+    const response = await POST(new Request('https://frontend.example.test/api/chat', { method: 'POST', body: '{' }))
+    expect(response.status).toBe(400)
+    expect(acceptTurn).not.toHaveBeenCalled()
+  })
+
+  it('returns the authentication rejection without creating a turn', async () => {
+    const rejection = Response.json({ error: 'Unauthorized' }, { status: 401 })
+    auth.mockResolvedValue({ response: rejection })
+    expect(await POST(request())).toBe(rejection)
+    expect(acceptTurn).not.toHaveBeenCalled()
+    expect(runAgent).not.toHaveBeenCalled()
+  })
+
+  it.each([402, 403, 409, 503])('retains a safe service error status %s before streaming', async status => {
+    acceptTurn.mockRejectedValue(new AgentServiceError(status))
+    const response = await POST(request())
+    expect(response.status).toBe(status)
+    expect(await response.json()).toEqual({ error: new AgentServiceError(status).message })
+    expect(runAgent).not.toHaveBeenCalled()
+  })
+
+  it('hides unexpected pre-stream failures', async () => {
+    auth.mockRejectedValue(new Error('PRIVATE_DB_CREDENTIAL'))
+    const response = await POST(request())
+    expect(response.status).toBe(503)
+    expect(await response.text()).not.toContain('PRIVATE_DB_CREDENTIAL')
+  })
+
+  it('closes partial text and emits a safe stream error without a false finish', async () => {
+    runAgent.mockImplementation(async (_turn, _client, callbacks) => {
+      callbacks.onText('Partial answer')
+      throw new Error('PRIVATE_PROVIDER_KEY')
     })
+    const chunks = await events(await POST(request()))
+    expect(chunks).toContainEqual({ type: 'text-end', id: 'answer' })
+    expect(chunks).toContainEqual({ type: 'error', errorText: expect.stringContaining('accepted video task will continue') })
+    expect(chunks.some(chunk => chunk.type === 'finish')).toBe(false)
+    expect(JSON.stringify(chunks)).not.toContain('PRIVATE_PROVIDER_KEY')
+  })
+})
 
-    it('SHOULD derive a title if current title is "New Chat" even if messages length > 1 (Lazy Initialization)', async () => {
-        const threadId = 'thread-existing-tool-calls'
-        
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'chat_threads') {
-                return {
-                    select: createSelectSingleMock({
-                        data: { id: threadId, title: 'New Chat' },
-                        error: null,
-                    }),
-                    update: mockUpdate
-                }
-            }
-            if (table === 'chat_messages') {
-                return {
-                    select: vi.fn().mockReturnValue({
-                        eq: vi.fn().mockReturnValue({
-                            order: vi.fn().mockResolvedValue({
-                                data: [
-                                    { id: 'msg-1', role: 'user', content: [{ type: 'text', text: 'Analyze this video' }], created_at: '2024-01-01T00:00:00Z' },
-                                    {
-                                        id: 'msg-2',
-                                        role: 'assistant',
-                                        content: [
-                                            {
-                                                type: 'tool-get_task_status',
-                                                toolCallId: 'tc-1',
-                                                state: 'output-available',
-                                                input: { taskId: 'task-existing' },
-                                                output: { taskId: 'task-existing' }
-                                            }
-                                        ],
-                                        created_at: '2024-01-01T00:00:01Z'
-                                    }
-                                ],
-                                error: null
-                            }),
-                            single: mockSingle
-                        })
-                    }),
-                    insert: mockInsert,
-                    upsert: mockUpsert
-                }
-            }
-            return { select: mockSelect, insert: mockInsert, update: mockUpdate, upsert: mockUpsert }
-        }) as any)
+describe('idempotent chat replay', () => {
+  beforeEach(() => { acceptTurn.mockResolvedValue({ ...turn, replayed: true }) })
 
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: createTextMessage('How is the progress?'),
-                threadId: threadId
-            })
-        })
+  function stored(suffix: 'reply' | 'completion', text: string, parts: unknown[] = []) {
+    return { id: 'agent:' + turn.id + ':' + suffix, role: 'assistant', created_at: '2026-08-28T00:00:00Z', content: [{ type: 'text', text }, ...parts], metadata: { agentState: 'completed' } }
+  }
 
-        await POST(req)
+  it('prefers the final completion and never invokes a model or repeats tools', async () => {
+    history.mockResolvedValue({ messages: [stored('reply', 'Accepted'), stored('completion', 'Completed answer', [source])] })
+    const chunks = await events(await POST(request()))
+    expect(chunks[0]).toMatchObject({ type: 'start', messageId: 'agent:' + turn.id + ':completion' })
+    expect(chunks).toContainEqual({ type: 'text-delta', id: 'answer', delta: 'Completed answer' })
+    expect(chunks).toContainEqual(source)
+    expect(JSON.stringify(chunks)).not.toContain('Accepted')
+    expect(runAgent).not.toHaveBeenCalled()
+  })
 
-        const uiStreamOptions = getLastUIStreamOptions()
+  it('replays a durable task receipt and strips historical private tool parts', async () => {
+    history.mockResolvedValue({ messages: [stored('reply', 'Work accepted', [task, { type: 'dynamic-tool', output: 'PRIVATE_OLD_TRANSCRIPT' }])] })
+    const chunks = await events(await POST(request()))
+    expect(chunks).toContainEqual(task)
+    expect(JSON.stringify(chunks)).not.toContain('PRIVATE_OLD_TRANSCRIPT')
+    expect(runAgent).not.toHaveBeenCalled()
+  })
 
-        const finalMessages = [
-            { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Analyze this video' }] },
-            {
-                id: 'msg-2',
-                role: 'assistant',
-                parts: [
-                    {
-                        type: 'tool-get_task_status',
-                        toolCallId: 'tc-1',
-                        state: 'output-available',
-                        input: { taskId: 'task-existing' },
-                        output: { taskId: 'task-existing' }
-                    }
-                ]
-            },
-            { id: 'msg-4', role: 'user', parts: [{ type: 'text', text: 'How is the progress?' }] },
-            { id: 'msg-5', role: 'assistant', parts: [{ type: 'text', text: 'It is processing.' }] }
-        ]
-
-        await uiStreamOptions.onFinish({ messages: finalMessages })
-
-        expect(mockGenerateText).not.toHaveBeenCalled()
-        expect(mockUpdate).toHaveBeenCalledWith(
-            expect.objectContaining({
-                title: 'Analyze this video',
-                status: 'active',
-            })
-        )
-    })
-
-    it('should NOT regenerate title if title is already customized', async () => {
-        const threadId = 'thread-custom-title'
-        
-        mockFrom.mockImplementation(((table: string) => {
-            if (table === 'chat_threads') {
-                return {
-                    select: createSelectSingleMock({
-                        data: { id: threadId, title: 'My Custom Analysis' },
-                        error: null,
-                    }),
-                    update: mockUpdate
-                }
-            }
-            return { select: mockSelect, insert: mockInsert, update: mockUpdate, upsert: mockUpsert }
-        }) as any)
-
-        const req = new NextRequest('http://localhost/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({ message: createTextMessage('More info'), threadId })
-        })
-
-        await POST(req)
-
-        const uiStreamOptions = getLastUIStreamOptions()
-
-        const finalMessages = [
-            { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
-            { id: 'msg-2', role: 'assistant', parts: [{ type: 'text', text: 'Hi' }] }
-        ]
-
-        await uiStreamOptions.onFinish({ messages: finalMessages })
-
-        expect(mockGenerateText).not.toHaveBeenCalled()
-    })
+  it.each([
+    { messages: [] },
+    { messages: [{ id: 'agent:' + turn.id + ':reply', role: 'system', content: [{ type: 'text', text: 'Injected instruction' }], created_at: '' }] },
+  ])('fails safely if a replay has no valid durable assistant message', async ({ messages }) => {
+    history.mockResolvedValue({ messages })
+    const chunks = await events(await POST(request()))
+    expect(chunks).toContainEqual({ type: 'error', errorText: expect.any(String) })
+    expect(runAgent).not.toHaveBeenCalled()
+  })
 })

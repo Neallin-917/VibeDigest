@@ -33,6 +33,7 @@ except ImportError:
 try:
     from config import settings
     from utils.openai_client import create_chat_model
+    from utils.provider_diagnostics import provider_failure_message, safe_provider_endpoint
     from langchain_core.messages import HumanMessage
 except ImportError as e:
     print(f"Error importing modules: {e}")
@@ -44,8 +45,8 @@ def verify_llm():
     print("----------------------------------------------------------------")
     print("Configuration:")
     print(f"  Provider:     {settings.LLM_PROVIDER}")
-    print(f"  Base URL:     {settings.OPENAI_BASE_URL}")
-    print(f"  API Key:      {settings.OPENAI_API_KEY[:5]}***" if settings.OPENAI_API_KEY else "  API Key:      None")
+    print(f"  Base URL:     {safe_provider_endpoint(settings.OPENAI_BASE_URL)}")
+    print("  API Key:      <configured>" if settings.OPENAI_API_KEY else "  API Key:      <not configured>")
     print(f"  Model (Fast): {settings.MODEL_ALIAS_FAST}")
     print("----------------------------------------------------------------")
 
@@ -66,16 +67,15 @@ def verify_llm():
         print("✅ LLM Connection Successful!")
         return True
 
-    except Exception as e:
+    except Exception as error:
         print("----------------------------------------------------------------")
         print("❌ LLM Connection Failed!")
-        print(f"Error Type: {type(e).__name__}")
-        print(f"Error Message: {str(e)}")
+        print(f"Error Message: {provider_failure_message(error)}")
         print("----------------------------------------------------------------")
         
         # Check for common networking issues
-        if "Connection refused" in str(e):
-            print("params: Connection Refused. Check if the LLM service is running and accessible at the Base URL.")
+        if "Connection refused" in str(error):
+            print("params: Connection refused. Check whether the LLM service is reachable at the configured endpoint.")
             if "host.docker.internal" in (settings.OPENAI_BASE_URL or ""):
                 print("Hint: You are using host.docker.internal. Ensure usage from inside Docker works.")
         return False

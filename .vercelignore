@@ -11,8 +11,7 @@ docs
 /supabase
 frontend/node_modules
 frontend/.next
-frontend/.next-test
-frontend/.next-demo
+frontend/.next-*
 frontend/coverage
 frontend/test-results
 frontend/playwright-report

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useSyncExternalStore } from "react"
 import { Settings, LogOut, CreditCard, MessageSquareWarning } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
@@ -27,6 +27,8 @@ interface UserAvatarDropdownProps {
   side?: "top" | "right" | "bottom" | "left"
 }
 
+const subscribeToHydration = () => () => undefined
+
 export function UserAvatarDropdown({ 
   className, 
   size = "md",
@@ -38,7 +40,13 @@ export function UserAvatarDropdown({
   const queryClient = useQueryClient()
   const { t, locale } = useI18n()
   const { data: user } = useCurrentUserQuery()
-  const userEmail = user?.email ?? null
+  const hasHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  )
+  // A warm browser query cache can differ from the server's account snapshot.
+  const userEmail = hasHydrated ? user?.email ?? null : null
 
   const handleLogout = async () => {
     if (typeof window !== 'undefined' && window.google?.accounts?.id) {

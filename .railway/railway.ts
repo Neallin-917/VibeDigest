@@ -26,6 +26,10 @@ export default defineRailway(() => {
     networking: { privateNetworkEndpoint: "vibedigest" },
     env: {
       ALLOWED_ORIGINS: preserve(),
+      AGENT_INTERNAL_SECRET: preserve(),
+      AGENT_CONTINUATION_URL: preserve(),
+      AGENT_CONTINUATION_RUNTIME: "api",
+      AGENT_CONTINUATION_QUEUE: "agent_answers",
       BACKEND_CONTAINER_PORT: preserve(),
       BACKEND_PORT: preserve(),
       COGNITION_DELAY: preserve(),
@@ -102,6 +106,10 @@ export default defineRailway(() => {
     replicas: { "us-west2": 1 },
     networking: { privateNetworkEndpoint: "vibedigest-worker" },
     env: {
+      AGENT_INTERNAL_SECRET: api.env.AGENT_INTERNAL_SECRET,
+      AGENT_CONTINUATION_URL: api.env.AGENT_CONTINUATION_URL,
+      AGENT_CONTINUATION_RUNTIME: "api",
+      AGENT_CONTINUATION_QUEUE: "agent_answers",
       COGNITION_DELAY: preserve(),
       COGNITION_SEQUENTIAL: preserve(),
       DATABASE_URL: preserve(),

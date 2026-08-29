@@ -11,6 +11,14 @@
 | **Orchestration** | LangGraph (StateGraph) |
 | **Durable Jobs** | Supabase Queues / PGMQ + independent Python worker |
 | **AI/LLM** | `create_chat_model` port; API providers in production and an optional trusted-local Codex app-server adapter |
+
+Conversation Agent commands live in `api/routes/agent.py` and
+`services/agent_turns.py`. They use a signed Next-to-API boundary and private
+Postgres functions to accept input, submit/watch tasks, fence execution, and
+commit safe messages. `worker.py::AgentAnswerWorker` only dispatches durable
+continuations to the shared TypeScript Agent; it does not run a duplicate model
+loop. See [architecture](architecture.md#conversation-agent) for state ownership
+and [configuration](config.md) for callback/runtime isolation.
 | **Package Manager** | uv |
 | **Observability** | LangSmith, Sentry |
 

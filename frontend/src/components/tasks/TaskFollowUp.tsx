@@ -163,7 +163,7 @@ export function TaskFollowUp({
   return (
     <section
       aria-labelledby="task-follow-up-title"
-      className="rounded-2xl border border-border/80 bg-surface-raised/45 p-4 md:p-5"
+      className="border-t border-border/70 pt-8"
     >
       <div className="mb-4 max-w-2xl">
         <h2 id="task-follow-up-title" className="text-base font-semibold text-foreground">
@@ -189,7 +189,7 @@ export function TaskFollowUp({
             threadId={canUseResolvedThread ? threadId : null}
             initialMessages={initialMessages}
             isAuthenticated={isAuthenticated}
-            allowDirectUrlSubmission={false}
+            scope="source"
             showTaskArtifacts={taskStatus !== 'completed'}
             onChatStarted={handleChatStarted}
           />

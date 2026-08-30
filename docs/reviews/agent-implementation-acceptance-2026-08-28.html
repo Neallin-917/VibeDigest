@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VibeDigest · Agent 重构验收记录</title>
+  <style>
+    :root{color-scheme:light;--ink:#202923;--muted:#637168;--line:#dbe1da;--paper:#f6f7f2;--accent:#24614a;--amber:#83581e}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+    main{width:min(960px,100% - 48px);margin:56px auto 80px}header{padding-bottom:30px;border-bottom:1px solid var(--line)}
+    .eyebrow{font-size:12px;letter-spacing:.09em;color:var(--muted);margin:0 0 12px}h1{font-size:34px;line-height:1.3;letter-spacing:-.03em;margin:0 0 18px}h2{font-size:23px;line-height:1.4;margin:0 0 18px}h3{font-size:17px;margin:18px 0 7px}
+    p{margin:10px 0}section{padding:32px 0;border-bottom:1px solid var(--line)}a{color:var(--accent);text-underline-offset:3px;overflow-wrap:anywhere}code{font-size:.88em;background:#eaf0e8;border-radius:4px;padding:2px 5px;overflow-wrap:anywhere}
+    .lead{font-size:20px;max-width:760px}.muted,small{color:var(--muted)}.notice{border-left:3px solid #bd914d;padding:12px 18px;background:#f4eddd;color:var(--amber);margin-top:24px}
+    ul,ol{padding-left:23px;margin:12px 0}li{padding:4px 0}strong{font-weight:620}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;text-align:left}th,td{padding:13px 12px;border-bottom:1px solid var(--line);vertical-align:top}th{font-weight:600;background:#ecf0e9}td:first-child{width:22%}.pass{color:var(--accent);font-weight:600}.pending{color:var(--amber);font-weight:600}
+    .screens{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}figure{margin:0}figure img{width:100%;height:auto;border:1px solid var(--line);border-radius:12px;background:#fff}figcaption{font-size:13px;color:var(--muted);margin-top:7px}
+    details{margin:18px 0}summary{cursor:pointer;color:var(--accent)}footer{font-size:13px;color:var(--muted);padding-top:25px}nav{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;margin-top:20px}
+    @media(max-width:620px){main{width:calc(100% - 32px);margin-top:30px}h1{font-size:28px}h2{font-size:21px}.lead{font-size:18px}th,td{padding:10px 8px}.screens{grid-template-columns:1fr}figure{max-width:300px;margin:auto}section{padding:26px 0}}
+    @media print{body{background:white}main{width:100%;margin:0}nav,.screens{display:none}section{break-inside:avoid}a{color:inherit}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">VIBEDIGEST / ENGINEERING ACCEPTANCE / 2026-08-28</p>
+    <h1>主库闭环已跑通<br>托管模型验收待完成</h1>
+    <p class="lead">创建视频、理解内容、继续追问已接入同一套业务工具。旧 direct-submit 分支已移除，本地使用官方 Codex SDK，线上保留 OpenRouter。</p>
+    <p class="muted">本页是实现与测试记录，不是上线完成声明。设计取舍见<a href="agent-optimization-proposal-2026-08-28.html">正式方案</a>；当前架构以<a href="../codemaps/architecture.md">架构 codemap</a>为准。</p>
+    <div class="notice"><strong>当前关口：</strong>经明确授权，已备份并向 <code>transcriber</code> 主库单独应用 Agent 迁移；真实 Codex 追问、创建后离页续答及 Realtime 更新通过。本机调用 OpenRouter 被上游以地区限制拒绝。尚未部署新的 Railway／Vercel 服务或切换正式流量，不能宣称线上 Agent 已验收。</div>
+    <nav aria-label="报告目录"><a href="#implementation">实现范围</a><a href="#main-db">主库变更</a><a href="#verification">验证证据</a><a href="#remaining">剩余关口</a><a href="#review">人工验收</a></nav>
+  </header>
+
+  <section id="implementation">
+    <h2>这次改了什么</h2>
+    <ol>
+      <li><strong>统一输入。</strong>所有聊天输入，包括单独的视频链接，都进入 <code>/api/chat</code>。Agent 根据意图选择创建、追问、检索或澄清；后端负责权限、额度与幂等。</li>
+      <li><strong>按需检索。</strong>Agent 自行选择概要、全文关键词检索和片段读取，没有固定的“先检索再回答”顺序。证据有版本化 ID 和时间戳链接，原始转录不进入公开工具消息。</li>
+      <li><strong>官方本地接入。</strong>锁定的官方 Python Codex SDK／App Server，通过临时 MCP 工具桥接到同一套业务函数。全局 MCP、插件、Shell、Web 等无关能力关闭；不会自动回退到付费 API。</li>
+      <li><strong>任务完成后续答。</strong>用户原始问题先落库；视频任务、回执、后台等待状态与入队原子提交。视频完成后，worker 调用同一 Agent 的只读阶段，保存回答后再确认队列完成。</li>
+      <li><strong>取消与重试。</strong>取消后续回答不会取消视频。回答失败可以重试原始输入，不重新扣视频处理额度；过期 worker 不能覆盖新重试。</li>
+      <li><strong>消息恢复。</strong>Realtime 合并数据库消息；重连和数据库监听就绪后补读一次快照，不轮询。旧快照不能覆盖更新的消息或正在流式生成的回答。</li>
+    </ol>
+    <p>私有问题留在会话中，不混入可复用的公开摘要。模型继续使用配置中的 <code>smart</code> 档，记录运行时、provider、模型、推理档位、用量与耗时；没有按问题长度自动降档。</p>
+    <details>
+      <summary>清理范围与保留边界</summary>
+      <p>删除旧 direct-submit 路由与 hook、固定 RAG 层、重复聊天持久化、旧聊天工具及其失效测试；新契约由 Agent、路由和数据库测试覆盖。没有另存 legacy 代码副本，旧版本可从 Git 恢复。</p>
+      <p>保留历史聊天消息的读取／渲染兼容，以及现有视频处理 pipeline、用户队列、内部播客供给边界。没有引入第二套数据库、事件总线或通用 workflow 引擎。</p>
+    </details>
+  </section>
+
+  <section id="main-db">
+    <h2>主库变更与恢复边界</h2>
+    <p>目标为 <code>transcriber</code>（<code>cwdgdytqafqrqnlcdpcc</code>）。只应用了 <code>20260828052805_agent_task_turns.sql</code>；先在临时目录拉取 22 条远端迁移历史，dry-run 确认仅新增这一条，未重放本地旧迁移，也未修写远端历史。</p>
+    <ul>
+      <li>备份涵盖应用、私有队列、认证与迁移 schema。归档可完整解压；将 <code>chat_messages</code> 的结构与数据恢复到隔离测试库，核对 <strong>706 条</strong>。这是定向恢复演练，不是整库灾难恢复演练。没有开启付费 PITR。</li>
+      <li>迁移后的复核保留了原有 <strong>184 个任务、706 条消息</strong>。仅新增一个专用验收账号、三个私有会话和一个私有测试视频；测试内容未进入公共库。</li>
+      <li>本地 worker 使用 <code>--agent-only</code>，只消费开发者续答队列，不接管主库的用户视频队列。该测试视频由现有 Railway hosted worker 处理。</li>
+      <li>收尾时：用户视频队列、本地续答队列、托管续答队列均为空；原有播客供给 backlog 仍为 7，没有处理它。专用测试账号没有等待中的回合。</li>
+      <li>生产 API readiness 与公共探索页均返回 HTTP 200。原有安全 advisory 未增加；这些检查不等于新 Agent 已部署。</li>
+    </ul>
+    <details>
+      <summary>备份与迁移核对信息</summary>
+      <p>有效备份：<code>/Users/haoran/.local/share/vibedigest/backups/transcriber-pre-agent.l8Pztg/application-before-agent-v2.dump</code>，8,624,002 bytes。目录权限 0700，文件权限 0600；包含私有数据，不发布、不提交 Git。</p>
+      <p>备份 SHA-256：<code>8be7be399bb05d551af07d25d60ba6e47140d870c239cd4c1b6cb735c5de4fc0</code></p>
+      <p>迁移 SHA-256：<code>483ff16478685eba4640559462e18f8db8001b145185409123a27a206bc63208</code>。迁移设置 5 秒锁等待、30 秒语句上限；失败应回滚，不持续占锁。</p>
+      <p>同目录保留迁移前的函数／policy／publication 快照。恢复前先确认目标与停写方案，不直接用备份覆盖正在服务的主库。回滚策略以 <a href="../RUNBOOK.md">Runbook</a> 为准。</p>
+    </details>
+  </section>
+
+  <section id="verification">
+    <h2>已验证的范围</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>验证</th><th>结果</th><th>证明什么／不证明什么</th></tr></thead>
+        <tbody>
+          <tr><td>前端全量单测</td><td class="pass">610 通过，1 跳过</td><td>74 个测试文件通过；覆盖共享工具、真实 AI SDK mock-model 循环、上下文、路由、消息恢复、头像 hydration 和 SDK 错误日志清洗。跳过项是真实 Codex 的显式 opt-in 用例。</td></tr>
+          <tr><td>前端构建</td><td class="pass">通过</td><td><code>NEXT_DIST_DIR=.next-build npm run build</code> 完成编译、类型检查及页面生成；构建路由中已无 direct-submit。</td></tr>
+          <tr><td>后端全量</td><td class="pass">752 通过，1 预期失败</td><td><code>make test-backend</code> 通过；80 项按标记排除，仓库统计口径覆盖率 77.50%，高于 65% 门槛；另一个真实测试库 API 冒烟用例通过。8 条既有测试 JWT 短密钥警告，不是生产认证失败。</td></tr>
+          <tr><td>变更区域覆盖率</td><td class="pass">88.10%</td><td>88 项 API／worker／真实事务测试合并统计：Agent API 90%、turn 服务 92%、worker 87%，超过本轮 80% 验证门槛。</td></tr>
+          <tr><td>Postgres／PGMQ</td><td class="pass">30 通过</td><td>隔离容器中的真实迁移与事务：回滚、并发去重、唤醒、取消、重试代际、过期写回、发布配置。测试 fixture 没有指向主库。</td></tr>
+          <tr><td>浏览器用例</td><td class="pass">最终整组 15 通过</td><td>聊天、导航、内联输出、公开详情均通过；此前认证组的 7 个场景连续三轮通过（共 22，含 setup）。首次输入丢失已修产品初始化逻辑，不靠测试等待 URL 规避。均为 API mocks。</td></tr>
+          <tr><td>交互检查</td><td class="pass">通过</td><td>1440／390px 等待状态，390px 取消、失败、重试；1024px 复查。重试沿用相同用户消息，未出现横向溢出。</td></tr>
+          <tr><td>真实 Codex 追问</td><td class="pass">主库样本通过</td><td>GPT Tokenizer 页面要求英文介绍并解释 BPE；真实工具读取源证据，回答包含可核对的时间戳链接。实际模型 <code>gpt-5.4</code>、high，约 67 秒；保留了本机原有模型覆盖配置。另有此前约 30 秒的合成工具用例通过。</td></tr>
+          <tr><td>离页后自动续答</td><td class="pass">真实闭环通过</td><td>创建一个 19 秒视频任务 → 在完成前离页 → Railway 完成视频 → 本地 Codex 续答 → 重开恢复。只创建一个任务、只运行一轮续答、只保存一条完成回答；回答对准用户指定的动物／特征问题，而非通用摘要。续答推理约 70 秒。</td></tr>
+          <tr><td>主库 Realtime</td><td class="pass">真实 UPDATE 通过</td><td>真实登录态下取消专用测试回合，收到 <code>chat_messages UPDATE</code>，界面即时变为 cancelled，重试按钮消失。取消后没有消息 HTTP 补读，也没有刷新页面。离页恢复另行验证；INSERT 在线场景未单独抓帧。</td></tr>
+          <tr><td>评估集</td><td class="pass">静态契约通过</td><td>15 个 Agent 行为场景 + 原有 40 条证据案例。数据结构和证据可核对，不等于模型已通过全部场景。</td></tr>
+          <tr><td>OpenRouter 新 Agent</td><td class="pending">本机地区限制</td><td>实际调用了配置模型 <code>openai/gpt-5.6-luna</code>，上游返回 403：模型在当前地区不可用。key 有效且有余额，模型存在；不是本地 Codex 适配问题。失败与重试没有创建任务；尚不能判定“不要处理链接”的模型行为是否通过。</td></tr>
+          <tr><td>现有 hosted pipeline</td><td class="pass">OpenRouter 处理成功</td><td>验收视频的持久化 provenance 为 <code>hosted_api / api / openrouter / openai/gpt-5.6-luna</code>。证明现有 Railway 视频链路成功，不代表新 TypeScript Agent 循环及托管回调已通过。</td></tr>
+          <tr><td>Lint／差异检查</td><td class="pass">通过</td><td><code>make lint</code>、变更测试文件的 Ruff 检查、<code>git diff --check</code> 通过。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">复现入口与测试策略见<a href="../testing/README.md">Testing Guide</a>、<a href="../../evals/agent/README.md">Agent 场景说明</a>。测试通过属于各自层级的证据，不汇总为“线上已可用”。</p>
+    <h3>收尾时发现并修复的具体问题</h3>
+    <ul>
+      <li>云库未发布聊天消息：本次已应用的迁移补入 <code>chat_messages</code>，新版本 <code>/health/ready</code> 增加检查，私有 Agent 表不发布。</li>
+      <li><code>SUBSCRIBED</code> 可能早于数据库监听就绪：收到官方 <code>postgres_changes / ok</code> 系统事件后再次补读，恢复这个窗口内遗漏的消息。<a href="https://supabase.com/docs/guides/troubleshooting/realtime-postgres-changes-troubleshooting">Supabase 官方说明</a>。</li>
+      <li>提交回执挤掉长问题、首字输出前失败无可恢复消息、旧 worker 失败覆盖用户新重试：均补了回归。</li>
+      <li>大量短证据片段可能超过消息保存的 part 数上限：限制公开引用条目数量，工具内仍返回完整引用。</li>
+      <li>首次打开聊天时，线程初始化可能与输入撞车：首屏直接持有稳定会话 ID；过期初始化请求不能覆盖新选择。保留立即输入的浏览器回归，不要求用户等待 URL 变化。</li>
+      <li>真实登录后的头像服务器／浏览器缓存不一致，触发 hydration 错误：首帧一致，挂载后读取账号缓存；5 项回归及真实重开验证通过。</li>
+      <li>并行 Next 验收目录未被排除，Tailwind 扫到二进制缓存生成非法 CSS：统一忽略 <code>.next-*</code> 构建目录，未改动全局缓存或 Docker 配置。</li>
+      <li>AI SDK 默认错误日志包含上游请求／响应：使用官方 <a href="https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent">ToolLoopAgent 流转换接口</a>，在 SDK 日志之前只保留安全状态码；请求失败与流内失败都用真实 SDK mock-model 验证没有泄漏。</li>
+      <li>pg8000 的 SQLSTATE 位于异常字段，而非 psycopg 的属性：补齐 403／409／503 映射，避免把权限或并发冲突报成服务不可用；原始数据库信息不进入公开错误。</li>
+    </ul>
+    <details>
+      <summary>真实样本索引与证据解释</summary>
+      <p>追问回合：<code>c5cd0d03-822c-49cb-8f97-2cd415f5970e</code>。创建／续答回合：<code>93c3f0e7-5010-40ad-9f98-ee987ea28273</code>；私有视频任务：<code>329aa0c9-1462-41e9-a4f4-b2742404486d</code>。地区失败后取消的回合：<code>0d858233-82a4-4419-bc82-0e4cc85d96d8</code>。</p>
+      <p>Codex SDK 用量是一次 Agent turn 内多步累计，不等于首轮一次性注入的上下文长度。当前 67／70 秒样本只证明功能，不能证明响应速度达标，也不能据此比较两个模型的质量。</p>
+      <p>对已归档 delivery 的迟到回调没有产生第二个答案；它不是有效租约内的重复投递，因此不能当作云端重复投递成功的证据。有效租约、重试代际与幂等由隔离数据库测试覆盖。</p>
+      <p>Docker 开发镜像被本机配置的外部镜像源 502 阻断，本轮改用同一仓库的 native uv 服务，仍连接主库、使用真实认证和原有队列契约。没有修改 Docker 镜像源；发布镜像仍须通过 CI。</p>
+    </details>
+  </section>
+
+  <section id="remaining">
+    <h2>剩余关口，不隐去</h2>
+    <ol>
+      <li><strong>确认托管验收部署。</strong>主库授权关口已解除；下一步是部署不切正式流量的验收版本。当前生产 Next／API／worker 尚未配置新的签名密钥与续答回调。需确认部署目标，再按 <a href="../RUNBOOK.md">Runbook</a> 对齐服务版本与私有配置。</li>
+      <li><strong>OpenRouter 行为与质量。</strong>在实际服务托管环境跑有上限的创建／否定／检索／续答案例，检查工具行为、源依据、时延和用量。本机地区拒绝不能靠换模型、改代理或付费 provider fallback 掩盖；不做 Codex 与 OpenRouter 的排名对照。</li>
+      <li><strong>剩余端到端故障场景。</strong>托管回调、在线 INSERT、处理中改目标、取消与重试、有效重复交付仍需在托管验收环境抽查；本机真实闭环与 30 项数据库测试不替代这些检查。</li>
+      <li><strong>发布与人工验收。</strong>核对部署 revision，CI 镜像／PGMQ 检查通过；真实模型质量和延迟达标后再交人工验收，随后才考虑正式流量切换。已有 UI 改动与 Agent 改动共处工作区，不能未经审阅直接整包部署。</li>
+    </ol>
+    <p class="notice">主库迁移已完成，不应重复执行。当前“已实现／本地闭环通过”不等于“线上成熟可发布”。需部署授权才能继续完成托管验收；生产流量仍保留旧版本。</p>
+    <h3>本轮有意没有扩展的能力</h3>
+    <p>只实现一个任务级等待／恢复点，不支持任意步骤 checkpoint、复杂人工审批或多视频并行编排。检索使用全文词法匹配与模型改写查询，尚无语义向量检索。若实测出现召回缺口，或产品需要多次长等待，再按证据重新评估检索与持久化 Agent 框架，不继续扩张自写状态机。</p>
+  </section>
+
+  <section id="review">
+    <h2>托管验收通过后的人工检查</h2>
+    <ol>
+      <li>输入链接并指定具体目标：只创建一个视频任务；完成后的回答对准该目标。</li>
+      <li>输入“只解释链接，不要处理”：不得创建任务或消耗视频额度。</li>
+      <li>对已完成视频追问一个精确事实：答案有可追溯依据；源内容没有答案时明确说明。</li>
+      <li>视频处理期间改问题、关闭并重开页面：新目标有效，最终回答只出现一次。</li>
+      <li>取消后续回答，再检查视频任务：视频仍继续；回答失败后的重试不重新提交视频。</li>
+    </ol>
+    <h3>本轮真实主库截图</h3>
+    <figure><a href="../../output/playwright/agent-main-cloud-restored-1280.png"><img src="../../output/playwright/agent-main-cloud-restored-1280.png" alt="关闭页面期间完成任务并续答，重新打开后恢复真实主库回答" loading="lazy"></a><figcaption>真实账号、主库任务与 Codex 回答：离页后继续工作，重开恢复。</figcaption></figure>
+    <p><a href="../../output/playwright/agent-main-cloud-realtime-cancel-1280.png">查看真实 Realtime 取消更新截图</a>：仅测试回答状态改变，没有刷新页面。</p>
+    <h3>此前 UI mock 检查</h3>
+    <p class="muted">以下三张仅证明 UI-mock 交互表现，不代表额外云端任务已完成。</p>
+    <div class="screens">
+      <figure><a href="../../output/playwright/agent-waiting-390.png"><img src="../../output/playwright/agent-waiting-390.png" alt="手机视口中的等待续答状态" loading="lazy"></a><figcaption>等待：可以取消后续回答。</figcaption></figure>
+      <figure><a href="../../output/playwright/agent-cancelled-390.png"><img src="../../output/playwright/agent-cancelled-390.png" alt="取消后提示视频处理不受影响" loading="lazy"></a><figcaption>取消：明确视频处理不受影响。</figcaption></figure>
+      <figure><a href="../../output/playwright/agent-retried-390.png"><img src="../../output/playwright/agent-retried-390.png" alt="重试后恢复回答的手机视口" loading="lazy"></a><figcaption>重试：复用原始输入，恢复回答。</figcaption></figure>
+    </div>
+  </section>
+  <footer>Industry Standard 原则：成熟 Agent 循环、独立业务工具、数据库持有业务不变量、分层验证。AI SDK／OpenAI Docs 用于核对官方运行时；Supabase 用于约束单一云端状态源与发布边界；Playwright 用于浏览器检查。本记录不替代架构、配置与测试的 SSOT。</footer>
+</main>
+</body>
+</html>

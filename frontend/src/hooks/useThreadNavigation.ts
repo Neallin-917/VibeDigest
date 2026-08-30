@@ -56,7 +56,11 @@ export function useThreadNavigation({
     const invalidateThreadPayload = useInvalidateThreadPayload()
 
     // State
-    const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
+    // A fresh composer must keep its identity from the first interactive render.
+    // Generating this in the effect used to remount it while a user was typing.
+    const [activeThreadId, setActiveThreadId] = useState<string | null>(
+        () => !queryTaskId && !queryThreadId ? uuidv4() : null
+    )
     const [activeTaskId, setActiveTaskId] = useState<string | null>(queryTaskId)
     const [initialMessages, setInitialMessages] = useState<ChatUIMessage[]>([])
     const [pendingThreadId, setPendingThreadId] = useState<string | null>(null)
@@ -68,6 +72,7 @@ export function useThreadNavigation({
 
     // Refs
     const newThreadIdsRef = useRef<Set<string>>(new Set())
+    const freshThreadIdRef = useRef(activeThreadId)
     const hasBootstrappedRef = useRef(false)
     const threadSelectionRequestIdRef = useRef(0)
     // Flag to prevent main useEffect from re-running when user-initiated navigation
@@ -241,12 +246,19 @@ export function useThreadNavigation({
 
     // Main initialization effect — syncs local state with URL params
     useEffect(() => {
+        // Retain the fresh identity through Strict Mode effect replay, but do
+        // not reuse a previous conversation when later navigating to bare /chat.
+        if (queryTaskId || queryThreadId) freshThreadIdRef.current = null
         if (isUserNavigatingRef.current) {
             isUserNavigatingRef.current = false
             return
         }
 
         let cancelled = false
+        const selectionVersion = threadSelectionRequestIdRef.current
+        // User selection wins immediately, before an asynchronous URL replace
+        // has committed and run this effect's cleanup.
+        const isStale = () => cancelled || selectionVersion !== threadSelectionRequestIdRef.current
 
         const initialize = async () => {
             if (!hasBootstrappedRef.current) {
@@ -256,7 +268,8 @@ export function useThreadNavigation({
             // A fresh chat does not depend on remote history. Make the input usable
             // immediately and refresh the sidebar in the background.
             if (!queryTaskId && !queryThreadId) {
-                const newId = uuidv4()
+                const newId = freshThreadIdRef.current ?? uuidv4()
+                freshThreadIdRef.current = newId
                 newThreadIdsRef.current.add(newId)
 
                 setActiveTaskId(null)
@@ -295,13 +308,13 @@ export function useThreadNavigation({
                         ? Promise.resolve(queryThreadId)
                         : resolveOrCreateThreadForTaskRef.current(queryTaskId),
                 ])
-                if (cancelled) return
+                if (isStale()) return
 
                 if (!newThreadIdsRef.current.has(resolvedThreadId)) {
                     const payload = initialPayloadPromise && resolvedThreadId === queryThreadId
                         ? await initialPayloadPromise
                         : await loadThreadPayloadRef.current(resolvedThreadId, queryTaskId)
-                    if (cancelled) return
+                    if (isStale()) return
 
                     setActiveThreadId(resolvedThreadId)
                     setActiveTaskId(queryTaskId)
@@ -318,13 +331,13 @@ export function useThreadNavigation({
                 safeReplaceRef.current(params)
             } else if (queryThreadId) {
                 const fetchedThreads = await refetchThreadsRef.current()
+                if (isStale()) return
 
                 if (!fetchedThreads.some((thread) => thread.id === queryThreadId)) {
                     newThreadIdsRef.current.add(queryThreadId)
                     setActiveThreadId(queryThreadId)
                     setActiveTaskId(null)
                     setInitialMessages([])
-                    if (cancelled) return
                     hasBootstrappedRef.current = true
                     setIsBootstrapping(false)
                     return
@@ -336,7 +349,7 @@ export function useThreadNavigation({
                         queryThreadId,
                         selectedThread?.task_id,
                     )
-                    if (cancelled) return
+                    if (isStale()) return
 
                     setActiveThreadId(queryThreadId)
                     setActiveTaskId(payload.taskId)
@@ -357,7 +370,7 @@ export function useThreadNavigation({
                 }
             }
 
-            if (!cancelled) {
+            if (!isStale()) {
                 hasBootstrappedRef.current = true
                 setIsBootstrapping(false)
             }
@@ -383,6 +396,8 @@ export function useThreadNavigation({
         setInitialMessages([])
         setPendingThreadId(null)
         setIsThreadSwitching(false)
+        hasBootstrappedRef.current = true
+        setIsBootstrapping(false)
 
         const params = getCurrentParams()
         params.delete("task")

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="VibeDigest 统一任务 Agent 重构提案：当前证据、技术取舍、异步恢复、Codex 官方接入、实施顺序与验收。">
+  <link rel="icon" href="data:,">
+  <title>VibeDigest · 统一任务 Agent 优化方案</title>
+  <style>
+    :root{--paper:#f5f4ef;--surface:#fffefa;--ink:#252c26;--muted:#62695f;--line:#dcded4;--green:#345e42;--tint:#eaf0e5;--amber:#785324;--amber-bg:#f6efe2}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:26px}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.85 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+    a{color:var(--green);text-underline-offset:4px}a:hover{text-decoration-thickness:2px}a:focus-visible,summary:focus-visible{outline:3px solid var(--green);outline-offset:5px}
+    .skip{position:absolute;top:-80px;left:20px;background:white;padding:8px}.skip:focus{top:10px}.layout{max-width:1190px;margin:auto;padding:55px 30px 80px;display:grid;grid-template-columns:182px minmax(0,1fr);gap:48px}
+    aside{align-self:start;position:sticky;top:35px}.brand{font-size:15px;letter-spacing:.03em;font-weight:650}.nav-label{margin:30px 0 10px;font-size:12px;color:var(--muted);letter-spacing:.1em}nav a{display:block;padding:6px 0;color:var(--muted);font-size:14px;text-decoration:none}nav a:hover{color:var(--green)}.aside-note{font-size:12px;color:var(--muted);margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+    main{min-width:0}.eyebrow{font-size:12px;color:var(--green);font-weight:650;letter-spacing:.12em;text-transform:uppercase}h1{font-size:34px;line-height:1.35;letter-spacing:-.035em;margin:13px 0 17px;font-weight:650}h2{font-size:24px;line-height:1.4;letter-spacing:-.025em;margin:0 0 22px;font-weight:650}h3{font-size:18px;line-height:1.5;margin:26px 0 9px;font-weight:650}p{margin:10px 0 15px}strong{font-weight:650}.lead{font-size:19px;line-height:1.8;max-width:720px}.meta{font-size:13px;color:var(--muted);margin:22px 0 32px}
+    section{border-top:1px solid var(--line);padding-top:34px;margin-top:38px;scroll-margin-top:24px}.section-number{display:block;font-size:12px;color:var(--green);letter-spacing:.1em;margin-bottom:9px}.decision{background:var(--tint);border-left:3px solid var(--green);padding:20px 24px;margin:25px 0}.decision p:last-child{margin-bottom:0}.decision p:first-child{margin-top:0}.warning{background:var(--amber-bg);border-left:3px solid var(--amber);padding:15px 20px;margin:20px 0;font-size:14px}.muted,.caption{color:var(--muted)}.caption{font-size:13px;margin-top:12px}.small{font-size:14px}.source{font-size:13px;color:var(--muted)}.source a{color:inherit}code{font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;background:#eeefe8;padding:2px 4px;border-radius:3px}ul,ol{padding-left:23px;margin:13px 0 19px}li{margin:7px 0}
+    .table-wrap{overflow-x:auto;max-width:100%;margin:18px 0 22px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.75;min-width:620px}th,td{text-align:left;vertical-align:top;padding:15px 17px;border-bottom:1px solid var(--line)}th{background:#eeefe7;font-size:12px;font-weight:650;color:var(--muted)}tr:last-child td{border-bottom:0}td:first-child{width:21%;font-weight:600}.chosen td{background:#f0f5ec}.label{display:inline-block;font-size:11px;font-weight:600;color:var(--green);margin-bottom:6px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:25px}.cols>div{min-width:0}.cols h3{margin-top:6px}
+    .flow{list-style:none;counter-reset:flow;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}.flow li{counter-increment:flow;margin:0;background:var(--surface);border:1px solid var(--line);padding:17px 18px;border-radius:5px;font-size:13px;line-height:1.75}.flow li:before{content:counter(flow,decimal-leading-zero);display:block;font-size:11px;letter-spacing:.08em;color:var(--green);margin-bottom:7px}.flow strong{font-size:15px;display:block;margin-bottom:5px}.sequence{padding:15px 18px;border:1px solid var(--line);background:var(--surface);font-size:14px;line-height:2;overflow-wrap:anywhere}.phase{border-left:2px solid var(--line);padding:0 0 5px 22px;margin:26px 0}.phase h3{margin-top:0}.phase .gate{font-size:14px;color:var(--green)}details{border:1px solid var(--line);border-radius:5px;margin:15px 0;padding:14px 18px;background:var(--surface)}summary{cursor:pointer;font-size:14px;font-weight:600}.evidence{padding-top:12px}.evidence p{font-size:13px}.sources li{font-size:14px;margin:13px 0}.sources small{display:block;color:var(--muted)}footer{border-top:1px solid var(--line);padding-top:20px;margin-top:38px;color:var(--muted);font-size:12px}
+    @media(max-width:1050px){.layout{grid-template-columns:150px minmax(0,1fr);gap:28px;padding:36px 24px}h1{font-size:30px}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:760px){.layout{display:block;padding:25px 21px 55px}aside{position:static;margin-bottom:29px}.nav-label,.aside-note{display:none}nav{display:flex;flex-wrap:wrap;gap:0 17px;margin-top:10px}nav a{font-size:12px;padding:3px 0}h1{font-size:28px}h2{font-size:23px}.lead{font-size:17px}.meta{font-size:12px}.cols{grid-template-columns:1fr;gap:6px}.flow{grid-template-columns:1fr}.flow li{padding:14px 17px}.decision{padding:17px 18px}.table-wrap{margin-right:0}section{margin-top:30px;padding-top:28px}.phase{padding-left:17px}body{font-size:15px;line-height:1.85}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+    @media print{body{background:white;font-size:11pt}.layout{display:block;max-width:none;padding:0}aside,.skip{display:none}h1{font-size:25pt}section{break-inside:auto}h2,h3{break-after:avoid}.table-wrap{overflow:visible}table{min-width:0;font-size:10pt}.flow li,.phase,.decision{break-inside:avoid}a{color:inherit}.meta{margin-bottom:20px}footer{font-size:9pt}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">跳转至方案正文</a>
+<div class="layout">
+  <aside aria-label="方案目录">
+    <div class="brand">VibeDigest</div>
+    <div class="nav-label">AGENT / PROPOSAL</div>
+    <nav>
+      <a href="#decision">01 · 核心决策</a><a href="#current">02 · 现状证据</a><a href="#options">03 · 技术选择</a><a href="#target">04 · 目标架构</a><a href="#tools">05 · 工具与上下文</a><a href="#async">06 · 异步与一致性</a><a href="#codex">07 · Codex 官方接入</a><a href="#roadmap">08 · 实施顺序</a><a href="#acceptance">09 · 验收与回滚</a><a href="#sources">10 · 参考依据</a>
+    </nav>
+    <p class="aside-note">2026.08.28<br>状态：待实施提案<br>基于当前工作区源码<br>不是线上现状声明</p>
+  </aside>
+  <main id="main">
+    <header>
+      <div class="eyebrow">Architecture decision proposal · v1</div>
+      <h1>从链接提交器，<br>到统一任务 Agent</h1>
+      <p class="lead">用户说清想解决的问题，Agent 判断是否需要处理视频、按需查证，并在内容就绪后完成最初的请求。创建任务与继续追问，不再是两条割裂的产品路径。</p>
+      <p class="meta">核验日期：2026-08-28 · 范围：创建任务 / 内容理解 / 后续问答 / 本地开发<br>本轮仅交付方案；未修改业务代码、数据库或部署，未调用付费模型。</p>
+    </header>
+
+    <section id="decision">
+      <span class="section-number">01 / DECISION</span><h2>重构 Agent 层，保留可靠执行底座</h2>
+      <div class="decision">
+        <p><strong>推荐：一个任务 Agent，两个执行环境，一套业务工具与云端状态。</strong></p>
+        <p>线上继续使用 AI SDK 的 ToolLoopAgent + OpenRouter；本地通过官方 Codex SDK / App Server 接入。Agent 决定行动，FastAPI 与 Postgres 决定行动能否被执行，PGMQ 负责长任务及完成后的恢复。</p>
+      </div>
+      <ul>
+        <li><strong>移除自然语言输入中的 URL 自动旁路。</strong>有链接不等于用户授权立即处理。纯链接可采用明确的默认产品约定，但也进入同一 Agent 入口。</li>
+        <li><strong>采用 Agentic Retrieval。</strong>模型可以不检索、搜索、改写查询、补读上下文；不强制“先检索一次再回答”，也不把所有问题都变成长工具链。</li>
+        <li><strong>补齐异步恢复。</strong>视频处理成功不是用户请求完成；需要回答原始问题时，服务器应恢复 Agent，而不是等待用户再问一遍。</li>
+        <li><strong>不自研通用 Agent 框架。</strong>复用官方循环、协议与事件；只实现产品必须持有的权限、行动回执和恢复状态。</li>
+      </ul>
+      <p>本方案替代此前“以 2-step RAG 作为产品总架构”和“优先采用社区 Codex provider”的建议。也不把“本地 Codex vs OpenRouter 谁回答更好”设为重构前置条件。</p>
+      <div class="cols">
+        <div><h3>本次最小完整版本</h3><p class="small">同一会话理解需求 → 必要时澄清 → 创建一个视频任务 → 异步返回 → 按用户要求回答 → 有依据地追问。允许会话后续关联其他任务，但首版不承诺多视频并行研究。</p></div>
+        <div><h3>明确不做</h3><p class="small">不重写下载 / 转写管道；不迁移供应侧任务；不引入多 Agent、任意代码执行、全网研究、另一套数据库或消息系统；不为“先进”而增加向量服务。</p></div>
+      </div>
+    </section>
+
+    <section id="current">
+      <span class="section-number">02 / VERIFIED GAPS</span><h2>当前问题不是 SDK 太旧，而是链路没有闭合</h2>
+      <p>仓库已经声明 AI SDK <code>^7.0.47</code>，线上聊天代码也已使用 ToolLoopAgent。真正需要替换的是入口语义和任务生命周期，不是再升级一次 SDK。</p>
+      <div class="table-wrap" role="region" aria-label="现状与影响对照" tabindex="0"><table>
+        <thead><tr><th>当前机制</th><th>源码中的事实</th><th>用户影响 / 改造方向</th></tr></thead><tbody>
+        <tr><td>遇到 URL 就提交</td><td>ChatContainer 提取 URL 后进入 direct-submit，不经过 Agent。</td><td>“先别处理这个链接”也会进入提交分支。让 Agent 判断意图，后端继续校验 URL 与权限。</td></tr>
+        <tr><td>Agent 只能查询</td><td>工具注册只有 get_task_status、get_task_outputs，没有创建任务工具。</td><td>聊天与真正的任务执行割裂。增加窄粒度业务工具，不让模型操作数据库。</td></tr>
+        <tr><td>请求保存了，但未被执行</td><td>output_intent 保存原话、深度、受众；主摘要调用只传原文、目标语言、追踪信息。</td><td>“重点分析商业模式”没有进入该摘要调用。保留通用内容产物，由恢复后的 Agent 回答私人目标。</td></tr>
+        <tr><td>完成只更新卡片</td><td>TaskDataGroup 通过 Realtime 更新摘要 / 音频；当前未见服务端 Agent 完成续跑链路。</td><td>用户还得主动追问才能获得针对性回答。增加持久化的完成事件与一次有界续跑。</td></tr>
+        <tr><td>提交与会话分开保存</td><td>direct-submit 先调用后端入队，再单独 upsert 聊天消息与线程关联。</td><td>后半段失败可出现“任务已创建、聊天未关联”。在命令事务中保存行动回执与关联。</td></tr>
+        <tr><td>上下文靠硬截断</td><td>摘要 / 历史有字符预算；原文用关键词分块打分；跨语言无命中会偏向开头。</td><td>有预算不等于能找到证据。需要可继续导航的原文引用、搜索与读取工具。</td></tr>
+        <tr><td>本地不是同等能力</td><td>官方 Python SDK 已在用，但当前桥接只接收拼好的文本，并明确禁止工具。</td><td>本地“能回答”不能代表生产 Agent 链路已验证。统一业务工具契约，而非伪装成同一种模型。</td></tr>
+      </tbody></table></div>
+      <p class="caption">以上是当前工作区的静态代码结论，不是线上故障率、延迟或质量测量；原始截图中的服务不可达仍需按具体运行日志单独验收。</p>
+      <details><summary>展开源码依据与定位</summary><div class="evidence">
+        <p><code>frontend/src/components/chat/ChatContainer.tsx</code>：handleSendMessage 的 detectedUrl 分支；<code>useDirectUrlSubmission.ts</code>：客户端提交与消息插入。</p>
+        <p><code>frontend/src/app/api/chat/direct-submit/route.ts</code>：先 process-video，后 upsertChatState；<code>persistence.ts</code>：分开的会话与消息写入。</p>
+        <p><code>frontend/src/app/api/chat/route.ts</code>：工具循环、双运行时与超时；<code>tools/index.ts</code>：当前工具清单。</p>
+        <p><code>backend/services/output_intent.py</code>：build_output_intent；<code>backend/workflow.py</code>：_run_summarize；<code>backend/services/summarizer/facade.py</code>：summarize 参数。</p>
+        <p><code>frontend/src/components/chat/TaskDataGroup.tsx</code>：useTaskOutputs；<code>frontend/src/app/api/chat/tools/get-task-outputs.ts</code>：selectRelevantExcerpt。</p>
+        <p><code>backend/scripts/run_local_codex_chat.py</code>：AsyncCodex 与 DEVELOPER_INSTRUCTIONS；<code>frontend/src/lib/local-codex.ts</code>：子进程 / 超时桥接。</p>
+        <p><code>backend/worker.py</code>、<code>backend/services/task_queue.py</code>、<code>supabase/migrations/202607290001_create_video_processing_queue.sql</code>：任务类型、租约、归档与提交事务。新增恢复 job 需要显式扩展这些契约，不能只往现有队列塞一个新字符串。</p>
+      </div></details>
+    </section>
+
+    <section id="options">
+      <span class="section-number">03 / TECHNOLOGY CHOICE</span><h2>没有通用“最好”，有适合当前边界的选择</h2>
+      <p>采用的行业原则是：<strong>成熟 Agent 循环 + 独立业务工具 + 外置持久化状态</strong>。OpenAI 2026-08-19 的官方文章明确讨论把 Codex harness 嵌入产品；Anthropic 2026-04-08 的工程文章也强调把推理、执行与会话分开。它们支持这一分层，不意味着 VibeDigest 必须复制其整套基础设施。<span class="source">[<a href="https://developers.openai.com/blog/codex-as-a-platform">OpenAI</a> · <a href="https://www.anthropic.com/engineering/managed-agents">Anthropic</a>]</span></p>
+      <div class="table-wrap" role="region" aria-label="候选技术方案比较" tabindex="0"><table>
+        <thead><tr><th>候选</th><th>价值</th><th>代价与决策</th></tr></thead><tbody>
+        <tr class="chosen"><td>ToolLoopAgent<br>+ 现有 PGMQ</td><td>已有 UI / tool stream 可复用；OpenRouter 路径不变；沿用云端状态与执行管道。</td><td><strong>推荐首版。</strong>新增任务级恢复点；不提供每一步模型循环的持久化 checkpoint。中断时重跑有界只读推理，副作用靠回执幂等。</td></tr>
+        <tr><td>WorkflowAgent</td><td>官方持久化 Agent；工具步骤重试、长等待与审批恢复能力更完整。</td><td>不是“不够先进”，而是会引入额外执行 / 持久化机制及跨系统完成通知。若需要多次长等待、长审批或精确逐步恢复，优先重新评估它，停止扩张自写状态机。</td></tr>
+        <tr><td>HarnessAgent<br>+ Codex adapter</td><td>官方维护的 AI SDK harness 集成，可投影到现有 UI stream。</td><td>当前文档明确 experimental；Codex adapter 的内置工具过滤 / 审批也有能力限制。不作为要求稳定的本地订阅接入基线。</td></tr>
+        <tr><td>把全部 Agent 搬到 Python</td><td>与现有后台 worker 同语言，恢复执行可更直接。</td><td>需要迁移当前 TS Agent、流协议与工具边界。只有跨语言调用成为实测瓶颈时再比较；本轮没有证据支持全量搬迁。</td></tr>
+      </tbody></table></div>
+      <p class="source">依据：<a href="https://vercel.com/blog/ai-sdk-7">AI SDK 7 发布说明（2026-06-25）</a>、<a href="https://ai-sdk.dev/v7/docs/agents/workflow-agent">WorkflowAgent 文档</a>、<a href="https://ai-sdk.dev/v7/docs/ai-sdk-harnesses/overview">Harness 文档</a>；同时核对了仓库已安装包的对应 docs。选择 PGMQ 是针对当前产品与仓库约束的判断，不是官方声称它比 WorkflowAgent 更好。</p>
+      <div class="warning">复杂度止损线：首版最多“提交一次长任务 → 完成后恢复一次回答”。如果实现开始需要通用 DAG、任意暂停点或自行重建每一步工具日志回放，应停止该方向，提新的 ADR 比较 WorkflowAgent，而不是继续造框架。</div>
+    </section>
+
+    <section id="target">
+      <span class="section-number">04 / TARGET EXPERIENCE</span><h2>一个会话，跨越任务创建与内容理解</h2>
+      <p>示例：“帮我看这个访谈，重点讲它的商业模式，用中文；没提到的数据不要补。”</p>
+      <ol class="flow" aria-label="目标用户路径，按序号阅读">
+        <li><strong>理解请求</strong>Agent 读取当前会话、链接与明确要求；需要澄清时只问必要问题。</li>
+        <li><strong>提交工具</strong>调用 create_video_task；后端鉴权、检查额度、去重并原子入队。</li>
+        <li><strong>立即交接</strong>回传已确认的 task_id 与状态；展示一张任务卡，释放聊天连接。</li>
+        <li><strong>后台处理</strong>原有 worker 完成抓取、转写和通用摘要；用户可以离开页面。</li>
+        <li><strong>恢复原目标</strong>完成事件唤醒 Agent；读取最新目标与证据，回答商业模式，而非再发一份通用摘要。</li>
+        <li><strong>继续追问</strong>同一 Agent 根据新问题决定直接解释、补查原文或明确材料不足。</li>
+      </ol>
+      <div class="table-wrap" role="region" aria-label="架构职责分配" tabindex="0"><table>
+        <thead><tr><th>层</th><th>持有的职责</th><th>不负责</th></tr></thead><tbody>
+        <tr><td>聊天 UI</td><td>输入、流式回答、任务卡、引用、错误恢复；订阅数据库更新。</td><td>不靠 URL 正则决定付费行动；不承担后台 Agent 唤醒。</td></tr>
+        <tr><td>应用 Agent</td><td>理解意图、澄清、选择工具、补充检索、解释证据与完成目标。</td><td>不决定 owner、额度、执行环境或队列；不运行下载 / 转写。</td></tr>
+        <tr><td>业务工具层</td><td>窄契约、权限校验、输出裁剪、行动幂等；绑定服务器提供的调用身份。</td><td>不复制一套“固定问答流程”；不信任模型传来的 user_id。</td></tr>
+        <tr><td>FastAPI + Postgres</td><td>权威命令、任务 / 行动 / 会话关联、状态转换、原子 enqueue。</td><td>不在 HTTP 请求里等整段视频处理完。</td></tr>
+        <tr><td>PGMQ + worker</td><td>已有长任务；新增有界 Agent 恢复 job 的派发、租约和重试。</td><td>不把 Realtime 通知当可靠队列；不新增另一份任务真相。</td></tr>
+      </tbody></table></div>
+      <h3>direct-submit 怎么处理</h3>
+      <p>删除它在<strong>自然语言聊天中的自动分流职责</strong>。迁移期保留接口兼容和明确的“提交链接”命令，但底层都调用同一个 canonical submission 服务。新工具不要转调当前 direct-submit 路由，否则会重复生成用户 / 助手消息。旧前端 hook 在新链路验收后再删除。</p>
+      <p class="small muted">“统一 Agent”是统一产品能力、业务契约和会话状态，不是假定 Codex harness 与 ToolLoopAgent 有相同的内部推理过程。</p>
+    </section>
+
+    <section id="tools">
+      <span class="section-number">05 / TOOLS &amp; CONTEXT</span><h2>把确定性放在工具边界，把判断留给 Agent</h2>
+      <div class="table-wrap" role="region" aria-label="首版工具契约" tabindex="0"><table>
+        <thead><tr><th>工具</th><th>模型可提供</th><th>服务器约束 / 返回</th></tr></thead><tbody>
+        <tr><td>create_video_task</td><td>候选 URL、目标语言、对用户目标的理解。</td><td>原始消息为私有真相；owner、thread、稳定 action key 由服务端绑定。返回 task_id、created / reused、状态或明确错误。</td></tr>
+        <tr><td>get_task_status</td><td>当前可访问的任务引用。</td><td>返回状态、进度、失败类型；不允许模型循环轮询等待视频完成。</td></tr>
+        <tr><td>get_task_context</td><td>任务引用、需要的摘要语言。</td><td>返回摘要、来源信息、可用章节 / 时间范围、证据索引；不默认返回所有输出。</td></tr>
+        <tr><td>search_source</td><td>问题、改写后的检索词、必要的语言提示。</td><td>仅检索获准来源；返回稳定片段 ID、内部短摘录、时间戳与是否有更多结果。无命中如实返回。</td></tr>
+        <tr><td>read_source</td><td>片段 ID 或受限时间范围。</td><td>按预算补读相邻片段；验证片段属于获准任务，不开放任意文件 / URL 读取。</td></tr>
+      </tbody></table></div>
+      <p class="small">工具名称是建议契约，不是本轮已实现 API。首版不添加“规划工具”“自我反思工具”或任意 SQL / shell 工具；澄清直接通过正常对话完成。</p>
+      <h3>上下文按需加载，而不是把原文全塞进 prompt</h3>
+      <ul>
+        <li>默认上下文：当前明确目标、最近必要对话、已绑定任务状态、小型内容导航。相同内容只放一次。</li>
+        <li>短问题可直接基于已有可靠上下文回答；具体事实需要查证时，由 Agent 搜索、改写语言、补读前后段。</li>
+        <li>不要把“前 18,000 字符”当搜索结果。先有带版本和时间戳的片段索引；跨语言检索失败必须显式暴露，不能悄悄回退成原文开头。</li>
+        <li>按模型窗口设输入 / 输出 / 工具结果总预算，工具调用与返回成对保留。已截断、未覆盖、无匹配要有结构化标记。</li>
+        <li>先验证片段导航和查询改写是否满足样本；若跨语言或语义召回仍不达标，再在现有 Postgres 内引入合适索引 / embedding。不要先上新向量平台。</li>
+      </ul>
+      <h3>原文、个性化目标与公共内容分开</h3>
+      <p>原文只能作为内部检索材料。面向浏览器的 tool stream、持久化聊天 parts 和公开 HTTP 响应都必须使用安全投影，只包含必要引用、概括与来源链接；<strong>不能因为 UI 没展示，就认为原文没有泄露</strong>。保留当前公共质量投影与所有权规则。</p>
+      <p>通用摘要仍是可复用内容产物。个人目标保存在私有会话 / turn 中，最终针对性回答写入该会话，不把投资假设、个人背景等私有要求写进公共摘要。来源中的指令不产生任何行动权限。</p>
+    </section>
+
+    <section id="async">
+      <span class="section-number">06 / DURABLE HANDOFF</span><h2>最需要补上的，是“交接后还能接着做”</h2>
+      <p>普通 ToolLoopAgent 的执行位于内存中。仅使用它加上 Realtime，不会自动获得断线恢复或后台续跑。本方案只新增<strong>产品任务级恢复点</strong>，不声称实现了完整持久化 Agent runtime。<span class="source">[<a href="https://ai-sdk.dev/v7/docs/agents/workflow-agent">官方能力区别</a>]</span></p>
+      <div class="sequence" aria-label="建议 turn 生命周期">accepted → running → waiting_task → finalizing → completed<br><span class="muted">旁支：failed / cancelled。任务 task 的状态与用户请求 turn 的状态分别保存。</span></div>
+      <h3>最小数据增量</h3>
+      <p>沿用 chat_threads、chat_messages、tasks、task_outputs 与 queue job。新增逻辑上的 <code>agent_turns</code>（原始消息引用、目标版本、状态、任务引用、模型配置、最终消息 ID）与 <code>agent_actions</code>（稳定操作键、命令参数指纹、task_id、执行回执）。准确表名与字段在迁移设计时确定；不创建一套通用事件平台。</p>
+      <ol>
+        <li><strong>先接受请求，再执行副作用。</strong>持久化受鉴权的输入 turn；创建任务工具在同一 Postgres 命令事务里完成 quota / dedupe / task / queue / action receipt / thread binding。失败整体回滚。</li>
+        <li><strong>幂等键不是模型生成的 toolCallId。</strong>首版每个用户 turn 最多一个创建操作，服务端根据该 turn 的固定操作槽生成键；相同键参数不同必须拒绝。断网重试返回原回执，不再次扣费或入队。</li>
+        <li><strong>注册等待与检查任务状态原子进行。</strong>如果复用的任务已经完成，立即产生恢复 job；否则登记等待。避免“任务先完成，订阅后注册”的丢事件窗口。</li>
+        <li><strong>终态写入与恢复入队在同一事务。</strong>视频成功或最终失败都让等待 turn 收到可恢复事件。以 turn + 目标版本 + 完成事件去重；禁止依赖浏览器在线或临时回调。</li>
+        <li><strong>复用现有 worker 派发恢复。</strong>增加 capability-locked 的恢复 job 类型；可用同一 PGMQ 内的独立优先队列，避免排在大量长视频后面。先复用进程，不预建独立服务或多 worker 协调平台。</li>
+        <li><strong>在同一 TS Agent 模块里续跑。</strong>worker 调用固定的、服务端鉴权的内部执行入口。只传 run / job ID，入口读取权威状态并重新检查用户权限；不存用户长期 JWT，不从模型接收回调 URL。</li>
+        <li><strong>第一版续跑仅开放只读工具。</strong>按原目标查证并回答，或解释真实失败；不在后台自动创建新的付费视频任务。完成消息与 turn 终态原子提交，随后才允许归档恢复 job。</li>
+      </ol>
+      <div class="warning">需要单独验证的工程风险：worker → TS 入口是新增网络边界。保持租约续期，绑定运行 attempt / fencing token，拒绝过期执行者提交；数据库确认最终消息已落地才返回完成。发生模型调用后的进程故障仍可能重复消耗模型 token，本方案保证业务副作用幂等，不承诺模型计费 exactly-once。</div>
+      <p class="small">PGMQ 的可见性窗口有助于可靠交付，但并不等于外部副作用永久只执行一次。<span class="source">[<a href="https://supabase.com/docs/guides/queues">Supabase Queues</a>]</span></p>
+      <h3>恢复、并发与取消</h3>
+      <ul>
+        <li>同一线程的行动按 turn 串行；新消息能更新待完成目标。恢复前读目标版本，写回时校验；过期结果不能覆盖新要求。</li>
+        <li>刷新 / 断线后按数据库快照恢复，再订阅 Realtime；重连补读一次快照，不增加 HTTP 轮询。</li>
+        <li>前台停止回答只中断当前模型流。任务已提交后仍继续处理，界面必须说明；取消后续回答是单独的 turn 状态，不谎称已经取消视频工作。</li>
+        <li>模型不可用时返回可重试、可理解的错误；不能因为 Agent 失败就悄悄退回 URL 自动提交。</li>
+      </ul>
+      <p class="small muted">不使用 while / sleep 等任务完成，不让一个 Next 请求一直挂着等下载转写，不在 TS 与 Python 各维护一份 Agent 决策逻辑。这里的状态机只描述可靠执行，不规定 Agent 必须怎样思考。</p>
+    </section>
+
+    <section id="codex">
+      <span class="section-number">07 / OFFICIAL LOCAL RUNTIME</span><h2>官方 Codex 接入可以用，但不是换个 baseURL</h2>
+      <p>官方 Python SDK 已是 stable，并通过 JSON-RPC 控制本地 App Server；发布包携带固定版本的 Codex runtime。当前仓库已经使用它，问题在我们的桥接能力受限，不在“没有官方 SDK”。<span class="source">[<a href="https://learn.chatgpt.com/docs/codex-sdk">Codex SDK 文档</a>]</span></p>
+      <div class="table-wrap" role="region" aria-label="两种执行环境的边界" tabindex="0"><table>
+        <thead><tr><th>环境</th><th>Agent 执行</th><th>必须相同 / 必须不同</th></tr></thead><tbody>
+        <tr><td>线上用户</td><td>AI SDK ToolLoopAgent → OpenRouter 支持工具调用的模型。</td><td>共用业务工具、权限与输出契约；生产质量在这条真实路径验收。</td></tr>
+        <tr><td>本地开发</td><td>官方 Python Codex SDK / App Server → 本地已登录 Codex；通过官方支持的 MCP 接入窄业务工具。</td><td>共用业务工具语义与云端状态；保留原生 harness 差异，不声称与线上模型等价。</td></tr>
+        <tr><td>内部目录供给</td><td>现有 trusted_codex runner → podcast_supply。</td><td>本方案不改变该链路，不允许线上用户借道消费内部订阅。</td></tr>
+      </tbody></table></div>
+      <h3>接入边界</h3>
+      <ul>
+        <li>将现有一次性文本桥接收敛为薄运行时适配：文本增量、工具进度、安全引用、完成、错误与取消。不要重写整套 Codex 协议。</li>
+        <li>用官方 MCP SDK 包装相同的应用业务函数；优先本地 stdio，不为本地测试新增公开 MCP 服务。MCP 是工具传输层，不是新的任务状态层。</li>
+        <li>不直接复用当前 agent-plugin 的 get_video_context：它是 intake 孵化器，会抓取并返回原文，不等同于带额度、归属、队列语义的产品工具。</li>
+        <li>固定 SDK / runtime 版本并验证认证、事件和取消；隔离无关本地 MCP / 工具，不依赖 prompt 禁止 shell 来充当权限边界。不向模型或工具进程暴露主服务凭据。</li>
+        <li>开发任务仍走原有云数据库与用户任务契约。Codex 聊天进程本地运行，不代表下载 / 转写 / 线上任务自动改用本地订阅。</li>
+      </ul>
+      <p class="source">官方 Codex 支持 stdio / Streamable HTTP MCP 及工具 allowlist：<a href="https://learn.chatgpt.com/docs/extend/mcp?surface=cli">MCP 文档</a>。OpenRouter 的标准工具调用由应用执行工具：<a href="https://openrouter.ai/docs/guides/features/tool-calling">工具调用文档</a>。</p>
+      <div class="warning">“有官方 SDK”不等于我们的应用集成已经验证。P0 必须验证：当前固定版本能否传入隔离后的工具配置、使用订阅认证、正确流式输出、取消并回收进程。App Server 的 experimental dynamicTools 不作为首版依赖；MCP 方案不通过时，保留受限本地问答并明确能力缺口，不自动切换付费 API。</div>
+      <p class="small">统一的是契约测试，不是强制模型答案一致。线上发布需要获准的 OpenRouter 小样本验证；本地 Codex 用于开发体验与工具链验收。二者都记录 runtime、provider、请求 / 实际模型（可得时）、tier、reasoning、usage、耗时与失败类型。</p>
+    </section>
+
+    <section id="roadmap">
+      <span class="section-number">08 / DELIVERY PLAN</span><h2>按依赖顺序交付，不做一次性大重写</h2>
+      <p>以下是实施批次，不是本轮已完成事项。每一批都有独立验收；涉及数据库、鉴权和执行策略时由主负责人审查。先隔离当前未提交的 UI / 追问改动，避免夹带重构。</p>
+      <div class="phase"><span class="label">P0 · 契约与可行性</span><h3>先确认两处关键边界能成立</h3><p>形成 ADR 草案、场景清单、工具 / turn / event 契约；验证官方 Codex SDK + MCP 的最小接入；用 mock 验证 worker → 内部 Agent 入口的鉴权、超时、幂等写回。记录现有线上路径的延迟测量方法，不凭感觉承诺更快。</p><p class="small">范围：评估文件、测试 fixture、最小验证脚本；不替换生产链路。当前 40 条追问 seed 保留，补充创建任务 / 恢复场景。</p><p class="gate">出口：依赖能力与风险明确；两个执行环境的能力边界可验证，不能用“理论上可行”过关。</p></div>
+      <div class="phase"><span class="label">P1 · Agent 入口与可靠命令</span><h3>让 Agent 真正具备创建任务能力</h3><p>抽出共享 Agent 定义与业务函数；增加 turn / action 持久化、create_video_task 工具和原子关联；按会话 feature flag 去掉 URL 旁路。direct-submit 暂为同一业务服务的兼容入口。</p><p class="small">主要文件：<code>frontend/src/app/api/chat/</code>、<code>frontend/src/components/chat/</code>、<code>backend/api/routes/tasks.py</code>、<code>backend/services/task_queue.py</code>、增量 SQL migration。</p><p class="gate">出口：否定 / 解释性链接不误提交；明确请求可创建；重复发送、断线重试只产生一个业务操作。P1 仅灰度，不宣称完整 Agent 已交付。</p></div>
+      <div class="phase"><span class="label">P2 · Agentic Retrieval 与安全输出</span><h3>让它能找到依据，而不是只会多调用工具</h3><p>将大包 get_task_outputs 拆成 context / search / read 的窄接口；统一预算、引用与公开输出投影；去除“必须先用工具”的矛盾提示。官方本地适配接同一业务契约，不复制检索实现。</p><p class="small">主要文件：<code>frontend/src/app/api/chat/tools/</code>、<code>rag.ts</code>、<code>context-budget.ts</code>、<code>frontend/src/lib/local-codex.ts</code>、<code>backend/scripts/run_local_codex_chat.py</code> 与检索服务。</p><p class="gate">出口：原文尾段、跨语言、否定证据均可评估；内部原文不进入浏览器 stream / 公共消息；两运行时通过同一工具契约测试。</p></div>
+      <div class="phase"><span class="label">P3 · 异步完成闭环</span><h3>用户离开页面后，也能完成原始请求</h3><p>完成 / 最终失败事务触发恢复；新增恢复 job 类型、租约与受鉴权内部入口；复用同一 Agent 模块生成针对性答案，最终落库后 Realtime 回流。处理目标更新、已完成任务复用、过期执行者和取消。</p><p class="small">主要文件：<code>backend/worker.py</code>、<code>backend/services/job_handlers.py</code>、终态写入服务、队列 / 执行策略、Agent 内部入口与聊天订阅。</p><p class="gate">出口：关页、重启、重复完成事件、回复落库前后故障均不丢关联、不重复创建任务 / 完成消息。P1 + P2 + P3 才构成首个完整发布版本。</p></div>
+      <div class="phase"><span class="label">P4 · 发布与删旧</span><h3>先观察结果，再删兼容代码</h3><p>先内测，再小范围新会话；验证生产 OpenRouter 路径、恢复成功率、质量与费用。达标后删除自然语言 direct-submit hook、重复 prompts 与无效拼接逻辑；保留旧消息格式读取兼容。</p><p class="gate">出口：更新 AGENTS / codemaps / RUNBOOK / testing 的各自事实；无双重提交路径、无自动付费 fallback、无遗留不可恢复的 waiting turn。</p></div>
+      <p class="small muted">不预估一个看似精确的工期。P0 完成后，依据认证隔离、增量迁移和恢复测试的真实复杂度，再估算每批工作量。</p>
+    </section>
+
+    <section id="acceptance">
+      <span class="section-number">09 / RELEASE GATES</span><h2>按用户任务验收，不按“用了几个 Agent”验收</h2>
+      <div class="table-wrap" role="region" aria-label="发布验收指标" tabindex="0"><table>
+        <thead><tr><th>维度</th><th>必须覆盖的测试</th><th>建议发布门槛</th></tr></thead><tbody>
+        <tr><td>行动正确性</td><td>仅解释链接、不要处理、纯链接、明确提交、缺少链接、多链接歧义、来源内指令。</td><td>固定安全 fixture：误创建 0；明确操作样本工具选择成功率 ≥95%。真实质量样本结果另行报告。</td></tr>
+        <tr><td>权限与额度</td><td>他人 task / thread、伪造 owner、额度不足、公开来源读权限、后台已删除用户。</td><td>拒绝用例 100% 通过；无跨用户读取 / 操作；失败不扣重复额度。</td></tr>
+        <tr><td>幂等与恢复</td><td>重复发送 / 重试、入队后断线、先完成后绑定、worker 重启、重复终态、失去租约、旧目标写回。</td><td>确定性故障注入全部通过；每操作一次任务副作用、每目标版本至多一条有效完成消息。</td></tr>
+        <tr><td>理解与证据</td><td>商业模式目标、指定语言、跨语言事实、尾段证据、材料未提及、相互矛盾、多轮指代。</td><td>建议人工标注集：目标达成与正确证据命中分别 ≥90%；材料无依据时不得编造具体事实。</td></tr>
+        <tr><td>输出边界</td><td>抓取实际 SSE / JSON / 已存 parts，而不只检查 UI 文本。</td><td>无原文全文 / 成批原文片段泄露；引用可回到原视频；私人目标不进入公共产物。</td></tr>
+        <tr><td>体验与成本</td><td>首个有效反馈、任务接收回执、答案完成、任务就绪到答案落库、每成功请求成本；p50 / p95 分开。</td><td>初始目标：有效反馈 p95 ≤5 秒，任务就绪后针对性回答 p95 ≤30 秒（排除上游视频处理）；达不到则先调预算 / 调度。需 P0 基线校准，不是当前实测。</td></tr>
+      </tbody></table></div>
+      <p class="small">这些百分比是建议门槛，不是当前达标结果；小样本不能证明线上零事故。seed 数据目前主要验证结构与证据链接，并不等于模型答案已评分。正式评估至少保留固定回归集与未用于调 prompt 的保留集，逐条报告失败原因。</p>
+      <h3>验证分层</h3>
+      <ul>
+        <li><strong>CI：</strong>mock 模型、离线工具轨迹、数据库事务 / RLS 回归、重复投递故障注入；不调用付费 API。</li>
+        <li><strong>本地：</strong>官方 Codex 认证、工具可达、流与取消；不拿本地答案质量替代线上验证。</li>
+        <li><strong>发布前：</strong>获准后在真实 OpenRouter 路径跑有上限的质量样本；记录成功率、依据、耗时、费用。不是跨运行时排名赛。</li>
+        <li><strong>仓库门槛：</strong>跨前后端改动执行 <code>cd frontend &amp;&amp; npm run build</code> 与 <code>make test-backend</code>，同时跑前端单测和关键 E2E；新改区域覆盖目标 ≥80%，后端全局门槛 65%。</li>
+      </ul>
+      <h3>回滚不是重新提交</h3>
+      <p>功能开关按会话固定版本，新会话可切回兼容入口；已接受的新 turn 仍由对应版本 drain / 恢复。不可因为回滚把自然语言输入重新当链接自动提交，也不可把同一 action 重放成新任务。保持 additive migration 与旧消息 reader，不删历史聊天或任务数据。</p>
+      <p>若恢复服务失败，已经完成的视频产物仍可查看，并显示可重试状态。修复后重试原 turn，不重跑视频管道。真正采用架构时才更新 SSOT；本报告一直保留为带日期的决策依据。</p>
+    </section>
+
+    <section id="sources">
+      <span class="section-number">10 / EVIDENCE</span><h2>参考依据与使用范围</h2>
+      <ol class="sources">
+        <li><a href="https://developers.openai.com/blog/codex-as-a-platform">OpenAI · Codex as a platform: build on the open agent harness</a><small>2026-08-19。产品拥有业务上下文与工具，harness 提供 Agent 能力。不是对本项目性能或上线可行性的保证。</small></li>
+        <li><a href="https://learn.chatgpt.com/docs/codex-sdk">OpenAI · Codex SDK</a><small>2026-08-28 查阅。Python stable、App Server JSON-RPC、固定 runtime 依赖；具体集成仍需锁定版本验证。</small></li>
+        <li><a href="https://learn.chatgpt.com/docs/extend/mcp?surface=cli">OpenAI · Model Context Protocol</a> · <a href="https://learn.chatgpt.com/docs/app-server">App Server</a><small>2026-08-28 查阅。官方工具连接与事件协议；不能把 experimental 扩展能力当稳定基线。</small></li>
+        <li><a href="https://vercel.com/blog/ai-sdk-7">Vercel · AI SDK 7</a><small>2026-06-25。官方 Agent、工具上下文、持久化与 harness 能力；本项目已使用该代 SDK。</small></li>
+        <li><a href="https://ai-sdk.dev/v7/docs/agents/workflow-agent">AI SDK · WorkflowAgent</a> · <a href="https://ai-sdk.dev/v7/docs/ai-sdk-harnesses/overview">Harnesses</a><small>同时核对 frontend/node_modules/ai/docs 中的对应文档。区分普通内存循环、持久化 Agent 与 experimental harness 抽象。</small></li>
+        <li><a href="https://www.anthropic.com/engineering/managed-agents">Anthropic · Scaling Managed Agents: Decoupling the brain from the hands</a><small>2026-04-08。用于分离会话、推理与执行的设计原则，不采用其基础设施或性能数字作为本产品结论。</small></li>
+        <li><a href="https://openrouter.ai/docs/guides/features/tool-calling">OpenRouter · Tool &amp; Function Calling</a><small>2026-08-28 查阅。标准工具调用；模型支持与具体 provider 兼容性在发布前独立验证。</small></li>
+        <li><a href="https://supabase.com/docs/guides/queues">Supabase · Queues</a><small>2026-08-28 查阅。Postgres 原生持久队列与可见性窗口；应用仍须保证幂等和终态提交。</small></li>
+      </ol>
+    </section>
+    <footer>本报告由当前工作区源码与官方资料核对形成。AI SDK / OpenAI Docs 技能用于校验接口与成熟度，Supabase 技能约束单一状态源与权限边界，Playwright 用于报告阅读检查。本文是待实施方案，不替代 AGENTS.md 或现有架构 SSOT。</footer>
+  </main>
+</div>
+</body>
+</html>

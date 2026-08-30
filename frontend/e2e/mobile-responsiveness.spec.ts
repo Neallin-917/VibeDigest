@@ -31,7 +31,7 @@ test.describe('Mobile Responsiveness', () => {
     });
 
     // Mock Chat Threads
-    await page.route('**/api/chat/threads', async (route) => {
+    await page.route('**/api/threads', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

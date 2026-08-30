@@ -4,11 +4,15 @@ VibeDigest separates commands from observed state.
 
 ## Control Plane
 
-- The frontend calls `POST /api/chat/direct-submit`; that BFF route forwards the
-  authenticated command to FastAPI's canonical `POST /api/process-video`.
-- FastAPI validates identity and input, creates or reuses a task, and enqueues a
-  durable PGMQ job.
-- The response contains a task id. It is not the final result.
+- Every user message enters `POST /api/chat`. The shared Agent decides whether
+  to answer, ask for clarification, read source-grounded evidence, or call the
+  `create_video_task` business tool.
+- Agent commands are signed server-to-server calls to FastAPI. FastAPI validates
+  identity and input, then the canonical Postgres transaction creates or reuses
+  the task, binds it to the conversation, records the action receipt, and
+  enqueues an ID-only PGMQ job.
+- A creation receipt contains a task id. It is not the final result. Terminal
+  task/output writes enqueue one durable continuation for the same conversation.
 - HTTP request handlers never execute video, transcription, or LLM pipelines.
 
 ## Data Plane
@@ -19,10 +23,10 @@ VibeDigest separates commands from observed state.
 - The frontend never polls task status on an interval.
 
 ```text
-Next.js ──HTTP command──► FastAPI ──enqueue──► PGMQ
-   ▲                         │                   │
-   │                         ▼                   ▼
-   └──── Supabase Realtime ─ Postgres ◄──── Python Worker
+Next.js Agent ──signed command──► FastAPI ──transaction──► Postgres + PGMQ
+      ▲                                                │          │
+      │                                                ▼          ▼
+      └── Supabase Realtime + durable continuation ── task state ◄─ worker
 ```
 
 ## Subscription Pattern

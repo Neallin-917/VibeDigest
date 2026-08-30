@@ -31,7 +31,7 @@ vi.mock('@/components/chat/ChatContainer', () => ({
     threadId?: string | null
     initialMessages?: unknown[]
     variant?: string
-    allowDirectUrlSubmission?: boolean
+    scope?: 'workspace' | 'source'
     showTaskArtifacts?: boolean
     onChatStarted?: (threadId: string) => void
   }) => (
@@ -41,7 +41,7 @@ vi.mock('@/components/chat/ChatContainer', () => ({
       data-thread-id={props.threadId ?? ''}
       data-message-count={String(props.initialMessages?.length ?? 0)}
       data-variant={props.variant}
-      data-allow-direct-url={String(props.allowDirectUrlSubmission)}
+      data-scope={props.scope}
       data-show-task-artifacts={String(props.showTaskArtifacts)}
     >
       <button
@@ -90,7 +90,7 @@ describe('TaskFollowUp', () => {
 
     expect(await screen.findByTestId('embedded-chat')).toHaveAttribute('data-variant', 'embedded')
     expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-task-id', 'task-1')
-    expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-allow-direct-url', 'false')
+    expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-scope', 'source')
     expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-show-task-artifacts', 'false')
     expect(fetchMock).not.toHaveBeenCalled()
   })

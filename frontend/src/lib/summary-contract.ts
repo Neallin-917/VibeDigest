@@ -396,6 +396,33 @@ export function buildSummaryMarkdownFromContent(content: unknown, locale?: strin
   return summary ? buildSummaryMarkdown(summary, locale) : ''
 }
 
+export function buildDetailedSummaryMarkdown(summary: CurrentSummary, locale?: string | null): string {
+  const parts: string[] = []
+  const copy = summaryMarkdownCopy(locale)
+
+  if (summary.tl_dr && summary.overview !== summary.tl_dr) {
+    parts.push(`## ${copy.overview}\n${summary.overview}`)
+  }
+
+  if (summary.sections.length > 0) {
+    const sectionBlocks = summary.sections.map((section) => {
+      const title = section.title || formatSectionTitle(section.section_type)
+      const description = section.description ? `${section.description}\n` : ''
+      const items = section.items.map((item) => `- ${item.content}`).join('\n')
+      return `### ${title}\n${description}${items}`.trim()
+    })
+
+    parts.push(`## ${copy.sections}\n${sectionBlocks.join('\n\n')}`)
+  }
+
+  return parts.join('\n\n').trim()
+}
+
+export function buildDetailedSummaryMarkdownFromContent(content: unknown, locale?: string | null): string {
+  const summary = parseCurrentSummary(content)
+  return summary ? buildDetailedSummaryMarkdown(summary, locale) : ''
+}
+
 export function toPlainText(markdown: string): string {
   return markdown
     .replace(/[`*_>#-]/g, ' ')

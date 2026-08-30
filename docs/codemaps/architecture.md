@@ -58,12 +58,15 @@ execution location; Supabase remains the sole task, queue, and result plane.
 
 ## Request Flow
 
-1. The frontend sends the URL to Next's `POST /api/chat/direct-submit`, which
-   forwards its authenticated command to FastAPI's canonical `POST /api/process-video`.
-2. FastAPI validates the URL and identity. A private Postgres function then
+1. All inputs enter Next's `POST /api/chat`. The API authenticates the session,
+   then a signed internal FastAPI command durably accepts the user turn before inference.
+   The shared task Agent chooses clarification, source tools or video creation.
+2. The `create_video_task` business tool uses a fixed action slot per turn.
+   FastAPI validates the user-supplied URL and identity. A private Postgres function then
    persists `user_submission`, deduplicates, consumes quota, creates task/output
    state, and calls `pgmq.send('video_processing', ...)` in one transaction.
-3. The HTTP request returns a task id. It never executes the pipeline.
+3. The same transaction records a task receipt, binds the conversation and registers
+   a continuation. The UI receives a safe task part; the request never executes the pipeline.
 4. A Python worker claims the ID-only message with a visibility timeout,
    extends the lease with a heartbeat, and enforces an attempt timeout.
 5. The worker runs cache, intake, cognition, and cleanup stages and writes
@@ -77,15 +80,39 @@ execution location; Supabase remains the sole task, queue, and result plane.
    `podcast_supply`. A bounded trusted Codex worker runs the same pipeline; the
    cron never runs it. A database projection owns public quality and ranking.
 
+## Conversation Agent
+
+`frontend/src/lib/agent/task-agent.ts` is the shared conversation runner. Hosted
+execution is AI SDK 7 `ToolLoopAgent`; trusted-local execution uses the official
+Python Codex SDK/App Server and a capability-scoped loopback MCP bridge.
+`tools.ts` owns the shared business tools. `source-index.ts` provides versioned,
+timestamped lexical search/read; retrieval is agent-selected, not a fixed RAG step.
+Each turn is bounded to 16 tool calls and 32,000 evidence/summary characters;
+hosted execution additionally caps model steps at eight. UI streams expose only
+text, source links and task receipts, never raw tool results.
+
+`vibedigest_private.agent_turns` records execution/continuation state;
+`agent_actions` records one idempotent create receipt. Existing task/output
+terminal writes enqueue one ID-only continuation in the same transaction.
+`AgentAnswerWorker` reuses PGMQ leases/retries and calls
+`POST /api/internal/agent/continue` with an expiring service signature. That
+callback claims a fenced execution, invokes the same Agent with read-only tools,
+and saves the answer before acknowledging delivery. A newer user turn supersedes
+the old pending goal. Cancelling an answer does not cancel video processing.
+
+Private goals stay in chat, not in reusable/public summary intents. This is one
+task-level handoff, not a general DAG/checkpoint runtime. Revisit an official
+durable workflow runtime if multiple arbitrary waits become a product requirement.
+
 ## Ownership Boundaries
 
 | Component | Owns | Does not own |
 | --- | --- | --- |
-| Next.js | Cloud UI, session-aware BFF routes, presentation | Video provider fallback, long jobs |
+| Next.js | Cloud UI, task Agent, safe message projection, session-aware routes | Video pipeline, task/queue transactions |
 | FastAPI | Validation, authorization, task creation, enqueue | Video/ASR/LLM execution |
 | Podcast cron | Source sync, metadata discovery, bounded enqueue | Pipeline execution, public-read authorization |
 | PGMQ | Durable delivery, visibility timeout, retry eligibility | Business workflow |
-| Hosted worker | `user_submission`, API runtime, claim/heartbeat/retry | Catalog supply, browser sessions |
+| Hosted worker | `user_submission` pipeline plus bounded Agent callback delivery | Catalog supply, browser sessions, a second Agent loop |
 | Trusted Codex worker | `catalog_supply`, subscription preflight, bounded drain | ToC tasks, source discovery |
 | `workflow.py` | Pipeline stage orchestration | Message delivery or process durability |
 | `VideoIntakeGateway` | Agent-plugin metadata/caption/ASR boundary | Cloud task persistence, MCP protocol |

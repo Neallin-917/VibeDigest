@@ -2,9 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export type SupportedProvider = 'openai' | 'openrouter' | 'custom';
+export type ModelDefaultsProvider = SupportedProvider | 'codex_local';
 export type ModelTier = 'smart' | 'fast';
-export type ProviderModelDefaults = Record<SupportedProvider, Record<ModelTier, string>>;
-const SUPPORTED_PROVIDERS: readonly SupportedProvider[] = ['openai', 'openrouter', 'custom'];
+export type ProviderModelDefaults = Record<ModelDefaultsProvider, Record<ModelTier, string>>;
+const MODEL_DEFAULT_PROVIDERS: readonly ModelDefaultsProvider[] = [
+    'openai',
+    'openrouter',
+    'custom',
+    'codex_local',
+];
 
 const providerModelDefaultsPath = path.join(
     /* turbopackIgnore: true */ process.cwd(),
@@ -26,13 +32,13 @@ export function resolveProvider(
 }
 
 export function getProviderModelDefaults(providerName: string): Record<ModelTier, string> {
-    if (!SUPPORTED_PROVIDERS.includes(providerName as SupportedProvider)) {
+    if (!MODEL_DEFAULT_PROVIDERS.includes(providerName as ModelDefaultsProvider)) {
         throw new Error(
-            `Unsupported provider: '${providerName}'. Expected one of: ${SUPPORTED_PROVIDERS.join(', ')}.`
+            `Unsupported provider: '${providerName}'. Expected one of: ${MODEL_DEFAULT_PROVIDERS.join(', ')}.`
         );
     }
 
-    return PROVIDER_MODEL_DEFAULTS[providerName as SupportedProvider];
+    return PROVIDER_MODEL_DEFAULTS[providerName as ModelDefaultsProvider];
 }
 
 export function resolveProviderModel(

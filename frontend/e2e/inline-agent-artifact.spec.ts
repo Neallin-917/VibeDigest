@@ -1,7 +1,23 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Route } from '@playwright/test'
 
-import { ChatPage } from './pages/ChatPage'
 import { setupApiMocks } from './fixtures/mock-api'
+import { ChatPage } from './pages/ChatPage'
+
+function encodeUiMessageStream(chunks: unknown[]) {
+  return chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join('') + 'data: [DONE]\n\n'
+}
+
+async function fulfillUiMessageStream(route: Route, chunks: unknown[]) {
+  await route.fulfill({
+    status: 200,
+    contentType: 'text/event-stream',
+    headers: {
+      'cache-control': 'no-cache',
+      'x-vercel-ai-ui-message-stream': 'v1',
+    },
+    body: encodeUiMessageStream(chunks),
+  })
+}
 
 test.describe('Inline agent task artifact', () => {
   test('progressively adds the player and knowledge cards in the same chat message', async ({ page }) => {
@@ -12,37 +28,36 @@ test.describe('Inline agent task artifact', () => {
       releaseSummary = resolve
     })
 
-    await page.route('**/api/chat/direct-submit', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          task_id: 'inline-task-123',
-          messages: [
-            {
-              id: 'inline-user',
-              role: 'user',
-              parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=inline-video' }],
-            },
-            {
-              id: 'inline-assistant',
-              role: 'assistant',
-              parts: [
-                {
-                  type: 'data-task-status',
-                  id: 'task-status-inline-task-123',
-                  data: {
-                    taskId: 'inline-task-123',
-                    status: 'processing',
-                    progress: 15,
-                    videoUrl: 'https://www.youtube.com/watch?v=inline-video',
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-      })
+    await page.route('**/api/chat', async (route) => {
+      const body = route.request().postDataJSON() as {
+        taskId?: string | null
+        message: { parts: Array<{ type: string; text: string }> }
+      }
+
+      expect(body.taskId).toBeNull()
+      expect(body.message.parts).toEqual([{ type: 'text', text: 'https://www.youtube.com/watch?v=inline-video' }])
+
+      await fulfillUiMessageStream(route, [
+        {
+          type: 'start',
+          messageId: 'agent:inline-task-123:reply',
+          messageMetadata: { runtime: 'api', provider: 'openrouter', modelTier: 'smart', agentState: 'running' },
+        },
+        {
+          type: 'data-task-status',
+          id: 'task-status-inline-task-123',
+          data: {
+            taskId: 'inline-task-123',
+            status: 'processing',
+            progress: 15,
+            videoUrl: 'https://www.youtube.com/watch?v=inline-video',
+          },
+        },
+        {
+          type: 'finish',
+          messageMetadata: { runtime: 'api', provider: 'openrouter', modelTier: 'smart', agentState: 'waiting_task' },
+        },
+      ])
     })
 
     await page.route('**/rest/v1/tasks*', async (route) => {

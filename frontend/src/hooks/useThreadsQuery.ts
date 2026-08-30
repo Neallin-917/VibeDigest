@@ -8,7 +8,7 @@ type MutableThreadStatus = 'active' | 'archived'
 
 async function fetchThreads(): Promise<Thread[]> {
     try {
-        const res = await fetch('/api/chat/threads')
+        const res = await fetch('/api/threads')
         if (res.status === 401) {
             return []
         }

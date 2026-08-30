@@ -76,6 +76,7 @@ describe("MainShell", () => {
         render(<MainShell><div>Public task detail</div></MainShell>)
 
         expect(screen.getByText("Public task detail")).toBeInTheDocument()
+        expect(document.querySelector('[data-slot="task-detail-nav-scrim"]')).toBeInTheDocument()
         expect(screen.queryByTestId("app-sidebar")).not.toBeInTheDocument()
         expect(screen.queryByTestId("mobile-bottom-nav")).not.toBeInTheDocument()
     })

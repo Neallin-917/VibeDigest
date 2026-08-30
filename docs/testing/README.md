@@ -1,6 +1,6 @@
 # Testing Guide
 
-> Last Verified: 2026-08-07
+> Last Verified: 2026-08-28
 
 This file owns testing strategy, prerequisites, and coverage policy.
 
@@ -134,16 +134,46 @@ developer shell or CI job.
 The backend can use `LLM_RUNTIME=codex_local` during manual local debugging or
 through the bounded `trusted_codex` catalog worker. It runs the local Codex
 app-server through the Python SDK with an
-ephemeral, read-only, no-approval thread. In development only, the Next.js
-chat route uses the same logged-in Codex runtime through a constrained local
-bridge for source-grounded follow-ups. Catalog-worker unit tests mock the
-ChatGPT account response and model calls. This is intentionally not an E2E or CI
-transport: Codex usage limits and agent semantics are different from the
-production API. Hosted chat always retains the standard API provider and its
-application-owned tool protocol.
+ephemeral thread. Development conversations use that official SDK through a
+turn-scoped MCP bridge to the same business functions as hosted chat. Global
+MCP servers, skills, plugins, shell and web tools are disabled. Unit tests mock
+the account and inference; Codex is never a CI transport or a substitute for
+hosted-provider quality validation.
+
+Unified Agent gates:
+
+- `frontend/src/lib/agent/*.test.ts`: real AI SDK mock-model loops, bounded
+  tools/history, action scope, source privacy, model/runtime routing, and durable
+  finish semantics. No model traffic.
+- `backend/tests/test_agent_api.py` and `test_agent_worker.py`: signed service
+  requests, ownership, callback/lease/ack behavior and retry budgets.
+- `make test-queue-integration`: real isolated Postgres/PGMQ, atomic create,
+  rollback, concurrent dedupe, cancellation, output wake-up, retry generations
+  and stale-write fencing, plus chat-message Realtime publication/readiness.
+  Use a dedicated test database; fixtures apply schema.
+- Existing chat E2E specs exercise the single `/api/chat` SSE contract. Realtime
+  hook tests cover reconnect snapshots, streaming buffers and late updates.
+- Optional trusted-local smoke: `cd frontend && RUN_LOCAL_AGENT_SMOKE=1 npx
+  vitest run src/lib/agent/local-smoke.live.test.ts`. It uses the real Codex
+  subscription and synthetic tools/data, never Cloud data. CI always skips it.
+  It proves integration for one case, not general model quality or hosted parity.
 
 ### Quality evaluation policy
 
+- Agent behavior expectations live in `evals/agent/cases.json`: 15 scenarios
+  cover intent, single-task actions, duplicate input, private-goal continuation,
+  cancellation and retry. `test_agent_eval_dataset.py` checks the dataset's
+  contract and coverage only; it does not run an Agent or prove model quality.
+- Source-grounded follow-up cases live in `evals/followup/cases.json`. The seed
+  set contains 40 evidence-linked cases across direct facts, synthesis,
+  unsupported/refusal behavior, verbatim retrieval, translation, multi-turn
+  references, and prompt injection.
+  Legacy verbatim cases are internal retrieval checks, not authorization to
+  expose transcripts. Apply the current public-answer policy before judging
+  their response expectations.
+- `backend/tests/test_followup_eval_dataset.py` is an offline contract gate. It
+  validates dataset coverage and proves each declared evidence span exists in
+  its source fixture; it never calls a model.
 - Keep a small, representative, sanitized dataset of transcript fixtures.
 - Assert deterministic contracts exactly: schema, required fields, routing,
   error handling, and tool arguments.
@@ -153,6 +183,8 @@ application-owned tool protocol.
   or on a bounded schedule. They are not PR gates.
 - Record token/request counts with each eval result and cap the dataset before
   increasing model or sample count.
+- Do not route follow-ups by question length. The chat route uses one `smart`
+  tier until bounded live evaluation demonstrates a safe quality/cost split.
 
 ### Frontend E2E prerequisites
 

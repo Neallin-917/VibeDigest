@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CommunityTemplates, type SourceShelfItem, type Task } from "./CommunityTemplates"
@@ -16,6 +16,7 @@ const sources: SourceShelfItem[] = [
       id: "latent-space",
       name: "Latent Space",
       channelUrl: "https://www.youtube.com/@LatentSpacePod",
+      avatarUrl: "https://yt3.googleusercontent.com/example-avatar=s900-c-k-c0x00ffffff-no-rj",
       aliases: ["latent space"],
       topics: ["agents"],
       featured: true,
@@ -103,6 +104,19 @@ describe("CommunityTemplates", () => {
     expect(leadingImage).toHaveAttribute("fetchpriority", "high")
     expect(leadingImage).toHaveAttribute("sizes")
     expect(laterImage).toHaveAttribute("loading", "lazy")
+  })
+
+  it("falls back to the source initial when a remote avatar fails", () => {
+    const { container } = renderGallery()
+    const sourceMark = container.querySelector<HTMLElement>("[data-source-mark='latent-space']")
+    const avatar = sourceMark?.querySelector("img")
+
+    expect(sourceMark).not.toBeNull()
+    expect(avatar).not.toBeNull()
+    fireEvent.error(avatar!)
+
+    expect(sourceMark?.querySelector("img")).toBeNull()
+    expect(sourceMark).toHaveTextContent("L")
   })
 
   it("shows a concise status when the server could not load examples", () => {

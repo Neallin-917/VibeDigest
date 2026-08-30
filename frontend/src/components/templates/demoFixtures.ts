@@ -75,6 +75,10 @@ function createDemoTask(seed: DemoFixtureSeed): Task {
         ...seed,
         thumbnail_url: createDemoThumbnail(seed),
         status: "completed",
+        is_demo: true,
+        publication_status: "published",
+        published_at: seed.created_at,
+        updated_at: seed.created_at,
         source: findPodcastSource(seed.author, seed.video_url) ?? undefined,
     }
 }

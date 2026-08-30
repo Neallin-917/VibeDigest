@@ -27,6 +27,10 @@ export type Task = {
     thumbnail_url?: string
     status: string
     created_at: string
+    updated_at?: string
+    published_at?: string
+    is_demo?: boolean
+    publication_status?: string
     author?: string
     author_image_url?: string
     task_outputs?: TaskOutput[]

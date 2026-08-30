@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { supabasePublic } from '@/lib/supabase-public'
 import { buildAlternateLanguages, SITE_URL } from '@/lib/seo'
 import { SUPPORTED_LOCALES } from '@/lib/i18n'
-import { buildPublicTaskPath } from '@/lib/public-task-seo'
+import { buildPublicTaskPath, latestValidDate } from '@/lib/public-task-seo'
 
 export type PublicSitemapTask = {
   id: string
@@ -21,12 +21,6 @@ export const STATIC_SITEMAP_PATHS = [
   '/faq',
 ] as const
 
-function validDate(value: string | null | undefined) {
-  if (!value) return undefined
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? undefined : date
-}
-
 export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = []
 
@@ -43,7 +37,7 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
 
   for (const task of tasks) {
     const path = buildPublicTaskPath(task)
-    const lastModified = validDate(task.updated_at) || validDate(task.published_at) || validDate(task.created_at)
+    const lastModified = latestValidDate(task.updated_at, task.published_at, task.created_at)
 
     for (const locale of SUPPORTED_LOCALES) {
       entries.push({
@@ -60,7 +54,7 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const { data: tasks } = await supabasePublic
+  const { data: tasks, error } = await supabasePublic
     .from('tasks')
     .select('id, created_at, updated_at, published_at, video_title, task_outputs!inner(id)')
     .eq('status', 'completed')
@@ -70,6 +64,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .eq('task_outputs.status', 'completed')
     .order('created_at', { ascending: false })
     .limit(1000)
+
+  if (error) {
+    throw new Error('Failed to load public sitemap tasks', { cause: error })
+  }
 
   return buildSitemapEntries((tasks || []) as PublicSitemapTask[])
 }

@@ -12,6 +12,9 @@ import {
   buildPublicTaskMetadata,
   buildPublicTaskPath,
   isPublishedPublicTask,
+  latestValidDate,
+  normalizeSummaryLanguageTag,
+  resolveSummaryLanguageTag,
   serializeJsonLd,
   type PublicTaskSeoRecord,
 } from "./public-task-seo"
@@ -106,6 +109,22 @@ describe("public task SEO", () => {
     expect(metadata.description).not.toContain("中文摘要")
   })
 
+  it("preserves valid non-UI content languages instead of relabeling them as the route locale", () => {
+    expect(normalizeSummaryLanguageTag("ko")).toBe("ko")
+    expect(normalizeSummaryLanguageTag("es_MX")).toBe("es-MX")
+    expect(normalizeSummaryLanguageTag("Korean")).toBe("ko")
+    expect(resolveSummaryLanguageTag("ko", "en")).toBe("ko")
+    expect(resolveSummaryLanguageTag("not a language", "ja")).toBe("ja-JP")
+  })
+
+  it("selects the chronologically latest valid public timestamp", () => {
+    expect(latestValidDate(
+      "2026-08-28T10:00:00.000Z",
+      "invalid",
+      "2026-08-30T10:00:00.000Z",
+    )?.toISOString()).toBe("2026-08-30T10:00:00.000Z")
+  })
+
   it("describes the digest as an Article based on the source, without publishing a transcript or fake media URL", () => {
     const canonicalUrl = "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production"
     const jsonLd = buildPublicTaskJsonLd({
@@ -131,6 +150,26 @@ describe("public task SEO", () => {
     })
     expect(JSON.stringify(jsonLd)).not.toContain("transcript")
     expect(JSON.stringify(jsonLd)).not.toContain("contentUrl")
+  })
+
+  it("never emits dateModified before a newer publication time", () => {
+    const jsonLd = buildPublicTaskJsonLd({
+      task: {
+        ...publicTask,
+        updated_at: "2026-08-28T10:00:00.000Z",
+        published_at: "2026-08-30T10:00:00.000Z",
+      },
+      locale: "en",
+      canonicalUrl: "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",
+      description: "A source-grounded summary.",
+      contentLanguage: "ko",
+    })
+
+    expect(jsonLd).toMatchObject({
+      inLanguage: "ko",
+      datePublished: "2026-08-30T10:00:00.000Z",
+      dateModified: "2026-08-30T10:00:00.000Z",
+    })
   })
 
   it("escapes user-controlled markup before embedding JSON-LD", () => {

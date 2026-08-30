@@ -33,7 +33,7 @@ describe("public discovery metadata", () => {
     supabaseMocks.query.select.mockImplementation(() => supabaseMocks.query)
     supabaseMocks.query.eq.mockImplementation(() => supabaseMocks.query)
     supabaseMocks.query.order.mockImplementation(() => supabaseMocks.query)
-    supabaseMocks.query.limit.mockResolvedValue({ data: [] })
+    supabaseMocks.query.limit.mockResolvedValue({ data: [], error: null })
   })
 
   it("queries only database-qualified completed public tasks with completed summaries", async () => {
@@ -48,6 +48,13 @@ describe("public discovery metadata", () => {
       ["task_outputs.status", "completed"],
     ]))
     expect(supabaseMocks.query.limit).toHaveBeenCalledWith(1000)
+  })
+
+  it("propagates a public task query failure instead of publishing an empty dynamic sitemap", async () => {
+    const queryError = new Error("database unavailable")
+    supabaseMocks.query.limit.mockResolvedValue({ data: null, error: queryError })
+
+    await expect(sitemap()).rejects.toThrow("Failed to load public sitemap tasks")
   })
 
   it("builds deterministic canonical localized entries and uses the latest task update", () => {
@@ -77,6 +84,19 @@ describe("public discovery metadata", () => {
     })
     expect(entries.some((entry) => entry.url.includes("transcript"))).toBe(false)
     expect(entries.some((entry) => entry.url.includes("/chat"))).toBe(false)
+  })
+
+  it("uses a newer publication time when updated_at was not advanced", () => {
+    const entries = buildSitemapEntries([{
+      id: "task-123",
+      video_title: "Agent Systems in Production",
+      created_at: "2026-08-27T08:00:00.000Z",
+      updated_at: "2026-08-28T08:00:00.000Z",
+      published_at: "2026-08-30T08:00:00.000Z",
+    }])
+
+    const taskEntry = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))
+    expect(taskEntry?.lastModified).toEqual(new Date("2026-08-30T08:00:00.000Z"))
   })
 
   it("keeps crawler discovery on public pages and blocks application endpoints", () => {

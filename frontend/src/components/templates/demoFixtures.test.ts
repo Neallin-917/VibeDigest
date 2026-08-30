@@ -8,6 +8,9 @@ describe("demoFixtures", () => {
         const summaryOutput = task?.task_outputs?.find((output) => output.kind === "summary")
 
         expect(task?.status).toBe("completed")
+        expect(task?.is_demo).toBe(true)
+        expect(task?.publication_status).toBe("published")
+        expect(task?.published_at).toBe(task?.created_at)
         expect(summaryOutput?.locale).toBe("zh")
         expect(parseCurrentSummary(summaryOutput?.content)?.keypoints).toHaveLength(2)
     })

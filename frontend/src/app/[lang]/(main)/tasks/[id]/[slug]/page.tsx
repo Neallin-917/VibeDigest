@@ -215,7 +215,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
         const fixture = getDemoFixtureTask(id, lang)
         if (fixture) {
             return {
-                task: { ...fixture, is_demo: true },
+                task: fixture,
                 outputs: (fixture.task_outputs || []) as TaskOutput[],
             }
         }
@@ -224,21 +224,29 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     const supabase = await createClient()
 
     // Fetch task
-    const { data: task } = await supabase
+    const { data: task, error: taskError } = await supabase
         .from('tasks')
         .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo, publication_status, podcast_source_slug, published_at, updated_at')
         .eq('id', id)
-        .single()
+        .maybeSingle()
+
+    if (taskError) {
+        throw new Error("Failed to load task details", { cause: taskError })
+    }
 
     // Fetch outputs if task exists
     let outputs: TaskOutput[] = []
     if (task) {
-        const { data } = await supabase
+        const { data, error: outputsError } = await supabase
             .from('task_outputs')
             .select('kind, content, status, locale, created_at')
             .eq('task_id', id)
             .eq('kind', 'summary')
             .order('created_at', { ascending: false })
+
+        if (outputsError) {
+            throw new Error("Failed to load task outputs", { cause: outputsError })
+        }
         outputs = data || []
     }
 
@@ -402,13 +410,13 @@ export default async function TaskDetailPage(props: Props) {
                 </header>
 
                 <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-14 lg:gap-y-12">
-                    <article lang={summaryLanguageTag} className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
+                    <article className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
                         <section className="space-y-3" aria-labelledby="task-summary-title">
                             <Heading as="h2" variant="h2" id="task-summary-title" className="scroll-mt-28">
                                 {copy.summary}
                             </Heading>
                             {hasSummary ? (
-                                <p className="max-w-[46rem] text-base font-medium leading-7 text-foreground md:text-lg md:leading-8">
+                                <p lang={summaryLanguageTag} className="max-w-[46rem] text-base font-medium leading-7 text-foreground md:text-lg md:leading-8">
                                     {leadSummary}
                                 </p>
                             ) : (
@@ -435,12 +443,12 @@ export default async function TaskDetailPage(props: Props) {
                                                 {String(index + 1).padStart(2, "0")}
                                             </span>
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold leading-6 text-foreground md:text-base">{keypoint.title}</p>
-                                                <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                                                <p lang={summaryLanguageTag} className="text-sm font-semibold leading-6 text-foreground md:text-base">{keypoint.title}</p>
+                                                <p lang={summaryLanguageTag} className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
                                                 {keypoint.why_it_matters && (
                                                     <p className="mt-3 text-sm leading-6 text-foreground/80">
                                                         <span className="font-semibold">{copy.whyItMatters}: </span>
-                                                        {keypoint.why_it_matters}
+                                                        <span lang={summaryLanguageTag}>{keypoint.why_it_matters}</span>
                                                     </p>
                                                 )}
                                                 <details className="group/evidence mt-3 border-l-2 border-emerald-500/45 pl-3">
@@ -453,7 +461,7 @@ export default async function TaskDetailPage(props: Props) {
                                                         )}
                                                         <ChevronDown className="ml-auto size-3.5 transition-transform group-open/evidence:rotate-180" aria-hidden="true" />
                                                     </summary>
-                                                    <p className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
+                                                    <p lang={summaryLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
                                                     {typeof keypoint.startSeconds === "number" && task.video_url && (
                                                         <a
                                                             href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
@@ -524,7 +532,7 @@ export default async function TaskDetailPage(props: Props) {
                                 <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
                             </summary>
                             <div className="border-t border-border/70 py-7">
-                                <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
+                                <div lang={summaryLanguageTag} className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                         {detailedSummaryMarkdown}
                                     </ReactMarkdown>

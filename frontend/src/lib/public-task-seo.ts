@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { DEFAULT_LOCALE, LOCALE_DATE_TAG, SUPPORTED_LOCALES, type Locale } from "@/lib/i18n"
+import { LOCALE_DATE_TAG, SUPPORTED_LOCALES, type Locale } from "@/lib/i18n"
 import { buildAlternateLanguages, buildLocalizedPath, getOpenGraphLocale } from "@/lib/seo"
 import { buildTaskPath } from "@/lib/task-path"
 
@@ -61,25 +61,63 @@ export function isPublishedPublicTask(
     && hasCompletedSummary
 }
 
+const LANGUAGE_NAME_ALIASES: Record<string, string> = {
+  english: "en",
+  chinese: "zh",
+  "simplified chinese": "zh-CN",
+  "traditional chinese": "zh-TW",
+  中文: "zh",
+  简体中文: "zh-CN",
+  繁体中文: "zh-TW",
+  繁體中文: "zh-TW",
+  japanese: "ja",
+  jp: "ja",
+  日本語: "ja",
+  korean: "ko",
+  한국어: "ko",
+  韩语: "ko",
+  韓語: "ko",
+  spanish: "es",
+  español: "es",
+  西班牙语: "es",
+}
+
+export function normalizeSummaryLanguageTag(language?: string | null) {
+  const raw = language?.trim() || ""
+  if (!raw || raw.length > 64) return null
+
+  const normalized = raw.toLowerCase().replace(/_/g, "-")
+  const candidate = LANGUAGE_NAME_ALIASES[normalized] || normalized
+
+  try {
+    return Intl.getCanonicalLocales(candidate)[0] || null
+  } catch {
+    return null
+  }
+}
+
 export function resolveSummaryLocale(language?: string | null): Locale | null {
-  const normalized = language?.trim().toLowerCase().replace(/_/g, "-") || ""
-  if (normalized === "en" || normalized.startsWith("en-") || normalized.startsWith("english")) return "en"
-  if (
-    normalized === "zh"
-    || normalized.startsWith("zh-")
-    || normalized.startsWith("chinese")
-    || ["中文", "简体中文", "繁體中文"].includes(normalized)
-  ) return "zh"
-  if (
-    ["ja", "jp", "日本語"].includes(normalized)
-    || normalized.startsWith("ja-")
-    || normalized.startsWith("japanese")
-  ) return "ja"
-  return null
+  const baseLanguage = normalizeSummaryLanguageTag(language)?.split("-")[0]
+  return baseLanguage === "en" || baseLanguage === "zh" || baseLanguage === "ja"
+    ? baseLanguage
+    : null
 }
 
 export function resolveSummaryLanguageTag(language: string | null | undefined, fallback: Locale) {
-  return LOCALE_DATE_TAG[resolveSummaryLocale(language) || fallback]
+  return normalizeSummaryLanguageTag(language) || LOCALE_DATE_TAG[fallback]
+}
+
+export function latestValidDate(...values: Array<string | null | undefined>) {
+  let latest: Date | null = null
+
+  for (const value of values) {
+    if (!value) continue
+    const candidate = new Date(value)
+    if (Number.isNaN(candidate.getTime())) continue
+    if (!latest || candidate.getTime() > latest.getTime()) latest = candidate
+  }
+
+  return latest
 }
 
 export function buildPublicTaskMetadata({
@@ -158,7 +196,7 @@ export function buildPublicTaskJsonLd({
     "@type": "Article",
     headline: title,
     description,
-    inLanguage: resolveSummaryLanguageTag(contentLanguage, locale) || LOCALE_DATE_TAG[DEFAULT_LOCALE],
+    inLanguage: resolveSummaryLanguageTag(contentLanguage, locale),
     mainEntityOfPage: {
       "@type": "WebPage",
       "@id": canonicalUrl,
@@ -177,8 +215,10 @@ export function buildPublicTaskJsonLd({
   }
 
   if (task.thumbnail_url) article.image = [task.thumbnail_url]
-  if (task.published_at) article.datePublished = task.published_at
-  if (task.updated_at || task.published_at) article.dateModified = task.updated_at || task.published_at
+  const publishedAt = latestValidDate(task.published_at)
+  const modifiedAt = latestValidDate(task.updated_at, task.published_at)
+  if (publishedAt) article.datePublished = publishedAt.toISOString()
+  if (modifiedAt) article.dateModified = modifiedAt.toISOString()
   if (task.video_url) {
     article.isBasedOn = {
       "@type": "CreativeWork",

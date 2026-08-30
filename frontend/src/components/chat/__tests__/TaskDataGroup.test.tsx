@@ -184,8 +184,10 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Evidence')).toBeInTheDocument()
     expect(screen.queryByText('00:32')).not.toBeInTheDocument()
     expect(screen.getByText('A source quote.')).toBeInTheDocument()
-    expect(growth.trackGrowthEvent).toHaveBeenCalledExactlyOnceWith('task_result_view', {
-      locale: 'en',
+    await waitFor(() => {
+      expect(growth.trackGrowthEvent).toHaveBeenCalledExactlyOnceWith('task_result_view', {
+        locale: 'en',
+      })
     })
   })
 

@@ -49,6 +49,7 @@ export const messages: Record<Locale, Messages> = {
       useMagicLink: "Sign in with Magic Link",
       usePassword: "Sign in with Password",
       logout: "Logout",
+      signOutFailed: "Could not log out. Please try again.",
       signUp: "Sign Up",
       createAccount: "Create an Account",
       haveAccount: "Already have an account? Sign In",
@@ -621,6 +622,7 @@ export const messages: Record<Locale, Messages> = {
       useMagicLink: "使用魔法链接登录",
       usePassword: "使用密码登录",
       logout: "登出",
+      signOutFailed: "退出失败，请重试。",
       signUp: "注册",
       createAccount: "创建账户",
       haveAccount: "已有账户？登录",
@@ -1294,6 +1296,7 @@ export const messages: Record<Locale, Messages> = {
       checkYourEmail: "メールを確認してください",
       signUp: "新規登録",
       logout: "ログアウト",
+      signOutFailed: "ログアウトできませんでした。もう一度お試しください。",
       goToDashboard: "ダッシュボードへ",
     },
     landing: {

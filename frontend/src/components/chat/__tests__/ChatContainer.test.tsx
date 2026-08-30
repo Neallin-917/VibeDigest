@@ -13,8 +13,12 @@ let mockChatInputText = 'test message'
 let mockLocale: 'en' | 'zh' | 'ja' = 'en'
 
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
+const navigation = vi.hoisted(() => ({ push: vi.fn() }))
 
 vi.mock('@/lib/growth-events', () => growth)
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: navigation.push }),
+}))
 
 function createTextMessage(
   text: string,
@@ -107,6 +111,7 @@ vi.mock('../tools', () => ({
 describe('ChatContainer', () => {
   beforeEach(() => {
     growth.trackGrowthEvent.mockReset()
+    navigation.push.mockReset()
     mockRegenerate.mockReset().mockResolvedValue(undefined)
     mockUseChat.mockReset()
     mockUseChat.mockReturnValue({
@@ -240,20 +245,15 @@ describe('ChatContainer', () => {
         status: 'idle',
     } as any)
 
-    const originalHref = window.location.href
-    Object.defineProperty(window, 'location', {
-      value: { ...window.location, href: '' },
-      writable: true,
-    })
-
     render(<ChatContainer isAuthenticated={false} />)
     fireEvent.click(screen.getByText('Send'))
 
     expect(mockSendMessage).not.toHaveBeenCalled()
     expect(localStorage.getItem('vibedigest_pending_message')).toBe('test message')
-    expect(window.location.href).toMatch(/\/login/)
+    expect(navigation.push).toHaveBeenCalledWith(
+      `/en/login?next=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`,
+    )
 
-    window.location.href = originalHref
     localStorage.clear()
   })
 

@@ -1,12 +1,13 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { GoogleOneTap } from "./GoogleOneTap"
 import { LandingUserButton } from "./LandingUserButton"
 import { PricingSection } from "@/components/landing/PricingSection"
-import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
 
 const mocks = vi.hoisted(() => ({
     getUser: vi.fn(),
@@ -81,11 +82,13 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
     }),
 }))
 
-function createWrapper() {
-    const queryClient = new QueryClient({
+function createQueryClient() {
+    return new QueryClient({
         defaultOptions: { queries: { retry: false } },
     })
+}
 
+function createWrapper(queryClient = createQueryClient()) {
     return function Wrapper({ children }: { children: ReactNode }) {
         return (
             <QueryClientProvider client={queryClient}>
@@ -131,6 +134,7 @@ describe("landing account state", () => {
             },
             error: null,
         })
+        mocks.signOut.mockResolvedValue({ error: null })
     })
 
     it("shares one current-user lookup across all landing account consumers", async () => {
@@ -193,5 +197,45 @@ describe("landing account state", () => {
         expect(await screen.findByText("user@example.com")).toBeInTheDocument()
         expect(mocks.signInWithIdToken).toHaveBeenCalledTimes(1)
         expect(mocks.successToast).toHaveBeenCalledWith("auth.signInSuccess")
+    })
+
+    it("clears the shared account cache only after logout succeeds", async () => {
+        const user = userEvent.setup()
+        const queryClient = createQueryClient()
+        queryClient.setQueryData(accountKeys.profile("user-1"), { tier: "pro" })
+        render(
+            <>
+                <LandingUserButton />
+                <AccountProbe />
+            </>,
+            { wrapper: createWrapper(queryClient) },
+        )
+
+        expect(await screen.findByText("user@example.com")).toBeInTheDocument()
+        await user.click(screen.getByRole("button", { name: "Open account menu" }))
+        await user.click(screen.getByRole("menuitem", { name: "auth.logout" }))
+
+        expect(await screen.findByText("guest")).toBeInTheDocument()
+        expect(mocks.signOut).toHaveBeenCalledOnce()
+        expect(queryClient.getQueryData(accountKeys.profile("user-1"))).toBeUndefined()
+    })
+
+    it("keeps the shared account cache when logout fails", async () => {
+        const user = userEvent.setup()
+        mocks.signOut.mockResolvedValue({ error: new Error("network unavailable") })
+        render(
+            <>
+                <LandingUserButton />
+                <AccountProbe />
+            </>,
+            { wrapper: createWrapper() },
+        )
+
+        expect(await screen.findByText("user@example.com")).toBeInTheDocument()
+        await user.click(screen.getByRole("button", { name: "Open account menu" }))
+        await user.click(screen.getByRole("menuitem", { name: "auth.logout" }))
+
+        await waitFor(() => expect(mocks.errorToast).toHaveBeenCalledWith("auth.signOutFailed"))
+        expect(screen.getByText("user@example.com")).toBeInTheDocument()
     })
 })

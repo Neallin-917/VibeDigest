@@ -40,6 +40,9 @@ describe("public discovery metadata", () => {
     await sitemap()
 
     expect(supabaseMocks.from).toHaveBeenCalledWith("tasks")
+    expect(supabaseMocks.query.select).toHaveBeenCalledWith(
+      "id, created_at, updated_at, published_at, video_title, task_outputs!inner(updated_at)",
+    )
     expect(supabaseMocks.query.eq.mock.calls).toEqual(expect.arrayContaining([
       ["status", "completed"],
       ["is_demo", true],
@@ -93,6 +96,23 @@ describe("public discovery metadata", () => {
       created_at: "2026-08-27T08:00:00.000Z",
       updated_at: "2026-08-28T08:00:00.000Z",
       published_at: "2026-08-30T08:00:00.000Z",
+    }])
+
+    const taskEntry = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))
+    expect(taskEntry?.lastModified).toEqual(new Date("2026-08-30T08:00:00.000Z"))
+  })
+
+  it("uses the latest completed summary update when task timestamps were not advanced", () => {
+    const entries = buildSitemapEntries([{
+      id: "task-123",
+      video_title: "Agent Systems in Production",
+      created_at: "2026-08-27T08:00:00.000Z",
+      updated_at: "2026-08-28T08:00:00.000Z",
+      published_at: "2026-08-29T08:00:00.000Z",
+      task_outputs: [
+        { updated_at: "2026-08-30T08:00:00.000Z" },
+        { updated_at: "invalid" },
+      ],
     }])
 
     const taskEntry = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))

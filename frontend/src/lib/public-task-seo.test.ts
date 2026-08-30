@@ -163,12 +163,13 @@ describe("public task SEO", () => {
       canonicalUrl: "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",
       description: "A source-grounded summary.",
       contentLanguage: "ko",
+      contentModifiedAt: "2026-08-31T10:00:00.000Z",
     })
 
     expect(jsonLd).toMatchObject({
       inLanguage: "ko",
       datePublished: "2026-08-30T10:00:00.000Z",
-      dateModified: "2026-08-30T10:00:00.000Z",
+      dateModified: "2026-08-31T10:00:00.000Z",
     })
   })
 

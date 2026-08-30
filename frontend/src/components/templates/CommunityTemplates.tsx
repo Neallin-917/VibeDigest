@@ -18,6 +18,7 @@ export type TaskOutput = {
     status?: string | null
     locale?: string | null
     created_at?: string | null
+    updated_at?: string | null
 }
 
 export type Task = {

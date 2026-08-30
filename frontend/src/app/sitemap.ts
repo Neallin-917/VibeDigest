@@ -10,6 +10,7 @@ export type PublicSitemapTask = {
   created_at: string
   updated_at: string | null
   published_at: string | null
+  task_outputs?: Array<{ updated_at: string | null }> | null
 }
 
 export const STATIC_SITEMAP_PATHS = [
@@ -37,7 +38,13 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
 
   for (const task of tasks) {
     const path = buildPublicTaskPath(task)
-    const lastModified = latestValidDate(task.updated_at, task.published_at, task.created_at)
+    const summaryModifiedDates = task.task_outputs?.map((output) => output.updated_at) || []
+    const lastModified = latestValidDate(
+      task.updated_at,
+      task.published_at,
+      task.created_at,
+      ...summaryModifiedDates,
+    )
 
     for (const locale of SUPPORTED_LOCALES) {
       entries.push({
@@ -56,7 +63,7 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data: tasks, error } = await supabasePublic
     .from('tasks')
-    .select('id, created_at, updated_at, published_at, video_title, task_outputs!inner(id)')
+    .select('id, created_at, updated_at, published_at, video_title, task_outputs!inner(updated_at)')
     .eq('status', 'completed')
     .eq('is_demo', true)
     .eq('publication_status', 'published')

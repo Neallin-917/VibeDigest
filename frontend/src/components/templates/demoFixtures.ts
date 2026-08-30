@@ -267,6 +267,7 @@ export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
                 status: "completed",
                 locale,
                 created_at: task.created_at,
+                updated_at: task.updated_at,
             },
         ],
     }

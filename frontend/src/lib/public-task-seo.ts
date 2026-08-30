@@ -183,12 +183,14 @@ export function buildPublicTaskJsonLd({
   canonicalUrl,
   description,
   contentLanguage,
+  contentModifiedAt,
 }: {
   task: PublicTaskSeoRecord
   locale: Locale
   canonicalUrl: string
   description: string
   contentLanguage?: string | null
+  contentModifiedAt?: string | null
 }) {
   const title = task.video_title?.trim() || "Processed video"
   const article: Record<string, unknown> = {
@@ -216,7 +218,7 @@ export function buildPublicTaskJsonLd({
 
   if (task.thumbnail_url) article.image = [task.thumbnail_url]
   const publishedAt = latestValidDate(task.published_at)
-  const modifiedAt = latestValidDate(task.updated_at, task.published_at)
+  const modifiedAt = latestValidDate(task.updated_at, task.published_at, contentModifiedAt)
   if (publishedAt) article.datePublished = publishedAt.toISOString()
   if (modifiedAt) article.dateModified = modifiedAt.toISOString()
   if (task.video_url) {

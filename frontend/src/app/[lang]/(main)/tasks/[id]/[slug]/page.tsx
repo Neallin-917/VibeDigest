@@ -154,6 +154,7 @@ type TaskOutput = {
     status: string | null
     locale?: string | null
     created_at?: string | null
+    updated_at?: string | null
 }
 
 const DETAIL_COPY = {
@@ -239,7 +240,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     if (task) {
         const { data, error: outputsError } = await supabase
             .from('task_outputs')
-            .select('kind, content, status, locale, created_at')
+            .select('kind, content, status, locale, created_at, updated_at')
             .eq('task_id', id)
             .eq('kind', 'summary')
             .order('created_at', { ascending: false })
@@ -323,6 +324,7 @@ export default async function TaskDetailPage(props: Props) {
             canonicalUrl,
             description: summaryExcerpt || leadSummary || title,
             contentLanguage: structuredSummary?.language,
+            contentModifiedAt: summaryOutput?.updated_at,
         })
         : null
     const summaryLanguageTag = resolveSummaryLanguageTag(structuredSummary?.language, locale)

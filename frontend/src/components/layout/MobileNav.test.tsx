@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { MobileHeader } from "./MobileNav"
+import { MobileBottomNav, MobileHeader } from "./MobileNav"
 
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -10,10 +10,12 @@ const mocks = vi.hoisted(() => ({
   setQueryData: vi.fn(),
   removeQueries: vi.fn(),
   errorToast: vi.fn(),
+  locale: "en",
+  pathname: "/en/chat",
 }))
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/en/chat",
+  usePathname: () => mocks.pathname,
   useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }),
 }))
 
@@ -33,7 +35,7 @@ vi.mock("sonner", () => ({
 }))
 
 vi.mock("@/components/i18n/I18nProvider", () => ({
-  useI18n: () => ({ locale: "en", t: (key: string) => key }),
+  useI18n: () => ({ locale: mocks.locale, t: (key: string) => key }),
 }))
 
 vi.mock("@/hooks/useAccountQueries", () => ({
@@ -60,11 +62,18 @@ vi.mock("@/components/ui/dialog", () => ({
 describe("MobileHeader", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.locale = "en"
+    mocks.pathname = "/en/chat"
     mocks.signOut.mockResolvedValue({ error: null })
   })
 
   it("signs out and returns to the locale home through Next navigation", async () => {
-    fireEvent.click(render(<MobileHeader />).getByRole("button", { name: "auth.logout" }))
+    const view = render(<MobileHeader />)
+
+    expect(view.getByRole("link", { name: "nav.chat" })).toHaveAttribute("href", "/en/chat")
+    expect(view.getByRole("link", { name: "chat.community" })).toHaveAttribute("href", "/en/explore")
+    expect(view.queryByRole("link", { name: "nav.history" })).not.toBeInTheDocument()
+    fireEvent.click(view.getByRole("button", { name: "auth.logout" }))
 
     await waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce())
     expect(mocks.replace).toHaveBeenCalledWith("/en")
@@ -84,5 +93,27 @@ describe("MobileHeader", () => {
     expect(mocks.removeQueries).not.toHaveBeenCalled()
     expect(mocks.replace).not.toHaveBeenCalled()
     expect(mocks.refresh).not.toHaveBeenCalled()
+  })
+})
+
+describe("MobileBottomNav", () => {
+  beforeEach(() => {
+    mocks.locale = "zh"
+    mocks.pathname = "/zh/settings/pricing"
+  })
+
+  it("uses locale-prefixed live routes and selects only the most specific route", () => {
+    render(<MobileBottomNav />)
+
+    expect(screen.getByRole("link", { name: "nav.chat" })).toHaveAttribute("href", "/zh/chat")
+    expect(screen.getByRole("link", { name: "chat.community" })).toHaveAttribute("href", "/zh/explore")
+    expect(screen.queryByRole("link", { name: "nav.history" })).not.toBeInTheDocument()
+
+    const pricing = screen.getByRole("link", { name: "nav.pricing" })
+    const settings = screen.getByRole("link", { name: "nav.settings" })
+    expect(pricing).toHaveAttribute("href", "/zh/settings/pricing")
+    expect(pricing).toHaveClass("text-primary")
+    expect(settings).toHaveAttribute("href", "/zh/settings")
+    expect(settings).not.toHaveClass("text-primary")
   })
 })

@@ -17,13 +17,14 @@ import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
 import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
 import { BrandLogo } from "./BrandLogo"
 
-function isActiveNav(pathname: string, href: string) {
-  if (pathname === href) return true
-  if (pathname.startsWith(`${href}/`)) return true
-  // Task detail is conceptually part of History.
-  // Match both /locale/history and /locale/tasks/xxx
-  if (href.includes('/history') && pathname.includes('/tasks/')) return true
-  return false
+function localizeNavHref(locale: string, href: string) {
+  return `/${locale}${href}`
+}
+
+function findActiveNavHref(pathname: string, hrefs: string[]) {
+  return hrefs
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((left, right) => right.length - left.length)[0]
 }
 
 export function MobileHeader() {
@@ -78,10 +79,11 @@ export function MobileHeader() {
 
             <div className="space-y-2">
               {NAV_ITEMS.map((item) => {
+                const href = localizeNavHref(locale, item.href)
                 return (
                   <DialogClose asChild key={item.href}>
                     <Link
-                      href={item.href}
+                      href={href}
                       className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-slate-100 dark:hover:bg-white/5 hover:text-foreground"
                     >
                       <item.icon className="h-4 w-4" />
@@ -114,13 +116,18 @@ export function MobileHeader() {
 
 export function MobileBottomNav() {
   const pathname = usePathname()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const navItems = NAV_ITEMS.map((item) => ({
+    ...item,
+    href: localizeNavHref(locale, item.href),
+  }))
+  const activeHref = findActiveNavHref(pathname, navItems.map((item) => item.href))
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/60 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
       <div className="grid grid-cols-4 w-full">
-        {NAV_ITEMS.map((item) => {
-          const isActive = isActiveNav(pathname, item.href)
+        {navItems.map((item) => {
+          const isActive = activeHref === item.href
           return (
             <Link
               key={item.href}

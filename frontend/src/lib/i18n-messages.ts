@@ -97,8 +97,6 @@ export const messages: Record<Locale, Messages> = {
       mobileFirstDesc: "Fully responsive design with a dedicated mobile experience. Learn anywhere, anytime, on any device.",
       fastProcessing: "Live Progress",
       fastProcessingDesc: "Submit once and keep browsing. Progress and results update automatically when each step finishes.",
-      seamlessExport: "Seamless Export",
-      seamlessExportDesc: "Your notes belong everywhere. One-click export your summaries to Notion, Obsidian, PDF, or Markdown.",
       howItWorks: "How It Works",
       howItWorksSubtitle: "From a link to content you can read and question",
       step1Title: "Paste a link",
@@ -109,27 +107,6 @@ export const messages: Record<Locale, Messages> = {
       step3Desc: "Read the digest or ask questions grounded in the source.",
       simplePricing: "Simple Pricing",
       simplePricingSubtitle: "Choose the plan that fits your needs",
-      starter: "Starter",
-      starterPrice: "$0",
-      starterDesc: "Perfect for trying out the service.",
-      starterFeat1: "3 videos/month",
-      starterFeat2: "Basic Summaries",
-      starterFeat3: "15 mins/video limit",
-      plus: "Plus",
-      plusPrice: "$12",
-      plusDesc: "For power users and creators.",
-      plusFeat1: "Unlimited Summaries",
-      plusFeat2: "Advanced Mind Maps",
-      plusFeat3: "Export to Notion/PDF",
-      plusFeat4: "No time limits",
-      upgradeNow: "Upgrade Now",
-      team: "Team",
-      teamDesc: "For organizations and large teams.",
-      teamFeat1: "API Access",
-      teamFeat2: "Collaborative Workspace",
-      teamFeat3: "SSO Integration",
-      teamFeat4: "Priority Support",
-      contactSales: "Contact Sales",
       lovedByResearchers: "Loved by Researchers",
       lovedByResearchersSubtitle: "See what our community has to say",
       testimonial1: "\"This tool has completely changed how I consume lectures. The keypoints are spot on and save me hours of manual note-taking.\"",
@@ -167,17 +144,17 @@ export const messages: Record<Locale, Messages> = {
       outputFollowUp: "Source-grounded follow-up",
       mostPopular: "MOST POPULAR",
       effectiveMonthly: "effective / month",
-      proAnnualBilling: "$99 billed annually for a 12-month subscription.",
+      proAnnualBilling: "{annualPrice} billed annually for a 12-month subscription.",
       pricingPolicyPrefix: "Subscriptions are covered by our",
       pricingPolicyConnector: "and",
       faqTitle: "Questions before you begin?",
       faqSubtitle: "The essentials before you paste a link.",
       faqFreeQuestion: "Can I try VibeDigest for free?",
-      faqFreeAnswer: "Yes. The Basic plan includes 3 videos each month and does not require a card.",
+      faqFreeAnswer: "Yes. The {basicPlan} plan includes {basicQuota} videos each month and does not require a card.",
       faqSignInQuestion: "When do I need to sign in?",
       faqSignInAnswer: "Paste a supported link first. We keep it for the handoff, then ask you to sign in before processing starts.",
       faqBillingQuestion: "How is Pro billed?",
-      faqBillingAnswer: "Pro is $99 per year with a 12-month commitment. That works out to $8.25 per month.",
+      faqBillingAnswer: "{proPlan} is {annualPrice} per year with a 12-month commitment. That works out to {annualMonthlyPrice} per month.",
       faqLink: "Read the full FAQ",
       skipToContent: "Skip to main content",
       language: "Language",
@@ -232,39 +209,37 @@ export const messages: Record<Locale, Messages> = {
       subtitle: "Review your current usage, plan, and available top-up options.",
       free: {
         title: "Basic",
-        price: "Free",
         desc: "Try VibeDigest for free, no card required",
-        features: {
-          f1: "3 videos / month",
-          f4: "Save notes",
-          f5: "Multilingual summaries"
-        }
       },
       pro: {
         title: "Pro",
         subtitle: "You’re on Pro. Review usage, add credits, or manage your subscription here.",
-        price: "$9.90",
-        annualPrice: "$8.25",
         unit: "/ month",
-        desc: "Billed annually, get 2 months free",
-        features: {
-          f1: "100 videos / month",
-          f2: "Everything from basic"
-        },
+        desc: "Billed {price} annually for a 12-month subscription",
         button: "Upgrade",
         manage: "Manage Subscription",
         annual: "ANNUAL"
       },
       topup: {
         title: "Top Up",
-        price: "$4.99",
         desc: "Pay as you go, one-time payment",
-        features: {
-          f1: "50 videos per pack",
-          f2: "Never expires",
-          f3: "Use alongside any plan"
-        },
         button: "Buy Credits"
+      },
+      features: {
+        monthlyVideos: "{count} videos / month",
+        saveNotes: "Save notes",
+        multilingualSummaries: "Multilingual summaries",
+        everythingInBasic: "Everything in Basic",
+        topUpVideos: "{count} videos per pack",
+        neverExpires: "Never expires",
+        anyPlan: "Use alongside any plan"
+      },
+      schema: {
+        basic: "Basic plan",
+        proMonthly: "Pro monthly plan",
+        proAnnual: "Pro annual plan",
+        topUp: "{count}-video top-up",
+        description: "Turn podcasts and long videos into structured summaries, key ideas, evidence, and source-grounded answers."
       },
       currentPlan: "Current plan",
       active: "Active",
@@ -282,6 +257,42 @@ export const messages: Record<Locale, Messages> = {
       policies: {
         refund: "Refund Policy",
         terms: "Terms of Service"
+      }
+    },
+    faq: {
+      title: "Frequently Asked Questions",
+      subtitle: "Everything you need to know about VibeDigest",
+      breadcrumb: "FAQ",
+      homeBreadcrumb: "Home",
+      moreQuestions: "Still have questions?",
+      contactPrompt: "We’re here to help. Send us an email.",
+      about: "About Us",
+      contactSupport: "Contact Support",
+      items: {
+        what: {
+          question: "What is VibeDigest?",
+          answer: "VibeDigest is an AI agent for understanding podcasts and long videos. It organizes each source into a structured summary, key ideas, supporting evidence, and source-grounded follow-up."
+        },
+        free: {
+          question: "Is VibeDigest free to use?",
+          answer: "Yes. {basicPlan} includes {basicQuota} videos per month, while {proPlan} includes {proQuota} videos per month. The free plan does not require a card."
+        },
+        billing: {
+          question: "How are plans and top-ups billed?",
+          answer: "{proPlan} costs {monthlyPrice} monthly or {annualPrice} for 12 months. A one-time {topUpCredits}-video top-up costs {topUpPrice} and does not expire."
+        },
+        platforms: {
+          question: "Which platforms do you support?",
+          answer: "Currently, we support YouTube, Apple Podcasts, Bilibili, and Xiaoyuzhou."
+        },
+        reliability: {
+          question: "How reliable are the summary and answers?",
+          answer: "AI can make mistakes. VibeDigest keeps the original source close and surfaces supporting evidence so you can verify important claims before relying on them."
+        },
+        languages: {
+          question: "Do you support multiple languages?",
+          answer: "Yes. VibeDigest can process sources in multiple languages and organize the summary and key ideas in a language you can read."
+        }
       }
     },
     taskForm: {
@@ -652,8 +663,6 @@ export const messages: Record<Locale, Messages> = {
       mobileFirstDesc: "完全响应式设计，配备专属移动端体验。随时随地，在任何设备上学习。",
       fastProcessing: "进度实时更新",
       fastProcessingDesc: "提交后可以继续浏览；转写、摘要和结果会在各阶段完成时自动更新。",
-      seamlessExport: "无缝导出",
-      seamlessExportDesc: "您的笔记应该随处可用。一键将摘要导出到 Notion、Obsidian、PDF 或 Markdown。",
       howItWorks: "工作原理",
       howItWorksSubtitle: "从一个链接，变成可以阅读和继续追问的内容",
       step1Title: "粘贴链接",
@@ -664,27 +673,6 @@ export const messages: Record<Locale, Messages> = {
       step3Desc: "阅读整理结果，或基于原内容继续提问。",
       simplePricing: "简单定价",
       simplePricingSubtitle: "选择适合您需求的方案",
-      starter: "入门版",
-      starterPrice: "$0",
-      starterDesc: "非常适合尝试该服务。",
-      starterFeat1: "每月 3 个视频",
-      starterFeat2: "基础摘要",
-      starterFeat3: "每视频 15 分钟限制",
-      plus: "Plus 版",
-      plusPrice: "$12",
-      plusDesc: "适合深度用户和创作者。",
-      plusFeat1: "无限摘要",
-      plusFeat2: "高级思维导图",
-      plusFeat3: "导出到 Notion/PDF",
-      plusFeat4: "无时间限制",
-      upgradeNow: "立即升级",
-      team: "团队版",
-      teamDesc: "适合组织和大型团队。",
-      teamFeat1: "API 访问",
-      teamFeat2: "协作工作区",
-      teamFeat3: "SSO 集成",
-      teamFeat4: "优先支持",
-      contactSales: "联系销售",
       lovedByResearchers: "深受研究人员喜爱",
       lovedByResearchersSubtitle: "看看我们的社区怎么说",
       testimonial1: "“这个工具完全改变了我听讲座的方式。要点非常准确，为我节省了数小时的手动记笔记时间。”",
@@ -722,17 +710,17 @@ export const messages: Record<Locale, Messages> = {
       outputFollowUp: "基于来源继续追问",
       mostPopular: "最受欢迎",
       effectiveMonthly: "折合每月",
-      proAnnualBilling: "年付 $99，订阅期为 12 个月。",
+      proAnnualBilling: "年付 {annualPrice}，订阅期为 12 个月。",
       pricingPolicyPrefix: "订阅适用我们的",
       pricingPolicyConnector: "与",
       faqTitle: "开始前常见问题",
       faqSubtitle: "粘贴链接前需要了解的关键信息。",
       faqFreeQuestion: "可以免费试用 VibeDigest 吗？",
-      faqFreeAnswer: "可以。基础版每月包含 3 个视频，无需信用卡。",
+      faqFreeAnswer: "可以。{basicPlan} 每月包含 {basicQuota} 个视频，无需信用卡。",
       faqSignInQuestion: "什么时候需要登录？",
       faqSignInAnswer: "请先粘贴受支持的链接。我们会保留该链接用于后续跳转，并在处理开始前要求你登录。",
       faqBillingQuestion: "Pro 如何计费？",
-      faqBillingAnswer: "Pro 年付 $99，订阅期为 12 个月，折合每月 $8.25。",
+      faqBillingAnswer: "{proPlan} 年付 {annualPrice}，订阅期为 12 个月，折合每月 {annualMonthlyPrice}。",
       faqLink: "查看完整常见问题",
       skipToContent: "跳到主要内容",
       language: "语言",
@@ -805,39 +793,37 @@ export const messages: Record<Locale, Messages> = {
       subtitle: "查看当前用量、方案与可用充值包。",
       free: {
         title: "基础版",
-        price: "免费",
         desc: "免费试用 VibeDigest，无需信用卡",
-        features: {
-          f1: "每月 3 个视频",
-          f4: "保存笔记",
-          f5: "多语言摘要"
-        }
       },
       pro: {
         title: "专业版",
         subtitle: "你正在使用专业版，可在这里查看用量、充值或管理订阅。",
-        price: "$9.90",
-        annualPrice: "$8.25",
         unit: "/ 月",
-        desc: "按年计费，赠送 2 个月",
-        features: {
-          f1: "每月 100 个视频",
-          f2: "包含基础版所有功能"
-        },
+        desc: "按年收取 {price}，订阅期为 12 个月",
         button: "升级",
         manage: "管理订阅",
         annual: "年付"
       },
       topup: {
         title: "充值包",
-        price: "$4.99",
         desc: "即付即用，一次性付费",
-        features: {
-          f1: "每包 50 个视频",
-          f2: "永久有效",
-          f3: "可搭配任意方案使用"
-        },
         button: "购买点数"
+      },
+      features: {
+        monthlyVideos: "每月 {count} 个视频",
+        saveNotes: "保存笔记",
+        multilingualSummaries: "多语言摘要",
+        everythingInBasic: "包含基础版全部功能",
+        topUpVideos: "每包 {count} 个视频",
+        neverExpires: "永久有效",
+        anyPlan: "可搭配任意方案使用"
+      },
+      schema: {
+        basic: "基础版",
+        proMonthly: "专业版月付",
+        proAnnual: "专业版年付",
+        topUp: "{count} 个视频充值包",
+        description: "把播客和长视频整理成结构化摘要、关键观点、证据和基于来源的回答。"
       },
       currentPlan: "当前方案",
       active: "生效中",
@@ -855,6 +841,42 @@ export const messages: Record<Locale, Messages> = {
       policies: {
         refund: "退款政策",
         terms: "服务条款"
+      }
+    },
+    faq: {
+      title: "常见问题",
+      subtitle: "关于 VibeDigest 需要了解的关键信息",
+      breadcrumb: "常见问题",
+      homeBreadcrumb: "首页",
+      moreQuestions: "还有其他问题？",
+      contactPrompt: "我们随时为你提供帮助，欢迎发送邮件。",
+      about: "关于我们",
+      contactSupport: "联系支持",
+      items: {
+        what: {
+          question: "什么是 VibeDigest？",
+          answer: "VibeDigest 是一个帮助你理解播客和长视频的 AI Agent。它会把原内容整理成结构化摘要、关键观点、支撑证据，并支持基于来源继续追问。"
+        },
+        free: {
+          question: "VibeDigest 可以免费使用吗？",
+          answer: "可以。{basicPlan} 每月包含 {basicQuota} 个视频，{proPlan} 每月包含 {proQuota} 个视频。免费方案无需信用卡。"
+        },
+        billing: {
+          question: "方案和充值包如何计费？",
+          answer: "{proPlan} 月付 {monthlyPrice}，或按 12 个月收取 {annualPrice}。一次性 {topUpCredits} 个视频充值包为 {topUpPrice}，永久有效。"
+        },
+        platforms: {
+          question: "支持哪些平台？",
+          answer: "目前支持 YouTube、Apple Podcasts、Bilibili 和小宇宙。"
+        },
+        reliability: {
+          question: "摘要和回答可靠吗？",
+          answer: "AI 可能出错。VibeDigest 会保留原始内容入口并提供支撑证据，重要结论应在使用前回到来源核验。"
+        },
+        languages: {
+          question: "支持多种语言吗？",
+          answer: "支持。VibeDigest 可以处理多种语言的内容，并把摘要和关键观点整理成你便于阅读的语言。"
+        }
       }
     },
     taskForm: {
@@ -1293,8 +1315,6 @@ export const messages: Record<Locale, Messages> = {
       mobileFirstDesc: "スマートフォンでも、要約、重要ポイント、チャットを快適に確認できます。",
       fastProcessing: "進捗をリアルタイム更新",
       fastProcessingDesc: "送信後も閲覧を続けられます。各処理が完了すると進捗と結果が自動で更新されます。",
-      seamlessExport: "シームレスなエクスポート",
-      seamlessExportDesc: "あなたのノートはあらゆる場所に。ワンクリックで要約をNotion、Obsidian、PDF、またはMarkdownにエクスポートできます。",
       howItWorks: "仕組み",
       howItWorksSubtitle: "リンクから、読んで質問できるコンテンツへ",
       step1Title: "リンクを貼る",
@@ -1305,27 +1325,6 @@ export const messages: Record<Locale, Messages> = {
       step3Desc: "整理結果を読み、元の内容に基づいて質問できます。",
       simplePricing: "シンプルな価格設定",
       simplePricingSubtitle: "ニーズに合ったプランを選択してください",
-      starter: "スターター",
-      starterPrice: "$0",
-      starterDesc: "サービスを試すのに最適です。",
-      starterFeat1: "月間3動画",
-      starterFeat2: "基本的な要約",
-      starterFeat3: "1動画あたり15分の制限",
-      plus: "プラス",
-      plusPrice: "$12",
-      plusDesc: "パワーユーザーやクリエイター向け。",
-      plusFeat1: "無制限の要約",
-      plusFeat2: "高度なマインドマップ",
-      plusFeat3: "Notion/PDFへのエクスポート",
-      plusFeat4: "時間制限なし",
-      upgradeNow: "今すぐアップグレード",
-      team: "チーム",
-      teamDesc: "組織や大規模チーム向け。",
-      teamFeat1: "APIアクセス",
-      teamFeat2: "共同ワークスペース",
-      teamFeat3: "SSO統合",
-      teamFeat4: "優先サポート",
-      contactSales: "営業に連絡",
       lovedByResearchers: "研究者に愛用されています",
       lovedByResearchersSubtitle: "コミュニティの声をご覧ください",
       testimonial1: "「このツールは私の講義の受け方を完全に変えました。要点は的確で、手書きのメモに費やす時間を何時間も節約してくれます。」",
@@ -1364,17 +1363,17 @@ export const messages: Record<Locale, Messages> = {
       outputFollowUp: "出典に基づく質問",
       mostPopular: "おすすめ",
       effectiveMonthly: "月額換算",
-      proAnnualBilling: "年額 $99、12か月契約です。",
+      proAnnualBilling: "年額 {annualPrice}、12か月契約です。",
       pricingPolicyPrefix: "サブスクリプションには",
       pricingPolicyConnector: "および",
       faqTitle: "始める前のよくある質問",
       faqSubtitle: "リンクを貼る前に知っておきたいポイントです。",
       faqFreeQuestion: "VibeDigestを無料で試せますか？",
-      faqFreeAnswer: "はい。ベーシックプランでは毎月3本まで利用でき、カードは不要です。",
+      faqFreeAnswer: "はい。{basicPlan}では毎月{basicQuota}本まで利用でき、カードは不要です。",
       faqSignInQuestion: "いつサインインが必要ですか？",
       faqSignInAnswer: "まず対応リンクを貼り付けます。リンクを引き継いだ後、処理の開始前にサインインをお願いします。",
       faqBillingQuestion: "Proの請求方法は？",
-      faqBillingAnswer: "Proは年額 $99 の12か月契約で、月額換算では $8.25 です。",
+      faqBillingAnswer: "{proPlan}は年額 {annualPrice} の12か月契約で、月額換算では {annualMonthlyPrice} です。",
       faqLink: "すべてのよくある質問を見る",
       skipToContent: "メインコンテンツへ移動",
       language: "言語",
@@ -1417,39 +1416,37 @@ export const messages: Record<Locale, Messages> = {
       subtitle: "現在の利用状況、プラン、チャージオプションを確認できます。",
       free: {
         title: "ベーシック",
-        price: "無料",
         desc: "VibeDigestを無料で試す（カード不要）",
-        features: {
-          f1: "毎月動画3本まで",
-          f4: "ノートの保存",
-          f5: "多言語要約"
-        }
       },
       pro: {
         title: "プロ",
         subtitle: "プロプランをご利用中です。利用状況の確認、チャージ、サブスクリプション管理ができます。",
-        price: "$9.90",
-        annualPrice: "$8.25",
         unit: "/ 月",
-        desc: "年払い（2ヶ月分無料）",
-        features: {
-          f1: "毎月動画100本まで",
-          f2: "ベーシックプランの全機能"
-        },
+        desc: "12か月分として年額 {price} を請求",
         button: "アップグレード",
         manage: "サブスクリプション管理",
         annual: "年払い"
       },
       topup: {
         title: "チャージ",
-        price: "$4.99",
         desc: "必要な分だけ購入（買い切り）",
-        features: {
-          f1: "1パック50本分",
-          f2: "有効期限なし",
-          f3: "どのプランでも併用可能"
-        },
         button: "クレジットを購入"
+      },
+      features: {
+        monthlyVideos: "毎月動画{count}本まで",
+        saveNotes: "ノートの保存",
+        multilingualSummaries: "多言語要約",
+        everythingInBasic: "ベーシックプランの全機能",
+        topUpVideos: "1パック{count}本分",
+        neverExpires: "有効期限なし",
+        anyPlan: "どのプランでも併用可能"
+      },
+      schema: {
+        basic: "ベーシックプラン",
+        proMonthly: "プロ月払いプラン",
+        proAnnual: "プロ年払いプラン",
+        topUp: "動画{count}本分のチャージ",
+        description: "ポッドキャストや長尺動画を要約、重要ポイント、根拠、出典に基づく回答に整理します。"
       },
       currentPlan: "現在のプラン",
       active: "利用中",
@@ -1463,6 +1460,42 @@ export const messages: Record<Locale, Messages> = {
       policies: {
         refund: "返金ポリシー",
         terms: "利用規約"
+      }
+    },
+    faq: {
+      title: "よくある質問",
+      subtitle: "VibeDigestについて知っておきたいポイント",
+      breadcrumb: "よくある質問",
+      homeBreadcrumb: "ホーム",
+      moreQuestions: "まだ質問がありますか？",
+      contactPrompt: "お気軽にメールでお問い合わせください。",
+      about: "私たちについて",
+      contactSupport: "サポートに連絡",
+      items: {
+        what: {
+          question: "VibeDigestとは何ですか？",
+          answer: "VibeDigestは、ポッドキャストや長尺動画を理解するためのAI Agentです。要約、重要ポイント、根拠、出典に基づく追加質問に整理します。"
+        },
+        free: {
+          question: "VibeDigestは無料で使えますか？",
+          answer: "はい。{basicPlan}は毎月{basicQuota}本、{proPlan}は毎月{proQuota}本まで利用できます。無料プランにカードは不要です。"
+        },
+        billing: {
+          question: "プランとチャージの請求方法は？",
+          answer: "{proPlan}は月額 {monthlyPrice}、または12か月で {annualPrice} です。動画{topUpCredits}本分の買い切りチャージは {topUpPrice} で、有効期限はありません。"
+        },
+        platforms: {
+          question: "どのプラットフォームに対応していますか？",
+          answer: "現在、YouTube、Apple Podcasts、Bilibili、小宇宙に対応しています。"
+        },
+        reliability: {
+          question: "要約と回答は信頼できますか？",
+          answer: "AIは誤ることがあります。VibeDigestは元のコンテンツへの導線と根拠を示し、重要な内容を出典で確認できるようにします。"
+        },
+        languages: {
+          question: "多言語に対応していますか？",
+          answer: "はい。複数言語のコンテンツを処理し、要約と重要ポイントを読みやすい言語に整理できます。"
+        }
       }
     },
     taskForm: {

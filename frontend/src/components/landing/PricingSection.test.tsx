@@ -23,35 +23,31 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/components/i18n/I18nProvider", () => ({
     useI18n: () => ({
         locale: "en",
-        t: (key: string) => {
+        t: (key: string, vars?: Record<string, string | number>) => {
             const translations: Record<string, string> = {
                 "landing.simplePricing": "Simple Pricing",
                 "landing.simplePricingSubtitle": "Choose the plan that fits your needs",
                 "landing.getStarted": "Get started",
                 "landing.mostPopular": "Most popular",
                 "landing.viewPlan": "View plan",
-                "pricing.free.title": "Free",
-                "pricing.free.price": "$0",
+                "landing.effectiveMonthly": "effective / month",
+                "landing.proAnnualBilling": "{annualPrice} billed annually.",
+                "pricing.free.title": "Basic",
                 "pricing.free.desc": "Try VibeDigest",
-                "pricing.free.features.f1": "3 videos",
-                "pricing.free.features.f4": "Save notes",
-                "pricing.free.features.f5": "Translate transcripts",
                 "pricing.pro.title": "Pro",
-                "pricing.pro.price": "$9.99",
-                "pricing.pro.unit": "/ month",
-                "pricing.pro.desc": "For frequent use",
-                "pricing.pro.features.f1": "100 videos",
-                "pricing.pro.features.f2": "Everything in Free",
                 "pricing.topup.title": "Top-up",
-                "pricing.topup.price": "$4.99",
                 "pricing.topup.desc": "Pay once",
-                "pricing.topup.features.f1": "50 videos",
-                "pricing.topup.features.f2": "Never expires",
-                "pricing.topup.features.f3": "Works with any plan",
                 "pricing.topup.button": "Buy credits",
+                "pricing.features.monthlyVideos": "{count} videos / month",
+                "pricing.features.saveNotes": "Save notes",
+                "pricing.features.multilingualSummaries": "Multilingual summaries",
+                "pricing.features.everythingInBasic": "Everything in Basic",
+                "pricing.features.topUpVideos": "{count} videos per pack",
+                "pricing.features.neverExpires": "Never expires",
+                "pricing.features.anyPlan": "Works with any plan",
             }
 
-            return translations[key] ?? key
+            return (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name: string) => String(vars?.[name] ?? `{${name}}`))
         },
     }),
 }))
@@ -86,6 +82,9 @@ describe("PricingSection", () => {
 
         expect(screen.getByRole("button", { name: "View plan" })).toBeInTheDocument()
         expect(screen.queryByRole("button", { name: "Upgrade" })).not.toBeInTheDocument()
+        expect(screen.getByText("$8.25")).toBeInTheDocument()
+        expect(screen.getByText("$5.00")).toBeInTheDocument()
+        expect(screen.queryByText("$4.99")).not.toBeInTheDocument()
     })
 
     it("reuses the landing account lookup across plan actions", async () => {

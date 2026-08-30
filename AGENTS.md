@@ -31,6 +31,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 | Deployment, rollback, monitoring | `docs/RUNBOOK.md` |
 | Architecture and directory mapping | `docs/codemaps/*.md` |
 | Testing strategy and coverage policy | `docs/testing/README.md` |
+| Customer-visible plans, prices, quotas, and top-ups | `config/customer-plan-catalog.json` |
 
 ## Quick Reference
 

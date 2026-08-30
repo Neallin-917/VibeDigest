@@ -13,6 +13,8 @@ import type { Metadata } from "next"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
+import { getLandingFaqItems } from "@/lib/billing/faq-content"
+import { buildFaqPageSchema, serializeJsonLd } from "@/lib/billing/structured-data"
 
 // HowTo schema step data per locale (mirrors i18n but accessible at server level)
 const HOW_TO_STEPS: Record<string, { name: string; text: string }[]> = {
@@ -108,6 +110,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
       "text": s.text,
     })),
   }
+  const landingFaqSchema = buildFaqPageSchema(getLandingFaqItems(t))
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-sans text-foreground selection:bg-primary/20 selection:text-primary-strong">
@@ -178,10 +181,13 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
           </div>
       </footer>
 
-      {/* HowTo structured data - uses server-side constants, safe from XSS */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(howToSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(landingFaqSchema) }}
       />
     </div>
   )

@@ -14,11 +14,6 @@ from utils.error_messages import sanitize_error_message
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Pricing Constants
-FREE_LIMIT = 3
-PRO_LIMIT = 100
-
-
 def _normalize_error_for_storage(error: str) -> str:
     if error == "":
         return ""
@@ -30,6 +25,13 @@ def _normalize_error_for_storage(error: str) -> str:
 
 
 class DBClient:
+    @staticmethod
+    def _subscription_usage_limit(tier: str) -> int:
+        from config import CUSTOMER_PLAN_CATALOG
+
+        plan_key = "pro" if tier == "pro" else "basic"
+        return CUSTOMER_PLAN_CATALOG.plans[plan_key].included_videos_per_month
+
     def __init__(self):
         # JWT Secret for Supabase token verification (replaces supabase-py auth client)
         # Import settings lazily to avoid circular import at module level
@@ -733,7 +735,7 @@ class DBClient:
 
     def update_subscription(self, creem_customer_id: str, tier: str, period_end: str):
         """Update subscription status from Creem Webhook (by customer id)."""
-        limit = 100 if tier == "pro" else 3
+        limit = self._subscription_usage_limit(tier)
         query = """
             UPDATE profiles 
             SET tier = :tier, usage_limit = :limit, usage_count = 0, period_end = :period_end
@@ -754,7 +756,7 @@ class DBClient:
 
     def update_subscription_by_user(self, user_id: str, tier: str, period_end: str):
         """Update subscription status by user_id (for first-time subscriptions)."""
-        limit = 100 if tier == "pro" else 3
+        limit = self._subscription_usage_limit(tier)
         query = """
             UPDATE profiles 
             SET tier = :tier, usage_limit = :limit, usage_count = 0, period_end = :period_end

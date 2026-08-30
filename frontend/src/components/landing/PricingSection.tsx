@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 import Link from "next/link"
+import { getCustomerPlanDisplay, getPlanCopyVariables } from "@/lib/billing/plan-catalog"
 
 export function PricingSection() {
     const { t, locale } = useI18n()
@@ -26,48 +27,34 @@ export function PricingSection() {
         }
     }
 
-    const freeFeatureKeys = [
-        "pricing.free.features.f1",
-        "pricing.free.features.f4",
-        "pricing.free.features.f5",
-    ] as const
-
-    const proFeatureKeys = [
-        "pricing.pro.features.f1",
-        "pricing.pro.features.f2",
-    ] as const
-
-    const topupFeatureKeys = [
-        "pricing.topup.features.f1",
-        "pricing.topup.features.f2",
-        "pricing.topup.features.f3",
-    ] as const
+    const catalog = getCustomerPlanDisplay(t)
+    const planVars = getPlanCopyVariables(t)
 
     const plans = [
         {
             key: "pro",
-            title: t("pricing.pro.title"),
-            price: t("pricing.pro.annualPrice"),
-            desc: t("landing.proAnnualBilling"),
-            features: proFeatureKeys.map(k => t(k)),
+            title: catalog.pro.title,
+            price: catalog.pro.annualEffectiveMonthlyLabel,
+            desc: t("landing.proAnnualBilling", planVars),
+            features: catalog.pro.features,
             cta: t("landing.viewPlan"),
             highlight: true
         },
         {
             key: "free",
-            title: t("pricing.free.title"),
-            price: t("pricing.free.price"),
-            desc: t("pricing.free.desc"),
-            features: freeFeatureKeys.map(k => t(k)),
+            title: catalog.basic.title,
+            price: catalog.basic.priceLabel,
+            desc: catalog.basic.description,
+            features: catalog.basic.features,
             cta: t("landing.getStarted"),
             highlight: false
         },
         {
             key: "topup",
-            title: t("pricing.topup.title"),
-            price: t("pricing.topup.price"),
-            desc: t("pricing.topup.desc"),
-            features: topupFeatureKeys.map(k => t(k)),
+            title: catalog.topUp.title,
+            price: catalog.topUp.priceLabel,
+            desc: catalog.topUp.description,
+            features: catalog.topUp.features,
             cta: t("pricing.topup.button"),
             highlight: false
         }

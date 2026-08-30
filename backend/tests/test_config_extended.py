@@ -2,11 +2,16 @@
 
 import importlib
 import os
-from unittest.mock import patch
+from unittest.mock import mock_open, patch
 import pytest
 
 import config as config_module
-from config import Settings, _load_provider_defaults
+from config import (
+    CUSTOMER_PLAN_CATALOG,
+    Settings,
+    _load_customer_plan_catalog,
+    _load_provider_defaults,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +29,45 @@ class TestLoadProviderDefaults:
         assert "openrouter" in result
         assert "smart" in result["openrouter"]
         assert "fast" in result["openrouter"]
+
+
+class TestCustomerPlanCatalog:
+    def test_missing_catalog_raises_with_checked_paths(self):
+        with patch("config.Path.exists", return_value=False):
+            with pytest.raises(FileNotFoundError, match="Customer plan catalog not found"):
+                _load_customer_plan_catalog()
+
+    def test_invalid_catalog_json_reports_source(self):
+        with patch("config.Path.exists", return_value=True), patch(
+            "config.Path.open",
+            mock_open(read_data="{"),
+        ):
+            with pytest.raises(ValueError, match="Failed to parse customer plan catalog"):
+                _load_customer_plan_catalog()
+
+    def test_invalid_catalog_shape_is_rejected(self):
+        with patch("config.Path.exists", return_value=True), patch(
+            "config.Path.open",
+            mock_open(read_data="{}"),
+        ):
+            with pytest.raises(ValueError, match="Invalid customer plan catalog"):
+                _load_customer_plan_catalog()
+
+    def test_catalog_is_loaded_and_drives_checkout_prices(self):
+        catalog = _load_customer_plan_catalog()
+
+        assert catalog.plans["basic"].included_videos_per_month == 3
+        assert catalog.plans["pro"].included_videos_per_month == 100
+        assert catalog.top_ups["videoCredits"].credits == 50
+        assert catalog.top_ups["videoCredits"].price == 5
+        assert Settings.PRICES["CREDIT_PACK"].amount == 5
+        assert Settings.PRICES["PRO_MONTHLY"].amount == 9.9
+        assert Settings.PRICES["PRO_ANNUAL"].amount == 99
+
+    def test_provider_product_ids_are_not_part_of_customer_catalog(self):
+        serialized = CUSTOMER_PLAN_CATALOG.model_dump_json(by_alias=True)
+
+        assert "prod_" not in serialized
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +449,7 @@ class TestGetPriceById:
     def test_known_price_id_returns_config(self):
         result = Settings.get_price_by_id("prod_5VVI5ldN9dtI7tbHaST5OB")
         assert result is not None
-        assert result.name == "50 Credits Top-up (One-time)"
+        assert result.name == "Video credit top-up"
 
     def test_unknown_price_id_returns_none(self):
         result = Settings.get_price_by_id("nonexistent_product_id")

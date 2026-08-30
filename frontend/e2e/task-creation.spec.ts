@@ -46,6 +46,8 @@ test.describe('Landing Page Acquisition Flow', () => {
         await expect(page).toHaveURL(/\/login/)
         await expect(page.getByText('Your link is saved')).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Continue your digest' })).toBeVisible()
+        await expect(page.getByText('Sign in to continue with this source in your account.')).toBeVisible()
+        await expect(page.getByText('Sign in to continue with your saved request in your account.')).toHaveCount(0)
         const handoff = page.getByRole('region', { name: 'Saved source and next steps' })
         await expect(handoff).toContainText('Recognized source')
         await expect(handoff).toContainText('YouTube')
@@ -62,6 +64,23 @@ test.describe('Landing Page Acquisition Flow', () => {
             document: document.documentElement.scrollWidth,
         }))
         expect(widthAudit.document).toBe(widthAudit.viewport)
+    })
+
+    test('ordinary chat handoff uses request copy instead of source copy', async ({ page, context }) => {
+        await context.clearCookies()
+        await page.goto('/en')
+        await page.evaluate(() => {
+            localStorage.setItem('vibedigest_pending_message', 'What is the main risk?')
+        })
+
+        await page.goto('/en/login?next=%2Fen%2Fchat')
+
+        await expect(page.getByText('Your request is saved')).toBeVisible()
+        await expect(page.getByText('Sign in to continue with your saved request in your account.')).toBeVisible()
+        await expect(page.getByText('Sign in to continue with this source in your account.')).toHaveCount(0)
+        await expect(page.getByRole('region', { name: 'Saved source and next steps' })).toHaveCount(0)
+        await expect.poll(() => page.evaluate(() => localStorage.getItem('vibedigest_pending_message')))
+            .toBe('What is the main risk?')
     })
 
     test('should disable button for empty URL', async ({ page }) => {

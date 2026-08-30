@@ -169,7 +169,9 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                     {isSignUp
                         ? (t("auth.signUpToContinue") || "Sign up to get started")
                         : hasPendingHandoff
-                            ? t("auth.handoffDescription")
+                            ? pendingSource
+                                ? t("auth.handoffDescription")
+                                : t("auth.handoffMessageDescription")
                             : t("auth.signInToContinue", { appName: t("brand.name") })}
                 </CardDescription>
                 {hasPendingHandoff && pendingSource && (

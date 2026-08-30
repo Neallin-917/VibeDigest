@@ -26,6 +26,7 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       'auth.handoffMessageReady': 'Your request is saved',
       'auth.continueDigest': 'Continue your digest',
       'auth.handoffDescription': 'Sign in to continue with this source in your account.',
+      'auth.handoffMessageDescription': 'Sign in to continue with your saved request in your account.',
       'auth.handoffDetails': 'Saved source and next steps',
       'auth.handoffSource': 'Recognized source',
       'auth.handoffOutputs': 'You’ll get',
@@ -67,6 +68,7 @@ describe('LoginForm', () => {
     })
     expect(screen.getByRole('heading', { name: 'Continue your digest' })).toBeInTheDocument()
     expect(screen.getByText('Sign in to continue with this source in your account.')).toBeInTheDocument()
+    expect(screen.queryByText('Sign in to continue with your saved request in your account.')).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Saved source and next steps' })).toHaveTextContent('YouTube')
     expect(screen.getByRole('link', { name: originalUrl })).toHaveAttribute('href', originalUrl)
     expect(screen.getByText('A summary, key ideas, supporting evidence, and source-grounded follow-up.')).toBeInTheDocument()
@@ -93,6 +95,8 @@ describe('LoginForm', () => {
       expect(screen.getByText('Your request is saved')).toBeInTheDocument()
     })
     expect(screen.getByRole('heading', { name: 'Continue your digest' })).toBeInTheDocument()
+    expect(screen.getByText('Sign in to continue with your saved request in your account.')).toBeInTheDocument()
+    expect(screen.queryByText('Sign in to continue with this source in your account.')).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Saved source and next steps' })).not.toBeInTheDocument()
   })
 })

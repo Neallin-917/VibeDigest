@@ -9,20 +9,42 @@ import { cn } from "@/lib/utils"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 import Link from "next/link"
 import { getCustomerPlanDisplay, getPlanCopyVariables } from "@/lib/billing/plan-catalog"
+import { trackGrowthEvent } from "@/lib/growth-events"
+
+type PricingPlanKey = "pro" | "free" | "topup"
+type PricingPlanCard = {
+    key: PricingPlanKey
+    title: string
+    price: string
+    desc: string
+    features: string[]
+    cta: string
+    highlight: boolean
+}
 
 export function PricingSection() {
     const { t, locale } = useI18n()
     const router = useRouter()
     const { data: user, refetch: refetchUser } = useCurrentUserQuery()
 
-    const handlePlanClick = async () => {
+    const handlePlanClick = async (plan: PricingPlanKey) => {
         const resolvedUser = user === undefined
             ? (await refetchUser()).data
             : user
 
         if (!resolvedUser) {
+            trackGrowthEvent("pricing_plan_open", {
+                locale,
+                plan,
+                destination: "login",
+            })
             router.push(`/${locale}/login?next=/${locale}/settings/pricing`)
         } else {
+            trackGrowthEvent("pricing_plan_open", {
+                locale,
+                plan,
+                destination: "pricing",
+            })
             router.push(`/${locale}/settings/pricing`)
         }
     }
@@ -30,7 +52,7 @@ export function PricingSection() {
     const catalog = getCustomerPlanDisplay(t)
     const planVars = getPlanCopyVariables(t)
 
-    const plans = [
+    const plans: PricingPlanCard[] = [
         {
             key: "pro",
             title: catalog.pro.title,
@@ -140,7 +162,7 @@ export function PricingSection() {
 
                                 <Button
                                     variant={plan.highlight ? "default" : "outline"}
-                                    onClick={handlePlanClick}
+                                    onClick={() => handlePlanClick(plan.key)}
                                     className={cn(
                                         "min-h-11 rounded-[9px] font-semibold text-[13px] transition-[background-color,color,border-color,transform] duration-200",
                                         plan.highlight

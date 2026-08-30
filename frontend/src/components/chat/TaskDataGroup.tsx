@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
@@ -17,6 +17,7 @@ import {
 import { normalizeTaskStatus, sanitizeErrorMessage } from '@/lib/safe-error'
 import { subscribeToTask } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
+import { trackGrowthEvent } from '@/lib/growth-events'
 import {
   parseCurrentSummary,
   pickPreferredSummaryOutput,
@@ -482,12 +483,21 @@ function SummaryContinuation({
 function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskDataGroupProps) {
   const { t, locale } = useI18n()
   const [isRetrying, setIsRetrying] = useState(false)
+  const trackedTaskViewsRef = useRef<Set<string>>(new Set())
   const isDemo = isLocalUiDemo()
   const liveSnapshot = useLiveTaskSnapshot(taskStatus, live && !isDemo)
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo)
   const snapshot = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
   const { summary: persistedSummary, audioData } = useTaskOutputs(snapshot?.taskId, locale, !isDemo)
   const summary = isDemo ? demoArtifact.summary : persistedSummary
+  const normalizedStatus = snapshot ? normalizeTaskStatus(snapshot.status) : null
+
+  useEffect(() => {
+    if (isDemo || normalizedStatus !== 'completed' || !summary || !snapshot?.taskId) return
+    if (trackedTaskViewsRef.current.has(snapshot.taskId)) return
+    trackedTaskViewsRef.current.add(snapshot.taskId)
+    trackGrowthEvent('task_result_view', { locale })
+  }, [isDemo, locale, normalizedStatus, snapshot?.taskId, summary])
 
   if (!snapshot || !snapshot.videoUrl) return null
 

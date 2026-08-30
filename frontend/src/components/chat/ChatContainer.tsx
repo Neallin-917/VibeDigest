@@ -38,6 +38,11 @@ interface ChatContainerProps {
 
 const NO_TASK_IDS = new Set<string>()
 const EMPTY_MESSAGES: ChatUIMessage[] = []
+
+function mapScopeToGrowthSurface(scope: 'workspace' | 'source') {
+  return scope === 'source' ? 'source_followup' : 'workspace'
+}
+
 const CONTINUATION_COPY = {
   en: {
     waiting_task: 'Your answer will continue when the video is ready.',
@@ -187,7 +192,15 @@ export function ChatContainer({
     // Notify parent once a chat is persisted
     onFinish: ({ messages: finishedMessages, isAbort, isDisconnect, isError }) => {
       if (isAbort || isDisconnect || isError) return
-      const taskId = latestConfirmedTaskId(finishedMessages) ?? activeTaskIdRef.current ?? undefined
+      const previousTaskId = activeTaskIdRef.current ?? null
+      const confirmedTaskId = latestConfirmedTaskId(finishedMessages)
+      if (confirmedTaskId && confirmedTaskId !== previousTaskId) {
+        trackGrowthEvent('task_create_accepted', {
+          locale,
+          surface: mapScopeToGrowthSurface(scope),
+        })
+      }
+      const taskId = confirmedTaskId ?? previousTaskId ?? undefined
       if (taskId) activeTaskIdRef.current = taskId
       onChatStarted?.(effectiveThreadId, taskId)
     }

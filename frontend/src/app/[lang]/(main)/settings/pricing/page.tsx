@@ -20,7 +20,9 @@ import {
     useProfileQuery,
 } from "@/hooks/useAccountQueries"
 import { getCustomerPlanDisplay } from "@/lib/billing/plan-catalog"
+import { trackGrowthEvent } from "@/lib/growth-events"
 type BillingAction = "pro" | "topup" | "portal"
+type CheckoutBilling = "monthly" | "annual" | "one_time"
 
 export default function PricingPage() {
     const { t, locale } = useI18n()
@@ -43,7 +45,11 @@ export default function PricingPage() {
     const profileLoading = userLoading || Boolean(user && accountProfileLoading)
     const profileError = userError ?? accountProfileError
 
-    const handleCheckout = async (planKey: string, action: Exclude<BillingAction, "portal">) => {
+    const handleCheckout = async (
+        planKey: string,
+        action: Exclude<BillingAction, "portal">,
+        billing: CheckoutBilling,
+    ) => {
         setActionError(null)
         setLoadingAction(action)
         try {
@@ -63,6 +69,11 @@ export default function PricingPage() {
             }
 
             if (!url) throw new Error("Checkout URL is missing")
+            trackGrowthEvent("pricing_checkout_redirect", {
+                locale,
+                product: action,
+                billing,
+            })
             window.location.assign(url)
         } catch (error) {
             console.error("Checkout failed:", error)
@@ -274,6 +285,7 @@ export default function PricingPage() {
                                             ? catalog.pro.billingOptions.annual.planKey
                                             : catalog.pro.billingOptions.monthly.planKey,
                                         "pro",
+                                        isAnnual ? "annual" : "monthly",
                                     )}
                                     disabled={loadingAction !== null}
                                 >
@@ -307,7 +319,7 @@ export default function PricingPage() {
                             <Button
                                 className="w-full"
                                 variant="secondary"
-                                onClick={() => handleCheckout(catalog.topUp.planKey, "topup")}
+                                onClick={() => handleCheckout(catalog.topUp.planKey, "topup", "one_time")}
                                 disabled={!profileKnown || loadingAction !== null}
                             >
                                 {loadingAction === "topup"

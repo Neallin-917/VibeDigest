@@ -480,6 +480,60 @@ describe('ChatContainer', () => {
   })
 
   it.each([
+    { scope: 'workspace', surface: 'workspace' },
+    { scope: 'source', surface: 'source_followup' },
+  ] as const)('tracks task creation acceptance once for a new %s task', ({ scope, surface }) => {
+    const onChatStarted = vi.fn()
+    render(<ChatContainer scope={scope} onChatStarted={onChatStarted} />)
+
+    act(() => {
+      ;(global as any).mockOnChatFinish?.({
+        messages: [{
+          id: 'assistant-task-created',
+          role: 'assistant',
+          parts: [
+            { type: 'text', text: 'Created.' },
+            { type: 'data-task-status', data: { taskId: 'task-new-1' } },
+          ],
+        }],
+        isAbort: false,
+        isDisconnect: false,
+        isError: false,
+      })
+    })
+
+    expect(growth.trackGrowthEvent).toHaveBeenCalledWith('task_create_accepted', {
+      locale: 'en',
+      surface,
+    })
+    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-new-1')
+  })
+
+  it('does not track task creation acceptance for an existing task follow-up', () => {
+    const onChatStarted = vi.fn()
+    render(<ChatContainer activeTaskId="task-existing" scope="source" onChatStarted={onChatStarted} />)
+
+    act(() => {
+      ;(global as any).mockOnChatFinish?.({
+        messages: [{
+          id: 'assistant-followup',
+          role: 'assistant',
+          parts: [
+            { type: 'text', text: 'Follow-up answer.' },
+            { type: 'data-task-status', data: { taskId: 'task-existing' } },
+          ],
+        }],
+        isAbort: false,
+        isDisconnect: false,
+        isError: false,
+      })
+    })
+
+    expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_create_accepted', expect.anything())
+    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-existing')
+  })
+
+  it.each([
     'https://www.youtube.com/watch?v=new123',
     'Do not process https://www.youtube.com/watch?v=new123 yet; explain the options.',
     'What does https://example.com mean in this source?',

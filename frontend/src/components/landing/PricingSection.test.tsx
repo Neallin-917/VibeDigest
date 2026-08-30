@@ -7,10 +7,13 @@ import { PricingSection } from "./PricingSection"
 
 const mockPush = vi.fn()
 const mockGetUser = vi.fn()
+const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
 
 vi.mock("next/navigation", () => ({
     useRouter: () => ({ push: mockPush }),
 }))
+
+vi.mock("@/lib/growth-events", () => growth)
 
 vi.mock("@/lib/supabase", () => ({
     createClient: () => ({
@@ -101,6 +104,25 @@ describe("PricingSection", () => {
         expect(mockPush).toHaveBeenNthCalledWith(2, "/en/login?next=/en/settings/pricing")
     })
 
+    it.each([
+        { name: "View plan", plan: "pro" },
+        { name: "Get started", plan: "free" },
+        { name: "Buy credits", plan: "topup" },
+    ] as const)("tracks pricing_plan_open for %s before sending visitors to login", async ({ name, plan }) => {
+        const user = userEvent.setup()
+        renderPricingSection()
+
+        await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1))
+        await user.click(screen.getByRole("button", { name }))
+
+        expect(growth.trackGrowthEvent).toHaveBeenCalledWith("pricing_plan_open", {
+            locale: "en",
+            plan,
+            destination: "login",
+        })
+        expect(mockPush).toHaveBeenCalledWith("/en/login?next=/en/settings/pricing")
+    })
+
     it("routes a signed-in visitor directly to plan management", async () => {
         const user = userEvent.setup()
         mockGetUser.mockResolvedValue({
@@ -112,6 +134,11 @@ describe("PricingSection", () => {
         await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1))
         await user.click(screen.getByRole("button", { name: "View plan" }))
 
+        expect(growth.trackGrowthEvent).toHaveBeenCalledWith("pricing_plan_open", {
+            locale: "en",
+            plan: "pro",
+            destination: "pricing",
+        })
         expect(mockPush).toHaveBeenCalledWith("/en/settings/pricing")
     })
 })

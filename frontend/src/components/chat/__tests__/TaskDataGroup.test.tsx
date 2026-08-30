@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TaskDataGroup } from '../TaskDataGroup'
 
+const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
+
 const { mockSubscribeToTask, mockRemoveChannel } = vi.hoisted(() => ({
   mockSubscribeToTask: vi.fn(),
   mockRemoveChannel: vi.fn(),
@@ -42,6 +44,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
 vi.mock('@/lib/task-live', () => ({
   subscribeToTask: mockSubscribeToTask,
 }))
+
+vi.mock('@/lib/growth-events', () => growth)
 
 vi.mock('@/lib/local-ui-demo', () => ({
   isLocalUiDemo: () => demoState.enabled,
@@ -180,6 +184,48 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Evidence')).toBeInTheDocument()
     expect(screen.queryByText('00:32')).not.toBeInTheDocument()
     expect(screen.getByText('A source quote.')).toBeInTheDocument()
+    expect(growth.trackGrowthEvent).toHaveBeenCalledExactlyOnceWith('task_result_view', {
+      locale: 'en',
+    })
+  })
+
+  it('tracks a completed rendered result only once per mounted task', async () => {
+    taskOutputRows = [
+      {
+        kind: 'summary',
+        status: 'completed',
+        locale: 'en',
+        content: JSON.stringify({
+          version: 4,
+          language: 'en',
+          overview: 'An overview.',
+          keypoints: [
+            { title: 'One', detail: 'Detail', evidence: 'Evidence' },
+          ],
+          sections: [],
+        }),
+      },
+    ]
+
+    const props = {
+      taskStatus: {
+        taskId: 'task-dedupe',
+        status: 'completed' as const,
+        progress: 100,
+        videoTitle: 'A complete source',
+        videoUrl: 'https://www.youtube.com/watch?v=video-456',
+      },
+    }
+
+    const { rerender } = render(<TaskDataGroup {...props} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('An overview.')).toBeInTheDocument()
+    })
+
+    rerender(<TaskDataGroup {...props} />)
+
+    expect(growth.trackGrowthEvent).toHaveBeenCalledTimes(1)
   })
 
   it('shows a sanitized failure without reviving the old progress panel', () => {
@@ -275,6 +321,7 @@ describe('TaskDataGroup', () => {
       expect(screen.getByText('AI becomes useful when feedback, judgment, and action form a shorter loop.')).toBeInTheDocument()
       expect(screen.getAllByText('Show useful feedback early')).toHaveLength(2)
       expect(screen.getByText('Keep the interface focused')).toBeInTheDocument()
+      expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_result_view', expect.anything())
     } finally {
       vi.useRealTimers()
     }

@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import type { Locale } from "@/lib/i18n";
 import { sanitizeErrorMessage } from "@/lib/safe-error";
 
 export const API_BASE_URL =
@@ -65,9 +66,10 @@ export class ApiClient {
         });
     }
 
-    static async createCheckoutSession(planKey: string, token: string) {
+    static async createCheckoutSession(planKey: string, token: string, locale: Locale) {
         const formData = new FormData();
         formData.append("plan_key", planKey);
+        formData.append("locale", locale);
 
         return this.request("/api/create-checkout-session", {
             method: "POST",
@@ -87,9 +89,10 @@ export class ApiClient {
         });
     }
 
-    static async createCryptoCharge(planKey: string, token: string) {
+    static async createCryptoCharge(planKey: string, token: string, locale: Locale) {
         const formData = new FormData();
         formData.append("plan_key", planKey);
+        formData.append("locale", locale);
 
         return this.request("/api/create-crypto-charge", {
             method: "POST",

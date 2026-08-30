@@ -1,0 +1,92 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+vi.mock("@/env", () => ({
+  env: {
+    NEXT_PUBLIC_APP_URL: undefined,
+    NEXT_PUBLIC_BASE_URL: undefined,
+    FRONTEND_URL: undefined,
+  },
+}))
+
+const supabaseMocks = vi.hoisted(() => {
+  const query: Record<string, ReturnType<typeof vi.fn>> = {}
+  query.select = vi.fn(() => query)
+  query.eq = vi.fn(() => query)
+  query.order = vi.fn(() => query)
+  query.limit = vi.fn()
+  return {
+    from: vi.fn(() => query),
+    query,
+  }
+})
+
+vi.mock("@/lib/supabase-public", () => ({
+  supabasePublic: { from: supabaseMocks.from },
+}))
+
+import sitemap, { buildSitemapEntries, STATIC_SITEMAP_PATHS } from "./sitemap"
+import robots from "./robots"
+
+describe("public discovery metadata", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supabaseMocks.query.select.mockImplementation(() => supabaseMocks.query)
+    supabaseMocks.query.eq.mockImplementation(() => supabaseMocks.query)
+    supabaseMocks.query.order.mockImplementation(() => supabaseMocks.query)
+    supabaseMocks.query.limit.mockResolvedValue({ data: [] })
+  })
+
+  it("queries only database-qualified completed public tasks with completed summaries", async () => {
+    await sitemap()
+
+    expect(supabaseMocks.from).toHaveBeenCalledWith("tasks")
+    expect(supabaseMocks.query.eq.mock.calls).toEqual(expect.arrayContaining([
+      ["status", "completed"],
+      ["is_demo", true],
+      ["publication_status", "published"],
+      ["task_outputs.kind", "summary"],
+      ["task_outputs.status", "completed"],
+    ]))
+    expect(supabaseMocks.query.limit).toHaveBeenCalledWith(1000)
+  })
+
+  it("builds deterministic canonical localized entries and uses the latest task update", () => {
+    const entries = buildSitemapEntries([{
+      id: "task-123",
+      video_title: "Agent Systems in Production",
+      created_at: "2026-08-28T08:00:00.000Z",
+      published_at: "2026-08-29T09:00:00.000Z",
+      updated_at: "2026-08-30T10:00:00.000Z",
+    }])
+
+    expect(entries).toHaveLength(STATIC_SITEMAP_PATHS.length * 3 + 3)
+    const englishTask = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))
+    expect(englishTask).toMatchObject({
+      url: "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",
+      lastModified: new Date("2026-08-30T10:00:00.000Z"),
+      changeFrequency: "monthly",
+      priority: 0.6,
+      alternates: {
+        languages: {
+          en: "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",
+          zh: "https://vibedigest.io/zh/tasks/task-123/Agent-Systems-in-Production",
+          ja: "https://vibedigest.io/ja/tasks/task-123/Agent-Systems-in-Production",
+          "x-default": "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",
+        },
+      },
+    })
+    expect(entries.some((entry) => entry.url.includes("transcript"))).toBe(false)
+    expect(entries.some((entry) => entry.url.includes("/chat"))).toBe(false)
+  })
+
+  it("keeps crawler discovery on public pages and blocks application endpoints", () => {
+    expect(robots()).toEqual({
+      rules: {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/api/", "/admin/"],
+      },
+      sitemap: "https://vibedigest.io/sitemap.xml",
+    })
+  })
+})

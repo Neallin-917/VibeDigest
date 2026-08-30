@@ -1,6 +1,7 @@
 
 import { createClient } from "@/lib/supabase-server";
 import { redirect, notFound } from "next/navigation";
+import { buildTaskSlug } from "@/lib/task-path";
 
 // Only need ID for this redirect page
 type Props = {
@@ -20,13 +21,6 @@ async function getTask(id: string) {
     return task
 }
 
-function generateSlug(title: string): string {
-    if (!title) return "video";
-    // Replace spaces with - and remove special chars (keep unicode)
-    // Or just simple encoding
-    return encodeURIComponent(title.trim().replace(/\s+/g, '-'));
-}
-
 export default async function TaskRedirectPage(props: Props) {
     const params = await props.params;
     const { id, lang } = params;
@@ -36,6 +30,6 @@ export default async function TaskRedirectPage(props: Props) {
         notFound()
     }
 
-    const slug = generateSlug(task.video_title || "video");
+    const slug = buildTaskSlug(task.video_title);
     redirect(`/${lang}/tasks/${id}/${slug}`);
 }

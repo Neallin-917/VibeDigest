@@ -4,11 +4,12 @@ import { useDeferredValue, useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { track } from "@vercel/analytics"
 import { cva } from "class-variance-authority"
 import { ChevronDown, ExternalLink, Search } from "lucide-react"
 import type { Locale } from "@/lib/i18n"
+import { trackGrowthEvent } from "@/lib/growth-events"
 import { findPodcastSource, type PodcastSource } from "@/lib/podcast-sources"
+import { buildTaskSlug } from "@/lib/task-path"
 import { cn } from "@/lib/utils"
 
 export type TaskOutput = {
@@ -199,7 +200,7 @@ const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
 })
 
 function taskDetailHref(task: Task, locale: Locale, sourceId = "all", query = "") {
-    const slug = encodeURIComponent((task.video_title || "podcast").trim().replace(/\s+/g, "-"))
+    const slug = buildTaskSlug(task.video_title || "podcast")
     const returnState = new URLSearchParams()
     if (sourceId !== "all") returnState.set("fromShow", sourceId)
     const trimmedQuery = query.trim()
@@ -313,7 +314,11 @@ function EpisodeFeatureCard({
                 href={href}
                 data-slot="episode-card-media"
                 className={episodeMediaVariants({ role })}
-                onClick={() => track("library_digest_open", { source: source.id, area: role })}
+                onClick={() => trackGrowthEvent("library_digest_open", {
+                    locale,
+                    source: source.id,
+                    area: role,
+                })}
             >
                 {task.thumbnail_url ? (
                     <Image
@@ -377,7 +382,11 @@ function EpisodeFeatureCard({
                     ) : (
                         <Link
                             href={href}
-                            onClick={() => track("library_digest_open", { source: source.id, area: `${role}_cta` })}
+                            onClick={() => trackGrowthEvent("library_digest_open", {
+                                locale,
+                                source: source.id,
+                                area: `${role}_cta`,
+                            })}
                             className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary-strong px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                         >
                             {copy.read}
@@ -525,7 +534,11 @@ function CompactEpisodeRow({
         <article className="border border-slate-200 bg-white/65 [content-visibility:auto] dark:border-white/10 dark:bg-white/[0.03]">
             <Link
                 href={href}
-                onClick={() => track("library_digest_open", { source: source.id, area: "compact" })}
+                onClick={() => trackGrowthEvent("library_digest_open", {
+                    locale,
+                    source: source.id,
+                    area: "compact",
+                })}
                 className="grid min-h-[7.75rem] grid-cols-[7.5rem_minmax(0,1fr)] gap-4 p-3 transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:bg-white/[0.035]"
             >
                 <div className="relative overflow-hidden bg-slate-100 dark:bg-zinc-950">
@@ -614,6 +627,10 @@ export function CommunityTemplates({
     const canToggleAllSources = sourceItems.length > featuredSources.length
     const featuredTasks = initialTasks.slice(0, FEATURED_COUNT)
     const feedTasks = initialTasks.slice(FEATURED_COUNT)
+
+    useEffect(() => {
+        if (layout === "gallery") trackGrowthEvent("library_view", { locale })
+    }, [layout, locale])
 
     useEffect(() => {
         const trimmedDeferred = deferredQuery.trim().slice(0, 120)
@@ -709,7 +726,7 @@ export function CommunityTemplates({
                     <Link
                         href={pathname ? buildLibraryHref(pathname, "all", query, 1) : "#"}
                         scroll={false}
-                        onClick={() => track("library_filter_source", { source: "all" })}
+                        onClick={() => trackGrowthEvent("library_filter_source", { locale, source: "all" })}
                         aria-current={selectedSource === "all" ? "page" : undefined}
                         className={cn(
                             "inline-flex min-h-11 shrink-0 items-center rounded-full border px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
@@ -725,7 +742,7 @@ export function CommunityTemplates({
                             key={item.source.id}
                             href={pathname ? buildLibraryHref(pathname, item.source.id, query, 1) : "#"}
                             scroll={false}
-                            onClick={() => track("library_filter_source", { source: item.source.id })}
+                            onClick={() => trackGrowthEvent("library_filter_source", { locale, source: item.source.id })}
                             aria-current={selectedSource === item.source.id ? "page" : undefined}
                             className={cn(
                                 "flex min-h-12 shrink-0 items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
@@ -807,7 +824,11 @@ export function CommunityTemplates({
                             <Link
                                 href={loadMoreHref}
                                 scroll={false}
-                                onClick={() => track("library_load_more", { page: currentPage + 1, source: selectedSource })}
+                                onClick={() => trackGrowthEvent("library_load_more", {
+                                    locale,
+                                    page: currentPage + 1,
+                                    source: selectedSource,
+                                })}
                                 className="inline-flex min-h-11 items-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-500/60 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/15 dark:text-zinc-300 dark:hover:border-emerald-400/60 dark:hover:text-emerald-400"
                             >
                                 {podcastCopy.loadMore}

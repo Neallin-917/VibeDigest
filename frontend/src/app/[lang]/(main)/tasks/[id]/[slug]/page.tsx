@@ -1,11 +1,11 @@
 
 import { createClient } from "@/lib/supabase-server"
-import type { Metadata, ResolvingMetadata } from "next"
+import type { Metadata } from "next"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
+import { buildLocalizedPath } from "@/lib/seo"
 import {
     buildDetailedSummaryMarkdownFromContent,
     buildSummaryExcerptFromContent,
@@ -24,6 +24,15 @@ import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
 import { ArrowDown, ArrowLeft, ChevronDown, ExternalLink, MessageCircleQuestion } from "lucide-react"
 import { cache } from "react"
 import { TaskFollowUp } from "@/components/tasks/TaskFollowUp"
+import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
+import {
+    buildPublicTaskJsonLd,
+    buildPublicTaskMetadata,
+    buildTaskSlug,
+    isPublishedPublicTask,
+    resolveSummaryLanguageTag,
+    serializeJsonLd,
+} from "@/lib/public-task-seo"
 
 type Props = {
     params: Promise<{
@@ -64,11 +73,6 @@ function buildReturnSuffix(returnState: Awaited<Props["searchParams"]>) {
     if (THREAD_ID_PATTERN.test(threadId)) params.set("threadId", threadId)
     const search = params.toString()
     return search ? `?${search}` : ""
-}
-
-function generateSlug(title: string): string {
-    if (!title) return "video";
-    return encodeURIComponent(title.trim().replace(/\s+/g, '-'));
 }
 
 function getSourceLabel(videoUrl: string, author?: string | null) {
@@ -156,6 +160,7 @@ const DETAIL_COPY = {
     en: {
         back: "Back to podcast library", source: "Source",
         summary: "Summary", keyIdeas: "Key ideas", fullSummary: "Read the full digest", original: "Open Original Video",
+        share: "Copy share link", copied: "Copied", copyFailed: "Copy failed",
         whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at",
         failed: "This task did not complete. You can retry it below.",
         pending: "Summary not available yet. Check back once processing completes.",
@@ -172,6 +177,7 @@ const DETAIL_COPY = {
     zh: {
         back: "返回播客库", source: "来源",
         summary: "内容摘要", keyIdeas: "关键观点", fullSummary: "完整整理", original: "打开原视频",
+        share: "复制分享链接", copied: "已复制", copyFailed: "复制失败",
         whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点",
         failed: "这项任务未能完成，可以在下方重试。",
         pending: "整理内容尚未生成，请在处理完成后回来查看。",
@@ -188,6 +194,7 @@ const DETAIL_COPY = {
     ja: {
         back: "ポッドキャスト一覧に戻る", source: "出典",
         summary: "要約", keyIdeas: "重要ポイント", fullSummary: "整理内容をすべて読む", original: "元の動画を開く",
+        share: "共有リンクをコピー", copied: "コピー済み", copyFailed: "コピーできませんでした",
         whyItMatters: "重要な理由", evidence: "根拠", openAt: "元の動画を開く",
         failed: "このタスクは完了しませんでした。下から再試行できます。",
         pending: "整理内容はまだありません。処理完了後にもう一度確認してください。",
@@ -219,7 +226,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     // Fetch task
     const { data: task } = await supabase
         .from('tasks')
-        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo')
+        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo, publication_status, podcast_source_slug, published_at, updated_at')
         .eq('id', id)
         .single()
 
@@ -238,10 +245,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     return { task, outputs }
 })
 
-export async function generateMetadata(
-    props: Props,
-    parent: ResolvingMetadata
-): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
     const params = await props.params;
     const { id, lang } = params
     const { task, outputs } = await getTaskAndOutputs(id, lang)
@@ -252,37 +256,18 @@ export async function generateMetadata(
         }
     }
 
-    const previousImages = (await parent).openGraph?.images || []
+    const locale = isLocale(lang) ? lang : "en"
+    const summaryOutput = pickPreferredSummaryOutput(outputs as SummaryOutputCandidate[], locale)
+    const structuredSummary = summaryOutput ? parseCurrentSummary(summaryOutput.content) : null
+    const summaryText = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 160, locale) : ""
 
-    // Construct canonical and alternates
-    // We assume the current slug is correct (validity checked in Page component, but for metadata we should use the "correct" one ideally)
-    const currentSlug = generateSlug(task.video_title || "video");
-
-    const path = `/tasks/${id}/${currentSlug}`
-    const shouldIndex = task.is_demo === true && task.status === "completed"
-    const summaryOutput = pickPreferredSummaryOutput(outputs as SummaryOutputCandidate[], lang)
-    const summaryText = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 160, lang) : ""
-    const fallbackDescription = `View the AI-generated summary and key ideas for "${task.video_title || 'this video'}".`
-    const description = summaryText || fallbackDescription
-
-    return {
-        title: task.video_title || "Processed Video",
-        description,
-        openGraph: {
-            title: task.video_title || "Processed Video",
-            description,
-            images: task.thumbnail_url ? [task.thumbnail_url, ...previousImages] : previousImages,
-            url: buildLocalizedPath(lang, path),
-            type: "article",
-        },
-        alternates: {
-            canonical: buildLocalizedPath(lang, path),
-            languages: buildAlternateLanguages(path),
-        },
-        robots: shouldIndex
-            ? { index: true, follow: true }
-            : { index: false, follow: false },
-    }
+    return buildPublicTaskMetadata({
+        locale,
+        task: { ...task, id },
+        summary: summaryText,
+        summaryLanguage: structuredSummary?.language,
+        hasCompletedSummary: Boolean(summaryOutput),
+    })
 }
 
 export default async function TaskDetailPage(props: Props) {
@@ -297,7 +282,7 @@ export default async function TaskDetailPage(props: Props) {
     }
 
     // SLUG ENFORCEMENT
-    const correctSlug = generateSlug(task.video_title || "video");
+    const correctSlug = buildTaskSlug(task.video_title)
     if (slug !== correctSlug) {
         redirect(`/${lang}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState)}`);
     }
@@ -316,52 +301,23 @@ export default async function TaskDetailPage(props: Props) {
     const status = normalizeTaskStatus(task.status)
     const initialThreadId = getSingleSearchParam(returnState.threadId)
     const sourceLabel = task.video_url ? getSourceLabel(task.video_url, task.author) : ""
+    const sourceId = getOptionalString(task, "podcast_source_slug") || sourceLabel || "unknown"
     const sourceAuthorUrl = getOptionalString(task, "author_url")
     const sourceDuration = getOptionalString(task, "durationLabel") || formatDuration(getOptionalNumber(task, "duration"), locale)
     const sourceUploadDate = getOptionalString(task, "upload_date")
     const sourceDateLabel = formatSourceDate(sourceUploadDate, locale)
-    const canonicalUrl = buildLocalizedPath(lang, `/tasks/${id}/${correctSlug}`)
-    const articleJsonLd: Record<string, unknown> = {
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline: title,
-        description: summaryExcerpt || `AI summary of ${title}.`,
-        mainEntityOfPage: canonicalUrl,
-        url: canonicalUrl,
-        author: {
-            "@type": "Organization",
-            name: "VibeDigest",
-        },
-        publisher: {
-            "@type": "Organization",
-            name: "VibeDigest",
-        },
-    }
-    if (task.thumbnail_url) {
-        articleJsonLd.image = [task.thumbnail_url]
-    }
-    if (task.video_url) {
-        articleJsonLd.about = {
-            "@type": "CreativeWork",
-            url: task.video_url,
-        }
-    }
-    if (sourceUploadDate) {
-        articleJsonLd.datePublished = sourceUploadDate
-    }
-    const videoJsonLd = task.video_url
-        ? {
-            "@context": "https://schema.org",
-            "@type": "VideoObject",
-            name: title,
-            description: summaryExcerpt || `AI summary of ${title}.`,
-            url: canonicalUrl,
-            contentUrl: task.video_url,
-            thumbnailUrl: task.thumbnail_url ? [task.thumbnail_url] : undefined,
-            uploadDate: sourceUploadDate || undefined,
-        }
+    const canonicalUrl = buildLocalizedPath(locale, `/tasks/${id}/${correctSlug}`)
+    const isPublicDigest = isPublishedPublicTask(task, Boolean(summaryOutput))
+    const jsonLd = isPublicDigest
+        ? buildPublicTaskJsonLd({
+            locale,
+            task: { ...task, id },
+            canonicalUrl,
+            description: summaryExcerpt || leadSummary || title,
+            contentLanguage: structuredSummary?.language,
+        })
         : null
-    const jsonLd = videoJsonLd ? [articleJsonLd, videoJsonLd] : articleJsonLd
+    const summaryLanguageTag = resolveSummaryLanguageTag(structuredSummary?.language, locale)
     const statusVariantMap: Record<string, "success" | "processing" | "secondary" | "destructive"> = {
         completed: "success",
         processing: "processing",
@@ -373,19 +329,35 @@ export default async function TaskDetailPage(props: Props) {
 
     return (
         <div className="relative z-10 min-h-0 w-full flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-12">
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-            />
+            {jsonLd ? (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+                />
+            ) : null}
             <div className="mx-auto max-w-6xl">
                 <header className="border-b border-border/70 pb-6">
-                    <Link
-                        href={buildLibraryHref(locale, returnState)}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
-                    >
-                        <ArrowLeft className="size-4" aria-hidden="true" />
-                        {copy.back}
-                    </Link>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Link
+                            href={buildLibraryHref(locale, returnState)}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
+                        >
+                            <ArrowLeft className="size-4" aria-hidden="true" />
+                            {copy.back}
+                        </Link>
+                        {isPublicDigest ? (
+                            <PublicDigestActions
+                                locale={locale}
+                                source={sourceId}
+                                canonicalUrl={canonicalUrl}
+                                copy={{
+                                    share: copy.share,
+                                    copied: copy.copied,
+                                    copyFailed: copy.copyFailed,
+                                }}
+                            />
+                        ) : null}
+                    </div>
                     {status !== "completed" && (
                         <div className="mt-3">
                             <Badge variant={statusVariant}>{statusLabel}</Badge>
@@ -430,7 +402,7 @@ export default async function TaskDetailPage(props: Props) {
                 </header>
 
                 <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-14 lg:gap-y-12">
-                    <article className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
+                    <article lang={summaryLanguageTag} className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
                         <section className="space-y-3" aria-labelledby="task-summary-title">
                             <Heading as="h2" variant="h2" id="task-summary-title" className="scroll-mt-28">
                                 {copy.summary}

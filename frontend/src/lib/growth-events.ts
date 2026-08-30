@@ -14,7 +14,7 @@ type EpisodePlacement =
 
 type TaskCreateAcceptedSurface = "workspace" | "source_followup"
 type PricingPlan = "pro" | "free" | "topup"
-type PricingPlanDestination = "login" | "pricing"
+type PricingPlanDestination = "chat" | "login" | "pricing"
 type PricingCheckoutProduct = "pro" | "topup"
 type PricingCheckoutBilling = "monthly" | "annual" | "one_time"
 

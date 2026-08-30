@@ -22,12 +22,18 @@ type PricingPlanCard = {
     highlight: boolean
 }
 
+function getPlanDestination(locale: string, plan: PricingPlanKey) {
+    if (plan === "free") return `/${locale}/chat`
+    return `/${locale}/settings/pricing#${plan}`
+}
+
 export function PricingSection() {
     const { t, locale } = useI18n()
     const router = useRouter()
     const { data: user, refetch: refetchUser } = useCurrentUserQuery()
 
     const handlePlanClick = async (plan: PricingPlanKey) => {
+        const destination = getPlanDestination(locale, plan)
         const resolvedUser = user === undefined
             ? (await refetchUser()).data
             : user
@@ -38,14 +44,14 @@ export function PricingSection() {
                 plan,
                 destination: "login",
             })
-            router.push(`/${locale}/login?next=/${locale}/settings/pricing`)
+            router.push(`/${locale}/login?next=${encodeURIComponent(destination)}`)
         } else {
             trackGrowthEvent("pricing_plan_open", {
                 locale,
                 plan,
-                destination: "pricing",
+                destination: plan === "free" ? "chat" : "pricing",
             })
-            router.push(`/${locale}/settings/pricing`)
+            router.push(destination)
         }
     }
 

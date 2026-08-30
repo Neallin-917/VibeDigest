@@ -48,6 +48,11 @@ describe("growth event vocabulary", () => {
       plan: "topup",
       destination: "pricing",
     })
+    trackGrowthEvent("pricing_plan_open", {
+      locale: "en",
+      plan: "free",
+      destination: "chat",
+    })
     trackGrowthEvent("pricing_checkout_redirect", {
       locale: "en",
       product: "pro",
@@ -66,7 +71,12 @@ describe("growth event vocabulary", () => {
       plan: "topup",
       destination: "pricing",
     })
-    expect(analytics.track).toHaveBeenNthCalledWith(4, "pricing_checkout_redirect", {
+    expect(analytics.track).toHaveBeenNthCalledWith(4, "pricing_plan_open", {
+      locale: "en",
+      plan: "free",
+      destination: "chat",
+    })
+    expect(analytics.track).toHaveBeenNthCalledWith(5, "pricing_checkout_redirect", {
       locale: "en",
       product: "pro",
       billing: "annual",

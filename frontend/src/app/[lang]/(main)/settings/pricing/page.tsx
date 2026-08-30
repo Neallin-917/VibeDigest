@@ -180,8 +180,9 @@ export default function PricingPage() {
 
                     {/* PRO TIER */}
                     <Card
+                        id="pro"
                         className={cn(
-                            "relative flex flex-col h-full border-emerald-500/50 bg-emerald-950/10 backdrop-blur-md shadow-2xl shadow-emerald-500/10",
+                            "relative flex scroll-mt-24 flex-col h-full border-emerald-500/50 bg-emerald-950/10 backdrop-blur-md shadow-2xl shadow-emerald-500/10",
                             isPro && "ring-2 ring-emerald-500"
                         )}
                     >
@@ -297,7 +298,10 @@ export default function PricingPage() {
                     </Card>
 
                     {/* TOP UP */}
-                    <Card className="relative flex flex-col h-full border-border/50 bg-background/50 backdrop-blur-sm">
+                    <Card
+                        id="topup"
+                        className="relative flex scroll-mt-24 flex-col h-full border-border/50 bg-background/50 backdrop-blur-sm"
+                    >
                         <CardHeader>
                             <CardTitle className="text-base">{catalog.topUp.title}</CardTitle>
                             <CardDescription className="text-xs">{catalog.topUp.description}</CardDescription>

@@ -100,15 +100,15 @@ describe("PricingSection", () => {
         await user.click(screen.getByRole("button", { name: "Buy credits" }))
 
         expect(mockGetUser).toHaveBeenCalledTimes(1)
-        expect(mockPush).toHaveBeenNthCalledWith(1, "/en/login?next=/en/settings/pricing")
-        expect(mockPush).toHaveBeenNthCalledWith(2, "/en/login?next=/en/settings/pricing")
+        expect(mockPush).toHaveBeenNthCalledWith(1, "/en/login?next=%2Fen%2Fsettings%2Fpricing%23pro")
+        expect(mockPush).toHaveBeenNthCalledWith(2, "/en/login?next=%2Fen%2Fsettings%2Fpricing%23topup")
     })
 
     it.each([
-        { name: "View plan", plan: "pro" },
-        { name: "Get started", plan: "free" },
-        { name: "Buy credits", plan: "topup" },
-    ] as const)("tracks pricing_plan_open for %s before sending visitors to login", async ({ name, plan }) => {
+        { name: "View plan", plan: "pro", next: "/en/settings/pricing#pro" },
+        { name: "Get started", plan: "free", next: "/en/chat" },
+        { name: "Buy credits", plan: "topup", next: "/en/settings/pricing#topup" },
+    ] as const)("tracks pricing_plan_open for %s before sending visitors to login", async ({ name, plan, next }) => {
         const user = userEvent.setup()
         renderPricingSection()
 
@@ -120,10 +120,14 @@ describe("PricingSection", () => {
             plan,
             destination: "login",
         })
-        expect(mockPush).toHaveBeenCalledWith("/en/login?next=/en/settings/pricing")
+        expect(mockPush).toHaveBeenCalledWith(`/en/login?next=${encodeURIComponent(next)}`)
     })
 
-    it("routes a signed-in visitor directly to plan management", async () => {
+    it.each([
+        { name: "View plan", plan: "pro", destination: "pricing", path: "/en/settings/pricing#pro" },
+        { name: "Get started", plan: "free", destination: "chat", path: "/en/chat" },
+        { name: "Buy credits", plan: "topup", destination: "pricing", path: "/en/settings/pricing#topup" },
+    ] as const)("preserves a signed-in visitor's $plan intent", async ({ name, plan, destination, path }) => {
         const user = userEvent.setup()
         mockGetUser.mockResolvedValue({
             data: { user: { id: "user-1", email: "user@example.com" } },
@@ -132,13 +136,13 @@ describe("PricingSection", () => {
         renderPricingSection()
 
         await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1))
-        await user.click(screen.getByRole("button", { name: "View plan" }))
+        await user.click(screen.getByRole("button", { name }))
 
         expect(growth.trackGrowthEvent).toHaveBeenCalledWith("pricing_plan_open", {
             locale: "en",
-            plan: "pro",
-            destination: "pricing",
+            plan,
+            destination,
         })
-        expect(mockPush).toHaveBeenCalledWith("/en/settings/pricing")
+        expect(mockPush).toHaveBeenCalledWith(path)
     })
 })

@@ -94,6 +94,8 @@ describe("PricingPage", () => {
         expect(mockSelect).toHaveBeenCalledWith(
             "tier, usage_count, usage_limit, extra_credits",
         )
+        expect(document.querySelector("#pro")).toBeInTheDocument()
+        expect(document.querySelector("#topup")).toBeInTheDocument()
     })
 
     it("uses the customer portal API and shows an inline localized error", async () => {

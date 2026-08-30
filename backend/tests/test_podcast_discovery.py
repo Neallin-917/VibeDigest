@@ -92,8 +92,9 @@ def test_catalog_contains_all_onepod_sources_with_bounded_default_tracking():
     pragmatic_engineer = next(
         source for source in sources if source.slug == "pragmatic-engineer"
     )
+    assert pragmatic_engineer.source_type == "youtube_playlist"
     assert pragmatic_engineer.source_url == (
-        "https://www.youtube.com/channel/UCPbwhExawYrn9xxI21TFfyw"
+        "https://www.youtube.com/playlist?list=PLzwJJv8h-iciW53inSOkQA4mkG8TuQAUh"
     )
 
 
@@ -106,8 +107,16 @@ def test_catalog_contains_all_onepod_sources_with_bounded_default_tracking():
         (
             {
                 "sources": [
-                    {"slug": "one", "name": "One", "source_url": "https://example.com/one"},
-                    {"slug": "one", "name": "Two", "source_url": "https://example.com/two"},
+                    {
+                        "slug": "one",
+                        "name": "One",
+                        "source_url": "https://example.com/one",
+                    },
+                    {
+                        "slug": "one",
+                        "name": "Two",
+                        "source_url": "https://example.com/two",
+                    },
                 ]
             },
             "Duplicate podcast source slug",
@@ -154,7 +163,9 @@ def test_repository_syncs_catalog_and_maps_database_rows():
 
     db._execute_query.reset_mock()
     db._execute_query.return_value = [{**source.__dict__}]
-    repository.list_sources(discovery_enabled_only=False, exclude_completed_backfill=True)
+    repository.list_sources(
+        discovery_enabled_only=False, exclude_completed_backfill=True
+    )
     list_query = db._execute_query.call_args.args[0]
     assert "backfill_completed_at IS NULL" in list_query
     assert "discovery_enabled = true" not in list_query
@@ -184,8 +195,28 @@ def test_repository_syncs_catalog_and_maps_database_rows():
     repository.advance_backfill_cursor(source.id, next_cursor=12, completed=False)
 
 
+@pytest.mark.parametrize(
+    ("source_type", "source_url", "expected_url"),
+    [
+        (
+            "youtube_channel",
+            "https://www.youtube.com/@LatentSpacePod",
+            "https://www.youtube.com/@LatentSpacePod/videos",
+        ),
+        (
+            "youtube_playlist",
+            "https://www.youtube.com/playlist?list=playlist-id",
+            "https://www.youtube.com/playlist?list=playlist-id",
+        ),
+    ],
+)
 @pytest.mark.asyncio
-async def test_youtube_discoverer_extracts_flat_metadata(monkeypatch):
+async def test_youtube_discoverer_extracts_flat_metadata(
+    monkeypatch,
+    source_type,
+    source_url,
+    expected_url,
+):
     captured = {}
 
     class FakeProcess:
@@ -214,12 +245,12 @@ async def test_youtube_discoverer_extracts_flat_metadata(monkeypatch):
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
     episodes = await YouTubeChannelDiscoverer(timeout_seconds=1).discover(
-        _source(),
+        _source(source_type=source_type, source_url=source_url),
         candidate_limit=3,
         offset=5,
     )
 
-    assert captured["args"][-1] == "https://www.youtube.com/@LatentSpacePod/videos"
+    assert captured["args"][-1] == expected_url
     assert "--dump-single-json" in captured["args"]
     assert captured["args"][captured["args"].index("--playlist-items") + 1] == "6:8"
     assert captured["kwargs"]["stdout"] == asyncio.subprocess.PIPE
@@ -266,7 +297,9 @@ def test_discovery_metadata_helpers_fail_closed():
     assert _optional_non_negative_int("12.9") == 12
     assert _optional_non_negative_int(-2) == 0
     assert _optional_non_negative_int("bad") is None
-    assert _entry_published_at({"upload_date": "20260825"}) == datetime(2026, 8, 25, tzinfo=UTC)
+    assert _entry_published_at({"upload_date": "20260825"}) == datetime(
+        2026, 8, 25, tzinfo=UTC
+    )
     assert _entry_published_at({"upload_date": "invalid"}) is None
 
 
@@ -323,7 +356,9 @@ async def test_discovery_filters_old_and_short_items_then_uses_canonical_queue()
 @pytest.mark.asyncio
 async def test_backfill_mode_targets_older_items_and_advances_cursor():
     source = _source(discovery_enabled=False, backfill_cursor=8)
-    overlap = _episode("recent-overlap", published_at=datetime.now(UTC) - timedelta(days=2))
+    overlap = _episode(
+        "recent-overlap", published_at=datetime.now(UTC) - timedelta(days=2)
+    )
     archived = _episode("archived", published_at=datetime.now(UTC) - timedelta(days=45))
     repository = MagicMock()
     repository.list_sources.return_value = [source]
@@ -346,7 +381,9 @@ async def test_backfill_mode_targets_older_items_and_advances_cursor():
         demo_user_id="00000000-0000-0000-0000-000000000001",
     )
 
-    stats = await service.run(mode="backfill", since_days=7, max_enqueues=4, backfill_window=12)
+    stats = await service.run(
+        mode="backfill", since_days=7, max_enqueues=4, backfill_window=12
+    )
 
     assert stats.episodes_seen == 2
     assert stats.episodes_filtered == 1
@@ -452,4 +489,6 @@ async def test_discovery_records_source_and_episode_errors_without_losing_other_
         "00000000-0000-0000-0000-000000000200",
         "queue unavailable",
     )
-    repository.mark_source_checked.assert_called_once_with(source.id, "queue unavailable")
+    repository.mark_source_checked.assert_called_once_with(
+        source.id, "queue unavailable"
+    )

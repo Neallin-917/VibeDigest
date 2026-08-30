@@ -166,6 +166,22 @@ def test_finish_metadata_allowlist_discards_internal_credentials(setup):
     assert service.finish.call_args.kwargs["metadata"] == {"model": "test-model"}
 
 
+def test_finish_accepts_quota_exceeded_as_a_safe_terminal_reason(setup):
+    client, _, service = setup
+    service.finish.return_value = True
+    response = _post(
+        client,
+        f"/api/internal/agent/turns/{uuid4()}/finish",
+        {
+            "userId": str(uuid4()),
+            "token": str(uuid4()),
+            "errorCode": "quota_exceeded",
+        },
+    )
+    assert response.json() == {"saved": True}
+    assert service.finish.call_args.kwargs["error_code"] == "quota_exceeded"
+
+
 def test_internal_source_read_checks_turn_and_task_ownership(setup):
     client, db, service = setup
     user, token, task = str(uuid4()), str(uuid4()), str(uuid4())

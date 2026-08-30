@@ -294,6 +294,25 @@ describe('completion fencing and failures', () => {
     expect(client.finish).toHaveBeenCalledExactlyOnceWith([], expect.any(Object), 'model_unavailable')
   })
 
+  it('records quota exhaustion as an expected commercial state', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const model = modelFor([[toolEvent('create_video_task', {
+        videoUrl: 'https://youtu.be/fixture', locale: 'zh',
+      })]])
+      const client = clientFixture()
+      client.submit.mockRejectedValue(new AgentServiceError(402))
+      await expect(runTaskAgent(baseTurn, client)).rejects.toMatchObject({ status: 402 })
+      expect(model.doStreamCalls).toHaveLength(1)
+      expect(client.finish).toHaveBeenCalledExactlyOnceWith([], expect.any(Object), 'quota_exceeded')
+      expect(log).toHaveBeenCalledWith('[Task Agent] run failed', {
+        turnId: baseTurn.id, runtime: 'api', provider: 'openrouter', errorKind: 'state', statusCode: 402,
+      })
+    } finally {
+      log.mockRestore()
+    }
+  })
+
   it.each(['request', 'stream'])('redacts %s failures before the real SDK logs them, while preserving the status', async phase => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {

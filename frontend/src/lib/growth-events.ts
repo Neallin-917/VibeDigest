@@ -19,6 +19,7 @@ type GrowthEventPayloads = {
   library_load_more: { locale: Locale; source: string; page: number }
   public_digest_view: { locale: Locale; source: string }
   public_digest_share: { locale: Locale; source: string; method: "copy_link" }
+  quota_pricing_open: { locale: Locale; surface: "workspace" | "source_followup" }
 }
 
 export type GrowthEventName = keyof GrowthEventPayloads

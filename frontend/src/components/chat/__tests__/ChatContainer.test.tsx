@@ -10,7 +10,11 @@ const mockRegenerate = vi.fn()
 const mockStop = vi.fn()
 const mockUseChatRealtime = vi.fn()
 let mockChatInputText = 'test message'
-let mockLocale = 'en'
+let mockLocale: 'en' | 'zh' | 'ja' = 'en'
+
+const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
+
+vi.mock('@/lib/growth-events', () => growth)
 
 function createTextMessage(
   text: string,
@@ -46,8 +50,16 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.thinking') return 'Thinking...'
       if (key === 'chat.genericError') return 'Something went wrong.'
       if (key === 'chat.retry') return 'Retry'
-      if (key === 'taskForm.quotaExceeded.description') return 'Your plan limit has been reached.'
-      if (key === 'taskForm.quotaExceeded.confirm') return 'View Plans'
+      if (key === 'taskForm.quotaExceeded.description') return {
+        en: 'Your plan limit has been reached.',
+        zh: '您的方案额度已用完。',
+        ja: 'プランの利用上限に達しました。',
+      }[mockLocale]
+      if (key === 'taskForm.quotaExceeded.confirm') return {
+        en: 'View Plans',
+        zh: '查看方案',
+        ja: 'プランを見る',
+      }[mockLocale]
       if (key === 'chat.followUpPlaceholder') return 'Ask a follow-up about this source...'
       if (key === 'chat.followUpInputLabel') return 'Follow-up question about this source'
       return key
@@ -94,6 +106,7 @@ vi.mock('../tools', () => ({
 
 describe('ChatContainer', () => {
   beforeEach(() => {
+    growth.trackGrowthEvent.mockReset()
     mockRegenerate.mockReset().mockResolvedValue(undefined)
     mockUseChat.mockReset()
     mockUseChat.mockReturnValue({
@@ -305,6 +318,86 @@ describe('ChatContainer', () => {
     expect(screen.getByText('Something went wrong.')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Retry'))
     expect(mockRegenerate).toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      locale: 'en',
+      scope: 'workspace',
+      transportError: new Error('{"error":"The task allowance has been reached.","code":"quota_exceeded"}'),
+      description: 'Your plan limit has been reached.',
+      confirm: 'View Plans',
+      surface: 'workspace',
+    },
+    {
+      locale: 'ja',
+      scope: 'source',
+      transportError: new Error('VIBEDIGEST_QUOTA_EXCEEDED'),
+      description: 'プランの利用上限に達しました。',
+      confirm: 'プランを見る',
+      surface: 'source_followup',
+    },
+  ] as const)(
+    'shows the localized quota CTA for $scope without offering Retry',
+    ({ locale, scope, transportError, description, confirm, surface }) => {
+      mockLocale = locale
+      const messages: ChatUIMessage[] = [createTextMessage('Hi', 'user', '1')]
+      mockUseChat.mockReturnValue({
+        messages,
+        setMessages: mockSetMessages,
+        status: 'idle',
+        error: transportError,
+        regenerate: mockRegenerate,
+        sendMessage: mockSendMessage,
+        stop: mockStop,
+      } as any)
+
+      render(<ChatContainer scope={scope} />)
+
+      expect(screen.getByRole('alert')).toHaveTextContent(description)
+      const cta = screen.getByRole('link', { name: confirm })
+      expect(cta).toHaveAttribute('href', `/${locale}/settings/pricing`)
+      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+
+      cta.addEventListener('click', event => event.preventDefault(), { once: true })
+      fireEvent.click(cta)
+
+      expect(growth.trackGrowthEvent).toHaveBeenCalledExactlyOnceWith('quota_pricing_open', {
+        locale,
+        surface,
+      })
+      expect(mockRegenerate).not.toHaveBeenCalled()
+    },
+  )
+
+  it('restores the quota CTA from persisted metadata without rendering stale retry UI', () => {
+    const messages: ChatUIMessage[] = [
+      createTextMessage('Process this video', 'user', 'user-quota'),
+      {
+        ...createTextMessage('Persisted quota marker', 'assistant', 'assistant-quota'),
+        metadata: {
+          agentTurnId: 'turn-quota', agentState: 'failed', errorCode: 'quota_exceeded',
+        },
+      },
+    ]
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      sendMessage: mockSendMessage,
+      stop: mockStop,
+    })
+
+    render(<ChatContainer initialMessages={messages} threadId="thread-quota" isAuthenticated />)
+
+    expect(screen.queryByText('Persisted quota marker')).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Your plan limit has been reached.')
+    expect(screen.getByRole('link', { name: 'View Plans' })).toHaveAttribute('href', '/en/settings/pricing')
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry answer' })).not.toBeInTheDocument()
+    expect(mockRegenerate).not.toHaveBeenCalled()
   })
 
   it('renders tool invocations correctly', async () => {

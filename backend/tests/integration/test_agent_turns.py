@@ -155,6 +155,28 @@ def test_first_token_failure_has_durable_retry_state_after_reload(pgmq_db):
     assert _finish(pgmq_db, retry)
 
 
+def test_quota_failure_has_durable_pricing_state_after_reload(pgmq_db):
+    turn = _accept(pgmq_db)
+    assert _finish(pgmq_db, turn, error_code="quota_exceeded")
+    rows = pgmq_db._execute_query(
+        "SELECT content, metadata FROM public.chat_messages WHERE id=:id",
+        {"id": f"agent:{turn['id']}:reply"},
+    )
+    assert rows[0]["metadata"] == {
+        "runtime": "api",
+        "agentTurnId": str(turn["id"]),
+        "agentState": "failed",
+        "errorCode": "quota_exceeded",
+    }
+    assert rows[0]["content"] == [
+        {
+            "type": "text",
+            "text": "You have reached your plan limit or have insufficient credits. "
+            "Please upgrade your plan or top up credits to continue.",
+        }
+    ]
+
+
 def test_create_receipt_is_atomic_idempotent_and_goal_stays_private(pgmq_db):
     turn = _accept(pgmq_db)
     first = _submit(pgmq_db, turn)

@@ -5,6 +5,11 @@ import { deriveThreadTitle } from '@/lib/agent/thread-title'
 import { sanitizeStoredMessages } from '@/lib/chat-message-boundary'
 import type { ChatUIMessage } from '@/lib/chat-ui'
 import { agentBackend, AgentServiceError, createTurnClient, type AgentTurn } from '@/lib/agent/backend'
+import {
+  AGENT_QUOTA_EXCEEDED_CODE,
+  AGENT_QUOTA_EXCEEDED_SIGNAL,
+  isAgentQuotaExceededError,
+} from '@/lib/agent/error-codes'
 import { resolveAgentRuntime, runTaskAgent } from '@/lib/agent/task-agent'
 
 export const runtime = 'nodejs'
@@ -41,7 +46,9 @@ export async function POST(request: Request) {
     const client = createTurnClient(turn, request.signal)
 
     const stream = createUIMessageStream<ChatUIMessage>({
-      onError: () => 'The Agent service is temporarily unavailable. Retry this message; an accepted video task will continue.',
+      onError: error => isAgentQuotaExceededError(error)
+        ? AGENT_QUOTA_EXCEEDED_SIGNAL
+        : 'The Agent service is temporarily unavailable. Retry this message; an accepted video task will continue.',
       execute: async ({ writer }) => {
         if (turn.replayed) {
           const { messages } = await client.history()
@@ -94,6 +101,10 @@ export async function POST(request: Request) {
     return createUIMessageStreamResponse({ stream })
   } catch (error) {
     const status = error instanceof AgentServiceError ? error.status : error instanceof SyntaxError ? 400 : 503
-    return Response.json({ error: error instanceof AgentServiceError ? error.message : 'The Agent service is temporarily unavailable.' }, { status })
+    const message = error instanceof AgentServiceError ? error.message : 'The Agent service is temporarily unavailable.'
+    return Response.json(
+      status === 402 ? { error: message, code: AGENT_QUOTA_EXCEEDED_CODE } : { error: message },
+      { status },
+    )
   }
 }

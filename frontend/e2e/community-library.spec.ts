@@ -47,6 +47,18 @@ test.describe('Community library cards', () => {
 
     await digest.focus()
     await expect(digest).toBeFocused()
+
+    const focusIndicator = await digest.evaluate((element) => {
+      const style = getComputedStyle(element, '::after')
+      return {
+        outlineOffset: Number.parseFloat(style.outlineOffset),
+        outlineWidth: Number.parseFloat(style.outlineWidth),
+      }
+    })
+    await expect(card).toHaveCSS('overflow', 'hidden')
+    expect(focusIndicator.outlineWidth).toBeGreaterThan(0)
+    expect(focusIndicator.outlineOffset).toBeLessThan(0)
+
     await page.keyboard.press('Tab')
     await expect(source).toBeFocused()
   })

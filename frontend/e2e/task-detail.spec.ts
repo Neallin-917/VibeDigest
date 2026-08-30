@@ -62,6 +62,8 @@ test.describe("Public task detail", () => {
 
         await page.getByText("完整整理", { exact: true }).click()
         await expect(page.getByRole("heading", { name: "内容概览" })).toBeVisible()
+        await expect(page.getByRole("heading", { name: "内容概览" })).not.toHaveAttribute("lang", /.+/)
+        await expect(page.locator("details.group").locator('p[lang="zh"]').first()).toBeVisible()
         await expect(page.getByRole("heading", { name: "内容摘要" })).toHaveCount(1)
         await expect(page.getByRole("heading", { name: "关键观点" })).toHaveCount(1)
 

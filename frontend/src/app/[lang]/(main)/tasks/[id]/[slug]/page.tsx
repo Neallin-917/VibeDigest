@@ -534,8 +534,24 @@ export default async function TaskDetailPage(props: Props) {
                                 <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
                             </summary>
                             <div className="border-t border-border/70 py-7">
-                                <div lang={summaryLanguageTag} className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={{
+                                            h3: ({ node, ...props }) => {
+                                                void node
+                                                return <h3 lang={summaryLanguageTag} {...props} />
+                                            },
+                                            p: ({ node, ...props }) => {
+                                                void node
+                                                return <p lang={summaryLanguageTag} {...props} />
+                                            },
+                                            li: ({ node, ...props }) => {
+                                                void node
+                                                return <li lang={summaryLanguageTag} {...props} />
+                                            },
+                                        }}
+                                    >
                                         {detailedSummaryMarkdown}
                                     </ReactMarkdown>
                                 </div>

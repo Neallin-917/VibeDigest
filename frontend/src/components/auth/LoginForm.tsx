@@ -6,11 +6,12 @@ import { createClient } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { CheckCircle2, Mail } from "lucide-react"
+import { CheckCircle2, Link2, Mail } from "lucide-react"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { LanguageInlineSelect } from "@/components/i18n/LanguageInlineSelect"
 import { BrandLogo } from "@/components/layout/BrandLogo"
 import Link from "next/link"
+import { getSupportedUrlDetails } from "@/lib/urls"
 
 interface LoginFormProps {
     className?: string
@@ -19,8 +20,8 @@ interface LoginFormProps {
 
 const subscribeToPendingHandoff = () => () => undefined
 const getPendingHandoffSnapshot = () =>
-    typeof window !== "undefined" && Boolean(window.localStorage.getItem("vibedigest_pending_message")?.trim())
-const getPendingHandoffServerSnapshot = () => false
+    typeof window !== "undefined" ? window.localStorage.getItem("vibedigest_pending_message") || "" : ""
+const getPendingHandoffServerSnapshot = () => ""
 
 export function LoginForm({ className, isModal = false }: LoginFormProps) {
     const [email, setEmail] = useState("")
@@ -33,11 +34,12 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
     const { t, locale } = useI18n()
     const searchParams = useSearchParams()
     const nextUrl = searchParams.get('next')
-    const hasPendingMessage = useSyncExternalStore(
+    const pendingMessage = useSyncExternalStore(
         subscribeToPendingHandoff,
         getPendingHandoffSnapshot,
         getPendingHandoffServerSnapshot
     )
+    const pendingSource = useMemo(() => getSupportedUrlDetails(pendingMessage), [pendingMessage])
     const isChatHandoff = useMemo(() => {
         try {
             return nextUrl
@@ -47,7 +49,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
             return false
         }
     }, [locale, nextUrl])
-    const hasPendingHandoff = isChatHandoff && hasPendingMessage
+    const hasPendingHandoff = isChatHandoff && Boolean(pendingMessage.trim())
 
     const getErrorMessage = (errorMsg: string) => {
         if (errorMsg.includes("Invalid login credentials")) return t("auth.errors.invalidCredentials") || errorMsg
@@ -137,7 +139,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
         : 'border border-slate-200/80 bg-white/90 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-black/25'
 
     return (
-        <Card className={`w-full max-w-md relative overflow-hidden transition-all duration-300 ${cardStyles} ${className}`}>
+        <Card className={`relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain motion-safe:transition-all motion-safe:duration-300 ${cardStyles} ${className}`}>
             {!isModal && (
                 <div className="absolute top-4 right-4 z-10">
                     <LanguageInlineSelect />
@@ -153,7 +155,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 {hasPendingHandoff && (
                     <p className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        {t("auth.handoffReady")}
+                        {pendingSource ? t("auth.handoffReady") : t("auth.handoffMessageReady")}
                     </p>
                 )}
                 <CardTitle className="font-bold text-2xl text-gray-900 dark:text-white">
@@ -167,9 +169,47 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                     {isSignUp
                         ? (t("auth.signUpToContinue") || "Sign up to get started")
                         : hasPendingHandoff
-                            ? t("auth.handoffDescription")
+                            ? pendingSource
+                                ? t("auth.handoffDescription")
+                                : t("auth.handoffMessageDescription")
                             : t("auth.signInToContinue", { appName: t("brand.name") })}
                 </CardDescription>
+                {hasPendingHandoff && pendingSource && (
+                    <section
+                        aria-label={t("auth.handoffDetails")}
+                        className="mt-4 w-full space-y-3 border-y border-slate-200/80 py-4 text-left dark:border-white/10"
+                    >
+                        <div className="flex items-start gap-2.5">
+                            <Link2 className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                    {t("auth.handoffSource")}
+                                </p>
+                                <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">
+                                    {pendingSource.sourceName}
+                                </p>
+                                <a
+                                    href={pendingSource.href}
+                                    target="_blank"
+                                    rel="nofollow noopener noreferrer"
+                                    className="mt-1 block break-all text-xs leading-5 text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-300 dark:hover:text-emerald-200"
+                                >
+                                    {pendingSource.originalUrl}
+                                </a>
+                            </div>
+                        </div>
+                        <div className="grid gap-3 text-sm sm:grid-cols-2">
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("auth.handoffOutputs")}</p>
+                                <p className="mt-1 leading-5 text-gray-800 dark:text-gray-200">{t("auth.handoffOutputsValue")}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("auth.handoffNext")}</p>
+                                <p className="mt-1 leading-5 text-gray-800 dark:text-gray-200">{t("auth.handoffNextValue")}</p>
+                            </div>
+                        </div>
+                    </section>
+                )}
             </CardHeader>
             <CardContent className="space-y-6 relative z-10">
                 {/* Google Login */}

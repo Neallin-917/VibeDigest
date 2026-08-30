@@ -23,8 +23,16 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
     locale: 'en',
     t: (key: string) => ({
       'auth.handoffReady': 'Your link is saved',
+      'auth.handoffMessageReady': 'Your request is saved',
       'auth.continueDigest': 'Continue your digest',
-      'auth.handoffDescription': 'Sign in and we’ll start processing it right away.',
+      'auth.handoffDescription': 'Sign in to continue with this source in your account.',
+      'auth.handoffMessageDescription': 'Sign in to continue with your saved request in your account.',
+      'auth.handoffDetails': 'Saved source and next steps',
+      'auth.handoffSource': 'Recognized source',
+      'auth.handoffOutputs': 'You’ll get',
+      'auth.handoffOutputsValue': 'A summary, key ideas, supporting evidence, and source-grounded follow-up.',
+      'auth.handoffNext': 'After sign-in',
+      'auth.handoffNextValue': 'The Agent will continue with this exact link inside your account.',
       'auth.welcomeBack': 'Welcome Back',
       'auth.signInToContinue': 'Sign in to continue to VibeDigest',
       'auth.signInWithGoogle': 'Sign in with Google',
@@ -50,7 +58,8 @@ describe('LoginForm', () => {
   })
 
   it('confirms the saved link when a visitor arrives from a chat handoff', async () => {
-    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=test123')
+    const originalUrl = 'https://www.youtube.com/watch?v=test123&list=playlist#t=42'
+    localStorage.setItem('vibedigest_pending_message', originalUrl)
 
     render(<LoginForm />)
 
@@ -58,7 +67,13 @@ describe('LoginForm', () => {
       expect(screen.getByText('Your link is saved')).toBeInTheDocument()
     })
     expect(screen.getByRole('heading', { name: 'Continue your digest' })).toBeInTheDocument()
-    expect(screen.getByText('Sign in and we’ll start processing it right away.')).toBeInTheDocument()
+    expect(screen.getByText('Sign in to continue with this source in your account.')).toBeInTheDocument()
+    expect(screen.queryByText('Sign in to continue with your saved request in your account.')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Saved source and next steps' })).toHaveTextContent('YouTube')
+    expect(screen.getByRole('link', { name: originalUrl })).toHaveAttribute('href', originalUrl)
+    expect(screen.getByText('A summary, key ideas, supporting evidence, and source-grounded follow-up.')).toBeInTheDocument()
+    expect(screen.getByText('The Agent will continue with this exact link inside your account.')).toBeInTheDocument()
+    expect(localStorage.getItem('vibedigest_pending_message')).toBe(originalUrl)
   })
 
   it('keeps the usual sign-in framing for a direct login', async () => {
@@ -77,8 +92,11 @@ describe('LoginForm', () => {
     render(<LoginForm />)
 
     await waitFor(() => {
-      expect(screen.getByText('Your link is saved')).toBeInTheDocument()
+      expect(screen.getByText('Your request is saved')).toBeInTheDocument()
     })
     expect(screen.getByRole('heading', { name: 'Continue your digest' })).toBeInTheDocument()
+    expect(screen.getByText('Sign in to continue with your saved request in your account.')).toBeInTheDocument()
+    expect(screen.queryByText('Sign in to continue with this source in your account.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Saved source and next steps' })).not.toBeInTheDocument()
   })
 })

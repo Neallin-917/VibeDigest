@@ -21,7 +21,7 @@ import { normalizeTaskStatus } from "@/lib/safe-error"
 import { isLocale } from "@/lib/i18n"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
-import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react"
+import { ArrowDown, ArrowLeft, ChevronDown, ExternalLink, MessageCircleQuestion } from "lucide-react"
 import { cache } from "react"
 import { TaskFollowUp } from "@/components/tasks/TaskFollowUp"
 
@@ -162,6 +162,8 @@ const DETAIL_COPY = {
         processedVideo: "Processed Video",
         followUp: {
             title: "Ask about this source",
+            discovery: "Continue with a question",
+            example: "For example: Which evidence supports this conclusion?",
             restoring: "Restoring your latest conversation...",
             restoreFailed: "The previous conversation could not be restored. Start a new one below.",
         },
@@ -176,6 +178,8 @@ const DETAIL_COPY = {
         processedVideo: "已处理视频",
         followUp: {
             title: "基于本期内容继续追问",
+            discovery: "读完后继续追问",
+            example: "例如：哪些证据支持这个结论？",
             restoring: "正在恢复最近的对话...",
             restoreFailed: "未能恢复之前的对话，可以在下方开始新对话。",
         },
@@ -190,6 +194,8 @@ const DETAIL_COPY = {
         processedVideo: "処理済み動画",
         followUp: {
             title: "この内容について質問する",
+            discovery: "読み終えたら追加で質問",
+            example: "例：この結論を支える根拠は？",
             restoring: "最近の会話を復元しています...",
             restoreFailed: "以前の会話を復元できませんでした。下から新しい会話を始められます。",
         },
@@ -403,6 +409,24 @@ export default async function TaskDetailPage(props: Props) {
                             )}
                         </div>
                     )}
+                    {hasSummary && (
+                        <a
+                            href="#task-follow-up"
+                            data-slot="follow-up-discovery-anchor"
+                            className="mt-5 inline-flex min-h-11 max-w-xl items-center gap-3 border-l-2 border-emerald-600/45 pl-3 text-left motion-safe:transition-colors hover:border-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-emerald-400/45 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
+                        >
+                            <MessageCircleQuestion className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                            <span className="min-w-0">
+                                <span className="block text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                    {copy.followUp.discovery}
+                                </span>
+                                <span className="mt-0.5 block text-sm leading-5 text-foreground/80">
+                                    {copy.followUp.example}
+                                </span>
+                            </span>
+                            <ArrowDown className="ml-auto size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        </a>
+                    )}
                 </header>
 
                 <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-14 lg:gap-y-12">
@@ -537,7 +561,7 @@ export default async function TaskDetailPage(props: Props) {
                         </details>
                     )}
 
-                    <div className="min-w-0 lg:col-start-1">
+                    <div id="task-follow-up" className="min-w-0 scroll-mt-24 lg:col-start-1">
                         <TaskFollowUp
                             taskId={id}
                             taskStatus={status}

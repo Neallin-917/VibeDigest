@@ -323,6 +323,7 @@ class PostgresTaskQueue:
         entity_key = {
             "process_video": "task_id",
             "retry_output": "output_id",
+            "agent_continue": "turn_id",
         }.get(kind)
         if entity_key is None:
             return False

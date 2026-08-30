@@ -39,8 +39,8 @@ The Cloud runtime requires:
 make dev
 ```
 
-This starts the FastAPI command API and PGMQ-backed Python worker in Docker
-against the configured Cloud development database, then starts the Next.js
+This starts the FastAPI command API and the developer-scoped Agent continuation
+worker in Docker against the explicitly selected Cloud database, then starts the Next.js
 development server and streams unified logs. It does not create a separate
 local product runtime or local database. If the default ports are occupied, the
 dev runner scans upward and injects the resolved backend URL into the frontend.
@@ -50,21 +50,40 @@ For single-service debugging, keep using the lower-level commands:
 ```bash
 make start-dev
 make start-frontend
-make start-worker
 ```
 
+`make start-worker` explicitly starts a video-processing worker. Do not use it
+against the main project during local acceptance: the Railway worker already
+owns `video_processing`. The Compose worker runs `python worker.py --agent-only`
+and rejects hosted queues. An isolated development database needs its own
+explicitly started video worker if you want to process new videos there.
+
 Frontend defaults to [http://localhost:3000](http://localhost:3000). Backend defaults to `http://localhost:16081`. Override with `BACKEND_HOST_PORT=17081 FRONTEND_PORT=3100 make dev`. Stop the Docker backend stack with `make dev-stop`.
+
+The local frontend launchers default the conversation Agent to the
+existing Codex subscription login when `LLM_RUNTIME` is unset. To exercise the
+hosted path locally, start with `LLM_RUNTIME=api LLM_PROVIDER=openrouter` and a
+configured `OPENROUTER_API_KEY`. Production remains API-only.
+
+`make dev` shares a generated, gitignored `0600` `.agent-service-key` across
+Next/API/worker and isolates local continuations in a developer queue. Run the
+reviewed Agent migration against an explicitly approved target first; follow
+[the release runbook](docs/RUNBOOK.md) if that target is the main project.
+A local URL does not prove that the configured database is non-production.
+After changing the frontend port/runtime, use `make dev` to update the worker's
+callback too. See [configuration](docs/codemaps/config.md) for hosted settings.
 
 ## Architecture
 
 ```text
 Frontend (Next.js App Router)
-  -> POST /api/chat/direct-submit
-  -> FastAPI POST /api/process-video
-  -> FastAPI creates task + enqueues PGMQ message
+  -> POST /api/chat -> shared task Agent
+  -> signed FastAPI commands -> canonical atomic task + queue submission
   -> Python worker runs the video/AI pipeline
   -> Supabase Postgres stores tasks and outputs
   -> Supabase Realtime updates back to the frontend
+  -> terminal output enqueues one Agent continuation
+  -> same Agent completes the private user goal; result persists to chat
 
 Railway podcast cron
   -> syncs the curated source registry
@@ -81,7 +100,7 @@ The implementation details live in the codemaps under `docs/codemaps/`.
 | Command | Purpose |
 | --- | --- |
 | `make install` | Install backend and frontend dependencies |
-| `make dev` | Start API, worker, and frontend against the Cloud development database |
+| `make dev` | Start API, local-only continuation worker, and frontend against the selected Cloud database |
 | `make dev-stop` | Stop the Docker API and worker |
 | `make start-backend` | Run FastAPI locally |
 | `make start-worker` | Run the durable task worker locally |

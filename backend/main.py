@@ -16,7 +16,7 @@ load_env()
 configure_logging()
 
 from config import settings  # noqa: E402
-from api.routes import payments, system, tasks, webhooks  # noqa: E402
+from api.routes import agent, payments, system, tasks, webhooks  # noqa: E402
 
 # Skip Sentry initialisation during pytest runs to avoid polluting the project
 # with test noise and to keep unit tests hermetic.
@@ -70,6 +70,7 @@ TEMP_DIR.mkdir(exist_ok=True)
 # Include Routers
 app.include_router(system.router, tags=["System"])
 app.include_router(tasks.router, prefix="/api", tags=["Tasks"])
+app.include_router(agent.router, prefix="/api/internal/agent", tags=["Internal Agent"])
 app.include_router(payments.router, prefix="/api", tags=["Payments"])
 app.include_router(webhooks.router, prefix="/api/webhook", tags=["Webhooks"])
 

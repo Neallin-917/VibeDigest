@@ -16,6 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dev import apply_local_frontend_runtime_default, configure_local_agent
+
 
 def get_git_root() -> Path | None:
     """获取当前 Git 仓库根目录"""
@@ -93,7 +95,9 @@ def find_available_port(start_port: int, max_attempts: int = 20) -> int:
         available, _ = check_port_available(port)
         if available:
             return port
-    raise RuntimeError(f"在 {start_port}-{start_port + max_attempts - 1} 范围内未找到可用端口")
+    raise RuntimeError(
+        f"在 {start_port}-{start_port + max_attempts - 1} 范围内未找到可用端口"
+    )
 
 
 def main():
@@ -151,6 +155,11 @@ def main():
                         # Don't override vars already set in the shell
                         if key not in env:
                             env[key] = value
+
+    chat_runtime = apply_local_frontend_runtime_default(env)
+    configure_local_agent(env, git_root, frontend_port)
+    env["BACKEND_API_URL"] = backend_url
+    print(f"🧠 本地追问运行时: {chat_runtime}")
 
     # 5. 启动 Next.js
     frontend_dir = git_root / "frontend"

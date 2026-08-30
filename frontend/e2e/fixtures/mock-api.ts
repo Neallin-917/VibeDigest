@@ -105,7 +105,7 @@ export async function setupApiMocks(page: Page, options: { isAuthenticated?: boo
     });
 
     // 2. Mock Chat Threads API
-    await page.route('**/api/chat/threads', async (route) => {
+    await page.route('**/api/threads', async (route) => {
         if (route.request().method() === 'GET') {
             if (isAuthenticated) {
                 await route.fulfill({

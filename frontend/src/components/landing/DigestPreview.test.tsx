@@ -1,5 +1,4 @@
-import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { DigestPreview } from "./DigestPreview"
 
@@ -11,26 +10,26 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
 }))
 
 describe("DigestPreview", () => {
-    it("switches between summary, key ideas, and source-grounded follow-up", async () => {
-        const user = userEvent.setup()
+    it("shows the real task-detail reading hierarchy without dashboard controls", () => {
         render(<DigestPreview />)
 
-        const summaryTab = screen.getByRole("tab", { name: "landing.outputSummary" })
-        const ideasTab = screen.getByRole("tab", { name: "landing.outputKeyIdeas" })
-        const followUpTab = screen.getByRole("tab", { name: "landing.outputFollowUp" })
+        const preview = screen.getByRole("region", { name: "landing.previewTitle" })
 
-        expect(summaryTab).toHaveAttribute("aria-selected", "true")
-        expect(screen.getByRole("tabpanel")).toHaveAttribute("id", "digest-panel-brief")
+        expect(within(preview).getByRole("heading", { name: "landing.outputSummary" })).toBeVisible()
+        expect(within(preview).getByRole("heading", { name: "landing.outputFollowUp" })).toBeVisible()
+        expect(within(preview).getByText("landing.previewQuestion")).toBeVisible()
+        expect(within(preview).getByText("landing.previewAnswer")).toBeVisible()
+        expect(within(preview).getByRole("heading", { name: "landing.outputKeyIdeas" })).toBeVisible()
+        expect(within(preview).getByText("landing.previewPointOne")).toBeVisible()
+        expect(within(preview).getByText("landing.previewPointTwo")).toBeVisible()
 
-        await user.click(ideasTab)
-        expect(ideasTab).toHaveAttribute("aria-selected", "true")
-        expect(screen.getByRole("tabpanel")).toHaveAttribute("id", "digest-panel-ideas")
-        expect(screen.getByText("landing.previewPointOne")).toBeInTheDocument()
+        const source = within(preview).getByRole("complementary", { name: "landing.previewSourceLabel" })
+        expect(within(source).getByText("landing.previewSourceName")).toBeVisible()
+        expect(within(source).getByText("landing.previewSourceType")).toBeVisible()
 
-        await user.click(followUpTab)
-        expect(followUpTab).toHaveAttribute("aria-selected", "true")
-        expect(screen.getByRole("tabpanel")).toHaveAttribute("id", "digest-panel-followUp")
-        expect(screen.getByText("landing.previewQuestion")).toBeInTheDocument()
+        expect(within(preview).queryByRole("tablist")).not.toBeInTheDocument()
+        expect(within(preview).queryByText("landing.previewReady")).not.toBeInTheDocument()
+        expect(within(preview).queryByText("landing.previewSourceMap")).not.toBeInTheDocument()
     })
 
     it("links the illustrative interface to the real public library", () => {

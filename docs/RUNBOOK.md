@@ -21,20 +21,36 @@ but different start commands. The trusted catalog runner is not deployed to
 Railway and never stores ChatGPT-managed Codex authentication there.
 
 The repository contains no local “production” deployment path. Docker Compose
-is development-only and connects to the configured Cloud development database.
+is development-only. Its worker uses `--agent-only` and can consume only a
+developer-scoped continuation queue, never the hosted video or catalog queues.
 
 ## Release order
 
-1. Reconcile local and remote Supabase migrations on a development branch.
+1. Confirm the Supabase target explicitly. Prefer an isolated development branch;
+   an explicitly authorized main-project rollout is allowed after checking a
+   readable backup, the existing schema and a targeted application rollback.
+   A main project is not a disposable test database: never reset it or run
+   destructive integration fixtures against it.
+   Compare the actual schema as well as migration names: historical remote
+   versions do not all match the local filenames. Do not blindly push/replay
+   the whole directory or mark unapplied files as applied. In particular,
+   `20260401_reset_chat_history_for_data_parts_cutover.sql` deletes historical
+   chats; it is not a prerequisite to rerun for the Agent upgrade. Review and
+   apply only the genuinely pending changes against the confirmed target.
 2. Apply the reviewed pending migrations in `supabase/migrations/`, including
    `20260825160000_add_workload_execution_routing.sql` before enabling either
-   worker profile.
+   worker profile and `20260828052805_agent_task_turns.sql` before deploying
+   the unified conversation Agent. Do not infer a development database from a
+   localhost frontend; confirm the Supabase project/branch explicitly.
 3. Deploy/update the Railway `hosted_api` Worker and verify it polls only
-   `video_processing` with `LLM_RUNTIME=api`.
+   `video_processing` plus `agent_answers` with API runtime. Before enabling the
+   Agent callback, provision the shared `AGENT_INTERNAL_SECRET` in Next/API/worker
+   and the fixed HTTPS `AGENT_CONTINUATION_URL`; see the configuration codemap.
 4. Deploy the Railway API. Its `/health/ready` endpoint must return `200`;
    it rejects traffic when either canonical submission function, workload
    classification, retry routing, `podcast_supply`, publication state, podcast
-   tables, output intent, or monthly quota contract is absent.
+   tables, output intent, monthly quota, Agent turn contract or INSERT/UPDATE
+   publication of `public.chat_messages` in `supabase_realtime` is absent.
 5. Run `make sync-podcast-sources`, then verify the expected discovery and
    backfill-enabled source rows.
 6. Deploy the podcast cron with `DATABASE_URL`, `PODCAST_TASK_QUEUE_NAME`, and
@@ -47,9 +63,22 @@ is development-only and connects to the configured Cloud development database.
 9. Submit one controlled user video and one controlled catalog video and confirm:
    task/output transaction, PGMQ claim, heartbeat, progress writes, Realtime
    delivery, terminal state, archive, and completed handoff.
+10. For an Agent-created video, close the page before completion and reopen the
+    thread. Verify a single persisted continuation addresses the original private
+    goal, duplicate delivery does not add a second answer, cancellation does not
+    cancel the video, and answer retry does not consume video quota again.
 
 Do not reverse steps 2 and 4: an API that calls missing private queue functions
 will return `503`.
+
+An unavailable callback must leave its delivery retryable, not archived as
+completed. Inspect `vibedigest_private.agent_turns` and `task_queue_handoffs`
+server-side; never expose execution tokens or raw source outputs in diagnostics.
+After bounded retries, the existing chat receipt projects `agentState=failed`
+and the user may retry the same input. A local continuation queue must not be
+consumed by a hosted worker. During rollback, stop new Agent acceptance and drain
+or deliberately cancel pending turns before removing callback configuration;
+retain private state and prefer a roll-forward migration over dropping it.
 
 ## Required pre-release checks
 
@@ -104,7 +133,9 @@ durable queue intact; do not redirect catalog work to `video_processing`.
   attempts.
 - A controlled failed task can be retried once without a second guest-usage
   debit, then returns to `pending` with exactly one new `process:` handoff.
-- Realtime task/output changes reach the browser without HTTP polling.
+- Realtime task/output/chat-message changes reach the browser without HTTP
+  polling. `chat_messages` must be in the `supabase_realtime` publication, with
+  its existing owner-scoped RLS intact; private Agent tables must not be published.
 - Podcast source checks advance on schedule without exceeding the per-run cap.
 - Catalog summary provenance reports `catalog_supply`, `trusted_codex`,
   `codex_local`, and `chatgpt_subscription`.

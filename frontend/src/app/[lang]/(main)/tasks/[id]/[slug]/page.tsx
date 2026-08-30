@@ -7,8 +7,8 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
 import {
+    buildDetailedSummaryMarkdownFromContent,
     buildSummaryExcerptFromContent,
-    buildSummaryMarkdownFromContent,
     parseCurrentSummary,
     pickPreferredSummaryOutput,
     type SummaryOutputCandidate,
@@ -80,6 +80,70 @@ function getSourceLabel(videoUrl: string, author?: string | null) {
     }
 }
 
+function getOptionalString(value: unknown, key: string) {
+    if (!value || typeof value !== "object") return ""
+    const candidate = (value as Record<string, unknown>)[key]
+    return typeof candidate === "string" ? candidate.trim() : ""
+}
+
+function getOptionalNumber(value: unknown, key: string) {
+    if (!value || typeof value !== "object") return null
+    const candidate = (value as Record<string, unknown>)[key]
+    return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null
+}
+
+function formatDuration(seconds: number | null, locale: "en" | "zh" | "ja") {
+    if (seconds === null || seconds <= 0) return ""
+    const totalMinutes = Math.max(1, Math.round(seconds / 60))
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+
+    if (hours === 0) {
+        if (locale === "zh") return `${minutes} 分钟`
+        if (locale === "ja") return `${minutes}分`
+        return `${minutes} min`
+    }
+
+    if (locale === "zh") return `${hours} 小时${minutes ? ` ${minutes} 分钟` : ""}`
+    if (locale === "ja") return `${hours}時間${minutes ? `${minutes}分` : ""}`
+    return `${hours} hr${minutes ? ` ${minutes} min` : ""}`
+}
+
+function formatSourceDate(value: string, locale: "en" | "zh" | "ja") {
+    if (!value) return ""
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ""
+    const dateLocale = locale === "zh" ? "zh-CN" : locale === "ja" ? "ja-JP" : "en-US"
+    return new Intl.DateTimeFormat(dateLocale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    }).format(date)
+}
+
+function formatTimestamp(seconds: number) {
+    const totalSeconds = Math.max(0, Math.floor(seconds))
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const remainder = totalSeconds % 60
+    return hours > 0
+        ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+        : `${minutes}:${String(remainder).padStart(2, "0")}`
+}
+
+function buildTimestampUrl(videoUrl: string, seconds: number) {
+    try {
+        const url = new URL(videoUrl)
+        if (url.hostname === "youtu.be" || url.hostname.endsWith("youtube.com")) {
+            url.searchParams.set("t", `${Math.max(0, Math.floor(seconds))}s`)
+            return url.toString()
+        }
+    } catch {
+        return videoUrl
+    }
+    return videoUrl
+}
+
 type TaskOutput = {
     kind: string
     content: unknown
@@ -92,6 +156,7 @@ const DETAIL_COPY = {
     en: {
         back: "Back to podcast library", source: "Source",
         summary: "Summary", keyIdeas: "Key ideas", fullSummary: "Read the full digest", original: "Open Original Video",
+        whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at",
         failed: "This task did not complete. You can retry it below.",
         pending: "Summary not available yet. Check back once processing completes.",
         processedVideo: "Processed Video",
@@ -105,6 +170,7 @@ const DETAIL_COPY = {
     zh: {
         back: "返回播客库", source: "来源",
         summary: "内容摘要", keyIdeas: "关键观点", fullSummary: "完整整理", original: "打开原视频",
+        whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点",
         failed: "这项任务未能完成，可以在下方重试。",
         pending: "整理内容尚未生成，请在处理完成后回来查看。",
         processedVideo: "已处理视频",
@@ -118,6 +184,7 @@ const DETAIL_COPY = {
     ja: {
         back: "ポッドキャスト一覧に戻る", source: "出典",
         summary: "要約", keyIdeas: "重要ポイント", fullSummary: "整理内容をすべて読む", original: "元の動画を開く",
+        whyItMatters: "重要な理由", evidence: "根拠", openAt: "元の動画を開く",
         failed: "このタスクは完了しませんでした。下から再試行できます。",
         pending: "整理内容はまだありません。処理完了後にもう一度確認してください。",
         processedVideo: "処理済み動画",
@@ -146,7 +213,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     // Fetch task
     const { data: task } = await supabase
         .from('tasks')
-        .select('id, video_title, video_url, thumbnail_url, author, status, is_demo')
+        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo')
         .eq('id', id)
         .single()
 
@@ -230,9 +297,11 @@ export default async function TaskDetailPage(props: Props) {
     }
 
     const summaryOutput = pickPreferredSummaryOutput(outputs as SummaryOutputCandidate[], locale)
-    const summaryMarkdown = summaryOutput ? buildSummaryMarkdownFromContent(summaryOutput.content, locale) : ""
+    const detailedSummaryMarkdown = summaryOutput
+        ? buildDetailedSummaryMarkdownFromContent(summaryOutput.content, locale)
+        : ""
     const structuredSummary = summaryOutput ? parseCurrentSummary(summaryOutput.content) : null
-    const hasSummary = Boolean(summaryMarkdown)
+    const hasSummary = Boolean(structuredSummary)
     const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200, locale) : ""
     const leadSummary = structuredSummary?.tl_dr || structuredSummary?.overview || summaryExcerpt
     const leadKeypoints = structuredSummary?.keypoints.slice(0, 3) ?? []
@@ -241,6 +310,10 @@ export default async function TaskDetailPage(props: Props) {
     const status = normalizeTaskStatus(task.status)
     const initialThreadId = getSingleSearchParam(returnState.threadId)
     const sourceLabel = task.video_url ? getSourceLabel(task.video_url, task.author) : ""
+    const sourceAuthorUrl = getOptionalString(task, "author_url")
+    const sourceDuration = getOptionalString(task, "durationLabel") || formatDuration(getOptionalNumber(task, "duration"), locale)
+    const sourceUploadDate = getOptionalString(task, "upload_date")
+    const sourceDateLabel = formatSourceDate(sourceUploadDate, locale)
     const canonicalUrl = buildLocalizedPath(lang, `/tasks/${id}/${correctSlug}`)
     const articleJsonLd: Record<string, unknown> = {
         "@context": "https://schema.org",
@@ -267,6 +340,9 @@ export default async function TaskDetailPage(props: Props) {
             url: task.video_url,
         }
     }
+    if (sourceUploadDate) {
+        articleJsonLd.datePublished = sourceUploadDate
+    }
     const videoJsonLd = task.video_url
         ? {
             "@context": "https://schema.org",
@@ -276,6 +352,7 @@ export default async function TaskDetailPage(props: Props) {
             url: canonicalUrl,
             contentUrl: task.video_url,
             thumbnailUrl: task.thumbnail_url ? [task.thumbnail_url] : undefined,
+            uploadDate: sourceUploadDate || undefined,
         }
         : null
     const jsonLd = videoJsonLd ? [articleJsonLd, videoJsonLd] : articleJsonLd
@@ -289,7 +366,7 @@ export default async function TaskDetailPage(props: Props) {
     const statusVariant = statusVariantMap[status] || "processing"
 
     return (
-        <div className="relative z-10 min-h-0 w-full flex-1 overflow-y-auto px-4 pb-24 pt-5 sm:px-6 md:pb-8">
+        <div className="relative z-10 min-h-0 w-full flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-12">
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -311,16 +388,27 @@ export default async function TaskDetailPage(props: Props) {
                     <Heading
                         as="h1"
                         variant="display"
-                        className="mt-3 max-w-[68rem] text-3xl leading-[1.08] tracking-[-0.035em] sm:text-4xl md:text-5xl"
+                        className="mt-3 max-w-[64rem] text-3xl leading-[1.1] tracking-[-0.03em] sm:text-4xl lg:text-[2.75rem]"
                     >
                         {displayTitle}
                     </Heading>
+                    {(sourceLabel || sourceDuration || sourceDateLabel) && (
+                        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            {sourceLabel && <span className="font-medium text-foreground/80">{sourceLabel}</span>}
+                            {sourceDuration && <span className="border-l border-border pl-3">{sourceDuration}</span>}
+                            {sourceDateLabel && (
+                                <time className="border-l border-border pl-3" dateTime={sourceUploadDate}>
+                                    {sourceDateLabel}
+                                </time>
+                            )}
+                        </div>
+                    )}
                 </header>
 
-                <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-14">
-                    <main className="min-w-0 space-y-8">
+                <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-14 lg:gap-y-12">
+                    <article className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
                         <section className="space-y-3" aria-labelledby="task-summary-title">
-                            <Heading as="h2" variant="h2" id="task-summary-title">
+                            <Heading as="h2" variant="h2" id="task-summary-title" className="scroll-mt-28">
                                 {copy.summary}
                             </Heading>
                             {hasSummary ? (
@@ -336,20 +424,12 @@ export default async function TaskDetailPage(props: Props) {
                             )}
                         </section>
 
-                        <TaskFollowUp
-                            taskId={id}
-                            taskStatus={status}
-                            videoTitle={title}
-                            videoUrl={task.video_url}
-                            thumbnailUrl={task.thumbnail_url}
-                            initialThreadId={THREAD_ID_PATTERN.test(initialThreadId) ? initialThreadId : null}
-                            copy={copy.followUp}
-                        />
-
                         {leadKeypoints.length > 0 && (
-                            <section className="space-y-5 border-t border-border/70 pt-7">
-                                <Heading as="h2" variant="h2">{copy.keyIdeas}</Heading>
-                                <ol className="space-y-6">
+                            <section className="space-y-5 border-t border-border/70 pt-8" aria-labelledby="task-key-ideas-title">
+                                <Heading as="h2" variant="h2" id="task-key-ideas-title" className="scroll-mt-28">
+                                    {copy.keyIdeas}
+                                </Heading>
+                                <ol className="space-y-7">
                                     {leadKeypoints.map((keypoint, index) => (
                                         <li
                                             key={`${keypoint.title}-${index}`}
@@ -358,36 +438,50 @@ export default async function TaskDetailPage(props: Props) {
                                             <span className="pt-0.5 text-xs font-medium tabular-nums text-emerald-600 dark:text-emerald-400" aria-hidden="true">
                                                 {String(index + 1).padStart(2, "0")}
                                             </span>
-                                            <div>
+                                            <div className="min-w-0">
                                                 <p className="text-sm font-semibold leading-6 text-foreground md:text-base">{keypoint.title}</p>
-                                                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                                                    {keypoint.why_it_matters || keypoint.detail}
-                                                </p>
+                                                <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                                                {keypoint.why_it_matters && (
+                                                    <p className="mt-3 text-sm leading-6 text-foreground/80">
+                                                        <span className="font-semibold">{copy.whyItMatters}: </span>
+                                                        {keypoint.why_it_matters}
+                                                    </p>
+                                                )}
+                                                <details className="group/evidence mt-3 border-l-2 border-emerald-500/45 pl-3">
+                                                    <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 text-xs font-semibold text-emerald-700 marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400">
+                                                        <span>{copy.evidence}</span>
+                                                        {typeof keypoint.startSeconds === "number" && task.video_url && (
+                                                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-mono font-medium tabular-nums">
+                                                                {formatTimestamp(keypoint.startSeconds)}
+                                                            </span>
+                                                        )}
+                                                        <ChevronDown className="ml-auto size-3.5 transition-transform group-open/evidence:rotate-180" aria-hidden="true" />
+                                                    </summary>
+                                                    <p className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
+                                                    {typeof keypoint.startSeconds === "number" && task.video_url && (
+                                                        <a
+                                                            href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400"
+                                                        >
+                                                            {copy.openAt} {formatTimestamp(keypoint.startSeconds)}
+                                                            <ExternalLink className="ml-1.5 size-3" aria-hidden="true" />
+                                                        </a>
+                                                    )}
+                                                </details>
                                             </div>
                                         </li>
                                     ))}
                                 </ol>
                             </section>
                         )}
+                    </article>
 
-                        {hasSummary && (
-                            <details className="group border-y border-border/70">
-                                <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-                                    <span>{copy.fullSummary}</span>
-                                    <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-                                </summary>
-                                <div className="border-t border-border/70 py-7">
-                                    <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                            {summaryMarkdown}
-                                        </ReactMarkdown>
-                                    </div>
-                                </div>
-                            </details>
-                        )}
-                    </main>
-
-                    <aside className="space-y-4 lg:sticky lg:top-24" aria-label={copy.source}>
+                    <aside className="space-y-4 border-t border-border/70 pt-8 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1 lg:border-t-0 lg:pt-0" aria-labelledby="task-source-title">
+                        <Heading as="h2" variant="h3" id="task-source-title" className="scroll-mt-28">
+                            {copy.source}
+                        </Heading>
                         {task.thumbnail_url && (
                             <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface-raised/40">
                                 {/* eslint-disable-next-line @next/next/no-img-element -- external dynamic thumbnail URL is rendered directly without Next image optimization */}
@@ -400,8 +494,18 @@ export default async function TaskDetailPage(props: Props) {
                         )}
                         {sourceLabel && (
                             <div className="space-y-1 px-1">
-                                <p className="text-xs text-muted-foreground">{copy.source}</p>
-                                <p className="break-words text-sm font-medium text-foreground">{sourceLabel}</p>
+                                {sourceAuthorUrl ? (
+                                    <a href={sourceAuthorUrl} target="_blank" rel="noopener noreferrer" className="break-words text-sm font-medium text-foreground hover:text-emerald-700 dark:hover:text-emerald-400">
+                                        {sourceLabel}
+                                    </a>
+                                ) : (
+                                    <p className="break-words text-sm font-medium text-foreground">{sourceLabel}</p>
+                                )}
+                                {(sourceDuration || sourceDateLabel) && (
+                                    <p className="text-xs leading-5 text-muted-foreground">
+                                        {[sourceDuration, sourceDateLabel].filter(Boolean).join(" · ")}
+                                    </p>
+                                )}
                             </div>
                         )}
                         {task.video_url && (
@@ -416,6 +520,34 @@ export default async function TaskDetailPage(props: Props) {
                             </a>
                         )}
                     </aside>
+
+                    {detailedSummaryMarkdown && (
+                        <details className="group min-w-0 border-y border-border/70 lg:col-start-1">
+                            <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                <span>{copy.fullSummary}</span>
+                                <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                            </summary>
+                            <div className="border-t border-border/70 py-7">
+                                <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {detailedSummaryMarkdown}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
+                        </details>
+                    )}
+
+                    <div className="min-w-0 lg:col-start-1">
+                        <TaskFollowUp
+                            taskId={id}
+                            taskStatus={status}
+                            videoTitle={title}
+                            videoUrl={task.video_url}
+                            thumbnailUrl={task.thumbnail_url}
+                            initialThreadId={THREAD_ID_PATTERN.test(initialThreadId) ? initialThreadId : null}
+                            copy={copy.followUp}
+                        />
+                    </div>
                 </div>
             </div>
         </div>

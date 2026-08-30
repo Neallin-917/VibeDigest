@@ -15,8 +15,8 @@
 
 # next.js
 /.next/
-/.next-test/
-/.next-demo/
+# Custom NEXT_DIST_DIR caches must not become Tailwind source input.
+/.next-*/
 /out/
 
 # production

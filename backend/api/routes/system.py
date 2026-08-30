@@ -60,7 +60,18 @@ select
   ) is not null
   and to_regprocedure(
     'vibedigest_private.submit_output_retry(uuid,uuid,text,text,text)'
-  ) is not null as retry_routing_ready
+  ) is not null as retry_routing_ready,
+  to_regprocedure(
+    'vibedigest_private.accept_agent_turn(uuid,uuid,text,jsonb,text,uuid,jsonb,text,text[])'
+  ) is not null and to_regprocedure(
+    'vibedigest_private.claim_agent_continuation(uuid,uuid,text,bigint,integer)'
+  ) is not null as agent_turns_ready,
+  exists (
+    select 1 from pg_publication_tables pt
+      join pg_publication p on p.pubname = pt.pubname
+    where pt.pubname = 'supabase_realtime' and pt.schemaname = 'public'
+      and pt.tablename = 'chat_messages' and p.pubinsert and p.pubupdate
+  ) as chat_realtime_ready
 """
 
 class FeedbackModel(BaseModel):
@@ -101,6 +112,8 @@ async def readiness_check(db: DBClient = Depends(get_db_client)):
         "workload_kind_ready",
         "catalog_queue_ready",
         "retry_routing_ready",
+        "agent_turns_ready",
+        "chat_realtime_ready",
     )):
         logger.error("Task submission database contract is not ready")
         raise HTTPException(status_code=503, detail="Service is not ready")

@@ -8,10 +8,8 @@ import { cn } from '@/lib/utils'
 import { checkHasRenderableAssistant } from '@/lib/chat-perf-utils'
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { extractAndNormalizeUrl } from '@/lib/url-utils'
 import { useChatScroll } from './useChatScroll'
-import { useDirectUrlSubmission } from './useDirectUrlSubmission'
-import Link from 'next/link'
+import { useChatRealtime } from './useChatRealtime'
 
 import { XCircle } from 'lucide-react'
 import { useI18n } from '@/components/i18n/I18nProvider'
@@ -31,11 +29,50 @@ interface ChatContainerProps {
   onChatStarted?: (threadId: string, taskId?: string) => void
   initialExamples?: Promise<ChatExample[]> | null
   variant?: 'workspace' | 'embedded'
-  allowDirectUrlSubmission?: boolean
+  scope?: 'workspace' | 'source'
   showTaskArtifacts?: boolean
 }
 
 const NO_TASK_IDS = new Set<string>()
+const EMPTY_MESSAGES: ChatUIMessage[] = []
+const CONTINUATION_COPY = {
+  en: {
+    waiting_task: 'Your answer will continue when the video is ready.',
+    finalizing: 'Preparing your answer.',
+    failed: 'The answer could not finish.',
+    cancelled: 'Follow-up answer cancelled. Video processing is unchanged.',
+    cancel: 'Cancel answer',
+    retry: 'Retry answer',
+    cancelFailed: 'Could not cancel the answer. Please try again.',
+    retryFailed: 'Could not retry the answer. Please try again.',
+  },
+  zh: {
+    waiting_task: '视频处理完成后，将继续回答。',
+    finalizing: '正在整理回答。',
+    failed: '回答未能完成。',
+    cancelled: '已取消后续回答；视频处理不受影响。',
+    cancel: '取消回答',
+    retry: '重试回答',
+    cancelFailed: '未能取消回答，请重试。',
+    retryFailed: '未能重试回答，请稍后再试。',
+  },
+  ja: {
+    waiting_task: '動画の処理が完了すると、回答を続けます。',
+    finalizing: '回答をまとめています。',
+    failed: '回答を完了できませんでした。',
+    cancelled: '続きの回答をキャンセルしました。動画の処理は継続します。',
+    cancel: '回答をキャンセル', retry: '回答を再試行',
+    cancelFailed: 'キャンセルできませんでした。もう一度お試しください。',
+    retryFailed: '再試行できませんでした。しばらくしてからお試しください。',
+  },
+}
+
+type AnswerActionResult = {
+  threadId: string
+  turnId: string
+  state: 'cancelled' | 'terminal' | 'error'
+  error?: string
+}
 
 function isAuthRequiredError(err: unknown) {
   if (!err) return false
@@ -65,26 +102,27 @@ function isAuthRequiredError(err: unknown) {
   return /unauthorized|auth session missing/i.test(combined)
 }
 
-function hasSameMessageIdentity(currentMessages: ChatUIMessage[], nextMessages: ChatUIMessage[]) {
-  if (currentMessages.length !== nextMessages.length) return false
-
-  return currentMessages.every((message, index) => {
-    const nextMessage = nextMessages[index]
-    return message.id === nextMessage?.id && message.role === nextMessage?.role
-  })
+function latestConfirmedTaskId(messages: ChatUIMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const parts = messages[index].parts
+    for (let partIndex = parts.length - 1; partIndex >= 0; partIndex--) {
+      const part = parts[partIndex]
+      if (part.type === 'data-task-status' && part.data.taskId) return part.data.taskId
+    }
+  }
 }
 
 export function ChatContainer({
   activeTaskId,
   threadId,
-  initialMessages = [],
+  initialMessages = EMPTY_MESSAGES,
   isAuthenticated = null,
   isInteractionLocked = false,
   onSelectExample,
   onChatStarted,
   initialExamples = null,
   variant = 'workspace',
-  allowDirectUrlSubmission = true,
+  scope = 'workspace',
   showTaskArtifacts = true,
 }: ChatContainerProps) {
 
@@ -98,17 +136,24 @@ export function ChatContainer({
   const effectiveThreadId = threadId || sessionId
   const prepareSendMessagesRequest = useCallback(
     ({ messages: currentMessages }: { messages: ChatUIMessage[] }) => {
-      const lastMessage = currentMessages[currentMessages.length - 1]
+      const userMessage = [...currentMessages].reverse().find(message => message.role === 'user')
+      if (!userMessage) throw new Error('No user message is available to send.')
 
       return {
         body: {
-          message: lastMessage,
+          message: {
+            id: userMessage.id,
+            role: 'user',
+            parts: userMessage.parts.filter(part => part.type === 'text').map(part => ({ type: 'text', text: part.text })),
+          },
           threadId: effectiveThreadId,
           taskId: activeTaskIdRef.current,
+          locale,
+          scope,
         },
       }
     },
-    [effectiveThreadId],
+    [effectiveThreadId, locale, scope],
   )
   const transport = useMemo(
     () =>
@@ -128,13 +173,6 @@ export function ChatContainer({
     // Session ID
     id: effectiveThreadId,
 
-    // Initial state
-    // Pass initial messages if provided
-    // Note: useChat in strict mode options might not have 'initialMessages', 
-    // but the hook signature usually accepts it. 
-    // If TSC complains, we rely on the useEffect below to set messages.
-    // However, to avoid flashing empty state, passing it here is better if accepted.
-    // Since TS complained about 'initialMessages' not existing in options, we try 'messages' (if ChatInit is mixed in).
     messages: initialMessages,
     dataPartSchemas: chatDataSchemas as never,
 
@@ -144,10 +182,11 @@ export function ChatContainer({
     },
 
     // Notify parent once a chat is persisted
-    onFinish: () => {
-      if (onChatStarted) {
-        onChatStarted(effectiveThreadId)
-      }
+    onFinish: ({ messages: finishedMessages, isAbort, isDisconnect, isError }) => {
+      if (isAbort || isDisconnect || isError) return
+      const taskId = latestConfirmedTaskId(finishedMessages) ?? activeTaskIdRef.current ?? undefined
+      if (taskId) activeTaskIdRef.current = taskId
+      onChatStarted?.(effectiveThreadId, taskId)
     }
   })
 
@@ -162,11 +201,14 @@ export function ChatContainer({
     stop
   } = chat
 
-  const messagesRef = useRef(messages)
-
-  useEffect(() => {
-    messagesRef.current = messages
-  }, [messages])
+  useChatRealtime({
+    threadId: effectiveThreadId,
+    enabled: isAuthenticated === true,
+    status,
+    messages,
+    initialMessages,
+    setMessages,
+  })
 
   const requiresAuth = useMemo(() => isAuthRequiredError(error), [error])
 
@@ -176,19 +218,10 @@ export function ChatContainer({
     window.location.href = loginUrl
   }
 
-  const {
-    isDirectProcessing,
-    directSubmitError,
-    directSubmitQuotaExceeded,
-    handleDirectUrlSubmission,
-  } = useDirectUrlSubmission({
-    sendMessageToApi,
-    setMessages,
-    onChatStarted,
-    effectiveThreadId,
-    activeTaskIdRef,
-  })
   const [taskRetryError, setTaskRetryError] = useState<string | null>(null)
+  const [isAnswerActionPending, setIsAnswerActionPending] = useState(false)
+  const [answerActionResult, setAnswerActionResult] = useState<AnswerActionResult | null>(null)
+  const answerActionInFlight = useRef(false)
 
   const handleTaskRetry = useCallback(async (taskId: string) => {
     setTaskRetryError(null)
@@ -207,14 +240,14 @@ export function ChatContainer({
             ? errorPayload.details
             : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
               ? errorPayload.error
-              : t('chat.directSubmit.unavailable')
+              : t('chat.genericError')
         setTaskRetryError(sanitizeErrorMessage(details))
         return false
       }
 
       return true
     } catch {
-      setTaskRetryError(t('chat.directSubmit.networkError'))
+      setTaskRetryError(t('chat.genericError'))
       return false
     }
   }, [t])
@@ -239,35 +272,88 @@ export function ChatContainer({
       return true
     }
 
-    // Start loading the renderer while direct-submit/chat requests run.
+    // Start loading the renderer while the Agent request runs.
     // Fresh and unauthenticated chats do not pay this cost.
     void preloadMessageRow()
 
-    // Direct URL path: detect URL and bypass LLM entirely
-    const detectedUrl = allowDirectUrlSubmission
-      ? extractAndNormalizeUrl(trimmed)
-      : null
-    if (detectedUrl) {
-      return handleDirectUrlSubmission(detectedUrl, trimmed)
-    }
-
-    // Non-URL messages: send through LLM for Q&A
+    // Every input, including a URL, goes through the Agent's intent decision.
     sendMessageToApi(createUserTextMessage(`user-${uuidv4()}`, trimmed))
     return true
   }
-
-  // Sync initialMessages when they change
-  useEffect(() => {
-    if (hasSameMessageIdentity(messagesRef.current, initialMessages)) return
-    setMessages(initialMessages)
-  }, [initialMessages, setMessages])
 
   useEffect(() => {
     activeTaskIdRef.current = activeTaskId
   }, [activeTaskId])
 
-  const isLoading = status === 'streaming' || status === 'submitted' || isDirectProcessing
-  const displayErrorMessage = taskRetryError ?? directSubmitError ?? (requiresAuth
+  const isLoading = status === 'streaming' || status === 'submitted'
+  const continuationCopy = CONTINUATION_COPY[locale]
+  const latestAssistant = [...messages].reverse().find(message => message.role === 'assistant')
+  const agentTurnId = latestAssistant?.metadata?.agentTurnId
+  const agentState = latestAssistant?.metadata?.agentState
+  const matchingActionResult = answerActionResult?.threadId === effectiveThreadId
+    && answerActionResult.turnId === agentTurnId ? answerActionResult : null
+  const hasPendingContinuation = agentState === 'waiting_task' || agentState === 'finalizing'
+  const continuationState = agentTurnId && (
+    hasPendingContinuation || agentState === 'failed' || agentState === 'cancelled'
+  ) ? hasPendingContinuation && matchingActionResult?.state === 'cancelled'
+      ? 'cancelled'
+      : hasPendingContinuation && matchingActionResult?.state === 'terminal'
+        ? null
+        : agentState
+    : null
+  const answerActionsDisabled = isInteractionLocked || isLoading || isAnswerActionPending || isAuthenticated !== true
+  const canRetryAnswer = messages.some(message => message.role === 'user')
+
+  const handleCancelAnswer = async () => {
+    if (!agentTurnId || !hasPendingContinuation || answerActionsDisabled || answerActionInFlight.current) return
+    answerActionInFlight.current = true
+    setIsAnswerActionPending(true)
+    setAnswerActionResult(null)
+    try {
+      const response = await fetch(`/api/chat/turns/${encodeURIComponent(agentTurnId)}/cancel`, { method: 'POST' })
+      if (!response.ok) throw new Error('Cancellation request failed.')
+      const result: unknown = await response.json()
+      if (typeof result !== 'object' || result === null || !('cancelled' in result) || typeof result.cancelled !== 'boolean') {
+        throw new Error('Invalid cancellation response.')
+      }
+      // This acknowledgement reflects a committed server transition. Do not
+      // mutate video/task state or fabricate a cancelled persisted message.
+      setAnswerActionResult({
+        threadId: effectiveThreadId, turnId: agentTurnId,
+        state: result.cancelled ? 'cancelled' : 'terminal',
+      })
+    } catch {
+      setAnswerActionResult({
+        threadId: effectiveThreadId, turnId: agentTurnId,
+        state: 'error', error: continuationCopy.cancelFailed,
+      })
+    } finally {
+      answerActionInFlight.current = false
+      setIsAnswerActionPending(false)
+    }
+  }
+
+  const handleRetryAnswer = async () => {
+    if (!agentTurnId || agentState !== 'failed' || !canRetryAnswer || answerActionsDisabled || answerActionInFlight.current) return
+    answerActionInFlight.current = true
+    setIsAnswerActionPending(true)
+    setAnswerActionResult(null)
+    try {
+      // Regenerate keeps the user's original message ID; the transport selects
+      // that user message, so the backend can reuse its existing video result.
+      await regenerate()
+    } catch {
+      setAnswerActionResult({
+        threadId: effectiveThreadId, turnId: agentTurnId,
+        state: 'error', error: continuationCopy.retryFailed,
+      })
+    } finally {
+      answerActionInFlight.current = false
+      setIsAnswerActionPending(false)
+    }
+  }
+
+  const displayErrorMessage = taskRetryError ?? (requiresAuth
     ? t('auth.signInToContinue', { appName: t('brand.appName') })
     : error
       ? t('chat.genericError')
@@ -398,6 +484,39 @@ export function ChatContainer({
               </div>
             )}
 
+            {continuationState && (
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <p role="status" aria-live="polite">{continuationCopy[continuationState]}</p>
+                  {(continuationState === 'waiting_task' || continuationState === 'finalizing') && (
+                    <button
+                      type="button"
+                      onClick={() => void handleCancelAnswer()}
+                      disabled={answerActionsDisabled}
+                      aria-busy={isAnswerActionPending}
+                      className="underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {continuationCopy.cancel}
+                    </button>
+                  )}
+                  {continuationState === 'failed' && (
+                    <button
+                      type="button"
+                      onClick={() => void handleRetryAnswer()}
+                      disabled={answerActionsDisabled || !canRetryAnswer}
+                      aria-busy={isAnswerActionPending}
+                      className="underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {continuationCopy.retry}
+                    </button>
+                  )}
+                </div>
+                {matchingActionResult?.state === 'error' && (
+                  <p role="alert" className="text-destructive">{matchingActionResult.error}</p>
+                )}
+              </div>
+            )}
+
           </div>
         )}
       </div>
@@ -421,14 +540,7 @@ export function ChatContainer({
                   >
                     {t('auth.signIn')}
                   </button>
-                ) : directSubmitQuotaExceeded ? (
-                  <Link
-                    href={`/${locale}/settings/pricing`}
-                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    {t('taskForm.quotaExceeded.confirm')}
-                  </Link>
-                ) : error && !directSubmitError && !taskRetryError ? (
+                ) : error && !taskRetryError && continuationState !== 'failed' ? (
                   <button
                     onClick={() => regenerate()}
                     className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

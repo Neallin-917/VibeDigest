@@ -97,6 +97,7 @@ out/
 .claude_settings.json
 .worktrees/
 .security-key
+.agent-service-key
 logs/security/
 
 # AI / Agent workspace artifacts
@@ -121,8 +122,7 @@ backend/.langgraph_api/
 backend/logs/
 backend/downloads/
 backend/temp/
-frontend/.next-test/
-frontend/.next-layout-qa/
+frontend/.next-*/
 frontend/playwright-report/
 frontend/test-results/
 # next-agents-md

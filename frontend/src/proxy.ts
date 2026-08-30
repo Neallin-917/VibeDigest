@@ -14,7 +14,7 @@ const isLocalUiDemo = process.env.NODE_ENV !== 'production' && process.env.NEXT_
 function isAuthenticatedChatHistoryRead(request: NextRequest) {
   const { pathname } = request.nextUrl
   return request.method === 'GET' && (
-    pathname === '/api/chat/threads' || CHAT_HISTORY_MESSAGES_PATH.test(pathname)
+    pathname === '/api/threads' || CHAT_HISTORY_MESSAGES_PATH.test(pathname)
   )
 }
 

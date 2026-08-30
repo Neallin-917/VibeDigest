@@ -1,9 +1,20 @@
 import { z } from 'zod'
-import type { InferUITools, UIMessage } from 'ai'
-import type { ChatToolSet } from '@/app/api/chat/tools'
+import type { UIMessage } from 'ai'
 
 export const messageMetadataSchema = z.object({
   createdAt: z.union([z.string(), z.date()]).optional(),
+  runtime: z.enum(['api', 'codex_local']).optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  modelTier: z.enum(['smart', 'fast']).optional(),
+  reasoningEffort: z.string().optional(),
+  inputTokens: z.number().int().nonnegative().optional(),
+  outputTokens: z.number().int().nonnegative().optional(),
+  totalTokens: z.number().int().nonnegative().optional(),
+  actualModel: z.string().optional(),
+  durationMs: z.number().nonnegative().optional(),
+  agentTurnId: z.string().optional(),
+  agentState: z.enum(['running', 'waiting_task', 'finalizing', 'completed', 'failed', 'cancelled']).optional(),
 })
 
 export type ChatMessageMetadata = z.infer<typeof messageMetadataSchema>
@@ -39,7 +50,12 @@ export type ChatUIDataParts = {
   'task-plan': z.infer<typeof legacyTaskReferenceDataSchema>
 }
 
-export type ChatUITools = InferUITools<ChatToolSet>
+// Read compatibility for saved messages only. New Agents never expose raw tool
+// output to the browser, and no server-side legacy tool implementation is kept.
+export type ChatUITools = {
+  get_task_status: { input: { taskId: string }; output: unknown }
+  get_task_outputs: { input: { taskId: string; kinds?: string[]; query?: string }; output: unknown }
+}
 
 export type ChatUIMessage = UIMessage<ChatMessageMetadata, ChatUIDataParts, ChatUITools>
 export type ChatUIMessagePart = ChatUIMessage['parts'][number]

@@ -144,7 +144,7 @@ describe('ChatPageClient', () => {
     })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return threadsResponse
+      if (url === '/api/threads') return threadsResponse
       if (url === '/api/threads?taskId=task-a') return taskThreadsResponse
       if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
       throw new Error(`Unexpected fetch URL: ${url}`)
@@ -199,7 +199,7 @@ describe('ChatPageClient', () => {
     })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return threadsResponse
+      if (url === '/api/threads') return threadsResponse
       if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
       throw new Error(`Unexpected fetch URL: ${url}`)
     })
@@ -226,7 +226,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('task=task-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads') return jsonResponse([])
       if (url === '/api/threads?taskId=task-a') {
         return jsonResponse([{ id: 'thread-a', title: 'A', updated_at: '2026-02-06T00:00:00Z' }])
       }
@@ -250,7 +250,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('task=task-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads') return jsonResponse([])
       if (url === '/api/threads?taskId=task-a') {
         return jsonResponse([{ id: 'thread-a', title: 'A', updated_at: '2026-02-06T00:00:00Z' }])
       }
@@ -283,7 +283,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('task=task-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads') return jsonResponse([])
       if (url === '/api/threads?taskId=task-a') {
         return jsonResponse([{ id: 'thread-a', title: 'A', updated_at: '2026-02-06T00:00:00Z' }])
       }
@@ -321,7 +321,7 @@ describe('ChatPageClient', () => {
     })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads') return jsonResponse([])
       if (url === '/api/threads?taskId=task-a') {
         return jsonResponse([{ id: 'thread-a', title: 'A', updated_at: '2026-02-06T00:00:00Z' }])
       }
@@ -368,7 +368,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('task=task-a&threadId=thread-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads') return jsonResponse([])
       if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
       throw new Error(`Unexpected fetch URL: ${url}`)
     })
@@ -388,7 +388,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('task=task-a&threadId=thread-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads') return jsonResponse([])
       if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([])
       throw new Error(`Unexpected fetch URL: ${url}`)
     })
@@ -404,7 +404,7 @@ describe('ChatPageClient', () => {
     fireEvent.click(screen.getByText('Chat Started'))
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/chat/threads')
+      expect(fetchMock).toHaveBeenCalledWith('/api/threads')
     })
     expect(replaceMock).not.toHaveBeenCalled()
   })
@@ -412,7 +412,7 @@ describe('ChatPageClient', () => {
   it('does not reload a newly persisted thread after adding its task to the URL', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([])
+      if (url === '/api/threads') return jsonResponse([])
       if (url.includes('/messages')) {
         throw new Error(`Unexpected history reload: ${url}`)
       }
@@ -444,7 +444,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('threadId=fresh-thread')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([
+      if (url === '/api/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
       ])
       throw new Error(`Unexpected fetch URL: ${url}`)
@@ -470,7 +470,7 @@ describe('ChatPageClient', () => {
     })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return threadResponse
+      if (url === '/api/threads') return threadResponse
       throw new Error(`Unexpected fetch URL: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -484,7 +484,7 @@ describe('ChatPageClient', () => {
 
     resolveThreads(jsonResponse([]))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/chat/threads')
+      expect(fetchMock).toHaveBeenCalledWith('/api/threads')
     })
   })
 
@@ -493,7 +493,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams()
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([
+      if (url === '/api/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
         {
           id: 'thread-b',
@@ -534,7 +534,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('threadId=thread-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([
+      if (url === '/api/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
       ])
@@ -575,7 +575,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('threadId=thread-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([
+      if (url === '/api/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
       ])
@@ -618,7 +618,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams('threadId=thread-a')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([
+      if (url === '/api/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-c', title: 'Thread C', updated_at: '2026-02-06T00:00:00Z' },
@@ -649,7 +649,7 @@ describe('ChatPageClient', () => {
     currentSearchParams = new URLSearchParams()
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([
+      if (url === '/api/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-c', title: 'Thread C', updated_at: '2026-02-06T00:00:00Z' },
@@ -686,7 +686,7 @@ describe('ChatPageClient', () => {
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
-      if (url === '/api/chat/threads') return jsonResponse([
+      if (url === '/api/threads') return jsonResponse([
         { id: 'thread-a', title: 'Thread A', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-b', title: 'Thread B', updated_at: '2026-02-06T00:00:00Z' },
         { id: 'thread-c', title: 'Thread C', updated_at: '2026-02-06T00:00:00Z' },

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useCallback, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 
 import {
   isLocale,
@@ -29,6 +30,8 @@ export function I18nProvider({
   locale: Locale
   messages: Messages
 }) {
+  const router = useRouter()
+
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, locale)
@@ -67,8 +70,8 @@ export function I18nProvider({
       segments.splice(1, 0, next)
     }
     const nextPath = segments.join("/") || "/"
-    window.location.assign(`${nextPath}${search}${hash}`)
-  }, [])
+    router.replace(`${nextPath}${search}${hash}`)
+  }, [router])
 
   const t = useMemo(() => createTranslator(messages), [messages])
 

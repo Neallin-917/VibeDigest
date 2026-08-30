@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isDataUIPart } from 'ai'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
 import { cn } from '@/lib/utils'
@@ -135,6 +136,7 @@ export function ChatContainer({
 }: ChatContainerProps) {
 
   const { t, locale } = useI18n()
+  const router = useRouter()
 
   const activeTaskIdRef = useRef<string | null | undefined>(activeTaskId)
 
@@ -232,7 +234,7 @@ export function ChatContainer({
   const handleLogin = () => {
     const nextPath = `${window.location.pathname}${window.location.search}`
     const loginUrl = `/${locale}/login?next=${encodeURIComponent(nextPath)}`
-    window.location.href = loginUrl
+    router.push(loginUrl)
   }
 
   const [taskRetryError, setTaskRetryError] = useState<string | null>(null)

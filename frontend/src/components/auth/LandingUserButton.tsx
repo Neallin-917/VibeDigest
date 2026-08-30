@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Button } from "@/components/ui/button"
@@ -27,9 +28,15 @@ export function LandingUserButton() {
         if (typeof window !== 'undefined' && window.google?.accounts?.id) {
             window.google.accounts.id.disableAutoSelect()
         }
-        await supabase.auth.signOut()
-        queryClient.setQueryData(accountKeys.currentUser, null)
-        queryClient.removeQueries({ queryKey: accountKeys.profiles })
+        try {
+            const { error } = await supabase.auth.signOut()
+            if (error) throw error
+
+            queryClient.setQueryData(accountKeys.currentUser, null)
+            queryClient.removeQueries({ queryKey: accountKeys.profiles })
+        } catch {
+            toast.error(t("auth.signOutFailed"))
+        }
     }
 
     if (isPending) {

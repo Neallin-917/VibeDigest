@@ -1,9 +1,11 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState, useMemo, useSyncExternalStore } from "react"
 import { Settings, LogOut, CreditCard, MessageSquareWarning } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase"
 import {
@@ -37,6 +39,7 @@ export function UserAvatarDropdown({
 }: UserAvatarDropdownProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
   const queryClient = useQueryClient()
   const { t, locale } = useI18n()
   const { data: user } = useCurrentUserQuery()
@@ -52,10 +55,18 @@ export function UserAvatarDropdown({
     if (typeof window !== 'undefined' && window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect()
     }
-    await supabase.auth.signOut()
-    queryClient.setQueryData(accountKeys.currentUser, null)
-    queryClient.removeQueries({ queryKey: accountKeys.profiles })
-    window.location.href = '/'
+
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+
+      queryClient.setQueryData(accountKeys.currentUser, null)
+      queryClient.removeQueries({ queryKey: accountKeys.profiles })
+      router.replace(`/${locale}`)
+      router.refresh()
+    } catch {
+      toast.error(t("auth.signOutFailed"))
+    }
   }
 
   const avatarSize = size === "sm" ? "h-8 w-8 text-[10px]" : "h-9 w-9 md:h-10 md:w-10 text-xs"

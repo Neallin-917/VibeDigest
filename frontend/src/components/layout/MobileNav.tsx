@@ -1,9 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useMemo } from "react"
 import { LogOut, Menu } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase"
@@ -12,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { NAV_ITEMS } from "@/components/layout/navItems"
 import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
-import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
 import { BrandLogo } from "./BrandLogo"
 
 function isActiveNav(pathname: string, href: string) {
@@ -26,9 +28,29 @@ function isActiveNav(pathname: string, href: string) {
 
 export function MobileHeader() {
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const { t, locale } = useI18n()
   const { data: user } = useCurrentUserQuery()
   const userEmail = user?.email ?? null
+
+  const handleLogout = async () => {
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      window.google.accounts.id.disableAutoSelect()
+    }
+
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+
+      queryClient.setQueryData(accountKeys.currentUser, null)
+      queryClient.removeQueries({ queryKey: accountKeys.profiles })
+      router.replace(`/${locale}`)
+      router.refresh()
+    } catch {
+      toast.error(t("auth.signOutFailed"))
+    }
+  }
 
   return (
     <div className="md:hidden sticky top-0 z-40 border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/40 backdrop-blur-md">
@@ -75,14 +97,7 @@ export function MobileHeader() {
               <DialogClose asChild>
                 <Button
                   variant="ghost"
-                  onClick={async () => {
-                    // Disable One Tap auto-select to prevent auto-login loop
-                    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
-                      window.google.accounts.id.disableAutoSelect()
-                    }
-                    await supabase.auth.signOut()
-                    window.location.href = `/${locale}`
-                  }}
+                  onClick={handleLogout}
                   className="w-full justify-start gap-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                 >
                   <LogOut className="h-4 w-4" />

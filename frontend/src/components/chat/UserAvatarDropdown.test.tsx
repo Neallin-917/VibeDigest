@@ -12,10 +12,21 @@ import { UserAvatarDropdown } from "./UserAvatarDropdown"
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   signOut: vi.fn(),
+  replace: vi.fn(),
+  refresh: vi.fn(),
+  errorToast: vi.fn(),
+}))
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }),
 }))
 
 vi.mock("@/lib/supabase", () => ({
   createClient: () => ({ auth: mocks }),
+}))
+
+vi.mock("sonner", () => ({
+  toast: { error: mocks.errorToast },
 }))
 
 vi.mock("@/components/i18n/I18nProvider", () => ({
@@ -146,21 +157,39 @@ describe("UserAvatarDropdown", () => {
     )
     await user.click(screen.getByRole("button", { name: "chat.moreOptionsHint" }))
 
-    const location = { href: "/zh/chat" }
     const disableAutoSelect = vi.fn()
     vi.stubGlobal("window", new Proxy(window, {
       get(target, property) {
-        if (property === "location") return location
         if (property === "google") return { accounts: { id: { disableAutoSelect } } }
         return Reflect.get(target, property, target)
       },
     }))
     await user.click(screen.getByRole("menuitem", { name: "auth.logout" }))
 
-    await waitFor(() => expect(location.href).toBe("/"))
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/zh"))
+    expect(mocks.refresh).toHaveBeenCalledOnce()
     expect(mocks.signOut).toHaveBeenCalledOnce()
     expect(disableAutoSelect).toHaveBeenCalledOnce()
     expect(queryClient.getQueryData(accountKeys.currentUser)).toBeNull()
     expect(queryClient.getQueryData(accountKeys.profile("alice@example.com"))).toBeUndefined()
+  })
+
+  it("preserves the session-facing state when logout fails", async () => {
+    const user = userEvent.setup()
+    const account = makeUser("alice@example.com")
+    const queryClient = createQueryClient(account)
+    mocks.signOut.mockResolvedValue({ error: new Error("network unavailable") })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UserAvatarDropdown />
+      </QueryClientProvider>,
+    )
+    await user.click(screen.getByRole("button", { name: "chat.moreOptionsHint" }))
+    await user.click(screen.getByRole("menuitem", { name: "auth.logout" }))
+
+    await waitFor(() => expect(mocks.errorToast).toHaveBeenCalledWith("auth.signOutFailed"))
+    expect(queryClient.getQueryData(accountKeys.currentUser)).toEqual(account)
+    expect(mocks.replace).not.toHaveBeenCalled()
+    expect(mocks.refresh).not.toHaveBeenCalled()
   })
 })

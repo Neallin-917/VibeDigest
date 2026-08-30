@@ -4,8 +4,12 @@ import {
   buildDetailedSummaryMarkdownFromContent,
   buildSummaryExcerptFromContent,
   buildSummaryMarkdownFromContent,
+  listPublicSummaryLocales,
+  matchPublicSummaryOutput,
+  normalizeSummaryLanguageTag,
   parseCurrentSummary,
   pickPreferredSummaryOutput,
+  resolveSummaryLocale,
 } from './summary-contract'
 
 const validSummary = {
@@ -297,5 +301,125 @@ describe('summary-contract', () => {
     }))
 
     expect(markdown).toBe('')
+  })
+
+  it('normalizes summary language aliases for supported public locales', () => {
+    expect(normalizeSummaryLanguageTag('Japanese')).toBe('ja')
+    expect(resolveSummaryLocale('zh-CN')).toBe('zh')
+    expect(resolveSummaryLocale('English')).toBe('en')
+    expect(resolveSummaryLocale('ko')).toBeNull()
+  })
+
+  it('matches only the route locale for public rendering and exposes a supported alternative', () => {
+    const matched = matchPublicSummaryOutput(
+      [{
+        kind: 'summary',
+        status: 'completed',
+        locale: 'zh',
+        content: JSON.stringify({ ...validSummary, language: 'zh' }),
+      }],
+      'en'
+    )
+
+    expect(matched).toMatchObject({
+      output: null,
+      summary: null,
+      routeLocale: 'en',
+      summaryLocale: null,
+      availableLocales: ['zh'],
+      alternativeLocale: 'zh',
+      routeMatches: false,
+    })
+  })
+
+  it('trusts the parsed summary language over a conflicting output locale', () => {
+    const matched = matchPublicSummaryOutput(
+      [{
+        kind: 'summary',
+        status: 'completed',
+        locale: 'en',
+        content: JSON.stringify({ ...validSummary, language: 'zh' }),
+      }],
+      'en'
+    )
+
+    expect(matched).toMatchObject({
+      output: null,
+      availableLocales: ['zh'],
+      alternativeLocale: 'zh',
+      routeMatches: false,
+    })
+  })
+
+  it('keeps sitemap locales lightweight and ordered by product priority', () => {
+    expect(listPublicSummaryLocales([
+      { kind: 'summary', status: 'completed', locale: 'zh' },
+      { kind: 'summary', status: 'completed', locale: 'en' },
+      { kind: 'summary', status: 'completed', locale: 'ko' },
+      { kind: 'summary', status: 'failed', locale: 'ja' },
+    ])).toEqual(['en', 'zh'])
+  })
+
+  it('uses the database-owned public language projection as the publication boundary', () => {
+    const outputs = [
+      {
+        kind: 'summary',
+        status: 'completed',
+        locale: 'en',
+        content: JSON.stringify({ ...validSummary, language: 'en' }),
+      },
+      {
+        kind: 'summary',
+        status: 'completed',
+        locale: 'zh',
+        content: JSON.stringify({ ...validSummary, language: 'zh' }),
+      },
+    ]
+
+    expect(listPublicSummaryLocales(outputs, 'zh-CN')).toEqual(['zh'])
+    expect(matchPublicSummaryOutput(outputs, 'en', 'zh-CN')).toMatchObject({
+      output: null,
+      availableLocales: ['zh'],
+      alternativeLocale: 'zh',
+      routeMatches: false,
+    })
+    expect(matchPublicSummaryOutput(outputs, 'zh', 'zh-CN')).toMatchObject({
+      summaryLocale: 'zh',
+      availableLocales: ['zh'],
+      alternativeLocale: null,
+      routeMatches: true,
+    })
+    expect(listPublicSummaryLocales(outputs, 'ko')).toEqual([])
+    expect(matchPublicSummaryOutput(outputs, 'en', 'ko')).toMatchObject({
+      output: null,
+      availableLocales: [],
+      alternativeLocale: null,
+      routeMatches: false,
+    })
+  })
+
+  it('treats a locale-null summary as the projected public language when quality flags provide it', () => {
+    const matched = matchPublicSummaryOutput(
+      [{
+        kind: 'summary',
+        status: 'completed',
+        locale: null,
+        content: JSON.stringify({ ...validSummary, language: 'unknown' }),
+      }],
+      'zh',
+      'zh-CN'
+    )
+
+    expect(matched.routeMatches).toBe(true)
+    expect(matched.summary?.language).toBe('unknown')
+    expect(matched.summaryLocale).toBe('zh')
+    expect(listPublicSummaryLocales(
+      [{
+        kind: 'summary',
+        status: 'completed',
+        locale: null,
+      }],
+      'zh-CN'
+    )).toEqual(['zh'])
   })
 })

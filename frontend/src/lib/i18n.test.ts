@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { getCompleteMessages } from "@/lib/i18n-messages"
-import { createTranslator, type Messages } from "@/lib/i18n"
+import { createTranslator, getLocaleDisplayName, type Messages } from "@/lib/i18n"
 
 function leafKeys(messages: Messages, prefix = ""): string[] {
   return Object.entries(messages).flatMap(([key, value]) => {
@@ -11,6 +11,12 @@ function leafKeys(messages: Messages, prefix = ""): string[] {
 }
 
 describe("i18n messages", () => {
+  it("localizes language names for cross-locale navigation", () => {
+    expect(getLocaleDisplayName("zh", "en")).toBe("Chinese")
+    expect(getLocaleDisplayName("en", "zh")).toBe("英文")
+    expect(getLocaleDisplayName("ja", "ja")).toBe("日本語")
+  })
+
   it("keeps every locale structurally complete", () => {
     const englishKeys = leafKeys(getCompleteMessages("en")).sort()
 

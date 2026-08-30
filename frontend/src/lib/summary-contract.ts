@@ -1,3 +1,5 @@
+import type { Locale } from '@/lib/i18n'
+
 export interface CurrentSummaryKeyPoint {
   title: string
   detail: string
@@ -76,6 +78,21 @@ export interface SummaryOutputCandidate {
   created_at?: string | null
   updated_at?: string | null
   provenance?: unknown
+}
+
+export type PublicSummaryLocaleCandidate = Pick<
+  SummaryOutputCandidate,
+  "kind" | "status" | "locale"
+>
+
+export type PublicSummaryMatch<T extends SummaryOutputCandidate = SummaryOutputCandidate> = {
+  output: T | null
+  summary: CurrentSummary | null
+  routeLocale: Locale
+  summaryLocale: Locale | null
+  availableLocales: Locale[]
+  alternativeLocale: Locale | null
+  routeMatches: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -295,16 +312,87 @@ function normalizeLocale(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/_/g, '-') ?? ''
 }
 
+const LANGUAGE_NAME_ALIASES: Record<string, string> = {
+  english: 'en',
+  chinese: 'zh',
+  'simplified chinese': 'zh-CN',
+  'traditional chinese': 'zh-TW',
+  中文: 'zh',
+  简体中文: 'zh-CN',
+  繁体中文: 'zh-TW',
+  繁體中文: 'zh-TW',
+  japanese: 'ja',
+  jp: 'ja',
+  日本語: 'ja',
+  korean: 'ko',
+  한국어: 'ko',
+  韩语: 'ko',
+  韓語: 'ko',
+  spanish: 'es',
+  español: 'es',
+  西班牙语: 'es',
+}
+
+export function normalizeSummaryLanguageTag(language?: string | null) {
+  const raw = language?.trim() || ''
+  if (!raw || raw.length > 64) return null
+
+  const normalized = raw.toLowerCase().replace(/_/g, '-')
+  if (normalized === 'unknown') return null
+  const candidate = LANGUAGE_NAME_ALIASES[normalized] || normalized
+
+  try {
+    return Intl.getCanonicalLocales(candidate)[0] || null
+  } catch {
+    return null
+  }
+}
+
+export function resolveSummaryLocale(language?: string | null): Locale | null {
+  const baseLanguage = normalizeSummaryLanguageTag(language)?.split('-')[0]
+  return baseLanguage === 'en' || baseLanguage === 'zh' || baseLanguage === 'ja'
+    ? baseLanguage
+    : null
+}
+
+function parseValidSummaryOutput<T extends SummaryOutputCandidate>(output: T) {
+  if (output.kind !== 'summary' || output.status !== 'completed') return null
+
+  const summary = parseCurrentSummary(output.content)
+  if (!summary) return null
+
+  return { output, summary }
+}
+
+function resolvePublicOutputLocale<T extends SummaryOutputCandidate>(
+  output: T,
+  summary: CurrentSummary,
+  projectedLanguage?: string | null
+) {
+  const contentLanguage = normalizeSummaryLanguageTag(summary.language)
+  if (contentLanguage) return resolveSummaryLocale(contentLanguage)
+
+  const explicitLocale = resolveSummaryLocale(output.locale)
+  if (explicitLocale) return explicitLocale
+
+  return resolveSummaryLocale(projectedLanguage)
+}
+
+const PUBLIC_LOCALE_PRIORITY: Locale[] = ["en", "zh", "ja"]
+
+function sortPublicLocales(locales: Iterable<Locale>) {
+  const localeSet = new Set(locales)
+  return PUBLIC_LOCALE_PRIORITY.filter((locale) => localeSet.has(locale))
+}
+
 export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(
   outputs: T[],
   preferredLocale?: string | null
 ): T | null {
-  const validOutputs = outputs.filter(
-    (output) =>
-      output.kind === 'summary' &&
-      output.status === 'completed' &&
-      parseCurrentSummary(output.content) !== null
-  )
+  const validOutputs = outputs.flatMap((output) => {
+    const parsed = parseValidSummaryOutput(output)
+    return parsed ? [parsed.output] : []
+  })
 
   if (validOutputs.length === 0) {
     return null
@@ -334,6 +422,83 @@ export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(
   )
 
   return canonical ?? validOutputs[0] ?? null
+}
+
+export function listPublicSummaryLocales<T extends PublicSummaryLocaleCandidate>(
+  outputs: T[],
+  projectedLanguage?: string | null
+): Locale[] {
+  const completedSummaries = outputs.filter(
+    (output) => output.kind === "summary" && output.status === "completed"
+  )
+  const normalizedProjectedLanguage = normalizeSummaryLanguageTag(projectedLanguage)
+  const projectedLocale = resolveSummaryLocale(projectedLanguage)
+  if (projectedLocale && completedSummaries.length > 0) return [projectedLocale]
+  if (normalizedProjectedLanguage) return []
+
+  const locales = new Set<Locale>()
+
+  for (const output of completedSummaries) {
+    const hasExplicitLocale = Boolean(output.locale?.trim())
+    const locale = hasExplicitLocale
+      ? resolveSummaryLocale(output.locale)
+      : null
+    if (locale) locales.add(locale)
+  }
+
+  return sortPublicLocales(locales)
+}
+
+export function matchPublicSummaryOutput<T extends SummaryOutputCandidate>(
+  outputs: T[],
+  routeLocale: Locale,
+  projectedLanguage?: string | null
+): PublicSummaryMatch<T> {
+  const validOutputs = outputs.flatMap((output) => {
+    const parsed = parseValidSummaryOutput(output)
+    if (!parsed) return []
+
+    return [{
+      ...parsed,
+      summaryLocale: resolvePublicOutputLocale(parsed.output, parsed.summary, projectedLanguage),
+    }]
+  })
+
+  const normalizedProjectedLanguage = normalizeSummaryLanguageTag(projectedLanguage)
+  const projectedLocale = resolveSummaryLocale(projectedLanguage)
+  const eligibleOutputs = projectedLocale
+    ? validOutputs.filter((item) => item.summaryLocale === projectedLocale)
+    : normalizedProjectedLanguage
+      ? []
+      : validOutputs
+
+  const availableLocales = sortPublicLocales(
+    eligibleOutputs.flatMap((item) => item.summaryLocale ? [item.summaryLocale] : [])
+  )
+
+  const matched = eligibleOutputs.find((item) => item.summaryLocale === routeLocale)
+
+  if (matched) {
+    return {
+      output: matched.output,
+      summary: matched.summary,
+      routeLocale,
+      summaryLocale: matched.summaryLocale,
+      availableLocales,
+      alternativeLocale: null,
+      routeMatches: true,
+    }
+  }
+
+  return {
+    output: null,
+    summary: null,
+    routeLocale,
+    summaryLocale: null,
+    availableLocales,
+    alternativeLocale: availableLocales[0] ?? null,
+    routeMatches: false,
+  }
 }
 
 const SUMMARY_MARKDOWN_COPY = {

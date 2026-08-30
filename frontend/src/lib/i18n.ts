@@ -13,6 +13,16 @@ export const LOCALE_LABEL: Record<Locale, string> = {
   ja: "日本語",
 }
 
+export const LOCALE_DISPLAY_NAME: Record<Locale, Record<Locale, string>> = {
+  en: { en: "English", zh: "Chinese", ja: "Japanese" },
+  zh: { en: "英文", zh: "中文", ja: "日文" },
+  ja: { en: "英語", zh: "中国語", ja: "日本語" },
+}
+
+export function getLocaleDisplayName(locale: Locale, displayLocale: Locale) {
+  return LOCALE_DISPLAY_NAME[displayLocale][locale]
+}
+
 export const LOCALE_DATE_TAG: Record<Locale, string> = {
   en: "en-US",
   zh: "zh-CN",

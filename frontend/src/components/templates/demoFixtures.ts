@@ -10,6 +10,7 @@ type DemoFixtureSeed = {
     durationLabel: string
     keyPointCount: number
     created_at: string
+    publicLocale?: Locale
 }
 
 function createDemoThumbnail(seed: DemoFixtureSeed) {
@@ -80,6 +81,7 @@ function createDemoTask(seed: DemoFixtureSeed): Task {
         published_at: seed.created_at,
         updated_at: seed.created_at,
         source: findPodcastSource(seed.author, seed.video_url) ?? undefined,
+        takeawayLocale: seed.publicLocale ?? null,
     }
 }
 
@@ -176,6 +178,17 @@ const DEMO_FIXTURE_TASKS: Task[] = [
     }),
 ]
 
+const LANGUAGE_MISMATCH_DEMO_TASK = createDemoTask({
+    id: "local-demo-zh-only",
+    video_url: "https://www.youtube.com/watch?v=KpOW9Pk4BUs",
+    video_title: "From Prediction to Simulation: Teaching AI to Shape the Future",
+    author: "Latent Space",
+    durationLabel: "68 min",
+    keyPointCount: 8,
+    created_at: "2026-08-24T09:00:00.000Z",
+    publicLocale: "zh",
+})
+
 export function getDemoFixtureTasks(limit: number) {
     return DEMO_FIXTURE_TASKS.slice(0, limit)
 }
@@ -254,21 +267,24 @@ function createDemoSummary(task: Task, locale: Locale) {
 
 export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
     const task = DEMO_FIXTURE_TASKS.find((candidate) => candidate.id === id)
+        ?? (LANGUAGE_MISMATCH_DEMO_TASK.id === id ? LANGUAGE_MISMATCH_DEMO_TASK : null)
     if (!task) return null
 
-    const summary = createDemoSummary(task, locale)
+    const summaryLocale = task.takeawayLocale ?? locale
+    const summary = createDemoSummary(task, summaryLocale)
     return {
         ...task,
         takeaway: summary.tl_dr,
+        takeawayLocale: summaryLocale,
         task_outputs: [
             {
                 kind: "summary",
                 content: summary,
                 status: "completed",
-                locale,
+                locale: summaryLocale,
                 created_at: task.created_at,
                 updated_at: task.updated_at,
-                provenance: { transcript_language: locale },
+                provenance: { transcript_language: summaryLocale },
             },
         ],
     }

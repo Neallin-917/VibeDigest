@@ -4,7 +4,7 @@ import logging
 import sys
 from typing import Dict, Optional
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
 from utils.logging import configure_logging
 from utils.env_utils import parse_bool_env, parse_int_env
@@ -59,6 +59,68 @@ class PriceConfig(BaseModel):
     name: str
     credits: int = 0
     mode: str = "payment"  # 'payment' or 'subscription'
+
+
+class BillingOptionConfig(BaseModel):
+    plan_key: str = Field(alias="planKey")
+    price: float
+    billing_period_months: int = Field(alias="billingPeriodMonths")
+
+
+class CustomerPlanConfig(BaseModel):
+    key: str
+    name: str
+    price: float | None = None
+    included_videos_per_month: int = Field(alias="includedVideosPerMonth")
+    features: list[str]
+    billing_options: Dict[str, BillingOptionConfig] | None = Field(
+        default=None,
+        alias="billingOptions",
+    )
+
+
+class TopUpConfig(BaseModel):
+    key: str
+    name: str
+    plan_key: str = Field(alias="planKey")
+    price: float
+    credits: int
+    expires: bool
+    compatible_plan_keys: list[str] = Field(alias="compatiblePlanKeys")
+
+
+class CustomerPlanCatalogConfig(BaseModel):
+    currency: str
+    plans: Dict[str, CustomerPlanConfig]
+    top_ups: Dict[str, TopUpConfig] = Field(alias="topUps")
+
+
+def _load_customer_plan_catalog() -> CustomerPlanCatalogConfig:
+    candidates = [
+        Path(__file__).resolve().parent.parent / "config" / "customer-plan-catalog.json",
+        Path(__file__).resolve().parent / "customer-plan-catalog.json",
+    ]
+    catalog_path = next((candidate for candidate in candidates if candidate.exists()), None)
+    if catalog_path is None:
+        raise FileNotFoundError(
+            "Customer plan catalog not found. Checked: "
+            + ", ".join(str(candidate) for candidate in candidates)
+        )
+
+    try:
+        with catalog_path.open("r", encoding="utf-8") as catalog_file:
+            return CustomerPlanCatalogConfig.model_validate(json.load(catalog_file))
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Failed to parse customer plan catalog at '{catalog_path}': {exc}"
+        ) from exc
+    except ValidationError as exc:
+        raise ValueError(
+            f"Invalid customer plan catalog at '{catalog_path}': {exc}"
+        ) from exc
+
+
+CUSTOMER_PLAN_CATALOG = _load_customer_plan_catalog()
 
 
 class Settings:
@@ -364,25 +426,30 @@ class Settings:
                 f"'{original}' -> '{self.OPENAI_BASE_URL}'"
             )
 
-    # Pricing / Plans (Creem Product IDs)
+    # Provider product IDs remain server-only. Customer-visible amounts and
+    # entitlements come from config/customer-plan-catalog.json.
+    _PRO_MONTHLY = CUSTOMER_PLAN_CATALOG.plans["pro"].billing_options["monthly"]
+    _PRO_ANNUAL = CUSTOMER_PLAN_CATALOG.plans["pro"].billing_options["annual"]
+    _PRO_PLAN = CUSTOMER_PLAN_CATALOG.plans["pro"]
+    _CREDIT_PACK = CUSTOMER_PLAN_CATALOG.top_ups["videoCredits"]
     PRICES: Dict[str, PriceConfig] = {
         "CREDIT_PACK": PriceConfig(
             id="prod_5VVI5ldN9dtI7tbHaST5OB",
-            amount=5.00,
-            name="50 Credits Top-up (One-time)",
-            credits=50,
+            amount=_CREDIT_PACK.price,
+            name=_CREDIT_PACK.name,
+            credits=_CREDIT_PACK.credits,
             mode="payment",
         ),
         "PRO_MONTHLY": PriceConfig(
             id="prod_5XoWWMZN6ptDexocrwyqT0",
-            amount=9.90,
-            name="Pro Plan (1 Month)",
+            amount=_PRO_MONTHLY.price,
+            name=f"{_PRO_PLAN.name} Plan (1 Month)",
             mode="subscription",
         ),
         "PRO_ANNUAL": PriceConfig(
             id="prod_1pLnYf7AwktcAhRhkjiJTh",
-            amount=99.00,
-            name="Pro Plan (1 Year)",
+            amount=_PRO_ANNUAL.price,
+            name=f"{_PRO_PLAN.name} Plan (1 Year)",
             mode="subscription",
         ),
     }

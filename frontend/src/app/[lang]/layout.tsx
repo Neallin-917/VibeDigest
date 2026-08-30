@@ -10,7 +10,8 @@ import { Vignette } from "@/components/ui/vignette";
 import { buildLocalizedPath, getOpenGraphLocale, SITE_URL } from "@/lib/seo";
 import { env } from "@/env";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n";
-import { getMessages } from "@/lib/i18n-server";
+import { createTranslator, getMessages } from "@/lib/i18n-server";
+import { buildSoftwareApplicationSchema, serializeJsonLd } from "@/lib/billing/structured-data";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -129,6 +130,25 @@ export default async function RootLayout({
   const { lang } = await params;
   const locale = isLocale(lang) ? lang : DEFAULT_LOCALE;
   const messages = getMessages(locale);
+  const t = createTranslator(locale);
+  const structuredData = [
+    buildSoftwareApplicationSchema(t),
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "VibeDigest",
+      "alternateName": ["Vibe Digest", "AI Video Summarizer"],
+      "url": "https://vibedigest.io"
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "VibeDigest",
+      "url": "https://vibedigest.io",
+      "logo": "https://vibedigest.io/icon.png",
+      "sameAs": ["https://twitter.com/vibedigest"]
+    },
+  ];
   return (
     <div
       lang={locale}
@@ -143,40 +163,7 @@ export default async function RootLayout({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
-              "name": "VibeDigest",
-              "applicationCategory": "ProductivityApplication",
-              "applicationSubCategory": "AI Video Summarizer",
-              "operatingSystem": "Web",
-              "url": "https://vibedigest.io",
-              "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD",
-              },
-              "description": "AI-powered tool to transform videos and podcasts into structured insights.",
-            },
-            {
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "VibeDigest",
-              "alternateName": ["Vibe Digest", "AI Video Summarizer"],
-              "url": "https://vibedigest.io"
-            },
-            {
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "name": "VibeDigest",
-              "url": "https://vibedigest.io",
-              "logo": "https://vibedigest.io/icon.png",
-              "sameAs": [
-                "https://twitter.com/vibedigest"
-              ]
-            }
-          ])
+          __html: serializeJsonLd(structuredData)
         }}
       />
       <Providers locale={locale} messages={messages}>

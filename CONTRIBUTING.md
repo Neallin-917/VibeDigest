@@ -48,6 +48,7 @@ Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 | `make test-provider-smoke` | Real configured LLM provider smoke test |
 | `make test-frontend` | Frontend unit tests in run mode |
 | `cd frontend && npm run build` | Frontend production build |
+| `cd frontend && npm run catalog:sync` | Regenerate the frontend mirror after editing the customer plan catalog |
 | `make lint` | Enforced production-backend Ruff plus frontend ESLint |
 | `make clean` | Remove generated local artifacts |
 

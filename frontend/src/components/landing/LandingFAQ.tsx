@@ -3,21 +3,11 @@
 import Link from "next/link"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Heading, Text } from "@/components/ui/typography"
-
-const questionKeys = [
-    "landing.faqFreeQuestion",
-    "landing.faqSignInQuestion",
-    "landing.faqBillingQuestion",
-] as const
-
-const answerKeys = [
-    "landing.faqFreeAnswer",
-    "landing.faqSignInAnswer",
-    "landing.faqBillingAnswer",
-] as const
+import { getLandingFaqItems } from "@/lib/billing/faq-content"
 
 export function LandingFAQ() {
     const { locale, t } = useI18n()
+    const items = getLandingFaqItems(t)
 
     return (
         <section id="landing-faq" aria-labelledby="landing-faq-title" className="scroll-mt-24 px-4 py-16 sm:px-6 md:py-20 lg:px-10 lg:py-24 xl:px-6">
@@ -43,14 +33,14 @@ export function LandingFAQ() {
                 </div>
 
                 <div className="divide-y divide-border border-y border-border">
-                    {questionKeys.map((questionKey, index) => (
-                        <details key={questionKey} className="group py-1">
+                    {items.map((item) => (
+                        <details key={item.question} className="group py-1">
                             <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-5 text-sm font-semibold text-foreground outline-none transition-colors hover:text-primary-strong focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4">
-                                <span>{t(questionKey)}</span>
+                                <span>{item.question}</span>
                                 <span className="text-lg font-normal text-foreground-subtle transition-transform duration-200 group-open:rotate-45" aria-hidden="true">+</span>
                             </summary>
                             <Text className="max-w-2xl pb-6 pr-10 text-sm leading-7 text-muted-foreground">
-                                {t(answerKeys[index])}
+                                {item.answer}
                             </Text>
                         </details>
                     ))}

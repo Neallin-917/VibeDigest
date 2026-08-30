@@ -22,6 +22,7 @@ COPY backend/ .
 # Shared config lives at repo root and is copied into the backend image.
 COPY config/llm-provider-defaults.json ./llm-provider-defaults.json
 COPY config/podcast-sources.json ./podcast-sources.json
+COPY config/customer-plan-catalog.json ./customer-plan-catalog.json
 
 RUN groupadd --system --gid 10001 vibedigest \
     && useradd --system --uid 10001 --gid vibedigest --home-dir /app vibedigest \

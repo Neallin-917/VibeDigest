@@ -19,11 +19,7 @@ import {
     useCurrentUserQuery,
     useProfileQuery,
 } from "@/hooks/useAccountQueries"
-
-// Provider product IDs remain server-only. The browser sends stable plan keys.
-const PRO_MONTHLY_PLAN_KEY = "pro_monthly"
-const PRO_ANNUAL_PLAN_KEY = "pro_annual"
-const CREDIT_PACK_PLAN_KEY = "credit_pack"
+import { getCustomerPlanDisplay } from "@/lib/billing/plan-catalog"
 type BillingAction = "pro" | "topup" | "portal"
 
 export default function PricingPage() {
@@ -104,23 +100,7 @@ export default function PricingPage() {
     const profileKnown = !profileLoading && profile !== null
     const isPro = profileKnown && profile.tier === 'pro'
     const displayError = actionError ?? (profileError ? t("pricing.profileError") : null)
-
-    const freeFeatureKeys = [
-        "pricing.free.features.f1",
-        "pricing.free.features.f4",
-        "pricing.free.features.f5",
-    ] as const
-
-    const proFeatureKeys = [
-        "pricing.pro.features.f1",
-        "pricing.pro.features.f2",
-    ] as const
-
-    const topupFeatureKeys = [
-        "pricing.topup.features.f1",
-        "pricing.topup.features.f2",
-        "pricing.topup.features.f3",
-    ] as const
+    const catalog = getCustomerPlanDisplay(t)
 
     return (
         <PageContainer>
@@ -160,23 +140,20 @@ export default function PricingPage() {
                             </div>
                         )}
                         <CardHeader>
-                            <CardTitle className="text-base">{t("pricing.free.title")}</CardTitle>
-                            <CardDescription className="text-xs">{t("pricing.free.desc")}</CardDescription>
+                            <CardTitle className="text-base">{catalog.basic.title}</CardTitle>
+                            <CardDescription className="text-xs">{catalog.basic.description}</CardDescription>
                             <div className="mt-4">
-                                <span className="text-2xl leading-none font-bold tabular-nums">{t("pricing.free.price")}</span>
+                                <span className="text-2xl leading-none font-bold tabular-nums">{catalog.basic.priceLabel}</span>
                             </div>
                         </CardHeader>
                         <CardContent className="flex-1">
                             <ul className="space-y-2 text-xs leading-4">
-                                {freeFeatureKeys
-                                    .map((k) => t(k))
-                                    .filter((v) => v && !v.startsWith("pricing."))
-                                    .map((feature, i) => (
-                                        <li key={i} className="flex items-center gap-2">
-                                            <Database className="h-3 w-3 text-muted-foreground" />
-                                            <span className="text-xs leading-4">{feature}</span>
-                                        </li>
-                                    ))}
+                                {catalog.basic.features.map((feature) => (
+                                    <li key={feature} className="flex items-center gap-2">
+                                        <Database className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-xs leading-4">{feature}</span>
+                                    </li>
+                                ))}
                             </ul>
                         </CardContent>
                         <CardFooter>
@@ -210,7 +187,7 @@ export default function PricingPage() {
                         <CardHeader className="relative pt-8">
                             <div className="flex items-start justify-between gap-4">
                                 <Heading as="h3" variant="h3">
-                                    {t("pricing.pro.title")}
+                                    {catalog.pro.title}
                                 </Heading>
                                 {!isPro && (
                                     <div className="flex items-center gap-2">
@@ -249,11 +226,11 @@ export default function PricingPage() {
                                                 weight="medium"
                                                 className="line-through tabular-nums text-xs"
                                             >
-                                                {t("pricing.pro.price")}
+                                                {catalog.pro.monthlyPriceLabel}
                                             </Text>
                                         )}
                                         <span className="text-2xl leading-none font-bold tabular-nums">
-                                            {isAnnual ? t("pricing.pro.annualPrice") : t("pricing.pro.price")}
+                                            {isAnnual ? catalog.pro.annualEffectiveMonthlyLabel : catalog.pro.monthlyPriceLabel}
                                         </span>
                                         <Text as="span" variant="caption" tone="muted">
                                             {t("pricing.pro.unit")}
@@ -261,7 +238,7 @@ export default function PricingPage() {
                                     </div>
                                     {isAnnual && (
                                         <Text variant="caption" tone="muted" className="mt-1 text-[10px]">
-                                            {t("pricing.pro.desc")}
+                                            {catalog.pro.description}
                                         </Text>
                                     )}
                                 </>
@@ -269,15 +246,12 @@ export default function PricingPage() {
                         </CardHeader>
                         <CardContent className="flex-1">
                             <ul className="space-y-2 text-xs leading-4">
-                                {proFeatureKeys
-                                    .map((k) => t(k))
-                                    .filter((v) => v && !v.startsWith("pricing."))
-                                    .map((feature, i) => (
-                                        <li key={i} className="flex items-center gap-2">
-                                            <Check className="h-3 w-3 text-emerald-500" />
-                                            <span className="text-xs leading-4">{feature}</span>
-                                        </li>
-                                    ))}
+                                {catalog.pro.features.map((feature) => (
+                                    <li key={feature} className="flex items-center gap-2">
+                                        <Check className="h-3 w-3 text-emerald-500" />
+                                        <span className="text-xs leading-4">{feature}</span>
+                                    </li>
+                                ))}
                             </ul>
                         </CardContent>
                         <CardFooter>
@@ -296,7 +270,9 @@ export default function PricingPage() {
                                     className="w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-semibold shadow-lg shadow-emerald-500/20"
                                     size="xl"
                                     onClick={() => handleCheckout(
-                                        isAnnual ? PRO_ANNUAL_PLAN_KEY : PRO_MONTHLY_PLAN_KEY,
+                                        isAnnual
+                                            ? catalog.pro.billingOptions.annual.planKey
+                                            : catalog.pro.billingOptions.monthly.planKey,
                                         "pro",
                                     )}
                                     disabled={loadingAction !== null}
@@ -311,30 +287,27 @@ export default function PricingPage() {
                     {/* TOP UP */}
                     <Card className="relative flex flex-col h-full border-border/50 bg-background/50 backdrop-blur-sm">
                         <CardHeader>
-                            <CardTitle className="text-base">{t("pricing.topup.title")}</CardTitle>
-                            <CardDescription className="text-xs">{t("pricing.topup.desc")}</CardDescription>
+                            <CardTitle className="text-base">{catalog.topUp.title}</CardTitle>
+                            <CardDescription className="text-xs">{catalog.topUp.description}</CardDescription>
                             <div className="mt-4">
-                                <span className="text-2xl leading-none font-bold tabular-nums">{t("pricing.topup.price")}</span>
+                                <span className="text-2xl leading-none font-bold tabular-nums">{catalog.topUp.priceLabel}</span>
                             </div>
                         </CardHeader>
                         <CardContent className="flex-1">
                             <ul className="space-y-2 text-xs leading-4">
-                                {topupFeatureKeys
-                                    .map((k) => t(k))
-                                    .filter((v) => v && !v.startsWith("pricing."))
-                                    .map((feature, i) => (
-                                        <li key={i} className="flex items-center gap-2">
-                                            <CreditCard className="h-3 w-3 text-blue-400" />
-                                            <span className="text-xs leading-4">{feature}</span>
-                                        </li>
-                                    ))}
+                                {catalog.topUp.features.map((feature) => (
+                                    <li key={feature} className="flex items-center gap-2">
+                                        <CreditCard className="h-3 w-3 text-blue-400" />
+                                        <span className="text-xs leading-4">{feature}</span>
+                                    </li>
+                                ))}
                             </ul>
                         </CardContent>
                         <CardFooter>
                             <Button
                                 className="w-full"
                                 variant="secondary"
-                                onClick={() => handleCheckout(CREDIT_PACK_PLAN_KEY, "topup")}
+                                onClick={() => handleCheckout(catalog.topUp.planKey, "topup")}
                                 disabled={!profileKnown || loadingAction !== null}
                             >
                                 {loadingAction === "topup"

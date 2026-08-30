@@ -1,0 +1,49 @@
+{
+  "currency": "USD",
+  "plans": {
+    "basic": {
+      "key": "basic",
+      "name": "Basic",
+      "price": 0,
+      "includedVideosPerMonth": 3,
+      "features": [
+        "save_notes",
+        "multilingual_summaries"
+      ]
+    },
+    "pro": {
+      "key": "pro",
+      "name": "Pro",
+      "includedVideosPerMonth": 100,
+      "features": [
+        "everything_in_basic"
+      ],
+      "billingOptions": {
+        "monthly": {
+          "planKey": "pro_monthly",
+          "price": 9.9,
+          "billingPeriodMonths": 1
+        },
+        "annual": {
+          "planKey": "pro_annual",
+          "price": 99,
+          "billingPeriodMonths": 12
+        }
+      }
+    }
+  },
+  "topUps": {
+    "videoCredits": {
+      "key": "video_credits",
+      "name": "Video credit top-up",
+      "planKey": "credit_pack",
+      "price": 5,
+      "credits": 50,
+      "expires": false,
+      "compatiblePlanKeys": [
+        "basic",
+        "pro"
+      ]
+    }
+  }
+}

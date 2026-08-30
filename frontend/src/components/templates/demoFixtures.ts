@@ -75,6 +75,10 @@ function createDemoTask(seed: DemoFixtureSeed): Task {
         ...seed,
         thumbnail_url: createDemoThumbnail(seed),
         status: "completed",
+        is_demo: true,
+        publication_status: "published",
+        published_at: seed.created_at,
+        updated_at: seed.created_at,
         source: findPodcastSource(seed.author, seed.video_url) ?? undefined,
     }
 }
@@ -263,6 +267,8 @@ export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
                 status: "completed",
                 locale,
                 created_at: task.created_at,
+                updated_at: task.updated_at,
+                provenance: { transcript_language: locale },
             },
         ],
     }

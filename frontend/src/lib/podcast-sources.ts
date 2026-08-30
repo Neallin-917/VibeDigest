@@ -189,6 +189,12 @@ export const PODCAST_SOURCES: PodcastSource[] = [
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
 
+const normalizeSourceId = (value: string) => value
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-|-$/g, "")
+
 export function findPodcastSource(author?: string, videoUrl?: string): PodcastSource | null {
   const haystack = normalize(`${author ?? ""} ${videoUrl ?? ""}`)
   if (!haystack) return null
@@ -199,4 +205,23 @@ export function findPodcastSource(author?: string, videoUrl?: string): PodcastSo
       return needle.length > 2 && haystack.includes(needle)
     })
   ) ?? null
+}
+
+export function resolvePodcastSourceId({
+  sourceSlug,
+  author,
+  videoUrl,
+}: {
+  sourceSlug?: string | null
+  author?: string | null
+  videoUrl?: string | null
+}) {
+  const explicitSourceId = normalizeSourceId(sourceSlug || "")
+  if (explicitSourceId) return explicitSourceId
+
+  const catalogSource = findPodcastSource(author || undefined, videoUrl || undefined)
+  if (catalogSource) return catalogSource.id
+
+  const fallbackName = author?.trim() || "VibeDigest"
+  return normalizeSourceId(fallbackName) || "unknown"
 }

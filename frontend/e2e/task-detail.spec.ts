@@ -26,6 +26,16 @@ test.describe("Public task detail", () => {
         await expect(followUpAnchor).toBeVisible()
         await expect(followUpAnchor).toHaveAttribute('href', '#task-follow-up')
         await expect(followUpAnchor).toContainText('哪些证据支持这个结论？')
+        await expect(page.getByRole("button", { name: "复制分享链接" })).toBeVisible()
+        await expect(page.locator("article")).not.toHaveAttribute("lang", /.+/)
+        await expect(page.locator('p[lang="zh"]').first()).toBeVisible()
+        await expect(page.getByText("本地演示数据").first()).toHaveAttribute("lang", "zh")
+        await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /index, follow/)
+        const jsonLdPayloads = await page.locator('script[type="application/ld+json"]').allTextContents()
+        const articleJsonLd = jsonLdPayloads
+            .map((payload) => JSON.parse(payload) as { "@type"?: string; inLanguage?: string })
+            .find((payload) => payload["@type"] === "Article")
+        expect(articleJsonLd).toMatchObject({ "@type": "Article", inLanguage: "zh" })
         await expect(page.getByText("逐字稿", { exact: true })).toHaveCount(0)
         await expect(page.getByRole("link", { name: /打开原视频/ })).toHaveCount(1)
 
@@ -53,6 +63,8 @@ test.describe("Public task detail", () => {
 
         await page.getByText("完整整理", { exact: true }).click()
         await expect(page.getByRole("heading", { name: "内容概览" })).toBeVisible()
+        await expect(page.getByRole("heading", { name: "内容概览" })).not.toHaveAttribute("lang", /.+/)
+        await expect(page.locator("details.group").locator('p[lang="zh"]').first()).toBeVisible()
         await expect(page.getByRole("heading", { name: "内容摘要" })).toHaveCount(1)
         await expect(page.getByRole("heading", { name: "关键观点" })).toHaveCount(1)
 

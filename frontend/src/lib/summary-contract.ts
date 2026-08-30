@@ -74,6 +74,8 @@ export interface SummaryOutputCandidate {
   locale?: string | null
   content?: unknown
   created_at?: string | null
+  updated_at?: string | null
+  provenance?: unknown
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

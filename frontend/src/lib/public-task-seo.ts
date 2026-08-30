@@ -1,9 +1,16 @@
 import type { Metadata } from "next"
-import { LOCALE_DATE_TAG, SUPPORTED_LOCALES, type Locale } from "@/lib/i18n"
+import {
+  getLocaleDisplayName,
+  LOCALE_DATE_TAG,
+  SUPPORTED_LOCALES,
+  type Locale,
+} from "@/lib/i18n"
 import { buildAlternateLanguages, buildLocalizedPath, getOpenGraphLocale } from "@/lib/seo"
 import { buildTaskPath } from "@/lib/task-path"
+import { normalizeSummaryLanguageTag, resolveSummaryLocale } from "@/lib/summary-contract"
 
 export { buildTaskSlug } from "@/lib/task-path"
+export { normalizeSummaryLanguageTag, resolveSummaryLocale } from "@/lib/summary-contract"
 
 export type PublicTaskSeoRecord = {
   id: string
@@ -24,26 +31,32 @@ type PublicTaskSeoInput = {
   summary: string
   summaryLanguage?: string | null
   hasCompletedSummary: boolean
+  availableLocales?: Locale[]
+  canonicalLocale?: Locale
 }
 
 const META_COPY: Record<Locale, {
   title: (title: string) => string
   fallbackDescription: (title: string, source: string) => string
+  alternativeDescription: (language: string) => string
 }> = {
   en: {
     title: (title) => `${title}: Summary & Key Takeaways`,
     fallbackDescription: (title, source) =>
       `Read the summary, key takeaways, and supporting evidence for ${source ? `${source}: ` : ""}${title}.`,
+    alternativeDescription: (language) => `This digest is currently available in ${language}.`,
   },
   zh: {
     title: (title) => `《${title}》摘要与关键观点`,
     fallbackDescription: (title, source) =>
       `阅读${source ? `${source}《` : "《"}${title}》的内容摘要、关键观点和支撑证据。`,
+    alternativeDescription: (language) => `该整理当前提供${language}版本。`,
   },
   ja: {
     title: (title) => `「${title}」の要約と重要ポイント`,
     fallbackDescription: (title, source) =>
       `${source ? `${source}「` : "「"}${title}」の要約、重要ポイント、根拠を読む。`,
+    alternativeDescription: (language) => `この整理は現在${language}で読めます。`,
   },
 }
 
@@ -59,49 +72,6 @@ export function isPublishedPublicTask(
     && task.status === "completed"
     && task.publication_status === "published"
     && hasCompletedSummary
-}
-
-const LANGUAGE_NAME_ALIASES: Record<string, string> = {
-  english: "en",
-  chinese: "zh",
-  "simplified chinese": "zh-CN",
-  "traditional chinese": "zh-TW",
-  中文: "zh",
-  简体中文: "zh-CN",
-  繁体中文: "zh-TW",
-  繁體中文: "zh-TW",
-  japanese: "ja",
-  jp: "ja",
-  日本語: "ja",
-  korean: "ko",
-  한국어: "ko",
-  韩语: "ko",
-  韓語: "ko",
-  spanish: "es",
-  español: "es",
-  西班牙语: "es",
-}
-
-export function normalizeSummaryLanguageTag(language?: string | null) {
-  const raw = language?.trim() || ""
-  if (!raw || raw.length > 64) return null
-
-  const normalized = raw.toLowerCase().replace(/_/g, "-")
-  if (normalized === "unknown") return null
-  const candidate = LANGUAGE_NAME_ALIASES[normalized] || normalized
-
-  try {
-    return Intl.getCanonicalLocales(candidate)[0] || null
-  } catch {
-    return null
-  }
-}
-
-export function resolveSummaryLocale(language?: string | null): Locale | null {
-  const baseLanguage = normalizeSummaryLanguageTag(language)?.split("-")[0]
-  return baseLanguage === "en" || baseLanguage === "zh" || baseLanguage === "ja"
-    ? baseLanguage
-    : null
 }
 
 export function resolveSummaryLanguageTag(language: string | null | undefined, fallback: Locale) {
@@ -132,17 +102,27 @@ export function buildPublicTaskMetadata({
   summary,
   summaryLanguage,
   hasCompletedSummary,
+  availableLocales,
+  canonicalLocale,
 }: PublicTaskSeoInput): Metadata {
   const title = task.video_title?.trim() || "Processed video"
   const copy = META_COPY[locale]
   const path = buildPublicTaskPath(task)
-  const canonical = buildLocalizedPath(locale, path)
+  const effectiveCanonicalLocale = canonicalLocale ?? locale
+  const canonical = buildLocalizedPath(effectiveCanonicalLocale, path)
   const isPublic = isPublishedPublicTask(task, hasCompletedSummary)
   const localizedSummary = resolveSummaryLocale(summaryLanguage) === locale ? summary.trim() : ""
+  const alternateLocales = availableLocales ?? [...SUPPORTED_LOCALES]
+  const hasAlternativePublicDigest = isPublishedPublicTask(task, true)
+    && !isPublic
+    && alternateLocales.length > 0
+    && canonicalLocale !== undefined
   const description = isPublic
     ? localizedSummary || copy.fallbackDescription(title, task.author?.trim() || "")
-    : "This task is not part of the public VibeDigest library."
-  const socialTitle = isPublic ? copy.title(title) : title
+    : hasAlternativePublicDigest
+      ? copy.alternativeDescription(getLocaleDisplayName(effectiveCanonicalLocale, locale))
+      : "This task is not part of the public VibeDigest library."
+  const socialTitle = isPublic || hasAlternativePublicDigest ? copy.title(title) : title
   const images: NonNullable<Metadata["openGraph"]>["images"] = task.thumbnail_url && isPublic
     ? [{ url: task.thumbnail_url, alt: title }]
     : [{
@@ -157,15 +137,21 @@ export function buildPublicTaskMetadata({
     description,
     alternates: {
       canonical,
-      languages: buildAlternateLanguages(path),
+      languages: Object.fromEntries(
+        Object.entries(buildAlternateLanguages(path))
+          .filter(([key]) => key === "x-default" || alternateLocales.includes(key as Locale))
+          .map(([key, value]) => key === "x-default"
+            ? [key, buildLocalizedPath(alternateLocales[0] ?? effectiveCanonicalLocale, path)]
+            : [key, value])
+      ),
     },
     openGraph: {
       type: "article",
       url: canonical,
       siteName: "VibeDigest",
-      locale: getOpenGraphLocale(locale),
-      alternateLocale: SUPPORTED_LOCALES
-        .filter((candidate) => candidate !== locale)
+      locale: getOpenGraphLocale(effectiveCanonicalLocale),
+      alternateLocale: alternateLocales
+        .filter((candidate) => candidate !== effectiveCanonicalLocale)
         .map(getOpenGraphLocale),
       title: socialTitle,
       description,

@@ -4,6 +4,8 @@ import { setupApiMocks } from "./fixtures/mock-api"
 
 const TASK_ID = "local-demo-latent-space"
 const TASK_PATH = "/zh/tasks/local-demo-latent-space/From-Prediction-to-Simulation%3A-Teaching-AI-to-Shape-the-Future"
+const LANGUAGE_MISMATCH_TASK_ID = "local-demo-zh-only"
+const EN_TASK_PATH = "/en/tasks/local-demo-zh-only/From-Prediction-to-Simulation%3A-Teaching-AI-to-Shape-the-Future"
 
 test.describe("Public task detail", () => {
     test.beforeEach(async ({ page }) => {
@@ -96,6 +98,40 @@ test.describe("Public task detail", () => {
         await followUpAnchor.click()
         await expect(page).toHaveURL(/#task-follow-up$/)
         await expect(page.getByRole("region", { name: "基于本期内容继续追问" })).toBeVisible()
+    })
+
+    test("hides mismatched public digest sections on the english route and links to the supported locale", async ({ page }) => {
+        await page.goto(EN_TASK_PATH)
+
+        await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible()
+        await expect(page.getByText("This digest is currently available in Chinese.")).toBeVisible()
+        const languageSwitch = page.getByRole("link", { name: "Open the Chinese version" })
+        await expect(languageSwitch).toHaveAttribute(
+            "href",
+            `/zh/tasks/${LANGUAGE_MISMATCH_TASK_ID}/From-Prediction-to-Simulation%3A-Teaching-AI-to-Shape-the-Future`
+        )
+        await expect(page.getByRole("heading", { name: "Key ideas" })).toHaveCount(0)
+        await expect(page.getByText("Read the full digest", { exact: true })).toHaveCount(0)
+        await expect(page.getByText("本地演示数据")).toHaveCount(0)
+        await expect(page.getByRole("heading", { name: "Source", exact: true })).toBeVisible()
+        await expect(page.getByRole("heading", { name: "Ask about this source" })).toBeVisible()
+        await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/)
+        const jsonLdPayloads = await page.locator('script[type="application/ld+json"]').allTextContents()
+        const articleJsonLd = jsonLdPayloads
+            .map((payload) => JSON.parse(payload) as { "@type"?: string })
+            .find((payload) => payload["@type"] === "Article")
+        expect(articleJsonLd).toBeUndefined()
+        await expect(page.getByText("Transcript", { exact: true })).toHaveCount(0)
+
+        const widthAudit = await page.evaluate(() => ({
+            viewport: window.innerWidth,
+            document: document.documentElement.scrollWidth,
+        }))
+        expect(widthAudit.document).toBe(widthAudit.viewport)
+
+        await languageSwitch.click()
+        await expect(page).toHaveURL(new RegExp(`/zh/tasks/${LANGUAGE_MISMATCH_TASK_ID}/`))
+        await expect(page.getByRole("heading", { name: "关键观点" })).toBeVisible()
     })
 
     test("keeps a readable two-column hierarchy on desktop", async ({ page }) => {

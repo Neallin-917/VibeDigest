@@ -101,13 +101,23 @@ describe("public task SEO", () => {
       locale: "en",
       summary: "这是一段中文摘要。",
       summaryLanguage: "zh-CN",
-      hasCompletedSummary: true,
+      hasCompletedSummary: false,
+      availableLocales: ["zh"],
+      canonicalLocale: "zh",
     })
 
     expect(metadata.description).toBe(
-      "Read the summary, key takeaways, and supporting evidence for Latent Space: Agent Systems in Production.",
+      "This digest is currently available in Chinese.",
     )
     expect(metadata.description).not.toContain("中文摘要")
+    expect(metadata.alternates?.canonical).toBe(
+      "https://vibedigest.io/zh/tasks/task-123/Agent-Systems-in-Production",
+    )
+    expect(metadata.alternates?.languages).toMatchObject({
+      zh: "https://vibedigest.io/zh/tasks/task-123/Agent-Systems-in-Production",
+      "x-default": "https://vibedigest.io/zh/tasks/task-123/Agent-Systems-in-Production",
+    })
+    expect(metadata.robots).toMatchObject({ index: false, follow: false, noarchive: true })
   })
 
   it("preserves valid non-UI content languages instead of relabeling them as the route locale", () => {

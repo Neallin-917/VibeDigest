@@ -1,8 +1,9 @@
 import { MetadataRoute } from 'next'
 import { supabasePublic } from '@/lib/supabase-public'
 import { buildAlternateLanguages, SITE_URL } from '@/lib/seo'
-import { SUPPORTED_LOCALES } from '@/lib/i18n'
+import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n'
 import { buildPublicTaskPath, latestValidDate } from '@/lib/public-task-seo'
+import { listPublicSummaryLocales } from '@/lib/summary-contract'
 
 export type PublicSitemapTask = {
   id: string
@@ -10,7 +11,13 @@ export type PublicSitemapTask = {
   created_at: string
   updated_at: string | null
   published_at: string | null
-  task_outputs?: Array<{ updated_at: string | null }> | null
+  public_quality_flags?: { language?: string | null } | null
+  task_outputs?: Array<{
+    kind?: string | null
+    status?: string | null
+    updated_at: string | null
+    locale?: string | null
+  }> | null
 }
 
 export const STATIC_SITEMAP_PATHS = [
@@ -38,7 +45,14 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
 
   for (const task of tasks) {
     const path = buildPublicTaskPath(task)
-    const summaryModifiedDates = task.task_outputs?.map((output) => output.updated_at) || []
+    const completedSummaryOutputs = task.task_outputs?.filter(
+      (output) => output.kind === 'summary' && output.status === 'completed'
+    ) || []
+    const summaryModifiedDates = completedSummaryOutputs.map((output) => output.updated_at)
+    const locales = listPublicSummaryLocales(
+      completedSummaryOutputs,
+      task.public_quality_flags?.language
+    )
     const lastModified = latestValidDate(
       task.updated_at,
       task.published_at,
@@ -46,13 +60,20 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
       ...summaryModifiedDates,
     )
 
-    for (const locale of SUPPORTED_LOCALES) {
+    for (const locale of locales) {
+      const alternates = Object.fromEntries(
+        Object.entries(buildAlternateLanguages(path))
+          .filter(([key]) => key === 'x-default' || locales.includes(key as Locale))
+          .map(([key, value]) => key === 'x-default'
+            ? [key, `${SITE_URL}/${locales[0] ?? locale}${path}`]
+            : [key, value])
+      )
       entries.push({
         url: `${SITE_URL}/${locale}${path}`,
         ...(lastModified ? { lastModified } : {}),
         changeFrequency: 'monthly',
         priority: 0.6,
-        alternates: { languages: buildAlternateLanguages(path) },
+        alternates: { languages: alternates },
       })
     }
   }
@@ -63,7 +84,7 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data: tasks, error } = await supabasePublic
     .from('tasks')
-    .select('id, created_at, updated_at, published_at, video_title, task_outputs!inner(updated_at)')
+    .select('id, created_at, updated_at, published_at, video_title, public_quality_flags, task_outputs!inner(kind, status, updated_at, locale)')
     .eq('status', 'completed')
     .eq('is_demo', true)
     .eq('publication_status', 'published')

@@ -48,6 +48,7 @@ const tasks: Task[] = [
     status: "completed",
     created_at: "2026-07-30T00:00:00Z",
     takeaway: "The leading takeaway is already prepared.",
+    takeawayLocale: "en",
     keyPointCount: 8,
     source: sources[0].source,
   },
@@ -60,6 +61,7 @@ const tasks: Task[] = [
     status: "completed",
     created_at: "2026-07-29T00:00:00Z",
     takeaway: "A second concise takeaway.",
+    takeawayLocale: "en",
     keyPointCount: 6,
     source: sources[1].source,
   },
@@ -176,6 +178,65 @@ describe("CommunityTemplates", () => {
     expect(screen.getByRole("link", { name: "View digest: Leading example" })).toHaveAttribute(
       "href",
       "/en/tasks/example-1/Leading-example?fromShow=latent-space&fromQuery=AI"
+    )
+  })
+
+  it("hides a mismatched takeaway and routes the card to the supported digest locale", () => {
+    const mismatchTask: Task = {
+      ...tasks[0],
+      id: "zh-only",
+      video_title: "Chinese digest only",
+      takeaway: "这是一段中文摘要。",
+      takeawayLocale: "zh",
+    }
+
+    renderGallery({ initialTasks: [mismatchTask], totalCount: 1 })
+
+    expect(screen.queryByText("这是一段中文摘要。")).not.toBeInTheDocument()
+    expect(screen.getByText("Digest available in Chinese.")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "View digest: Chinese digest only" })).toHaveAttribute(
+      "href",
+      "/zh/tasks/zh-only/Chinese-digest-only"
+    )
+  })
+
+  it("fails closed when a projected takeaway has no trusted locale", () => {
+    const unknownLocaleTask: Task = {
+      ...tasks[0],
+      id: "unknown-locale",
+      takeaway: "Potentially mismatched projected text.",
+      takeawayLocale: null,
+    }
+
+    renderGallery({ initialTasks: [unknownLocaleTask], totalCount: 1 })
+
+    expect(screen.queryByText("Potentially mismatched projected text.")).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "View digest: Leading example" })).toHaveAttribute(
+      "href",
+      "/en/tasks/unknown-locale/Leading-example"
+    )
+  })
+
+  it("applies the same language guard to compact library rows", () => {
+    const compactTasks = Array.from({ length: 7 }, (_, index) => ({
+      ...tasks[index % tasks.length],
+      id: `compact-${index}`,
+      video_title: `Compact episode ${index + 1}`,
+    }))
+    compactTasks[6] = {
+      ...compactTasks[6],
+      video_title: "Compact Chinese digest",
+      takeaway: "不应出现在英文列表的中文摘要。",
+      takeawayLocale: "zh",
+    }
+
+    renderGallery({ initialTasks: compactTasks, totalCount: compactTasks.length })
+
+    expect(screen.queryByText("不应出现在英文列表的中文摘要。")).not.toBeInTheDocument()
+    expect(screen.getByText("Digest available in Chinese.")).toBeInTheDocument()
+    expect(screen.getByText("Compact Chinese digest").closest("a")).toHaveAttribute(
+      "href",
+      "/zh/tasks/compact-6/Compact-Chinese-digest"
     )
   })
 

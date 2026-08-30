@@ -6,7 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cva } from "class-variance-authority"
 import { ChevronDown, ExternalLink, Search } from "lucide-react"
-import type { Locale } from "@/lib/i18n"
+import { getLocaleDisplayName, type Locale } from "@/lib/i18n"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { findPodcastSource, resolvePodcastSourceId, type PodcastSource } from "@/lib/podcast-sources"
 import { buildTaskSlug } from "@/lib/task-path"
@@ -37,6 +37,7 @@ export type Task = {
     author_image_url?: string
     task_outputs?: TaskOutput[]
     takeaway?: string
+    takeawayLocale?: Locale | null
     keyPointCount?: number
     durationLabel?: string
     source?: PodcastSource
@@ -79,6 +80,7 @@ type PodcastCopy = {
     episodeUnit: string
     keyPointUnit: string
     resultCount: string
+    languageAvailable: (language: string) => string
 }
 
 const PODCAST_COPY: Record<Locale, PodcastCopy> = {
@@ -99,6 +101,7 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         episodeUnit: "digests",
         keyPointUnit: "key points",
         resultCount: "digests ready",
+        languageAvailable: (language) => `Digest available in ${language}.`,
     },
     zh: {
         sourceShelf: "按节目浏览",
@@ -117,6 +120,7 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         episodeUnit: "期整理",
         keyPointUnit: "个关键观点",
         resultCount: "条已整理内容",
+        languageAvailable: (language) => `该整理当前提供${language}版本。`,
     },
     ja: {
         sourceShelf: "番組から探す",
@@ -135,6 +139,7 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         episodeUnit: "件の整理",
         keyPointUnit: "の要点",
         resultCount: "件の整理済み",
+        languageAvailable: (language) => `この整理は現在${language}で読めます。`,
     },
 }
 
@@ -213,6 +218,15 @@ function taskDetailHref(task: Task, locale: Locale, sourceId = "all", query = ""
     if (trimmedQuery) returnState.set("fromQuery", trimmedQuery.slice(0, 120))
     const search = returnState.toString()
     return `/${locale}/tasks/${task.id}/${slug}${search ? `?${search}` : ""}`
+}
+
+function taskDigestLocale(task: Task, routeLocale: Locale) {
+    return task.takeawayLocale ?? routeLocale
+}
+
+function mismatchNotice(task: Task, routeLocale: Locale, copy: PodcastCopy) {
+    if (!task.takeawayLocale || task.takeawayLocale === routeLocale) return null
+    return copy.languageAvailable(getLocaleDisplayName(task.takeawayLocale, routeLocale))
 }
 
 function sourceForTask(task: Task) {
@@ -308,7 +322,8 @@ function EpisodeFeatureCard({
     const source = sourceForTask(task)
     if (!source) return null
     const title = task.video_title || task.video_url
-    const href = taskDetailHref(task, locale, sourceId, query)
+    const href = taskDetailHref(task, taskDigestLocale(task, locale), sourceId, query)
+    const digestNotice = mismatchNotice(task, locale, copy)
 
     return (
         <article
@@ -372,9 +387,13 @@ function EpisodeFeatureCard({
                         {title}
                     </h3>
                 </Link>
-                {task.takeaway && role !== "supporting" ? (
+                {task.takeaway && task.takeawayLocale === locale && role !== "supporting" ? (
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
                         {task.takeaway}
+                    </p>
+                ) : digestNotice && role !== "supporting" ? (
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                        {digestNotice}
                     </p>
                 ) : null}
                 {role !== "supporting" ? (
@@ -531,8 +550,10 @@ function CompactEpisodeRow({
 }) {
     const source = sourceForTask(task)
     if (!source) return null
-    const href = taskDetailHref(task, locale, sourceId, query)
+    const href = taskDetailHref(task, taskDigestLocale(task, locale), sourceId, query)
     const title = task.video_title || task.video_url
+    const digestNotice = mismatchNotice(task, locale, PODCAST_COPY[locale])
+    const localizedTakeaway = task.takeawayLocale === locale ? task.takeaway : null
 
     return (
         <article className="w-full min-w-0 border border-slate-200 bg-white/65 [content-visibility:auto] dark:border-white/10 dark:bg-white/[0.03]">
@@ -570,7 +591,7 @@ function CompactEpisodeRow({
                         {title}
                     </h3>
                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-zinc-500">
-                        {task.takeaway || metadataForTask(task, locale, PODCAST_COPY[locale])}
+                        {digestNotice || localizedTakeaway || metadataForTask(task, locale, PODCAST_COPY[locale])}
                     </p>
                 </div>
             </Link>

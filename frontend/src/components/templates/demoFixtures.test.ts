@@ -36,4 +36,22 @@ describe("demoFixtures", () => {
 
         expect(svg).not.toContain("Future Future")
     })
+
+    it("can expose a public digest in a different route language without retranslating it", () => {
+        const task = getDemoFixtureTask("local-demo-zh-only", "en")
+        const summaryOutput = task?.task_outputs?.find((output) => output.kind === "summary")
+
+        expect(task?.takeawayLocale).toBe("zh")
+        expect(summaryOutput?.locale).toBe("zh")
+        expect(parseCurrentSummary(summaryOutput?.content)?.language).toBe("zh")
+    })
+
+    it("keeps the primary English demo localized to the requested route", () => {
+        const task = getDemoFixtureTask("local-demo-latent-space", "en")
+        const summaryOutput = task?.task_outputs?.find((output) => output.kind === "summary")
+
+        expect(task?.takeawayLocale).toBe("en")
+        expect(summaryOutput?.locale).toBe("en")
+        expect(parseCurrentSummary(summaryOutput?.content)?.language).toBe("en")
+    })
 })

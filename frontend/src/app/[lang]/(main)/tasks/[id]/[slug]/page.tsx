@@ -9,8 +9,7 @@ import { buildLocalizedPath } from "@/lib/seo"
 import {
     buildDetailedSummaryMarkdownFromContent,
     buildSummaryExcerptFromContent,
-    parseCurrentSummary,
-    pickPreferredSummaryOutput,
+    matchPublicSummaryOutput,
     type SummaryOutputCandidate,
 } from "@/lib/summary-contract"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +17,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { Heading, Text } from "@/components/ui/typography"
 import { cn } from "@/lib/utils"
 import { normalizeTaskStatus } from "@/lib/safe-error"
-import { isLocale } from "@/lib/i18n"
+import { getLocaleDisplayName, isLocale } from "@/lib/i18n"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import { resolvePodcastSourceId } from "@/lib/podcast-sources"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
@@ -88,7 +87,10 @@ function getSourceLabel(videoUrl: string, author?: string | null) {
 
 function getOptionalString(value: unknown, key: string) {
     if (!value || typeof value !== "object") return ""
-    const candidate = (value as Record<string, unknown>)[key]
+    const candidate = key.split(".").reduce<unknown>((current, part) => {
+        if (!current || typeof current !== "object") return undefined
+        return (current as Record<string, unknown>)[part]
+    }, value)
     return typeof candidate === "string" ? candidate.trim() : ""
 }
 
@@ -168,6 +170,8 @@ const DETAIL_COPY = {
         whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at",
         failed: "This task did not complete. You can retry it below.",
         pending: "Summary not available yet. Check back once processing completes.",
+        summaryAvailableIn: (language: string) => `This digest is currently available in ${language}.`,
+        switchToLanguage: (language: string) => `Open the ${language} version`,
         processedVideo: "Processed Video",
         followUp: {
             title: "Ask about this source",
@@ -185,6 +189,8 @@ const DETAIL_COPY = {
         whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点",
         failed: "这项任务未能完成，可以在下方重试。",
         pending: "整理内容尚未生成，请在处理完成后回来查看。",
+        summaryAvailableIn: (language: string) => `该整理当前提供${language}版本。`,
+        switchToLanguage: (language: string) => `打开${language}版本`,
         processedVideo: "已处理视频",
         followUp: {
             title: "基于本期内容继续追问",
@@ -202,6 +208,8 @@ const DETAIL_COPY = {
         whyItMatters: "重要な理由", evidence: "根拠", openAt: "元の動画を開く",
         failed: "このタスクは完了しませんでした。下から再試行できます。",
         pending: "整理内容はまだありません。処理完了後にもう一度確認してください。",
+        summaryAvailableIn: (language: string) => `この整理は現在${language}で読めます。`,
+        switchToLanguage: (language: string) => `${language}版を開く`,
         processedVideo: "処理済み動画",
         followUp: {
             title: "この内容について質問する",
@@ -230,7 +238,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     // Fetch task
     const { data: task, error: taskError } = await supabase
         .from('tasks')
-        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo, publication_status, podcast_source_slug, published_at, updated_at')
+        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags')
         .eq('id', id)
         .maybeSingle()
 
@@ -269,16 +277,21 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     }
 
     const locale = isLocale(lang) ? lang : "en"
-    const summaryOutput = pickPreferredSummaryOutput(outputs as SummaryOutputCandidate[], locale)
-    const structuredSummary = summaryOutput ? parseCurrentSummary(summaryOutput.content) : null
-    const summaryText = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 160, locale) : ""
+    const publicSummary = matchPublicSummaryOutput(
+        outputs as SummaryOutputCandidate[],
+        locale,
+        getOptionalString(task, "public_quality_flags.language")
+    )
+    const summaryText = publicSummary.output ? buildSummaryExcerptFromContent(publicSummary.output.content, 160, locale) : ""
 
     return buildPublicTaskMetadata({
         locale,
         task: { ...task, id },
         summary: summaryText,
-        summaryLanguage: structuredSummary?.language,
-        hasCompletedSummary: Boolean(summaryOutput),
+        summaryLanguage: publicSummary.summary?.language,
+        hasCompletedSummary: publicSummary.routeMatches,
+        availableLocales: publicSummary.availableLocales,
+        canonicalLocale: publicSummary.routeMatches ? locale : publicSummary.alternativeLocale ?? locale,
     })
 }
 
@@ -299,11 +312,16 @@ export default async function TaskDetailPage(props: Props) {
         redirect(`/${lang}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState)}`);
     }
 
-    const summaryOutput = pickPreferredSummaryOutput(outputs as SummaryOutputCandidate[], locale)
+    const publicSummary = matchPublicSummaryOutput(
+        outputs as SummaryOutputCandidate[],
+        locale,
+        getOptionalString(task, "public_quality_flags.language")
+    )
+    const summaryOutput = publicSummary.output
     const detailedSummaryMarkdown = summaryOutput
         ? buildDetailedSummaryMarkdownFromContent(summaryOutput.content, locale)
         : ""
-    const structuredSummary = summaryOutput ? parseCurrentSummary(summaryOutput.content) : null
+    const structuredSummary = publicSummary.summary
     const hasSummary = Boolean(structuredSummary)
     const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200, locale) : ""
     const leadSummary = structuredSummary?.tl_dr || structuredSummary?.overview || summaryExcerpt
@@ -323,7 +341,7 @@ export default async function TaskDetailPage(props: Props) {
     const sourceUploadDate = getOptionalString(task, "upload_date")
     const sourceDateLabel = formatSourceDate(sourceUploadDate, locale)
     const canonicalUrl = buildLocalizedPath(locale, `/tasks/${id}/${correctSlug}`)
-    const isPublicDigest = isPublishedPublicTask(task, Boolean(summaryOutput))
+    const isPublicDigest = isPublishedPublicTask(task, publicSummary.routeMatches)
     const jsonLd = isPublicDigest
         ? buildPublicTaskJsonLd({
             locale,
@@ -335,9 +353,14 @@ export default async function TaskDetailPage(props: Props) {
         })
         : null
     const summaryLanguageTag = resolveSummaryLanguageTag(structuredSummary?.language, locale)
-    const evidenceLanguageTag = resolveEvidenceLanguageTag(
-        getOptionalString(summaryOutput?.provenance, "transcript_language")
-    )
+    const evidenceLanguageTag = resolveEvidenceLanguageTag(getOptionalString(summaryOutput?.provenance, "transcript_language"))
+    const languageSwitchLocale = publicSummary.routeMatches ? null : publicSummary.alternativeLocale
+    const languageSwitchHref = languageSwitchLocale
+        ? `/${languageSwitchLocale}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState)}`
+        : ""
+    const languageSwitchLabel = languageSwitchLocale
+        ? getLocaleDisplayName(languageSwitchLocale, locale)
+        : ""
     const statusVariantMap: Record<string, "success" | "processing" | "secondary" | "destructive"> = {
         completed: "success",
         processing: "processing",
@@ -401,7 +424,7 @@ export default async function TaskDetailPage(props: Props) {
                             )}
                         </div>
                     )}
-                    {hasSummary && (
+                    {(hasSummary || languageSwitchHref) && (
                         <a
                             href="#task-follow-up"
                             data-slot="follow-up-discovery-anchor"
@@ -431,6 +454,18 @@ export default async function TaskDetailPage(props: Props) {
                                 <p lang={summaryLanguageTag} className="max-w-[46rem] text-base font-medium leading-7 text-foreground md:text-lg md:leading-8">
                                     {leadSummary}
                                 </p>
+                            ) : languageSwitchHref ? (
+                                <div className="max-w-[46rem] space-y-3">
+                                    <Text tone="muted">
+                                        {copy.summaryAvailableIn(languageSwitchLabel)}
+                                    </Text>
+                                    <Link
+                                        href={languageSwitchHref}
+                                        className="inline-flex min-h-10 items-center rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
+                                    >
+                                        {copy.switchToLanguage(languageSwitchLabel)}
+                                    </Link>
+                                </div>
                             ) : (
                                 <Text tone="muted">
                                     {status === "failed"
@@ -440,7 +475,7 @@ export default async function TaskDetailPage(props: Props) {
                             )}
                         </section>
 
-                        {leadKeypoints.length > 0 && (
+                        {hasSummary && leadKeypoints.length > 0 && (
                             <section className="space-y-5 border-t border-border/70 pt-8" aria-labelledby="task-key-ideas-title">
                                 <Heading as="h2" variant="h2" id="task-key-ideas-title" className="scroll-mt-28">
                                     {copy.keyIdeas}
@@ -537,7 +572,7 @@ export default async function TaskDetailPage(props: Props) {
                         )}
                     </aside>
 
-                    {detailedSummaryMarkdown && (
+                    {hasSummary && detailedSummaryMarkdown && (
                         <details className="group min-w-0 border-y border-border/70 lg:col-start-1">
                             <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                                 <span>{copy.fullSummary}</span>

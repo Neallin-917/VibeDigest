@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import type { Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
+import { resolveSummaryLocale } from "@/lib/summary-contract"
 import {
   CommunityTemplates,
   type CommunityTemplatesIntro,
@@ -89,6 +90,9 @@ const toTask = (value: unknown): Task | null => {
     author: typeof value.author === "string" ? value.author : undefined,
     author_image_url: typeof value.author_image_url === "string" ? value.author_image_url : undefined,
     takeaway: typeof value.public_takeaway === "string" ? value.public_takeaway : undefined,
+    takeawayLocale: isRecord(value.public_quality_flags)
+      ? resolveSummaryLocale(typeof value.public_quality_flags.language === "string" ? value.public_quality_flags.language : null)
+      : null,
     keyPointCount: typeof value.public_keypoint_count === "number"
       ? value.public_keypoint_count
       : undefined,
@@ -246,6 +250,7 @@ export async function ServerCommunityTemplates({
       author,
       author_image_url,
       public_takeaway,
+      public_quality_flags,
       public_keypoint_count,
       public_quality_score,
       library_source_published_at,

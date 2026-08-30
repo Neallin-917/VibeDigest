@@ -63,7 +63,7 @@ vi.mock("./CommunityTemplates", () => ({
     totalCount = 0,
   }: {
     initialStatus: string
-    initialTasks: Array<{ video_title?: string; source?: { name: string }; takeaway?: string }>
+    initialTasks: Array<{ video_title?: string; source?: { name: string }; takeaway?: string; takeawayLocale?: string | null }>
     sourceItems?: Array<{ source: { name: string }; count: number }>
     totalCount?: number
   }) => (
@@ -76,6 +76,9 @@ vi.mock("./CommunityTemplates", () => ({
       </div>
       <div data-testid="community-takeaways">
         {initialTasks.map((task) => task.takeaway ?? "").join(",")}
+      </div>
+      <div data-testid="community-takeaway-locales">
+        {initialTasks.map((task) => task.takeawayLocale ?? "").join(",")}
       </div>
       <div data-testid="source-shelf">
         {sourceItems.map((item) => `${item.source.name}:${item.count}`).join(",")}
@@ -157,6 +160,7 @@ describe("ServerCommunityTemplates", () => {
         status: "completed",
         created_at: "2026-08-25T10:00:00Z",
         public_takeaway: "A small projected takeaway.",
+        public_quality_flags: { language: "en" },
         public_keypoint_count: 6,
         podcast_episodes: { source },
       }],
@@ -168,6 +172,7 @@ describe("ServerCommunityTemplates", () => {
 
     expect(screen.getByTestId("community-sources")).toHaveTextContent("Latent Space")
     expect(screen.getByTestId("community-takeaways")).toHaveTextContent("projected takeaway")
+    expect(screen.getByTestId("community-takeaway-locales")).toHaveTextContent("en")
     expect(screen.getByTestId("source-shelf")).toHaveTextContent("Latent Space:12")
     expect(screen.getByTestId("total-count")).toHaveTextContent("1")
   })

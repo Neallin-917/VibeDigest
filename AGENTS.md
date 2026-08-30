@@ -12,6 +12,7 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 - The public podcast library is a ready-made gallery of mature agent output. It helps users experience and trust the product before submitting their own link, while naturally creating a community content surface.
 - Tracked shows and ingestion frequency are supply-side implementation details, not the product promise. Do not position VibeDigest as a closed AI-podcast directory or foreground source counts and refresh cadence in acquisition copy.
 - Landing pages explain and activate the agent. The public library proves the output. Task detail pages deliver the value. Keep this hierarchy consistent in navigation, copy, and calls to action.
+- English is the primary acquisition and default product language; Simplified Chinese is the second priority. Japanese remains supported, but it is not a current acquisition priority. Explicit user locale choices always override defaults, and public pages must not silently render summary content in a different language from the active route.
 
 ## Core Rules
 

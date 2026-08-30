@@ -14,6 +14,8 @@ from services.task_queue import TaskQueue
 
 logger = logging.getLogger(__name__)
 
+CATALOG_OUTPUT_LOCALE = "en"
+
 
 @dataclass(frozen=True)
 class PodcastSourceConfig:
@@ -580,7 +582,7 @@ class PodcastDiscoveryService:
                             video_url=episode.video_url,
                             user_id=self.demo_user_id,
                             output_intent={
-                                "target_locale": "zh",
+                                "target_locale": CATALOG_OUTPUT_LOCALE,
                                 "source": "podcast_backfill" if mode == "backfill" else "podcast_discovery",
                                 "podcast_source_slug": source.slug,
                             },

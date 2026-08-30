@@ -140,6 +140,19 @@ describe('proxy', () => {
             expect(response.headers.get('location')).toContain('/en/chat')
             expect(mockUpdateSession).not.toHaveBeenCalled()
         })
+
+        it('should preserve an explicit saved Chinese locale over browser negotiation', async () => {
+            const response = await proxy(makeRequest('/chat', {
+                headers: {
+                    cookie: 'vd_locale=zh',
+                    'accept-language': 'en-US,en;q=0.9',
+                },
+            }))
+
+            expect(response.status).toBe(307)
+            expect(response.headers.get('location')).toContain('/zh/chat')
+            expect(mockUpdateSession).not.toHaveBeenCalled()
+        })
     })
 
     describe('i18n routing — non-locale paths redirect', () => {

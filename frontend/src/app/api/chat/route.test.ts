@@ -75,7 +75,7 @@ describe('POST /api/chat unified Agent entry', () => {
   it('sends standalone URLs through the Agent, with default workspace scope and locale', async () => {
     await events(await POST(request({ threadId, message: { ...message, parts: [{ type: 'text', text: 'https://youtu.be/fixture' }] } })))
     expect(acceptTurn).toHaveBeenCalledWith('/turns', expect.objectContaining({ title: 'YouTube · fixture', taskId: null, runtimeConfig: expect.objectContaining({ scope: 'workspace' }) }), expect.any(AbortSignal))
-    expect(resolveRuntime).toHaveBeenCalledWith('zh')
+    expect(resolveRuntime).toHaveBeenCalledWith('en')
     expect(runAgent).toHaveBeenCalledOnce()
   })
 

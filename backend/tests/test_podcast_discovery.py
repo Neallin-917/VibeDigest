@@ -340,7 +340,7 @@ async def test_discovery_filters_old_and_short_items_then_uses_canonical_queue()
         video_url=recent.video_url,
         user_id="00000000-0000-0000-0000-000000000001",
         output_intent={
-            "target_locale": "zh",
+            "target_locale": "en",
             "source": "podcast_discovery",
             "podcast_source_slug": "latent-space",
         },
@@ -392,7 +392,7 @@ async def test_backfill_mode_targets_older_items_and_advances_cursor():
         video_url=archived.video_url,
         user_id="00000000-0000-0000-0000-000000000001",
         output_intent={
-            "target_locale": "zh",
+            "target_locale": "en",
             "source": "podcast_backfill",
             "podcast_source_slug": "latent-space",
         },

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,6 +27,7 @@ type CheckoutBilling = "monthly" | "annual" | "one_time"
 
 export default function PricingPage() {
     const { t, locale } = useI18n()
+    const searchParams = useSearchParams()
     const [isAnnual, setIsAnnual] = useState(true)
     const [paymentMethod] = useState<'card' | 'crypto'>('card')  // Default to Creem (card)
     const [loadingAction, setLoadingAction] = useState<BillingAction | null>(null)
@@ -61,10 +63,10 @@ export default function PricingPage() {
 
             let url = ""
             if (paymentMethod === 'crypto') {
-                const res = await ApiClient.createCryptoCharge(planKey, session.access_token)
+                const res = await ApiClient.createCryptoCharge(planKey, session.access_token, locale)
                 url = res.url
             } else {
-                const res = await ApiClient.createCheckoutSession(planKey, session.access_token)
+                const res = await ApiClient.createCheckoutSession(planKey, session.access_token, locale)
                 url = res.url
             }
 
@@ -112,6 +114,11 @@ export default function PricingPage() {
     const isPro = profileKnown && profile.tier === 'pro'
     const displayError = actionError ?? (profileError ? t("pricing.profileError") : null)
     const catalog = getCustomerPlanDisplay(t)
+    const checkoutReturn = searchParams.get("success") === "true"
+        ? "success"
+        : searchParams.get("canceled") === "true"
+            ? "canceled"
+            : null
 
     return (
         <PageContainer>
@@ -133,6 +140,23 @@ export default function PricingPage() {
 
 
                 </section>
+
+                {checkoutReturn && (
+                    <p
+                        role="status"
+                        aria-live="polite"
+                        className={cn(
+                            "rounded-xl border px-4 py-3 text-sm",
+                            checkoutReturn === "success"
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+                                : "border-border bg-muted/50 text-muted-foreground",
+                        )}
+                    >
+                        {t(checkoutReturn === "success"
+                            ? "pricing.checkoutSubmitted"
+                            : "pricing.checkoutCanceled")}
+                    </p>
+                )}
 
                 {/* Pricing Cards */}
                 <section className="grid gap-6 auto-rows-fr sm:grid-cols-2 xl:grid-cols-3">

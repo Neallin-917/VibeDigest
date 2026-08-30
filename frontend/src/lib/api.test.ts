@@ -107,7 +107,7 @@ describe('ApiClient', () => {
                 json: async () => ({}),
             } as Response)
 
-            await ApiClient.createCheckoutSession('price-123', mockToken)
+            await ApiClient.createCheckoutSession('price-123', mockToken, 'zh')
 
             expect(fetchSpy).toHaveBeenCalledWith(
                 expect.stringContaining('/api/create-checkout-session'),
@@ -118,6 +118,7 @@ describe('ApiClient', () => {
             )
             const options = fetchSpy.mock.calls[0]?.[1] as RequestInit
             expect((options.body as FormData).get('plan_key')).toBe('price-123')
+            expect((options.body as FormData).get('locale')).toBe('zh')
         })
     })
 
@@ -149,7 +150,7 @@ describe('ApiClient', () => {
                 json: async () => ({}),
             } as Response)
 
-            await ApiClient.createCryptoCharge('price-123', mockToken)
+            await ApiClient.createCryptoCharge('price-123', mockToken, 'ja')
 
             expect(fetchSpy).toHaveBeenCalledWith(
                 expect.stringContaining('/api/create-crypto-charge'),
@@ -158,6 +159,9 @@ describe('ApiClient', () => {
                     body: expect.any(FormData)
                 })
             )
+            const options = fetchSpy.mock.calls[0]?.[1] as RequestInit
+            expect((options.body as FormData).get('plan_key')).toBe('price-123')
+            expect((options.body as FormData).get('locale')).toBe('ja')
         })
     })
 })

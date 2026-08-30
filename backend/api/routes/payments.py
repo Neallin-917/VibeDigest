@@ -1,6 +1,8 @@
 import asyncio
-import httpx
 import logging
+from typing import Literal
+
+import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException
 from coinbase_commerce.client import Client as CoinbaseClient
 
@@ -14,6 +16,8 @@ logger = logging.getLogger(__name__)
 # Creem API Config
 CREEM_API_BASE = settings.CREEM_API_BASE
 CREEM_API_KEY = settings.CREEM_API_KEY
+PaymentLocale = Literal["en", "zh", "ja"]
+CheckoutReturn = Literal["success", "canceled"]
 
 
 def _resolve_price(plan_key: str | None, price_id: str | None):
@@ -24,10 +28,17 @@ def _resolve_price(plan_key: str | None, price_id: str | None):
         return settings.get_price_by_id(price_id)
     return None
 
+
+def _pricing_return_url(locale: PaymentLocale, result: CheckoutReturn) -> str:
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    return f"{frontend_url}/{locale}/settings/pricing?{result}=true"
+
+
 @router.post("/create-crypto-charge")
 async def create_crypto_charge(
     plan_key: str | None = Form(None),
     price_id: str | None = Form(None),
+    locale: PaymentLocale = Form("en"),
     user_id: str = Depends(get_current_user),
     db: DBClient = Depends(get_db_client),
     coinbase_client: CoinbaseClient = Depends(get_coinbase_client)
@@ -58,8 +69,8 @@ async def create_crypto_charge(
                 "order_id": order["id"],  # Link back to our DB
                 "price_id": price.id,
             },
-            "redirect_url": settings.FRONTEND_URL + "/settings/pricing?success=true",
-            "cancel_url": settings.FRONTEND_URL + "/settings/pricing?canceled=true",
+            "redirect_url": _pricing_return_url(locale, "success"),
+            "cancel_url": _pricing_return_url(locale, "canceled"),
         }
 
         charge = coinbase_client.charge.create(**charge_data)
@@ -79,6 +90,7 @@ async def create_crypto_charge(
 async def create_checkout_session(
     plan_key: str | None = Form(None),
     price_id: str | None = Form(None),
+    locale: PaymentLocale = Form("en"),
     user_id: str = Depends(get_current_user),
     db: DBClient = Depends(get_db_client)
 ):
@@ -106,8 +118,7 @@ async def create_checkout_session(
                         },
                         json={
                             "product_id": price.id,
-                            "success_url": settings.FRONTEND_URL
-                            + "/settings/pricing?success=true",
+                            "success_url": _pricing_return_url(locale, "success"),
                             "metadata": {"user_id": user_id},
                         },
                         timeout=30.0,

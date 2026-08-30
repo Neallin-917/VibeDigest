@@ -14,6 +14,7 @@ const mockSelect = vi.fn(() => ({ eq: mockEq }))
 const mockTranslate = (key: string) => key
 const mockAssign = vi.fn()
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
+const navigation = vi.hoisted(() => ({ searchParams: new URLSearchParams() }))
 const mockSupabase = {
     auth: {
         getUser: mockGetUser,
@@ -60,9 +61,14 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
 
 vi.mock("@/lib/growth-events", () => growth)
 
+vi.mock("next/navigation", () => ({
+    useSearchParams: () => navigation.searchParams,
+}))
+
 describe("PricingPage", () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        navigation.searchParams = new URLSearchParams()
         Object.defineProperty(window, "location", {
             value: { ...window.location, assign: mockAssign },
             writable: true,
@@ -150,6 +156,7 @@ describe("PricingPage", () => {
             expect(ApiClient.createCheckoutSession).toHaveBeenCalledWith(
                 customerPlanCatalog.plans.pro.billingOptions.annual.planKey,
                 "valid-token",
+                "zh",
             )
         })
         expect(growth.trackGrowthEvent).toHaveBeenCalledWith("pricing_checkout_redirect", {
@@ -182,6 +189,7 @@ describe("PricingPage", () => {
             expect(ApiClient.createCheckoutSession).toHaveBeenCalledWith(
                 customerPlanCatalog.plans.pro.billingOptions.monthly.planKey,
                 "valid-token",
+                "zh",
             )
         })
         expect(growth.trackGrowthEvent).toHaveBeenCalledWith("pricing_checkout_redirect", {
@@ -206,6 +214,7 @@ describe("PricingPage", () => {
             expect(ApiClient.createCheckoutSession).toHaveBeenCalledWith(
                 customerPlanCatalog.topUps.videoCredits.planKey,
                 "valid-token",
+                "zh",
             )
         })
         expect(growth.trackGrowthEvent).toHaveBeenCalledWith("pricing_checkout_redirect", {
@@ -237,5 +246,16 @@ describe("PricingPage", () => {
         expect(await screen.findByRole("status")).toHaveTextContent("pricing.checkoutError")
         expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith("pricing_checkout_redirect", expect.anything())
         expect(mockAssign).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        { query: "success=true", message: "pricing.checkoutSubmitted" },
+        { query: "canceled=true", message: "pricing.checkoutCanceled" },
+    ])("shows the localized $message return state", async ({ query, message }) => {
+        navigation.searchParams = new URLSearchParams(query)
+
+        renderPricingPage()
+
+        expect(await screen.findByRole("status")).toHaveTextContent(message)
     })
 })

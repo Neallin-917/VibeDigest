@@ -144,14 +144,14 @@ const FEATURED_COUNT = 6
 type EpisodeCardRole = "hero" | "supporting" | "solo" | "standard"
 
 const episodeCardVariants = cva(
-    "group h-full overflow-hidden border border-border bg-card/80 transition-colors hover:border-primary-muted/60",
+    "group relative h-full overflow-hidden border border-border bg-card/80 transition-colors hover:border-primary-muted/60",
     {
         variants: {
             role: {
-                hero: "flex min-h-[25rem] flex-col lg:grid lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]",
-                supporting: "grid min-h-[18rem] grid-rows-[minmax(0,1fr)_auto] lg:min-h-0",
+                hero: "flex flex-col sm:min-h-[25rem] lg:grid lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]",
+                supporting: "grid grid-rows-[minmax(0,1fr)_auto] sm:min-h-[18rem] lg:min-h-0",
                 solo: "flex min-h-[20rem] flex-col lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]",
-                standard: "flex min-h-[18rem] flex-col",
+                standard: "flex flex-col sm:min-h-[18rem]",
             },
         },
         defaultVariants: {
@@ -165,10 +165,10 @@ const episodeMediaVariants = cva(
     {
         variants: {
             role: {
-                hero: "aspect-[1.38/1] lg:aspect-[1.55/1]",
-                supporting: "aspect-[16/10] lg:aspect-[5/2] lg:min-h-0",
+                hero: "aspect-[16/9] sm:aspect-[1.38/1] lg:aspect-[1.55/1]",
+                supporting: "aspect-[16/9] sm:aspect-[16/10] lg:aspect-[5/2] lg:min-h-0",
                 solo: "aspect-video lg:aspect-auto lg:min-h-[22rem]",
-                standard: "aspect-[16/10]",
+                standard: "aspect-[16/9] sm:aspect-[16/10]",
             },
         },
         defaultVariants: {
@@ -177,7 +177,7 @@ const episodeMediaVariants = cva(
     }
 )
 
-const episodeContentVariants = cva("flex flex-col px-4 pb-4 pt-3", {
+const episodeContentVariants = cva("flex flex-col px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3", {
     variants: {
         role: {
             hero: "flex-1 lg:flex-none",
@@ -315,20 +315,14 @@ function EpisodeFeatureCard({
             data-card-role={role}
             className={episodeCardVariants({ role })}
         >
-            <Link
-                href={href}
+            <div
                 data-slot="episode-card-media"
                 className={episodeMediaVariants({ role })}
-                onClick={() => trackGrowthEvent("library_digest_open", {
-                    locale,
-                    source: source.id,
-                    area: role,
-                })}
             >
                 {task.thumbnail_url ? (
                     <Image
                         src={task.thumbnail_url}
-                        alt={title}
+                        alt=""
                         fill
                         referrerPolicy="no-referrer"
                         className="object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.02]"
@@ -348,22 +342,31 @@ function EpisodeFeatureCard({
                     </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-            </Link>
+            </div>
 
             <div data-slot="episode-card-content" className={episodeContentVariants({ role })}>
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-primary">
                     <SourceMark source={source} size="compact" />
                     <span className="truncate">{source.name}</span>
                 </div>
-                <Link href={href} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <Link
+                    href={href}
+                    aria-label={`${copy.read}: ${title}`}
+                    onClick={() => trackGrowthEvent("library_digest_open", {
+                        locale,
+                        source: source.id,
+                        area: role,
+                    })}
+                    className="rounded-sm after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-primary"
+                >
                     <h3
                         className={cn(
                             "tracking-[-0.02em] text-foreground transition-colors hover:text-primary",
                             role === "hero" || role === "solo"
-                                ? "line-clamp-3 text-[1.65rem] font-semibold leading-[1.15] lg:text-[2rem]"
+                                ? "line-clamp-3 text-[1.375rem] font-semibold leading-[1.15] sm:text-[1.65rem] lg:text-[2rem]"
                                 : role === "supporting"
-                                    ? "line-clamp-2 text-base font-semibold leading-[1.3]"
-                                    : "line-clamp-3 text-lg font-semibold leading-[1.3]"
+                                    ? "line-clamp-2 text-[0.9375rem] font-semibold leading-[1.3] sm:text-base"
+                                    : "line-clamp-3 text-base font-semibold leading-[1.3] sm:text-lg"
                         )}
                     >
                         {title}
@@ -385,23 +388,19 @@ function EpisodeFeatureCard({
                             {metadataForTask(task, locale, copy)}
                         </span>
                     ) : (
-                        <Link
-                            href={href}
-                            onClick={() => trackGrowthEvent("library_digest_open", {
-                                locale,
-                                source: source.id,
-                                area: `${role}_cta`,
-                            })}
+                        <span
+                            aria-hidden="true"
                             className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary-strong px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                         >
                             {copy.read}
-                        </Link>
+                        </span>
                     )}
                     <a
                         href={task.video_url || source.channelUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label={`${copy.source}: ${title}`}
+                        className="relative z-10 inline-flex min-h-11 items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                         {copy.source}
                         <ExternalLink className="size-3.5" aria-hidden="true" />
@@ -536,7 +535,7 @@ function CompactEpisodeRow({
     const title = task.video_title || task.video_url
 
     return (
-        <article className="border border-slate-200 bg-white/65 [content-visibility:auto] dark:border-white/10 dark:bg-white/[0.03]">
+        <article className="w-full min-w-0 border border-slate-200 bg-white/65 [content-visibility:auto] dark:border-white/10 dark:bg-white/[0.03]">
             <Link
                 href={href}
                 onClick={() => trackGrowthEvent("library_digest_open", {
@@ -817,9 +816,9 @@ export function CommunityTemplates({
             {feedTasks.length > 0 ? (
                 <section id="podcast-feed" aria-labelledby="podcast-feed-heading" className="scroll-mt-24 space-y-4">
                     <h2 id="podcast-feed-heading" className="text-lg font-semibold text-slate-950 dark:text-zinc-100">{podcastCopy.recent}</h2>
-                    <div className="grid gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-2">
+                    <div className="grid min-w-0 gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-2">
                         {feedTasks.map((task) => (
-                            <div key={task.id} className="bg-[color:var(--background)] dark:bg-[#090b0b]">
+                            <div key={task.id} className="min-w-0 bg-[color:var(--background)] dark:bg-[#090b0b]">
                                 <CompactEpisodeRow task={task} locale={locale} sourceId={selectedSource} query={query} />
                             </div>
                         ))}

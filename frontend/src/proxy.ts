@@ -2,9 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { match } from '@formatjs/intl-localematcher'
 import Negotiator from 'negotiator'
 import { updateSession } from '@/lib/supabase/proxy'
-
-const SUPPORTED_LOCALES = ["en", "zh", "ja"]
-const DEFAULT_LOCALE = "en"
+import { COOKIE_NAME, DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale } from '@/lib/i18n'
 
 const PROTECTED_ROUTES = ['/history', '/settings']
 const PUBLIC_ROUTES = ['/login', '/auth', '/register', '/faq', '/explore', '/terms', '/privacy', '/about', '/chat']
@@ -19,6 +17,9 @@ function isAuthenticatedChatHistoryRead(request: NextRequest) {
 }
 
 function getLocale(request: NextRequest): string {
+  const savedLocale = request.cookies.get(COOKIE_NAME)?.value
+  if (isLocale(savedLocale)) return savedLocale
+
   const headers = { 'accept-language': request.headers.get('accept-language') || '' }
   const languages = new Negotiator({ headers }).languages()
   try {

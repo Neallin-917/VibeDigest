@@ -35,6 +35,20 @@ describe("growth event vocabulary", () => {
     })
   })
 
+  it("forwards accepted landing intent without visitor input or identity", () => {
+    trackGrowthEvent("landing_agent_intent", {
+      locale: "en",
+      destination: "login",
+      source: "apple_podcasts",
+    })
+
+    expect(analytics.track).toHaveBeenCalledWith("landing_agent_intent", {
+      locale: "en",
+      destination: "login",
+      source: "apple_podcasts",
+    })
+  })
+
   it("forwards task and pricing funnel events with bounded enum payloads only", () => {
     trackGrowthEvent("task_create_accepted", {
       locale: "en",

@@ -38,6 +38,7 @@ describe('isSupportedUrl', () => {
         expect(getSupportedUrlDetails(originalUrl)).toEqual({
             originalUrl,
             href: originalUrl,
+            source: 'youtube',
             sourceName: 'YouTube',
         })
     })
@@ -46,6 +47,7 @@ describe('isSupportedUrl', () => {
         expect(getSupportedUrlDetails('bilibili.com/video/BV1test')).toEqual({
             originalUrl: 'bilibili.com/video/BV1test',
             href: 'https://bilibili.com/video/BV1test',
+            source: 'bilibili',
             sourceName: 'Bilibili',
         })
     })

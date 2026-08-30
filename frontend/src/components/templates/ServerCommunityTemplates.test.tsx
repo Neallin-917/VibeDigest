@@ -10,9 +10,11 @@ type QueryResult = {
 
 const queryState = vi.hoisted(() => ({
   tasks: { data: [], count: null, error: null } as QueryResult,
+  preferredTasks: { data: [], count: null, error: null } as QueryResult,
   sources: { data: [], error: null } as QueryResult,
   eqCalls: [] as Array<[string, unknown]>,
   limits: [] as number[],
+  languageFilters: [] as string[],
 }))
 const fixtureMode = vi.hoisted(() => ({ enabled: false }))
 
@@ -20,13 +22,18 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
       let countOnly = false
+      const localEqCalls: Array<[string, unknown]> = []
       const query = {
         select: (_columns: string, options?: { head?: boolean }) => {
           countOnly = options?.head === true
           return query
         },
         eq: (column: string, value: unknown) => {
+          localEqCalls.push([column, value])
           queryState.eqCalls.push([column, value])
+          if (column === "public_quality_flags->>language" && typeof value === "string") {
+            queryState.languageFilters.push(value)
+          }
           return query
         },
         ilike: () => query,
@@ -40,7 +47,9 @@ vi.mock("@/lib/supabase/server", () => ({
             ? queryState.sources
             : countOnly
               ? { ...queryState.tasks, data: null }
-              : queryState.tasks
+              : localEqCalls.some(([column]) => column === "public_quality_flags->>language")
+                ? queryState.preferredTasks
+                : queryState.tasks
           return Promise.resolve(result).then(resolve, reject)
         },
       }
@@ -94,9 +103,11 @@ describe("ServerCommunityTemplates", () => {
   afterEach(() => {
     fixtureMode.enabled = false
     queryState.tasks = { data: [], count: null, error: null }
+    queryState.preferredTasks = { data: [], count: null, error: null }
     queryState.sources = { data: [], error: null }
     queryState.eqCalls = []
     queryState.limits = []
+    queryState.languageFilters = []
   })
 
   it("uses only the requested fixture count for the landing preview", async () => {
@@ -139,6 +150,7 @@ describe("ServerCommunityTemplates", () => {
     expect(queryState.eqCalls).toContainEqual(["status", "completed"])
     expect(queryState.eqCalls).toContainEqual(["publication_status", "published"])
     expect(queryState.limits).toContain(18)
+    expect(queryState.languageFilters).toContain("en")
   })
 
   it("maps projected fields, source relations, and aggregated source counts", async () => {
@@ -175,5 +187,145 @@ describe("ServerCommunityTemplates", () => {
     expect(screen.getByTestId("community-takeaway-locales")).toHaveTextContent("en")
     expect(screen.getByTestId("source-shelf")).toHaveTextContent("Latent Space:12")
     expect(screen.getByTestId("total-count")).toHaveTextContent("1")
+  })
+
+  it("puts locale-matching public digests first while keeping other digests discoverable", async () => {
+    queryState.tasks = {
+      data: [
+        {
+          id: "task-en-1",
+          video_url: "https://example.com/en-1",
+          video_title: "English first in fallback order",
+          status: "completed",
+          created_at: "2026-08-25T10:00:00Z",
+          public_takeaway: "English takeaway",
+          public_quality_flags: { language: "en" },
+        },
+        {
+          id: "task-zh-1",
+          video_url: "https://example.com/zh-1",
+          video_title: "Chinese first for zh users",
+          status: "completed",
+          created_at: "2026-08-25T09:00:00Z",
+          public_takeaway: "Chinese takeaway",
+          public_quality_flags: { language: "zh" },
+        },
+        {
+          id: "task-ja-1",
+          video_url: "https://example.com/ja-1",
+          video_title: "Japanese still discoverable",
+          status: "completed",
+          created_at: "2026-08-25T08:00:00Z",
+          public_takeaway: "Japanese takeaway",
+          public_quality_flags: { language: "ja" },
+        },
+      ],
+      count: 3,
+      error: null,
+    }
+    queryState.preferredTasks = {
+      data: [
+        {
+          id: "task-zh-1",
+          video_url: "https://example.com/zh-1",
+          video_title: "Chinese first for zh users",
+          status: "completed",
+          created_at: "2026-08-25T09:00:00Z",
+          public_takeaway: "Chinese takeaway",
+          public_quality_flags: { language: "zh" },
+        },
+      ],
+      count: 1,
+      error: null,
+    }
+
+    render(await ServerCommunityTemplates({ showHeader: false, locale: "zh" }))
+
+    expect(screen.getByTestId("community-status")).toHaveTextContent(
+      "ready:Chinese first for zh users,English first in fallback order,Japanese still discoverable"
+    )
+    expect(screen.getByTestId("total-count")).toHaveTextContent("3")
+  })
+
+  it("falls back to the general library when locale-priority lookup fails", async () => {
+    queryState.tasks = {
+      data: [{
+        id: "task-en-1",
+        video_url: "https://example.com/en-1",
+        video_title: "General library fallback",
+        status: "completed",
+        created_at: "2026-08-25T10:00:00Z",
+        public_takeaway: "English takeaway",
+        public_quality_flags: { language: "en" },
+      }],
+      count: 1,
+      error: null,
+    }
+    queryState.preferredTasks = {
+      data: null,
+      count: null,
+      error: { code: "42703", message: "language projection unavailable" },
+    }
+
+    render(await ServerCommunityTemplates({ showHeader: false, locale: "en" }))
+
+    expect(screen.getByTestId("community-status")).toHaveTextContent(
+      "ready:General library fallback"
+    )
+    expect(screen.getByTestId("total-count")).toHaveTextContent("1")
+  })
+
+  it("applies the same locale-first ordering to the landing preview", async () => {
+    queryState.tasks = {
+      data: [
+        {
+          id: "task-en-1",
+          video_url: "https://example.com/en-1",
+          video_title: "English preview fallback",
+          status: "completed",
+          created_at: "2026-08-25T10:00:00Z",
+          public_takeaway: "English takeaway",
+          public_quality_flags: { language: "en" },
+        },
+        {
+          id: "task-zh-1",
+          video_url: "https://example.com/zh-1",
+          video_title: "Chinese preview priority",
+          status: "completed",
+          created_at: "2026-08-25T09:00:00Z",
+          public_takeaway: "Chinese takeaway",
+          public_quality_flags: { language: "zh" },
+        },
+      ],
+      count: 2,
+      error: null,
+    }
+    queryState.preferredTasks = {
+      data: [
+        {
+          id: "task-zh-1",
+          video_url: "https://example.com/zh-1",
+          video_title: "Chinese preview priority",
+          status: "completed",
+          created_at: "2026-08-25T09:00:00Z",
+          public_takeaway: "Chinese takeaway",
+          public_quality_flags: { language: "zh" },
+        },
+      ],
+      count: 1,
+      error: null,
+    }
+
+    render(await ServerCommunityTemplates({
+      limit: 2,
+      layout: "landingPreview",
+      showHeader: false,
+      locale: "zh",
+    }))
+
+    expect(screen.getByTestId("community-status")).toHaveTextContent(
+      "ready:Chinese preview priority,English preview fallback"
+    )
+    expect(queryState.languageFilters).toContain("zh")
   })
 })

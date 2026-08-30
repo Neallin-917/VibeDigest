@@ -69,6 +69,17 @@ class Settings:
     SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
     SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
 
+    @property
+    def JWT_VERIFICATION_MODE(self) -> str:
+        """Describe the configured Supabase JWT verification path."""
+        if self.SUPABASE_URL and self.SUPABASE_JWT_SECRET:
+            return "jwks+hs256"
+        if self.SUPABASE_URL:
+            return "jwks"
+        if self.SUPABASE_JWT_SECRET:
+            return "hs256"
+        return "missing"
+
     # Creem Payment
     CREEM_API_KEY: str = os.getenv("CREEM_API_KEY", "")
     CREEM_WEBHOOK_SECRET: str = os.getenv("CREEM_WEBHOOK_SECRET", "")
@@ -234,6 +245,14 @@ class Settings:
 
     def _validate_required_env(self):
         """Fail-fast: crash on startup if critical env vars are missing."""
+        process_role = (
+            os.getenv("VIBEDIGEST_PROCESS_ROLE") or "application"
+        ).strip().lower()
+        if process_role not in {"application", "podcast_discovery"}:
+            raise RuntimeError(
+                "VIBEDIGEST_PROCESS_ROLE must be 'application' or "
+                f"'podcast_discovery'. Received: {process_role!r}"
+            )
         dev_bypass = parse_bool_env("DEV_AUTH_BYPASS", False)
         mock_mode = parse_bool_env("MOCK_MODE", self.MOCK_MODE)
         environment_name = (
@@ -246,6 +265,10 @@ class Settings:
             "prod",
             "production",
         }
+        is_trusted_codex_runner = (
+            (os.getenv("WORKER_PROFILE") or "").strip().lower() == "trusted_codex"
+            and not bool(os.getenv("RAILWAY_PROJECT_ID"))
+        )
         if self.LLM_RUNTIME not in {"api", "codex_local"}:
             raise RuntimeError(
                 "LLM_RUNTIME must be 'api' or 'codex_local'. "
@@ -265,9 +288,13 @@ class Settings:
             raise RuntimeError(
                 "LLM_PROVIDER=codex_local requires LLM_RUNTIME=codex_local"
             )
-        if is_production and self.LLM_RUNTIME == "codex_local":
+        if (
+            is_production
+            and self.LLM_RUNTIME == "codex_local"
+            and not is_trusted_codex_runner
+        ):
             raise RuntimeError(
-                "LLM_RUNTIME=codex_local is only allowed on trusted local development machines"
+                "LLM_RUNTIME=codex_local is only allowed on trusted private runners"
             )
         if is_production and (dev_bypass or mock_mode):
             raise RuntimeError(
@@ -289,14 +316,12 @@ class Settings:
         if not self.SUPABASE_SERVICE_KEY:
             missing.append("SUPABASE_SERVICE_KEY")
 
-        if not dev_bypass and not self.SUPABASE_JWT_SECRET:
-            missing.append("SUPABASE_JWT_SECRET")
-
-        has_llm_key = self.LLM_RUNTIME == "codex_local" or bool(
-            self.OPENAI_API_KEY or os.getenv("OPENROUTER_API_KEY")
-        )
-        if not has_llm_key:
-            missing.append("OPENAI_API_KEY or OPENROUTER_API_KEY")
+        if process_role != "podcast_discovery":
+            has_llm_key = self.LLM_RUNTIME == "codex_local" or bool(
+                self.OPENAI_API_KEY or os.getenv("OPENROUTER_API_KEY")
+            )
+            if not has_llm_key:
+                missing.append("OPENAI_API_KEY or OPENROUTER_API_KEY")
 
         if missing:
             raise RuntimeError(

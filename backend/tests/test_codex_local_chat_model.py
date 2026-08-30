@@ -45,7 +45,9 @@ async def test_codex_local_model_times_out():
         return "unreachable"
 
     with patch.object(CodexLocalChatModel, "_run_codex_turn", new=never_returns):
-        with pytest.raises(TimeoutError):
+        with pytest.raises(
+            TimeoutError, match="Codex local inference timed out after 1 seconds"
+        ):
             await model._agenerate([HumanMessage(content="Answer the question")])
 
 

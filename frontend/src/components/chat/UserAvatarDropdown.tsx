@@ -1,11 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useMemo } from "react"
-import { Settings, LogOut, CreditCard, Sun, Moon, MessageSquareWarning } from "lucide-react"
+import { useState, useMemo, useSyncExternalStore } from "react"
+import { Settings, LogOut, CreditCard, MessageSquareWarning } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
-import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase"
 import {
   DropdownMenu,
@@ -28,19 +27,26 @@ interface UserAvatarDropdownProps {
   side?: "top" | "right" | "bottom" | "left"
 }
 
+const subscribeToHydration = () => () => undefined
+
 export function UserAvatarDropdown({ 
   className, 
   size = "md",
   align = "end",
   side = "bottom"
 }: UserAvatarDropdownProps) {
-  const { theme, setTheme } = useTheme()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
   const { t, locale } = useI18n()
   const { data: user } = useCurrentUserQuery()
-  const userEmail = user?.email ?? null
+  const hasHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  )
+  // A warm browser query cache can differ from the server's account snapshot.
+  const userEmail = hasHydrated ? user?.email ?? null : null
 
   const handleLogout = async () => {
     if (typeof window !== 'undefined' && window.google?.accounts?.id) {
@@ -61,7 +67,7 @@ export function UserAvatarDropdown({
           <button 
             aria-label={t('chat.moreOptionsHint')}
             className={cn(
-              "rounded-full bg-gradient-to-tr from-emerald-600 to-teal-600 border-2 border-white dark:border-white/20 shadow-sm hover:scale-105 transition-transform flex items-center justify-center text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:focus:ring-emerald-500/50",
+              "flex items-center justify-center rounded-full border-2 border-white bg-gradient-to-tr from-emerald-600 to-teal-600 font-bold text-white shadow-sm transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
               avatarSize,
               className
             )}
@@ -76,26 +82,12 @@ export function UserAvatarDropdown({
           sideOffset={8}
         >
           {/* User Info */}
-          <div className="px-3 py-2 border-b border-slate-200 dark:border-white/10">
+          <div className="border-b border-slate-200 px-3 py-2">
             <p className="text-sm font-medium truncate">
               {userEmail?.split('@')[0] || "User"}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{userEmail}</p>
+            <p className="truncate text-xs text-slate-500">{userEmail}</p>
           </div>
-
-          {/* Theme Toggle */}
-          <DropdownMenuItem
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="cursor-pointer"
-          >
-            <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute ml-0 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="ml-6 dark:ml-0">
-              {theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}
-            </span>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
 
           {/* Settings */}
           <DropdownMenuItem asChild className="cursor-pointer">
@@ -129,7 +121,7 @@ export function UserAvatarDropdown({
           {/* Logout */}
           <DropdownMenuItem
             onClick={handleLogout}
-            className="text-red-500 focus:text-red-500 dark:text-red-400 dark:focus:text-red-400 cursor-pointer"
+            className="cursor-pointer text-red-500 focus:text-red-500"
           >
             <LogOut className="mr-2 h-4 w-4" />
             {t('auth.logout')}

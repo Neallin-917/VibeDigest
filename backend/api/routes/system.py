@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 TASK_SUBMISSION_READINESS_SQL = """
 select
   to_regprocedure(
-    'vibedigest_private.submit_video_task(uuid,text,text,integer,jsonb,text)'
+    'vibedigest_private.submit_user_video_task(uuid,text,text,integer,jsonb,text)'
+  ) is not null
+  and to_regprocedure(
+    'vibedigest_private.submit_catalog_video_task(uuid,text,jsonb,text,boolean)'
   ) is not null as submission_function_ready,
   to_regnamespace('pgmq') is not null as queue_schema_ready,
   exists (
@@ -35,7 +38,40 @@ select
     select 1 from information_schema.columns
      where table_schema = 'public' and table_name = 'profiles'
        and column_name = 'usage_reset_at'
-  ) as monthly_quota_ready
+  ) as monthly_quota_ready,
+  exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'tasks'
+       and column_name = 'publication_status'
+  ) as publication_status_ready,
+  to_regclass('public.podcast_sources') is not null as podcast_sources_ready,
+  to_regclass('public.podcast_episodes') is not null as podcast_episodes_ready,
+  exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'tasks'
+       and column_name = 'workload_kind'
+  ) as workload_kind_ready,
+  exists (
+    select 1 from pgmq.list_queues()
+     where queue_name = 'podcast_supply'
+  ) as catalog_queue_ready,
+  to_regprocedure(
+    'vibedigest_private.retry_video_task(uuid,uuid,text,text,text)'
+  ) is not null
+  and to_regprocedure(
+    'vibedigest_private.submit_output_retry(uuid,uuid,text,text,text)'
+  ) is not null as retry_routing_ready,
+  to_regprocedure(
+    'vibedigest_private.accept_agent_turn(uuid,uuid,text,jsonb,text,uuid,jsonb,text,text[])'
+  ) is not null and to_regprocedure(
+    'vibedigest_private.claim_agent_continuation(uuid,uuid,text,bigint,integer)'
+  ) is not null as agent_turns_ready,
+  exists (
+    select 1 from pg_publication_tables pt
+      join pg_publication p on p.pubname = pt.pubname
+    where pt.pubname = 'supabase_realtime' and pt.schemaname = 'public'
+      and pt.tablename = 'chat_messages' and p.pubinsert and p.pubupdate
+  ) as chat_realtime_ready
 """
 
 class FeedbackModel(BaseModel):
@@ -70,6 +106,14 @@ async def readiness_check(db: DBClient = Depends(get_db_client)):
         "output_intent_ready",
         "output_provenance_ready",
         "monthly_quota_ready",
+        "publication_status_ready",
+        "podcast_sources_ready",
+        "podcast_episodes_ready",
+        "workload_kind_ready",
+        "catalog_queue_ready",
+        "retry_routing_ready",
+        "agent_turns_ready",
+        "chat_realtime_ready",
     )):
         logger.error("Task submission database contract is not ready")
         raise HTTPException(status_code=503, detail="Service is not ready")

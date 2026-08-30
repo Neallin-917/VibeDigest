@@ -1,7 +1,7 @@
 .PHONY: all install start test lint lint-backend clean help
 .PHONY: install-backend install-frontend
 .PHONY: dev dev-stop start-backend start-worker start-frontend start-dev
-.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task
+.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts backfill-podcasts process-podcast-supply
 .PHONY: stop restart-dev rebuild-dev
 .PHONY: perf perf-frontend perf-check perf-update-baseline
 .PHONY: ops-audit
@@ -35,6 +35,10 @@ help:
 	@echo "  make test-provider-smoke - Verify the configured LLM provider with a real API call"
 	@echo "  make ops-audit    - Run read-only deployment and local ops checks"
 	@echo "  make create-demo-task - Create and process the default demo task"
+	@echo "  make sync-podcast-sources - Sync the podcast source catalog into Postgres"
+	@echo "  make discover-podcasts - Discover and enqueue recent podcast episodes"
+	@echo "  make backfill-podcasts - Advance bounded historical podcast backfill"
+	@echo "  make process-podcast-supply - Process a bounded catalog batch with Codex subscription"
 	@echo "  make lint          - Run formatters and linters"
 	@echo "  make clean         - Clean up temporary files"
 
@@ -61,7 +65,7 @@ start-backend:
 
 start-worker:
 	@echo "Starting task worker..."
-	cd backend && uv run python worker.py
+	cd backend && WORKER_PROFILE=hosted_api LLM_RUNTIME=api uv run python worker.py
 
 start-frontend:
 	@echo "Starting frontend..."
@@ -123,7 +127,7 @@ test-db-integration-smoke:
 
 test-queue-integration:
 	@echo "Running real PGMQ integration tests..."
-	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/integration/test_pgmq_queue.py --no-cov -v
+	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/integration/test_pgmq_queue.py backend/tests/integration/test_agent_turns.py --no-cov -v
 
 test-provider-smoke:
 	@echo "Running provider smoke (real LLM API call)..."
@@ -164,6 +168,27 @@ create-demo-task:
 		$(if $(DEMO_USER_ID),--user-id "$(DEMO_USER_ID)",) \
 		$(if $(DEMO_TITLE),--title "$(DEMO_TITLE)",) \
 		$(if $(DEMO_NO_RUN),--no-run,)
+
+sync-podcast-sources:
+	uv run python backend/scripts/podcasts/discover.py --sync-only
+
+discover-podcasts:
+	uv run python backend/scripts/podcasts/discover.py \
+		$(if $(PODCAST_SOURCE),--source "$(PODCAST_SOURCE)",) \
+		$(if $(PODCAST_SINCE_DAYS),--since-days "$(PODCAST_SINCE_DAYS)",) \
+		$(if $(PODCAST_MAX_ENQUEUES),--max-enqueues "$(PODCAST_MAX_ENQUEUES)",)
+
+backfill-podcasts:
+	uv run python backend/scripts/podcasts/discover.py \
+		--mode backfill \
+		$(if $(PODCAST_SOURCE),--source "$(PODCAST_SOURCE)",) \
+		$(if $(PODCAST_SINCE_DAYS),--since-days "$(PODCAST_SINCE_DAYS)",) \
+		$(if $(PODCAST_MAX_ENQUEUES),--max-enqueues "$(PODCAST_MAX_ENQUEUES)",) \
+		$(if $(PODCAST_BACKFILL_WINDOW),--backfill-window "$(PODCAST_BACKFILL_WINDOW)",)
+
+process-podcast-supply:
+	uv run python backend/scripts/tasks/process_catalog_supply.py \
+		$(if $(PODCAST_MAX_JOBS),--max-jobs "$(PODCAST_MAX_JOBS)",)
 
 # --- Quality Control ---
 lint:

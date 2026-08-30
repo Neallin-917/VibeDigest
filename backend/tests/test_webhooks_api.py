@@ -58,11 +58,12 @@ async def test_creem_webhook_missing_signature(api_client):
 
 @pytest.mark.asyncio
 async def test_creem_webhook_missing_secret(api_client):
-    response = await api_client.post(
-        "/api/webhook/creem",
-        content=b"{}",
-        headers={"creem-signature": "signature"},
-    )
+    with patch("api.routes.webhooks.CREEM_WEBHOOK_SECRET", ""):
+        response = await api_client.post(
+            "/api/webhook/creem",
+            content=b"{}",
+            headers={"creem-signature": "signature"},
+        )
 
     assert response.status_code == 503
     assert "verification unavailable" in response.json()["detail"]

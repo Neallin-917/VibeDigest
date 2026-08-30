@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import type { AriaAttributes } from 'react'
 import { ProcessingIndicator } from '../ProcessingIndicator'
 
 vi.mock('thinking-orbs', () => ({
@@ -7,7 +8,7 @@ vi.mock('thinking-orbs', () => ({
     state: string
     size: number
     theme: string
-    'aria-hidden'?: string
+    'aria-hidden'?: AriaAttributes['aria-hidden']
   }) => (
     <canvas
       data-testid="thinking-orb"

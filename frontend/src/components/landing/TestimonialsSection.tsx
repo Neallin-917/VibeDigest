@@ -4,7 +4,6 @@ import { useI18n } from "@/components/i18n/I18nProvider"
 import { Heading, Text } from "@/components/ui/typography"
 import { Quote } from "lucide-react"
 import { motion } from "framer-motion"
-import { cn } from "@/lib/utils"
 
 export function TestimonialsSection() {
     const { t } = useI18n()
@@ -43,10 +42,10 @@ export function TestimonialsSection() {
                         viewport={{ once: true }}
                         transition={{ duration: 0.6 }}
                     >
-                        <Heading as="h2" className="text-2xl md:text-3xl font-bold mb-5 font-display text-slate-900 dark:text-white">
+                        <Heading as="h2" className="mb-5 font-display text-2xl font-bold text-slate-900 md:text-3xl">
                             {t("landing.lovedByResearchers")}
                         </Heading>
-                        <Text className="text-slate-600 dark:text-zinc-400 text-base font-light">
+                        <Text className="text-base font-light text-slate-600">
                             {t("landing.lovedByResearchersSubtitle")}
                         </Text>
                     </motion.div>
@@ -60,27 +59,21 @@ export function TestimonialsSection() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.5, delay: index * 0.1 }}
-                            className={cn(
-                                "backdrop-blur-md border rounded-2xl p-6 relative group transition-colors",
-                                // Light mode
-                                "bg-white/60 border-slate-200 hover:bg-white/80 shadow-lg",
-                                // Dark mode
-                                "dark:bg-zinc-900/40 dark:border-white/5 dark:hover:bg-zinc-900/60 dark:shadow-none"
-                            )}
+                            className="group relative rounded-2xl border border-slate-200 bg-white/60 p-6 shadow-lg backdrop-blur-md transition-colors hover:bg-white/80"
                         >
-                            <Quote className="text-slate-200 dark:text-white/5 w-16 h-16 absolute top-3 right-3 rotate-180 group-hover:text-slate-300 dark:group-hover:text-white/10 transition-colors" />
+                            <Quote className="absolute right-3 top-3 h-16 w-16 rotate-180 text-slate-200 transition-colors group-hover:text-slate-300" />
 
                             <div className="flex items-center gap-3 mb-6 relative z-10">
                                 <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
                                     {item.initial}
                                 </div>
                                 <div>
-                                    <div className="font-bold text-sm text-slate-900 dark:text-white font-display">{item.author}</div>
-                                    <div className="text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-wider font-semibold">{item.role}</div>
+                                    <div className="font-display text-sm font-bold text-slate-900">{item.author}</div>
+                                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{item.role}</div>
                                 </div>
                             </div>
 
-                            <p className="text-slate-700 dark:text-zinc-300 text-sm leading-relaxed relative z-10 font-medium italic">
+                            <p className="relative z-10 text-sm font-medium italic leading-relaxed text-slate-700">
                                 &ldquo;{item.quote}&rdquo;
                             </p>
                         </motion.div>

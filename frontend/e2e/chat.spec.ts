@@ -80,15 +80,7 @@ test.describe('Chat Interface Flow', () => {
       })
     })
 
-    // 6. Mock Threads (both paths: legacy /api/chat/threads and new /api/threads)
-    await page.route('**/api/chat/threads*', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([])
-      })
-    })
-
+    // 6. Mock Threads
     await page.route('**/api/threads*', async (route) => {
       const method = route.request().method()
       if (method === 'POST') {
@@ -123,7 +115,7 @@ test.describe('Chat Interface Flow', () => {
     await expect(page).toHaveURL(/.*\/chat/);
 
     // Wait for React hydration and Welcome Screen
-    await expect(chatPage.welcomeHeading).toContainText(/Welcome|VibeDigest|digest today/i)
+    await expect(chatPage.welcomeHeading).toContainText(/What do you want to understand today\?/i)
 
     // Paste URL and Submit (mock auth returns authenticated user)
     await chatPage.submitMessage('https://youtube.com/watch?v=e2e');

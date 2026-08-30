@@ -84,6 +84,27 @@ class TestGetTemperature:
 # ---------------------------------------------------------------------------
 
 class TestModelSmartFast:
+    @pytest.mark.parametrize(
+        ("supabase_url", "jwt_secret", "expected"),
+        [
+            ("https://example.supabase.co", "", "jwks"),
+            ("https://example.supabase.co", "legacy-secret", "jwks+hs256"),
+            ("", "legacy-secret", "hs256"),
+            ("", "", "missing"),
+        ],
+    )
+    def test_jwt_verification_mode(
+        self,
+        supabase_url: str,
+        jwt_secret: str,
+        expected: str,
+    ):
+        s = Settings()
+        s.SUPABASE_URL = supabase_url
+        s.SUPABASE_JWT_SECRET = jwt_secret
+
+        assert s.JWT_VERIFICATION_MODE == expected
+
     def test_openrouter_runtime_contract_uses_shared_defaults(self):
         s = Settings()
         s.OPENAI_BASE_URL = None
@@ -132,7 +153,79 @@ class TestModelSmartFast:
         s.LLM_RUNTIME = "codex_local"
 
         with patch.dict(os.environ, {"RAILWAY_PROJECT_ID": "production-project"}):
-            with pytest.raises(RuntimeError, match="only allowed on trusted local"):
+            with pytest.raises(RuntimeError, match="only allowed on trusted private"):
+                s._validate_required_env()
+
+    def test_trusted_codex_worker_is_allowed_on_non_railway_private_runner(self):
+        s = Settings()
+        s.LLM_RUNTIME = "codex_local"
+
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "WORKER_PROFILE": "trusted_codex",
+                "RAILWAY_PROJECT_ID": "",
+                "DEV_AUTH_BYPASS": "false",
+                "MOCK_MODE": "false",
+            },
+            clear=False,
+        ):
+            s._validate_required_env()
+
+    def test_production_application_accepts_jwks_without_legacy_jwt_secret(self):
+        s = Settings()
+        s.SUPABASE_URL = "https://example.supabase.co"
+        s.SUPABASE_SERVICE_KEY = "service-key"
+        s.SUPABASE_JWT_SECRET = ""
+        s.OPENAI_API_KEY = "api-key"
+        s.LLM_RUNTIME = "api"
+
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "DATABASE_URL": "postgresql://example",
+                "DEV_AUTH_BYPASS": "false",
+                "MOCK_MODE": "false",
+                "OPENROUTER_API_KEY": "",
+                "PYTEST_CURRENT_TEST": "",
+                "RAILWAY_PROJECT_ID": "",
+                "VIBEDIGEST_PROCESS_ROLE": "application",
+            },
+            clear=False,
+        ), patch.dict(config_module.sys.modules, clear=False):
+            config_module.sys.modules.pop("pytest", None)
+            s._validate_required_env()
+
+    def test_podcast_discovery_process_does_not_require_an_llm_api_key(self):
+        s = Settings()
+        s.SUPABASE_URL = "https://example.supabase.co"
+        s.SUPABASE_SERVICE_KEY = "service-key"
+        s.SUPABASE_JWT_SECRET = "jwt-secret"
+        s.OPENAI_API_KEY = None
+        s.LLM_RUNTIME = "api"
+
+        with patch.dict(
+            os.environ,
+            {
+                "VIBEDIGEST_PROCESS_ROLE": "podcast_discovery",
+                "DATABASE_URL": "postgresql://example",
+                "OPENROUTER_API_KEY": "",
+            },
+            clear=False,
+        ):
+            s._validate_required_env()
+
+    def test_unknown_process_role_is_rejected(self):
+        s = Settings()
+
+        with patch.dict(
+            os.environ,
+            {"VIBEDIGEST_PROCESS_ROLE": "mystery"},
+            clear=False,
+        ):
+            with pytest.raises(RuntimeError, match="VIBEDIGEST_PROCESS_ROLE"):
                 s._validate_required_env()
 
     def test_default_provider_is_openrouter_when_no_custom_base_url(self):

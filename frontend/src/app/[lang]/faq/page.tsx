@@ -13,7 +13,7 @@ const FAQS: Record<string, { question: string; answer: string }[]> = {
     en: [
         {
             question: "What is VibeDigest?",
-            answer: "VibeDigest is an AI-powered video summarizer and transcription tool. It helps you quickly understand long YouTube videos, podcasts, and interviews by providing structured summaries, interactive transcripts, and mind maps. It's designed for researchers, students, and content creators who want to save time."
+            answer: "VibeDigest is an AI agent for understanding podcasts and long videos. It organizes each source into a structured summary, key ideas, supporting evidence, and source-grounded follow-up."
         },
         {
             question: "Is VibeDigest free to use?",
@@ -24,8 +24,8 @@ const FAQS: Record<string, { question: string; answer: string }[]> = {
             answer: "Currently, we support YouTube, Apple Podcasts, Bilibili, and Xiaoyuzhou. We are constantly adding support for more platforms to help you consolidate your knowledge from various sources."
         },
         {
-            question: "How accurate is the transcription and summary?",
-            answer: "We use state-of-the-art AI models (like OpenAI's GPT-4o and Anthropic's Claude 3.5 Sonnet) to ensure high accuracy. While AI is not perfect, our interactive transcript feature allows you to verify any part of the summary against the original video instantly."
+            question: "How reliable are the summary and answers?",
+            answer: "AI can make mistakes. VibeDigest keeps the original source close and surfaces supporting evidence so you can verify important claims before relying on them."
         },
         {
             question: "Can I export my summaries?",
@@ -33,13 +33,13 @@ const FAQS: Record<string, { question: string; answer: string }[]> = {
         },
         {
             question: "Do you support multiple languages?",
-            answer: "Absolutely. VibeDigest can transcribe and summarize videos in over 50 languages. It also includes a translation layer, so you can consume foreign content in your native language seamlessly."
+            answer: "Yes. VibeDigest can process sources in multiple languages and organize the summary and key ideas in a language you can read."
         }
     ],
     zh: [
         {
             question: "什么是 VibeDigest?",
-            answer: "VibeDigest 是一款 AI 驱动的视频摘要和转写工具。它通过提供结构化摘要、交互式逐字稿和思维导图，帮助您快速理解冗长的 YouTube 视频、播客和访谈。它是为希望节省时间的研究人员、学生和内容创作者设计的。"
+            answer: "VibeDigest 是一个帮助你理解播客和长视频的 AI Agent。它会把原内容整理成结构化摘要、关键观点、支撑证据，并支持基于来源继续追问。"
         },
         {
             question: "VibeDigest 是免费的吗？",
@@ -50,8 +50,8 @@ const FAQS: Record<string, { question: string; answer: string }[]> = {
             answer: "目前，我们支持 YouTube、Apple Podcasts、Bilibili 和小宇宙。我们正在不断增加对更多平台的支持，帮助您整合来自不同来源的知识。"
         },
         {
-            question: "转写和摘要的准确度如何？",
-            answer: "我们使用最先进的 AI 模型（如 OpenAI 的 GPT-4o 和 Anthropic 的 Claude 3.5 Sonnet）来确保高准确度。虽然 AI 并非完美，但我们的交互式逐字稿功能允许您随时将摘要的任何部分与原始视频进行核对。"
+            question: "摘要和回答可靠吗？",
+            answer: "AI 可能出错。VibeDigest 会保留原始内容入口并提供支撑证据，重要结论应在使用前回到来源核验。"
         },
         {
             question: "我可以导出摘要吗？",
@@ -59,13 +59,13 @@ const FAQS: Record<string, { question: string; answer: string }[]> = {
         },
         {
             question: "你们支持多种语言吗？",
-            answer: "当然。VibeDigest 可以转写和摘要超过 50 种语言的视频。它还包含翻译层，因此您可以用母语无障碍地消费外语内容。"
+            answer: "支持。VibeDigest 可以处理多种语言的内容，并把摘要和关键观点整理成你便于阅读的语言。"
         }
     ],
     ja: [
         {
             question: "VibeDigestとは何ですか？",
-            answer: "VibeDigestは、AIを活用した動画要約・文字起こしツールです。長いYouTube動画、ポッドキャスト、インタビューを構造化された要約、インタラクティブな文字起こし、マインドマップで素早く理解できます。研究者、学生、コンテンツクリエイター向けに設計されています。"
+            answer: "VibeDigestは、ポッドキャストや長尺動画を理解するためのAI Agentです。要約、重要ポイント、根拠、出典に基づく追加質問に整理します。"
         },
         {
             question: "VibeDigestは無料で使えますか？",
@@ -76,8 +76,8 @@ const FAQS: Record<string, { question: string; answer: string }[]> = {
             answer: "現在、YouTube、Apple Podcasts、Bilibili、小宇宙に対応しています。さまざまなソースからの知識を統合できるよう、対応プラットフォームを順次追加しています。"
         },
         {
-            question: "文字起こしと要約の精度はどうですか？",
-            answer: "OpenAIのGPT-4oやAnthropicのClaude 3.5 Sonnetなど、最先端のAIモデルを使用して高い精度を確保しています。AIは完璧ではありませんが、インタラクティブな文字起こし機能により、要約の任意の部分を元の動画と照合できます。"
+            question: "要約と回答は信頼できますか？",
+            answer: "AIは誤ることがあります。VibeDigestは元のコンテンツへの導線と根拠を示し、重要な内容を出典で確認できるようにします。"
         },
         {
             question: "要約をエクスポートできますか？",
@@ -85,7 +85,7 @@ const FAQS: Record<string, { question: string; answer: string }[]> = {
         },
         {
             question: "多言語に対応していますか？",
-            answer: "はい。VibeDigestは50以上の言語の動画を文字起こし・要約できます。翻訳レイヤーも搭載しているため、外国語コンテンツを母語でシームレスに消費できます。"
+            answer: "はい。複数言語のコンテンツを処理し、要約と重要ポイントを読みやすい言語に整理できます。"
         }
     ]
 }

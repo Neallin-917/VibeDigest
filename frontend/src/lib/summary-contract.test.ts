@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildDetailedSummaryMarkdownFromContent,
   buildSummaryExcerptFromContent,
   buildSummaryMarkdownFromContent,
   parseCurrentSummary,
@@ -265,5 +266,36 @@ describe('summary-contract', () => {
     expect(excerpt).toContain('Short takeaway.')
     expect(buildSummaryMarkdownFromContent('legacy text summary')).toBe('')
     expect(buildSummaryExcerptFromContent('{ bad json', 60)).toBe('')
+  })
+
+  it('localizes generated summary structure without changing source content', () => {
+    const markdown = buildSummaryMarkdownFromContent(JSON.stringify(validSummary), 'zh-CN')
+
+    expect(markdown).toContain('## 内容摘要')
+    expect(markdown).toContain('## 内容概览')
+    expect(markdown).toContain('## 关键观点')
+    expect(markdown).toContain('为什么重要: Why it matters.')
+    expect(markdown).toContain('原文证据: Quoted support.')
+    expect(markdown).toContain('## 更多内容')
+  })
+
+  it('builds a detail-only digest without repeating the lead summary or key points', () => {
+    const markdown = buildDetailedSummaryMarkdownFromContent(JSON.stringify(validSummary), 'zh-CN')
+
+    expect(markdown).toContain('## 内容概览')
+    expect(markdown).toContain('## 更多内容')
+    expect(markdown).not.toContain('## 内容摘要')
+    expect(markdown).not.toContain('## 关键观点')
+    expect(markdown).not.toContain('Point A')
+  })
+
+  it('omits an overview already used as the lead summary', () => {
+    const markdown = buildDetailedSummaryMarkdownFromContent(JSON.stringify({
+      ...validSummary,
+      tl_dr: undefined,
+      sections: [],
+    }))
+
+    expect(markdown).toBe('')
   })
 })

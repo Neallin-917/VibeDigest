@@ -16,7 +16,7 @@ load_env()
 configure_logging()
 
 from config import settings  # noqa: E402
-from api.routes import payments, system, tasks, webhooks  # noqa: E402
+from api.routes import agent, payments, system, tasks, webhooks  # noqa: E402
 
 # Skip Sentry initialisation during pytest runs to avoid polluting the project
 # with test noise and to keep unit tests hermetic.
@@ -34,7 +34,7 @@ async def startup_event():
     logger.info(f"Smart Model:   {settings.MODEL_SMART} (Temp: {settings.REASONING_TEMPERATURE})")
     logger.info(f"Fast Model:    {settings.MODEL_FAST} (Temp: {settings.DEFAULT_TEMPERATURE})")
     logger.info(f"OpenAI Base:   {settings.OPENAI_BASE_URL or 'Default'}")
-    logger.info(f"JWT Secret:    {'configured' if settings.SUPABASE_JWT_SECRET else 'MISSING'}")
+    logger.info(f"JWT Verification: {settings.JWT_VERIFICATION_MODE}")
     logger.info(">>> --------------------------- <<<")
 
 # CORS Configuration
@@ -70,6 +70,7 @@ TEMP_DIR.mkdir(exist_ok=True)
 # Include Routers
 app.include_router(system.router, tags=["System"])
 app.include_router(tasks.router, prefix="/api", tags=["Tasks"])
+app.include_router(agent.router, prefix="/api/internal/agent", tags=["Internal Agent"])
 app.include_router(payments.router, prefix="/api", tags=["Payments"])
 app.include_router(webhooks.router, prefix="/api/webhook", tags=["Webhooks"])
 

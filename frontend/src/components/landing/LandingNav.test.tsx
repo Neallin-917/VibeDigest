@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { vi, describe, it, expect, beforeEach } from "vitest"
 import { LandingNav } from "./LandingNav"
 
@@ -22,7 +22,6 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
                 "landing.navPricing": "Pricing",
                 "landing.navFAQ": "FAQ",
                 "landing.language": "Language",
-                "landing.theme": "Theme",
                 "auth.goToDashboard": "Go to Dashboard"
             }
             return translations[k] || k
@@ -66,9 +65,9 @@ describe("LandingNav", () => {
         const logoLink = screen.getByText("Logo").closest("a")
         expect(logoLink).toHaveAttribute("href", "/en#hero")
 
-        // Mobile and Desktop menus might both render "Demos" - verify text exists
-        // (Detailed href check omitted due to testing-library duplicate element complexity)
-        expect(screen.getAllByText("Demos").length).toBeGreaterThan(0)
+        const libraryLinks = screen.getAllByText("Demos").map((node) => node.closest("a"))
+        expect(libraryLinks.length).toBeGreaterThan(0)
+        libraryLinks.forEach((link) => expect(link).toHaveAttribute("href", "/en/explore"))
     })
 
     it("renders router links correctly", () => {
@@ -77,10 +76,50 @@ describe("LandingNav", () => {
         expect(faqLink).toHaveAttribute("href", "/en/faq")
     })
 
-    it("handles scroll state", () => {
+    it("uses a fine underline for desktop navigation feedback", () => {
         render(<LandingNav />)
-        fireEvent.scroll(window, { target: { scrollY: 100 } })
-        // Could verify class change if we specifically test for it, 
-        // but verifying no crash is sufficient for this level.
+
+        const libraryLink = screen.getAllByText("Demos")[0].closest("a")
+        expect(libraryLink).toHaveClass(
+            "after:scale-x-0",
+            "hover:after:scale-x-100",
+            "focus-visible:after:scale-x-100",
+            "after:duration-200"
+        )
+        expect(libraryLink).not.toHaveClass("hover:bg-slate-100")
+    })
+
+    it("marks the shared library navigation item as current on the explore route", () => {
+        ; (usePathname as any).mockReturnValue("/en/explore")
+        render(<LandingNav />)
+
+        const currentLinks = screen.getAllByText("Demos").map((node) => node.closest("a"))
+        currentLinks.forEach((link) => expect(link).toHaveAttribute("aria-current", "page"))
+        expect(currentLinks[0]).toHaveClass("after:scale-x-100", "text-foreground")
+    })
+
+    it("keeps a readable navigation surface without scroll listeners", () => {
+        render(<LandingNav />)
+
+        const navSurface = screen.getByRole("navigation").firstElementChild
+        expect(navSurface).toHaveClass("bg-surface/90", "backdrop-blur-xl", "max-w-[1080px]")
+        expect(screen.queryByRole("button", { name: /toggle theme/i })).not.toBeInTheDocument()
+    })
+
+    it("uses the library content canvas for the library navigation shell", () => {
+        render(<LandingNav shell="library" />)
+
+        const navigation = screen.getByRole("navigation")
+        const navSurface = navigation.firstElementChild
+        expect(navigation).toHaveClass("px-5", "sm:px-8", "lg:px-14")
+        expect(navSurface).toHaveClass("max-w-[1440px]")
+    })
+
+    it("removes acquisition links from the desktop content-page navigation", () => {
+        const { container } = render(<LandingNav variant="content" />)
+
+        expect(container.querySelector('[data-slot="desktop-nav-links"]')).not.toBeInTheDocument()
+        expect(screen.getByText("Logo")).toBeInTheDocument()
+        expect(screen.getAllByText("UserButton")[0]).toBeInTheDocument()
     })
 })

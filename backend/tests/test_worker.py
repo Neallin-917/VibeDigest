@@ -1,10 +1,18 @@
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from services.execution_policy import WorkerProfile, resolve_worker_profile
 from services.task_queue import QueuedJob
 from services.job_handlers import NonRetryableJobError
-from worker import LeaseLostError, TaskWorker, WorkerConfig
+from worker import (
+    LeaseLostError,
+    TaskWorker,
+    WorkerConfig,
+    drain_worker,
+    verify_codex_subscription,
+)
 
 
 def worker_config(
@@ -43,6 +51,7 @@ async def test_worker_processes_and_archives_video_job():
         "status": "pending",
         "video_url": "https://example.com/video",
         "user_id": "user-1",
+        "workload_kind": "user_submission",
     }
 
     with (
@@ -124,6 +133,7 @@ async def test_worker_retries_failed_job_without_archiving():
         "status": "pending",
         "video_url": "https://example.com/video",
         "user_id": "user-1",
+        "workload_kind": "user_submission",
     }
 
     with (
@@ -146,8 +156,13 @@ async def test_worker_archives_non_retryable_output_failure_immediately():
     db = MagicMock()
     db.get_output.return_value = {
         "id": "output-1",
+        "task_id": "task-1",
         "status": "pending",
         "user_id": "user-1",
+    }
+    db.get_task.return_value = {
+        "id": "task-1",
+        "workload_kind": "user_submission",
     }
     job = QueuedJob(
         message_id=17,
@@ -187,6 +202,7 @@ async def test_worker_marks_terminal_failure_and_archives():
         "status": "pending",
         "video_url": "https://example.com/video",
         "user_id": "user-1",
+        "workload_kind": "user_submission",
     }
 
     with (
@@ -226,6 +242,7 @@ async def test_worker_does_not_archive_when_heartbeat_loses_lease():
         "status": "pending",
         "video_url": "https://example.com/video",
         "user_id": "user-1",
+        "workload_kind": "user_submission",
     }
 
     async def hang(**_):
@@ -250,6 +267,7 @@ async def test_worker_times_out_and_retries():
         "status": "pending",
         "video_url": "https://example.com/video",
         "user_id": "user-1",
+        "workload_kind": "user_submission",
     }
 
     async def hang(**_):
@@ -284,6 +302,7 @@ async def test_worker_never_downgrades_completed_task_after_archive_retries():
         "video_url": "https://example.com/video",
         "user_id": "user-1",
         "guest_id": None,
+        "workload_kind": "user_submission",
     }
 
     with (
@@ -299,3 +318,118 @@ async def test_worker_never_downgrades_completed_task_after_archive_retries():
         message_id=18,
         status="completed",
     )
+
+
+@pytest.mark.asyncio
+async def test_hosted_worker_fails_closed_on_catalog_task():
+    queue = MagicMock()
+    worker = TaskWorker(
+        queue,
+        worker_config(),
+        resolve_worker_profile(WorkerProfile.HOSTED_API),
+    )
+    db = MagicMock()
+    db.get_task.return_value = {
+        "id": "task-1",
+        "status": "pending",
+        "video_url": "https://example.com/video",
+        "user_id": "user-1",
+        "workload_kind": "catalog_supply",
+    }
+
+    with (
+        patch("worker.get_db_client", return_value=db),
+        patch("worker.run_pipeline", new=AsyncMock()) as run_pipeline,
+    ):
+        await worker._process(video_job(message_id=19))
+
+    run_pipeline.assert_not_awaited()
+    db.mark_task_failed_if_not_completed.assert_called_once()
+    queue.archive.assert_called_once_with(
+        job_id="00000000-0000-0000-0000-000000000099",
+        message_id=19,
+        status="failed",
+    )
+
+
+@pytest.mark.asyncio
+async def test_trusted_codex_worker_processes_catalog_task():
+    queue = MagicMock()
+    worker = TaskWorker(
+        queue,
+        worker_config(),
+        resolve_worker_profile(WorkerProfile.TRUSTED_CODEX),
+    )
+    db = MagicMock()
+    db.get_task.return_value = {
+        "id": "task-1",
+        "status": "pending",
+        "video_url": "https://example.com/video",
+        "user_id": "user-1",
+        "workload_kind": "catalog_supply",
+    }
+
+    with (
+        patch("worker.get_db_client", return_value=db),
+        patch("worker.run_pipeline", new=AsyncMock()) as run_pipeline,
+    ):
+        await worker._process(video_job(message_id=20))
+
+    run_pipeline.assert_awaited_once()
+    queue.archive.assert_called_once_with(
+        job_id="00000000-0000-0000-0000-000000000099",
+        message_id=20,
+        status="completed",
+    )
+
+
+@pytest.mark.asyncio
+async def test_codex_subscription_preflight_requires_chatgpt_account():
+    codex = AsyncMock()
+    codex.account.return_value = SimpleNamespace(
+        account=SimpleNamespace(root=SimpleNamespace(type="apiKey"))
+    )
+    context = AsyncMock()
+    context.__aenter__.return_value = codex
+
+    with pytest.raises(RuntimeError, match="ChatGPT subscription"):
+        await verify_codex_subscription(codex_factory=MagicMock(return_value=context))
+
+
+@pytest.mark.asyncio
+async def test_codex_subscription_preflight_returns_plan_without_email():
+    account = SimpleNamespace(type="chatgpt", plan_type="plus", email="secret@example.com")
+    codex = AsyncMock()
+    codex.account.return_value = SimpleNamespace(
+        account=SimpleNamespace(root=account)
+    )
+    context = AsyncMock()
+    context.__aenter__.return_value = codex
+
+    plan = await verify_codex_subscription(
+        codex_factory=MagicMock(return_value=context)
+    )
+
+    assert plan == "plus"
+
+
+@pytest.mark.asyncio
+async def test_bounded_worker_drain_stops_when_queue_is_empty():
+    worker = MagicMock()
+    worker.run_once = AsyncMock(side_effect=[True, True, False])
+
+    processed = await drain_worker(worker, max_jobs=5)
+
+    assert processed == 2
+    assert worker.run_once.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_bounded_worker_drain_respects_maximum():
+    worker = MagicMock()
+    worker.run_once = AsyncMock(return_value=True)
+
+    processed = await drain_worker(worker, max_jobs=2)
+
+    assert processed == 2
+    assert worker.run_once.await_count == 2

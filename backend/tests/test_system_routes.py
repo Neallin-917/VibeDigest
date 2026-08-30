@@ -1,6 +1,6 @@
 """Tests for api/routes/system.py — system endpoints."""
 
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -93,6 +93,14 @@ class TestReadinessCheck:
             "output_intent_ready": True,
             "output_provenance_ready": True,
             "monthly_quota_ready": True,
+            "publication_status_ready": True,
+            "podcast_sources_ready": True,
+            "podcast_episodes_ready": True,
+            "workload_kind_ready": True,
+            "catalog_queue_ready": True,
+            "retry_routing_ready": True,
+            "agent_turns_ready": True,
+            "chat_realtime_ready": True,
         }]
 
         response = client.get("/health/ready")
@@ -100,7 +108,10 @@ class TestReadinessCheck:
         assert response.status_code == 200
         assert response.json()["status"] == "ready"
         query = mock_db._execute_query.call_args.args[0]
-        assert "submit_video_task(uuid,text,text,integer,jsonb,text)" in query
+        assert "submit_user_video_task(uuid,text,text,integer,jsonb,text)" in query
+        assert "submit_catalog_video_task(uuid,text,jsonb,text,boolean)" in query
+        assert "pg_publication_tables" in query
+        assert "chat_messages" in query
 
     def test_returns_503_when_a_required_database_contract_is_missing(self, client, mock_db):
         mock_db._execute_query.return_value = [{
@@ -110,12 +121,40 @@ class TestReadinessCheck:
             "output_intent_ready": False,
             "output_provenance_ready": True,
             "monthly_quota_ready": True,
+            "publication_status_ready": True,
+            "podcast_sources_ready": True,
+            "podcast_episodes_ready": True,
+            "workload_kind_ready": True,
+            "catalog_queue_ready": True,
+            "retry_routing_ready": True,
+            "agent_turns_ready": True,
+            "chat_realtime_ready": True,
         }]
 
         response = client.get("/health/ready")
 
         assert response.status_code == 503
         assert response.json()["detail"] == "Service is not ready"
+
+    def test_returns_503_when_chat_realtime_is_not_published(self, client, mock_db):
+        mock_db._execute_query.return_value = [{
+            "submission_function_ready": True,
+            "queue_schema_ready": True,
+            "task_intent_ready": True,
+            "output_intent_ready": True,
+            "output_provenance_ready": True,
+            "monthly_quota_ready": True,
+            "publication_status_ready": True,
+            "podcast_sources_ready": True,
+            "podcast_episodes_ready": True,
+            "workload_kind_ready": True,
+            "catalog_queue_ready": True,
+            "retry_routing_ready": True,
+            "agent_turns_ready": True,
+            "chat_realtime_ready": False,
+        }]
+
+        assert client.get("/health/ready").status_code == 503
 
     def test_returns_503_when_the_readiness_query_fails(self, client, mock_db):
         mock_db._execute_query.side_effect = RuntimeError("connection unavailable")

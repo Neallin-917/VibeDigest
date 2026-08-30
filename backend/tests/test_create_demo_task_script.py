@@ -2,10 +2,10 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from scripts.tasks.create_demo import (
-    INITIAL_OUTPUT_KINDS,
     create_demo_task,
     resolve_demo_user_id,
 )
+from services.task_queue import TaskSubmission
 
 
 def test_resolve_demo_user_id_prefers_explicit_value(monkeypatch):
@@ -53,12 +53,16 @@ def test_resolve_demo_user_id_requires_an_account(monkeypatch):
 @pytest.mark.asyncio
 async def test_create_demo_task_creates_public_task_without_running_workflow(monkeypatch):
     db = MagicMock()
-    db.create_task.return_value = {"id": "task-1", "status": "pending"}
     db.get_task.return_value = {"id": "task-1", "status": "pending"}
+    queue = MagicMock()
+    queue.submit_catalog_video.return_value = TaskSubmission(
+        task_id="task-1", resolution="created", message_id=1
+    )
     monkeypatch.setenv("VIBEDIGEST_DEMO_USER_ID", "user-1")
 
     result = await create_demo_task(
         db=db,
+        task_queue=queue,
         video_url="https://www.youtube.com/watch?v=7rzYDM6vMtI&utm_source=x",
         run_workflow=False,
     )
@@ -67,38 +71,34 @@ async def test_create_demo_task_creates_public_task_without_running_workflow(mon
     assert result.user_id == "user-1"
     assert result.video_url == "https://youtube.com/watch?v=7rzYDM6vMtI"
     assert result.ran_workflow is False
-    db.create_task.assert_called_once_with(
+    queue.submit_catalog_video.assert_called_once_with(
         user_id="user-1",
         video_url="https://youtube.com/watch?v=7rzYDM6vMtI",
-        video_title=None,
-        is_demo=True,
+        publish_on_complete=True,
+        output_intent={"source": "manual_demo"},
     )
-    db.ensure_task_outputs.assert_called_once_with(
-        "task-1",
-        "user-1",
-        INITIAL_OUTPUT_KINDS,
-    )
+    db.create_task.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_create_demo_task_runs_workflow_when_enabled(monkeypatch):
     db = MagicMock()
-    db.create_task.return_value = {"id": "task-1", "status": "pending"}
     db.get_task.return_value = {"id": "task-1", "status": "completed"}
+    queue = MagicMock()
+    queue.submit_catalog_video.return_value = TaskSubmission(
+        task_id="task-1", resolution="created", message_id=1
+    )
     runner = AsyncMock()
     monkeypatch.setenv("VIBEDIGEST_DEMO_USER_ID", "user-1")
 
     result = await create_demo_task(
         db=db,
+        task_queue=queue,
         video_url="https://youtube.com/watch?v=7rzYDM6vMtI",
         run_workflow=True,
         workflow_runner=runner,
     )
 
-    runner.assert_awaited_once_with(
-        "task-1",
-        "https://youtube.com/watch?v=7rzYDM6vMtI",
-        "user-1",
-    )
+    runner.assert_awaited_once_with(1)
     assert result.status == "completed"
     assert result.ran_workflow is True

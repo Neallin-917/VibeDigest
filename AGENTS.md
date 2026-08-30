@@ -6,6 +6,13 @@
 
 VibeDigest — Full-stack tool to download videos, transcribe audio, and generate AI-powered condensed knowledge.
 
+## Product Positioning
+
+- VibeDigest is an AI agent that helps users watch and understand podcasts and long-form video. The primary promise is the agent output: summaries, key ideas, evidence, and source-grounded follow-up.
+- The public podcast library is a ready-made gallery of mature agent output. It helps users experience and trust the product before submitting their own link, while naturally creating a community content surface.
+- Tracked shows and ingestion frequency are supply-side implementation details, not the product promise. Do not position VibeDigest as a closed AI-podcast directory or foreground source counts and refresh cadence in acquisition copy.
+- Landing pages explain and activate the agent. The public library proves the output. Task detail pages deliver the value. Keep this hierarchy consistent in navigation, copy, and calls to action.
+
 ## Core Rules
 
 1. **Verify before declaring success** — Never say "this should work now". Run the build, run the tests, check the output.
@@ -32,6 +39,8 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 | `make start-frontend`  | Start frontend (Next.js) |
 | `make start-backend`   | Start backend (FastAPI)  |
 | `make start-worker`    | Start durable task worker |
+| `make process-podcast-supply` | Run a bounded Codex subscription supply batch |
+| `make backfill-podcasts` | Advance one bounded historical discovery batch |
 | `make test-frontend`   | Run frontend unit tests  |
 | `make test-backend`    | Run backend tests        |
 | `make start-dev`       | Start API + worker against the dev Cloud DB |
@@ -39,10 +48,12 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 ## Architecture (TL;DR)
 
 - **Primary Product**: Cloud SaaS — Next.js on Vercel, FastAPI on Railway, Supabase Auth/Postgres/Realtime.
-- **Task Execution**: FastAPI validates commands; one private Postgres transaction deduplicates/creates state and enqueues a PGMQ job. A separate Python worker owns video download, transcription, and AI processing.
-- **Product Boundary**: The only product topology is Vercel UI + Railway API/Worker + Supabase. Any alternative runtime requires a new explicit product decision and ADR.
+- **Task Execution**: FastAPI validates commands; private Postgres transactions persist `workload_kind`, deduplicate/create state, and enqueue an ID-only PGMQ job. The Railway `hosted_api` worker consumes only `user_submission` from `video_processing`.
+- **Podcast Supply**: A bounded Railway cron syncs `config/podcast-sources.json`, discovers recent episodes, advances a durable historical cursor, and atomically submits `catalog_supply` tasks to `podcast_supply`. A bounded trusted private `trusted_codex` worker reuses the canonical pipeline with ChatGPT-managed Codex authentication. Only completed tasks that pass the database-owned public quality projection can become public.
+- **Product Boundary**: The product remains Vercel UI + Railway API/hosted Worker + Supabase. ADR 0001 explicitly adds a replaceable trusted private runner for internal catalog supply; it is not a user-facing runtime or an alternative state/queue path.
 - **Agent Plugin Incubator**: `agent-plugin/` packages Codex Skill + MCP; credentialed video extraction lives in `backend/services/video_intake/`, never in Skill files.
-- **Control Plane**: Next's `POST /api/chat/direct-submit` forwards to FastAPI's canonical `POST /api/process-video`; request handlers never execute long-running pipelines in-process.
+- **Task Agent**: Every conversation input enters Next's `POST /api/chat`. The shared Agent owns clarification, creation, and source-grounded follow-up. Its `create_video_task` tool calls a signed internal FastAPI command and the existing canonical Postgres submission transaction; request handlers never execute the video pipeline.
+- **Durable continuation**: Accept user input before inference. A private turn and one idempotent create receipt bind the existing task to its conversation. Terminal task/output writes enqueue an ID-only `agent_answers` job; the hosted worker dispatches one signed callback to the same read-only Agent and archives only after a terminal database write. Superseded/cancelled execution tokens cannot commit. Local Compose uses `worker.py --agent-only` with a developer-scoped continuation queue; it must never consume hosted video or continuation queues. Production keeps the normal combined entrypoint.
 - **Data Plane**: Supabase Realtime watches committed Postgres task/output changes (`supabase.channel`).
 - **Rule**: Frontend NEVER polls HTTP. It subscribes to database changes.
 
@@ -51,7 +62,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 1. **Python**: Always use `uv` (never raw `pip`)
 2. **Dependencies**: `pyproject.toml` is the only Python dependency manifest; `uv.lock` is the only resolved lock. Use dependency groups for dev/test tools and install with `uv sync --locked`.
 3. **Models**: Never hardcode LLM model names — use `settings.MODEL_SMART` / `settings.MODEL_FAST` and `utils.llm_router.resolve_model_for_intent`
-4. **Text runtime routing**: production uses `LLM_RUNTIME=api` with explicit `LLM_PROVIDER` (`openai`, `openrouter`, or `custom`); legacy inference remains `custom` when `OPENAI_BASE_URL` is present and `openrouter` otherwise. `LLM_RUNTIME=codex_local` is trusted local development only and is rejected in production. In that local mode, source-grounded chat follow-ups use the constrained local Codex bridge; hosted chat remains on the standard API tool protocol.
+4. **Text runtime routing**: Railway product services use `LLM_RUNTIME=api` with explicit `LLM_PROVIDER` (`openai`, `openrouter`, or `custom`); provider inference remains `custom` when `OPENAI_BASE_URL` is present and `openrouter` otherwise. `codex_local` is allowed only on trusted developer machines and the `trusted_codex` catalog worker. Local chat uses the official pinned Python Codex SDK/App Server with a turn-scoped MCP server; disable global tools, skills, plugins, shell and web access. Hosted chat uses AI SDK `ToolLoopAgent` and OpenRouter. Both call the same business functions, not the same harness. Local launchers default to Codex unless `LLM_RUNTIME=api` is explicit. Persist runtime, provider, requested/actual model, smart tier, reasoning effort and available usage. Do not route by request length or silently fall back to a paid provider. Continuation configuration must match the persisted runtime; video workers retain their existing API/catalog execution profiles.
 5. **Model defaults SSOT**: provider default model names live only in `config/llm-provider-defaults.json`
 6. **Components**: Use CVA for variants, check `src/components/ui/` first
 7. **Tests**: Never call paid APIs in CI (mock everything)
@@ -64,10 +75,12 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 11. **Design Principle**: VibeDigest defaults to minimal design across visual style, interaction, copy, information architecture, and loading states. Prefer fewer UI surfaces, fewer decisions, shorter copy, and less visual noise. Avoid decorative complexity, skeleton screens, shimmer effects, multi-step transitional UI, and redundant status messaging unless a clear usability need justifies them.
 12. **Motion Principle**: Minimal design does not imply low motion. Use motion when it improves comprehension, feedback, continuity, or delight; choose its amount, pacing, and complexity based on the interaction rather than an arbitrary low-motion preference. It must remain purposeful, performant, and respectful of `prefers-reduced-motion`.
 13. **Minimalism Heuristic**: When multiple valid UI solutions exist, prefer the one with the least visual noise, the fewest transient states, and the smallest cognitive load while preserving clarity and speed. Do not treat animation quantity as a proxy for visual simplicity.
-14. **Cloud-only Guardrail**: Development and tests may use localhost, but must keep the production Postgres, Supabase Auth/Realtime, queue semantics, and API contracts; do not introduce an alternative storage, event, or task execution path.
-15. **Queue Integrity**: Task/output state changes and PGMQ submission must share one Postgres transaction. Queue messages contain entity IDs only, workers must renew visibility leases, and archive is allowed only after a confirmed terminal write.
+14. **Cloud-only Guardrail**: Development and tests may use localhost, but must keep the production Postgres, Supabase Auth/Realtime, queue semantics, and API contracts; do not introduce an alternative storage or event path. The ADR-approved trusted catalog runner changes only execution location and still uses the canonical Cloud queue and task state.
+15. **Queue Integrity**: Task/output state changes, persisted `workload_kind`, and PGMQ submission must share one Postgres transaction. `user_submission` routes to `video_processing`; `catalog_supply` routes to `podcast_supply`, including retries. Queue messages contain entity IDs only, workers are capability-locked, workers must renew visibility leases, and archive is allowed only after a confirmed terminal write.
 16. **Current Product Stage**: VibeDigest is still a small product. Prioritize user experience, frontend responsiveness, perceived and measured performance, and user-facing reliability. Keep baseline protections for credentials, ownership, paid usage, and data loss, but defer heavy defense-in-depth, multi-worker coordination, dedicated security infrastructure, and complex operational consoles until scale, incidents, sensitive-data requirements, or measured load justify them.
 17. **Complexity Budget**: A technical-debt fix must solve a current user problem, a production blocker, or a measured reliability/performance issue. Otherwise document the trigger for revisiting it instead of adding code now.
+18. **Public Transcript Guardrail**: Transcripts are internal processing and retrieval artifacts. Public task details and public HTTP endpoints must not render or return verbatim transcripts. Public surfaces provide summaries, key ideas, evidence, original-source links, and source-grounded follow-up instead.
+19. **Agent tool boundary**: Source tools return internal evidence to the model only. Project public streams and persisted parts explicitly to answer text, source links and task receipts; never forward native tool-result streams. Tool schemas contain no user IDs, credentials or execution tokens. Creation URLs must originate in authenticated user messages. Keep one bounded task-level continuation, not an in-house general workflow engine.
 
 ## Codex Model Routing
 

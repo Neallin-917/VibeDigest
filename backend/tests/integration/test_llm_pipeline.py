@@ -66,10 +66,18 @@ def test_openrouter_chat_completion():
     from utils.openai_client import create_chat_model
 
     from config import settings
+    from utils.provider_diagnostics import provider_failure_message
 
     llm = create_chat_model(settings.MODEL_FAST)
 
-    response = llm.invoke([HumanMessage(content="Reply with exactly one word: OK")])
+    try:
+        response = llm.invoke([HumanMessage(content="Reply with exactly one word: OK")])
+    except Exception as error:
+        raise AssertionError(
+            "OpenRouter smoke test failed. "
+            f"{provider_failure_message(error)} "
+            "Check model availability, credentials, and provider access."
+        ) from None
 
     assert response is not None, "LLM returned None"
     content = getattr(response, "content", str(response))

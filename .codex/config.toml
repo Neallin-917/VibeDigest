@@ -1,6 +1,2 @@
-[agents]
-enabled = true
-max_concurrent_threads_per_session = 3
-
 [mcp_servers.supabase]
 url = "https://mcp.supabase.com/mcp"

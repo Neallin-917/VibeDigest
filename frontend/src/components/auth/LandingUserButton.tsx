@@ -33,7 +33,7 @@ export function LandingUserButton() {
     }
 
     if (isPending) {
-        return <div className="h-8 w-20" aria-hidden="true" />
+        return <div className="h-11 w-20 md:h-9" aria-hidden="true" />
     }
 
     if (!user) {
@@ -42,7 +42,7 @@ export function LandingUserButton() {
                 asChild
                 variant="outline"
                 size="sm"
-                className="gap-2 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                className="h-11 gap-2 border-border bg-card/35 text-foreground hover:border-border-strong hover:bg-card/70 md:h-9"
             >
                 <Link href={`/${locale}/login`}>
                     {t("auth.signUp")}
@@ -61,7 +61,7 @@ export function LandingUserButton() {
                 asChild
                 variant="outline"
                 size="sm"
-                className="hidden gap-2 backdrop-blur-md bg-white/30 dark:bg-white/10 border-white/40 dark:border-white/10 shadow-sm hover:shadow-md hover:bg-white/50 dark:hover:bg-white/20 transition-all text-primary font-medium md:inline-flex"
+                className="hidden gap-2 border-border bg-card/45 font-medium text-primary shadow-sm transition-colors hover:border-border-strong hover:bg-card/75 md:inline-flex"
             >
                 <Link href={`/${locale}/chat`}>
                     {t("auth.goToDashboard")}
@@ -72,7 +72,7 @@ export function LandingUserButton() {
                 <DropdownMenuTrigger asChild>
                     <button
                         aria-label={t("chat.moreOptionsHint")}
-                        className="flex items-center gap-2 rounded-full hover:ring-2 hover:ring-primary/50 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="flex h-11 w-11 items-center justify-center gap-2 rounded-full transition-all hover:ring-2 hover:ring-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
                         {avatarUrl ? (
                             <Image
@@ -81,7 +81,7 @@ export function LandingUserButton() {
                                 width={32}
                                 height={32}
                                 unoptimized
-                                className="rounded-full border border-black/10 dark:border-white/20"
+                                className="rounded-full border border-border"
                             />
                         ) : (
                             <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-sm font-medium">
@@ -91,11 +91,11 @@ export function LandingUserButton() {
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                    <div className="px-3 py-2 border-b border-slate-200 dark:border-white/10">
+                    <div className="border-b border-border px-3 py-2">
                         <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                     </div>
-                    <DropdownMenuItem onClick={handleLogout} className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 cursor-pointer">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
                         <LogOut className="mr-2 h-4 w-4" />
                         {t("auth.logout")}
                     </DropdownMenuItem>

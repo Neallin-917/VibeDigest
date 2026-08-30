@@ -440,6 +440,46 @@ async def test_get_task_status_not_owner(api_client, mock_db_client):
 
 
 @pytest.mark.asyncio
+async def test_get_task_status_allows_only_published_demo_for_non_owner(
+    api_client,
+    mock_db_client,
+):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123",
+        "user_id": "other_user",
+        "is_demo": True,
+        "publication_status": "published",
+    }
+
+    response = await api_client.get(
+        "/api/tasks/task_123/status",
+        headers={"Authorization": "Bearer token"},
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_get_task_status_hides_unpublished_demo_from_non_owner(
+    api_client,
+    mock_db_client,
+):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123",
+        "user_id": "other_user",
+        "is_demo": True,
+        "publication_status": "processing",
+    }
+
+    response = await api_client.get(
+        "/api/tasks/task_123/status",
+        headers={"Authorization": "Bearer token"},
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_authenticated_user_can_create_task(
     mock_db_client,
     mock_coinbase_client,

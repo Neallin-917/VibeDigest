@@ -334,25 +334,48 @@ export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(
   return canonical ?? validOutputs[0] ?? null
 }
 
-export function buildSummaryMarkdown(summary: CurrentSummary): string {
+const SUMMARY_MARKDOWN_COPY = {
+  en: {
+    inBrief: 'In Brief', overview: 'Overview', keyPoints: 'Key Points', sections: 'Sections',
+    whyItMatters: 'Why it matters', evidence: 'Evidence',
+  },
+  zh: {
+    inBrief: '内容摘要', overview: '内容概览', keyPoints: '关键观点', sections: '更多内容',
+    whyItMatters: '为什么重要', evidence: '原文证据',
+  },
+  ja: {
+    inBrief: '要点', overview: '概要', keyPoints: '重要ポイント', sections: 'その他の内容',
+    whyItMatters: '重要な理由', evidence: '根拠',
+  },
+} as const
+
+function summaryMarkdownCopy(locale?: string | null) {
+  const language = normalizeLocale(locale).split('-')[0]
+  return language === 'zh' || language === 'ja'
+    ? SUMMARY_MARKDOWN_COPY[language]
+    : SUMMARY_MARKDOWN_COPY.en
+}
+
+export function buildSummaryMarkdown(summary: CurrentSummary, locale?: string | null): string {
   const parts: string[] = []
+  const copy = summaryMarkdownCopy(locale)
 
   if (summary.tl_dr) {
-    parts.push(`## In Brief\n${summary.tl_dr}`)
+    parts.push(`## ${copy.inBrief}\n${summary.tl_dr}`)
   }
 
-  parts.push(`## Overview\n${summary.overview}`)
+  parts.push(`## ${copy.overview}\n${summary.overview}`)
 
   const keypointLines = summary.keypoints.map((keypoint) => {
     const detailParts = [
       keypoint.detail,
-      keypoint.why_it_matters ? `Why it matters: ${keypoint.why_it_matters}` : '',
-      `Evidence: ${keypoint.evidence}`,
+      keypoint.why_it_matters ? `${copy.whyItMatters}: ${keypoint.why_it_matters}` : '',
+      `${copy.evidence}: ${keypoint.evidence}`,
     ].filter(Boolean)
 
     return `- ${keypoint.title}: ${detailParts.join(' ')}`
   })
-  parts.push(`## Key Points\n${keypointLines.join('\n')}`)
+  parts.push(`## ${copy.keyPoints}\n${keypointLines.join('\n')}`)
 
   if (summary.sections.length > 0) {
     const sectionBlocks = summary.sections.map((section) => {
@@ -362,15 +385,42 @@ export function buildSummaryMarkdown(summary: CurrentSummary): string {
       return `### ${title}\n${description}${items}`.trim()
     })
 
-    parts.push(`## Sections\n${sectionBlocks.join('\n\n')}`)
+    parts.push(`## ${copy.sections}\n${sectionBlocks.join('\n\n')}`)
   }
 
   return parts.join('\n\n').trim()
 }
 
-export function buildSummaryMarkdownFromContent(content: unknown): string {
+export function buildSummaryMarkdownFromContent(content: unknown, locale?: string | null): string {
   const summary = parseCurrentSummary(content)
-  return summary ? buildSummaryMarkdown(summary) : ''
+  return summary ? buildSummaryMarkdown(summary, locale) : ''
+}
+
+export function buildDetailedSummaryMarkdown(summary: CurrentSummary, locale?: string | null): string {
+  const parts: string[] = []
+  const copy = summaryMarkdownCopy(locale)
+
+  if (summary.tl_dr && summary.overview !== summary.tl_dr) {
+    parts.push(`## ${copy.overview}\n${summary.overview}`)
+  }
+
+  if (summary.sections.length > 0) {
+    const sectionBlocks = summary.sections.map((section) => {
+      const title = section.title || formatSectionTitle(section.section_type)
+      const description = section.description ? `${section.description}\n` : ''
+      const items = section.items.map((item) => `- ${item.content}`).join('\n')
+      return `### ${title}\n${description}${items}`.trim()
+    })
+
+    parts.push(`## ${copy.sections}\n${sectionBlocks.join('\n\n')}`)
+  }
+
+  return parts.join('\n\n').trim()
+}
+
+export function buildDetailedSummaryMarkdownFromContent(content: unknown, locale?: string | null): string {
+  const summary = parseCurrentSummary(content)
+  return summary ? buildDetailedSummaryMarkdown(summary, locale) : ''
 }
 
 export function toPlainText(markdown: string): string {
@@ -385,8 +435,8 @@ export function truncateText(text: string, maxLength: number): string {
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`
 }
 
-export function buildSummaryExcerptFromContent(content: unknown, maxLength: number): string {
-  const markdown = buildSummaryMarkdownFromContent(content)
+export function buildSummaryExcerptFromContent(content: unknown, maxLength: number, locale?: string | null): string {
+  const markdown = buildSummaryMarkdownFromContent(content, locale)
   if (!markdown) return ''
   return truncateText(toPlainText(markdown), maxLength)
 }

@@ -85,12 +85,10 @@ export function ChatInput({
           onSubmit={handleSubmit}
           className={cn(
             "relative rounded-[2rem] p-2 pl-6 flex items-center gap-3 ring-1 transition-all duration-300",
-            // Premium Glassmorphism
-            "bg-white/60 backdrop-blur-2xl ring-white/50 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)]", 
-            "dark:bg-zinc-900/60 dark:ring-white/10 dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)]",
+            "bg-card/80 ring-border shadow-[0_8px_40px_-12px_rgba(40,55,44,0.12)]",
             
             // Focus State - Soft Glow
-            isFocused && "ring-emerald-500/30 shadow-[0_0_0_4px_rgba(16,185,129,0.1)] dark:ring-emerald-500/20 dark:shadow-[0_0_0_4px_rgba(16,185,129,0.05)]"
+            isFocused && "ring-primary/35 shadow-[0_0_0_4px_rgba(70,108,80,0.1)]"
           )}
         >
           <div className="flex-1 min-w-0">
@@ -102,9 +100,9 @@ export function ChatInput({
               aria-label={inputLabel ?? t('chat.inputLabel')}
               data-testid="chat-input"
               className={cn(
-                "w-full bg-transparent border-none focus:ring-0 focus:outline-none text-slate-800 dark:text-zinc-100",
-                "py-3.5 text-[15px] font-medium tracking-wide",
-                "placeholder-slate-500 dark:placeholder-zinc-400"
+                "w-full border-none bg-transparent text-foreground focus:outline-none focus:ring-0",
+                "py-3.5 text-base font-medium tracking-wide",
+                "placeholder:text-foreground-subtle"
               )}
               placeholder={placeholder ?? t('chat.inputPlaceholder') ?? "Ask anything or paste a URL..."}
               disabled={disabled}
@@ -116,12 +114,12 @@ export function ChatInput({
             onClick={isStopMode ? handleStop : undefined}
             disabled={(!input.trim() && !isStopMode) || (isBusy && !isStopMode) || (disabled && !isStopMode)}
             className={cn(
-              "p-2.5 rounded-[1.2rem] shadow-sm transition-colors duration-200 active:scale-95 shrink-0 mr-1",
+              "mr-1 flex size-11 shrink-0 items-center justify-center rounded-[1.2rem] p-0 shadow-sm transition-colors duration-200 active:scale-95",
               isStopMode
-                ? "bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600"
+                ? "bg-foreground text-primary-foreground hover:bg-foreground-soft"
                 : (input.trim() && !isLoading && !disabled
-                  ? "bg-gradient-to-tr from-emerald-600 to-emerald-500 hover:to-emerald-400 text-white shadow-emerald-200/50 dark:shadow-none"
-                  : "bg-slate-200/50 dark:bg-zinc-800/50 text-slate-400 dark:text-zinc-600 cursor-not-allowed shadow-none")
+                  ? "bg-primary-strong text-primary-foreground shadow-[0_8px_18px_-10px_rgba(54,90,64,0.55)] hover:bg-primary"
+                  : "cursor-not-allowed bg-muted/70 text-foreground-subtle shadow-none")
             )}
             aria-label={isStopMode ? t('chat.stopGeneration') : t('chat.sendMessage')}
           >
@@ -138,7 +136,7 @@ export function ChatInput({
         {/* Disclaimer - hidden on mobile for more space */}
         {!hideDisclaimer && (
           <div className="hidden md:block text-center mt-3">
-            <p className="text-[11px] text-slate-400/80 dark:text-zinc-500 font-medium tracking-wide">
+            <p className="text-[11px] font-medium tracking-wide text-foreground-subtle/80">
               {t('chat.disclaimer')}
             </p>
           </div>

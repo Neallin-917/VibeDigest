@@ -80,7 +80,10 @@ async def test_handle_retry_output_summary_success(mock_db_client, mock_summariz
     mock_db_client.get_output.return_value = {
         "id": "out_2", "task_id": "task_1", "user_id": "u1", "kind": "summary"
     }
-    mock_db_client.get_task.return_value = {"video_title": "Video Title"}
+    mock_db_client.get_task.return_value = {
+        "video_title": "Video Title",
+        "workload_kind": "user_submission",
+    }
     
     mock_db_client.get_task_outputs.return_value = [
         {"kind": "script", "content": "Transcript Content"},
@@ -133,7 +136,10 @@ async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_l
         "locale": "ja",
         "intent": {"target_locale": "ja", "locale_source": "explicit_instruction"},
     }
-    mock_db_client.get_task.return_value = {"video_title": "Video Title"}
+    mock_db_client.get_task.return_value = {
+        "video_title": "Video Title",
+        "workload_kind": "catalog_supply",
+    }
     mock_db_client.get_task_outputs.return_value = [
         {"kind": "script", "content": "English transcript"},
         {"kind": "script_raw", "content": json.dumps({"language": "en"})},
@@ -150,6 +156,17 @@ async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_l
     with (
         patch("services.job_handlers.get_db_client", return_value=mock_db_client),
         patch("services.job_handlers.get_summarizer", return_value=mock_summarizer),
+        patch(
+            "services.job_handlers.current_execution_provenance",
+            return_value={
+                "workload_kind": "catalog_supply",
+                "execution_profile": "trusted_codex",
+                "llm_runtime": "codex_local",
+                "llm_provider": "codex_local",
+                "model": "gpt-test",
+                "auth_mode": "chatgpt_subscription",
+            },
+        ),
     ):
         await handle_retry_output("out-ja", "u1")
 
@@ -161,6 +178,12 @@ async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_l
         "source_task_id": "task_1",
         "source_kind": "script",
         "transcript_language": "en",
+        "workload_kind": "catalog_supply",
+        "execution_profile": "trusted_codex",
+        "llm_runtime": "codex_local",
+        "llm_provider": "codex_local",
+        "model": "gpt-test",
+        "auth_mode": "chatgpt_subscription",
     }
 
 @pytest.mark.asyncio

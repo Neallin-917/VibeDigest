@@ -19,8 +19,9 @@ ENV PATH="/opt/vibedigest/bin:${PATH}"
 # Copy source code (required for production mode without volume mounts)
 COPY backend/ .
 
-# Shared config (llm-provider-defaults.json lives at repo root for frontend/backend SSOT)
+# Shared config lives at repo root and is copied into the backend image.
 COPY config/llm-provider-defaults.json ./llm-provider-defaults.json
+COPY config/podcast-sources.json ./podcast-sources.json
 
 RUN groupadd --system --gid 10001 vibedigest \
     && useradd --system --uid 10001 --gid vibedigest --home-dir /app vibedigest \

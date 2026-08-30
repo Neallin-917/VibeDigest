@@ -16,7 +16,6 @@ dependencies = [
   "litellm>=1.84,<2",
   "loguru>=0.7.2,<1",
   "openai>=2.50,<3",
-  "openai-codex>=0.144.4,<0.145",
   "pg8000>=1.31.5,<2",
   "psycopg2-binary>=2.9.12,<3",
   "pydantic>=2.13.4,<3",
@@ -35,6 +34,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "mcp>=2,<3",
+  "openai-codex>=0.144.4,<0.145",
   "pytest>=8,<10",
   "pytest-asyncio>=1,<2",
   "pytest-cov>=7,<8",

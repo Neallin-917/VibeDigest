@@ -2,7 +2,6 @@ import { GoogleOneTap } from "@/components/auth/GoogleOneTap"
 import { LandingNav } from "@/components/landing/LandingNav"
 import { HeroSection } from "@/components/landing/HeroSection"
 import { FeaturesSection } from "@/components/landing/FeaturesSection"
-import { HowItWorksSection } from "@/components/landing/HowItWorksSection"
 import { PricingSection } from "@/components/landing/PricingSection"
 import { LandingFAQ } from "@/components/landing/LandingFAQ"
 import { SupportCTA } from "@/components/landing/SupportCTA"
@@ -18,49 +17,49 @@ import { createTranslator } from "@/lib/i18n-server"
 // HowTo schema step data per locale (mirrors i18n but accessible at server level)
 const HOW_TO_STEPS: Record<string, { name: string; text: string }[]> = {
   en: [
-    { name: "Paste Link", text: "Copy the URL from YouTube, Apple Podcasts, or Bilibili and paste it into our analyzer." },
-    { name: "AI Processing", text: "Our advanced AI engine analyzes audio and video content to extract key insights." },
-    { name: "Get Summary", text: "Receive a structured summary, transcript, and key takeaways." },
+    { name: "Paste a podcast or video link", text: "Copy a supported podcast or video URL and paste it into VibeDigest." },
+    { name: "Let the agent organize it", text: "VibeDigest transcribes the source and organizes its summary and key ideas." },
+    { name: "Read and follow up", text: "Read the digest and ask follow-up questions grounded in the source." },
   ],
   zh: [
-    { name: "粘贴链接", text: "复制 YouTube、Apple Podcasts 或 Bilibili 的链接并粘贴到我们的分析器中。" },
-    { name: "AI 处理", text: "我们先进的 AI 引擎分析音频和视频内容以提取关键见解。" },
-    { name: "获取摘要", text: "获得结构化摘要、逐字稿和理解要点。" },
+    { name: "粘贴播客或视频链接", text: "复制受支持的播客或视频链接并粘贴到 VibeDigest。" },
+    { name: "让 Agent 整理", text: "VibeDigest 转写原内容，并整理摘要和关键观点。" },
+    { name: "阅读并继续追问", text: "阅读整理结果，并基于原内容继续提问。" },
   ],
   ja: [
-    { name: "リンクを貼り付け", text: "YouTube、Apple Podcasts、またはBilibiliからURLをコピーし、アナライザーに貼り付けます。" },
-    { name: "AI処理", text: "高度なAIエンジンが音声と動画コンテンツを分析し、重要な洞察を抽出します。" },
-    { name: "要約を取得", text: "構造化された要約、文字起こし、重要ポイントを受け取ります。" },
+    { name: "ポッドキャストや動画のリンクを貼る", text: "対応するポッドキャストや動画のURLをVibeDigestに貼り付けます。" },
+    { name: "Agentに整理を任せる", text: "VibeDigestが文字起こしを行い、要約と重要ポイントを整理します。" },
+    { name: "読んで続けて質問する", text: "整理結果を読み、元の内容に基づいて続けて質問できます。" },
   ],
 }
 
 const HOW_TO_NAME: Record<string, string> = {
-  en: "How to summarize a video with VibeDigest",
-  zh: "如何使用 VibeDigest 摘要视频",
-  ja: "VibeDigestで動画を要約する方法",
+  en: "How to use the VibeDigest agent for podcasts and videos",
+  zh: "如何使用 VibeDigest Agent 看播客和视频",
+  ja: "VibeDigest Agentでポッドキャストや動画を見る方法",
 }
 
 const HOW_TO_DESC: Record<string, string> = {
-  en: "Get your summary in 3 simple steps",
-  zh: "只需简单 3 步即可获取摘要",
-  ja: "3つの簡単なステップで要約を取得",
+  en: "Turn a podcast or video into a digest you can read and question in 3 steps",
+  zh: "3 步获得可以阅读和继续追问的整理结果",
+  ja: "3ステップで読んで質問できる整理結果を得る",
 }
 
 const SEO_COPY: Record<string, { title: string; description: string }> = {
   en: {
-    title: "VibeDigest - AI Video Summarizer & Transcriber for YouTube",
+    title: "VibeDigest - AI Agent for Podcasts and Long Videos",
     description:
-      "Turn YouTube videos, podcasts, and lectures into structured summaries, transcripts, and searchable highlights.",
+      "Let an AI agent organize podcasts and long videos into summaries, key ideas, evidence, and source-grounded follow-up.",
   },
   zh: {
-    title: "VibeDigest - AI 视频摘要与转写工具",
+    title: "VibeDigest - 帮你看播客的 AI Agent",
     description:
-      "将 YouTube 视频和播客整理为结构化摘要、逐字稿与可搜索要点。",
+      "让 AI Agent 把播客和长视频整理成摘要、关键观点和证据，并基于原内容继续回答问题。",
   },
   ja: {
-    title: "VibeDigest - AI動画要約・文字起こしツール",
+    title: "VibeDigest - ポッドキャストと長尺動画のAI Agent",
     description:
-      "YouTube動画やポッドキャストを、構造化された要約、文字起こし、検索可能な要点に整理します。",
+      "AI Agentがポッドキャストや長尺動画を要約、重要ポイント、根拠に整理し、元の内容に基づいて質問に答えます。",
   },
 }
 
@@ -111,10 +110,10 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-sans text-slate-800 selection:bg-primary/20 selection:text-primary dark:text-zinc-100">
+    <div className="relative flex min-h-screen flex-col bg-background font-sans text-foreground selection:bg-primary/20 selection:text-primary-strong">
       <a
         href="#main-content"
-        className="sr-only fixed left-4 top-4 z-[60] rounded-md bg-emerald-800 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:bg-emerald-400 dark:text-zinc-950 dark:focus:ring-emerald-200 dark:focus:ring-offset-zinc-950"
+        className="sr-only fixed left-4 top-4 z-[60] rounded-md bg-primary-strong px-4 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
       >
         {t("landing.skipToContent")}
       </a>
@@ -126,45 +125,56 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
       <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
         <HeroSection />
 
-        <section id="demos" aria-labelledby="community-title" className="mx-auto mb-20 max-w-[1600px] px-6 scroll-mt-24">
-          <div className="max-w-2xl">
-            <h2 id="community-title" className="font-display text-2xl font-bold text-slate-900 md:text-3xl dark:text-white">
-              {t("landing.communityTitle")}
-            </h2>
-            <p className="mt-3 text-sm text-slate-600 dark:text-zinc-400">{t("landing.communityHint")}</p>
-          </div>
+        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-24 border-y border-border bg-surface-subtle px-4 py-20 text-foreground sm:px-6 md:py-24 lg:px-10 xl:px-6">
+          <div className="mx-auto max-w-[1080px]">
+            <div className="flex items-end justify-between gap-8">
+              <div className="max-w-2xl">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">{t("landing.communityEyebrow")}</p>
+                <h2 id="community-title" className="mt-4 text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
+                  {t("landing.communityTitle")}
+                </h2>
+                <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">{t("landing.communityHint")}</p>
+              </div>
+              <Link
+                href={`/${locale}/explore`}
+                className="group hidden min-h-11 shrink-0 items-center gap-2 text-[12px] font-semibold text-primary transition-colors hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:inline-flex"
+              >
+                {t("landing.viewAll")}
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
+            </div>
 
-          <div className="mt-8">
-            <Suspense fallback={<TemplatesSkeleton count={4} layout="landingPreview" />}>
-              <ServerCommunityTemplates limit={4} layout="landingPreview" showHeader={false} locale={locale} />
-            </Suspense>
-          </div>
+            <div className="mt-10 overflow-hidden border border-border-strong bg-border-strong [&_.animate-pulse]:!bg-card/55">
+              <Suspense fallback={<TemplatesSkeleton count={4} layout="landingPreview" />}>
+                <ServerCommunityTemplates limit={4} layout="landingPreview" showHeader={false} locale={locale} />
+              </Suspense>
+            </div>
 
-          <div className="mt-8 flex justify-center">
-            <Link
-              href={`/${locale}/explore`}
-              className="group flex items-center gap-2 px-6 py-2.5 rounded-full text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 hover:border-emerald-200 dark:hover:border-primary/50 text-slate-700 dark:text-white font-medium transition-all hover:shadow-lg dark:hover:shadow-[0_0_20px_rgba(34,197,94,0.15)]"
-            >
-              {t("landing.viewAll")}
-              <span className="group-hover:translate-x-1 transition-transform">→</span>
-            </Link>
+            <div className="mt-6 flex sm:hidden">
+              <Link
+                href={`/${locale}/explore`}
+                className="group inline-flex min-h-11 items-center gap-2 text-[12px] font-semibold text-primary transition-colors hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {t("landing.viewAll")}
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
+            </div>
           </div>
         </section>
 
         <FeaturesSection />
-        <HowItWorksSection />
         <PricingSection />
         <LandingFAQ />
         <SupportCTA />
       </main>
 
-      <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-500">
+      <footer className="border-t border-border bg-background py-8 text-center text-xs text-foreground-subtle">
         <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
-          <div className="mt-3 flex justify-center gap-5">
-            <Link href={`/${locale}/about`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>
-            <Link href={`/${locale}/faq`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '常见问题' : locale === 'ja' ? 'よくある質問' : 'FAQ'}</Link>
-            <Link href={`/${locale}/privacy`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '隐私政策' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
-            <Link href={`/${locale}/terms`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{locale === 'zh' ? '服务条款' : locale === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
+          <div className="mt-1 flex flex-wrap justify-center gap-x-5">
+            <Link href={`/${locale}/about`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>
+            <Link href={`/${locale}/faq`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '常见问题' : locale === 'ja' ? 'よくある質問' : 'FAQ'}</Link>
+            <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '隐私政策' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
+            <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '服务条款' : locale === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
           </div>
       </footer>
 

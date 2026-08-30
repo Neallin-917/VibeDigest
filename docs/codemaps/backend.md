@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last Verified: 2026-07-30
+> Last Verified: 2026-08-25
 > Scope: backend implementation map, not setup instructions
 
 ## Technology Stack
@@ -11,6 +11,14 @@
 | **Orchestration** | LangGraph (StateGraph) |
 | **Durable Jobs** | Supabase Queues / PGMQ + independent Python worker |
 | **AI/LLM** | `create_chat_model` port; API providers in production and an optional trusted-local Codex app-server adapter |
+
+Conversation Agent commands live in `api/routes/agent.py` and
+`services/agent_turns.py`. They use a signed Next-to-API boundary and private
+Postgres functions to accept input, submit/watch tasks, fence execution, and
+commit safe messages. `worker.py::AgentAnswerWorker` only dispatches durable
+continuations to the shared TypeScript Agent; it does not run a duplicate model
+loop. See [architecture](architecture.md#conversation-agent) for state ownership
+and [configuration](config.md) for callback/runtime isolation.
 | **Package Manager** | uv |
 | **Observability** | LangSmith, Sentry |
 
@@ -103,6 +111,8 @@ main.py (FastAPI Command API)
     │
 worker.py (Durable Consumer)
     │
+    ├──▶ execution_policy.py ──▶ workload/profile capability lock
+    │
     ├──▶ job_handlers.py ──▶ workflow.py (LangGraph)
     │       ├──▶ video_processor.py ──▶ yt-dlp
     │       ├──▶ transcriber.py ──▶ configured audio provider
@@ -114,6 +124,14 @@ worker.py (Durable Consumer)
     ├──▶ notifier.py ──▶ Email
     └──▶ config.py (Settings)
             └──▶ environment-owned deployment variables
+
+podcast cron (Bounded Supply Job)
+    └──▶ podcast_discovery.py ──▶ yt-dlp metadata
+            ├──▶ podcast_sources / podcast_episodes
+            └──▶ task_queue.py ──▶ podcast_supply
+
+trusted catalog runner (Bounded Consumer)
+    └──▶ worker.py ──▶ existing workflow + CodexLocalChatModel
 ```
 
 ## Core Modules
@@ -121,8 +139,10 @@ worker.py (Durable Consumer)
 | File | Purpose | Key exports |
 |------|---------|-------------|
 | `main.py` | FastAPI routes and middleware | `app` |
-| `worker.py` | PGMQ claim, heartbeat, retry, dispatch | `TaskWorker`, `serve` |
+| `worker.py` | PGMQ claim, heartbeat, capability guard, bounded drain | `TaskWorker`, `serve`, `drain_worker` |
+| `services/execution_policy.py` | Workload/profile/queue mapping and provenance | `WorkloadKind`, `WorkerProfile` |
 | `services/task_queue.py` | Versioned PGMQ messages | `PostgresTaskQueue` |
+| `services/podcast_discovery.py` | Source catalog sync, recent discovery, resumable historical backfill, bounded enqueue | `PodcastDiscoveryService` |
 | `services/job_handlers.py` | Pipeline attempt and output retry | `run_pipeline`, `handle_retry_output` |
 | `workflow.py` | LangGraph state machine | `app` (compiled graph) |
 | `services/summarizer/` | LLM summarization and validated V4/V5 output contracts | `Summarizer`, `SummaryResponseV5` |
@@ -158,11 +178,20 @@ worker.py (Durable Consumer)
 
 ```python
 FastAPI invokes a private Postgres submission function that atomically creates
-state and enqueues a versioned, ID-only message. One worker process handles one
-job at a time; throughput scales with Railway replicas. The worker renews PGMQ
-visibility, enforces an execution timeout, retries with bounded backoff, and
-archives only after terminal persistence is confirmed.
+state and enqueues a versioned, ID-only message. `hosted_api` consumes only
+`user_submission`; `trusted_codex` consumes only `catalog_supply`. Both renew
+PGMQ visibility, enforce an execution timeout, retry with bounded backoff, and
+archive only after terminal persistence is confirmed.
 ```
+
+Podcast discovery is a short-lived scheduled producer, not a second worker. It
+only reads source metadata, records episode identities, advances per-source
+historical cursors, and calls `PostgresTaskQueue.submit_catalog_video`.
+Per-source and per-run caps bound work.
+A separate bounded trusted runner drains `podcast_supply`; both worker profiles
+reuse the same pipeline. A database publication trigger keeps unfinished or
+tasks that fail the summary/transcript/metadata quality projection out of the
+public library.
 
 ## Test Layout
 
@@ -177,6 +206,7 @@ backend/tests/
 ├── test_comprehension.py    # Chat agent tests
 ├── test_integration.py      # E2E tests
 ├── test_task_queue.py       # Queue adapter contract tests
+├── test_execution_policy.py # Workload/profile routing tests
 ├── test_worker.py           # Lease/retry/timeout tests
 ├── integration/
 │   └── test_pgmq_queue.py   # Real PGMQ transaction lifecycle

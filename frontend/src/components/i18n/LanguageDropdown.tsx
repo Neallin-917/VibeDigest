@@ -44,9 +44,8 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "w-full rounded-md border text-left text-sm transition-all duration-200",
-          "bg-white/50 backdrop-blur-md border-white/20 shadow-sm", // Light mode glass
-          "dark:bg-white/10 dark:border-white/10", // Dark mode glass
-          "hover:bg-white/80 dark:hover:bg-white/20", // Hover states
+          "border-border bg-card/50 shadow-sm backdrop-blur-md",
+          "hover:bg-card/80",
           "focus:outline-none focus:ring-2 focus:ring-primary/20",
           "flex items-center justify-between gap-2",
           size === "sm" ? "h-9 px-3" : "h-11 px-4"
@@ -62,8 +61,7 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
         <div
           className={cn(
             "absolute z-50 mt-2 min-w-[12rem] overflow-hidden rounded-xl border",
-            "bg-white/75 backdrop-blur-2xl dark:bg-neutral-950/75", // Strong frosted glass
-            "border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:border-white/10 dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]",
+            "border-border bg-card/90 shadow-[0_8px_32px_rgba(40,55,44,0.12)] backdrop-blur-2xl",
             "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
             align === "right" ? "right-0" : "left-0"
           )}
@@ -83,8 +81,8 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
                   }}
                   className={cn(
                     "relative flex w-full cursor-default select-none items-center rounded-lg py-2 pl-9 pr-3 text-sm outline-none transition-colors",
-                    "hover:bg-black/5 dark:hover:bg-white/10", // Subtle hover
-                    active && "bg-black/5 dark:bg-white/10 font-medium text-primary" // Active state
+                    "hover:bg-muted",
+                    active && "bg-accent font-medium text-primary"
                   )}
                   role="option"
                   aria-selected={active}
@@ -102,5 +100,3 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
     </div>
   )
 }
-
-

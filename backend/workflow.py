@@ -19,6 +19,10 @@ from dependencies import (
 )
 from services.summarizer.validation import parse_summary_payload_v4
 from services.output_intent import resolve_output_intent
+from services.execution_policy import (
+    WorkloadKind,
+    current_execution_provenance,
+)
 from utils.url import normalize_video_url
 from utils.language_utils import normalize_lang_code
 from utils.text_utils import detect_language, is_cjk_language
@@ -495,6 +499,11 @@ async def _run_summarize(
         source_language = normalize_lang_code(transcript_language or "unknown")
         task = _get_db_client().get_task(task_id)
         task_intent = task.get("output_intent") if isinstance(task, dict) else None
+        workload_kind = (
+            task.get("workload_kind")
+            if isinstance(task, dict) and task.get("workload_kind")
+            else WorkloadKind.USER_SUBMISSION
+        )
         resolved_intent = resolve_output_intent(task_intent, source_language)
         target_language = resolved_intent["target_locale"]
 
@@ -538,6 +547,7 @@ async def _run_summarize(
                 "source_task_id": task_id,
                 "source_kind": OutputKind.SCRIPT.value,
                 "transcript_language": source_language,
+                **current_execution_provenance(workload_kind),
             },
         )
 

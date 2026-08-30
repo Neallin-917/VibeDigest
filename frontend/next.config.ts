@@ -3,6 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import withBundleAnalyzer from '@next/bundle-analyzer';
 import path from "path";
 import { loadEnvConfig } from '@next/env';
+import { SECURITY_HEADERS } from "./src/lib/security-headers";
 
 // Load environment variables from the root directory
 const projectRoot = path.resolve(__dirname, "..");
@@ -18,17 +19,20 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   // Allow custom build directory for testing to avoid lock conflicts
   distDir: process.env.NEXT_DIST_DIR || '.next',
-  // Next.js infers the frontend root from this package's lockfile. Keeping that
-  // inference avoids conflicting with Sentry's outputFileTracingRoot on Vercel.
+  // Keep Turbopack scoped to this package when parent directories contain
+  // unrelated lockfiles. `__dirname` is already an absolute path here.
   // The explicit empty object also selects Turbopack when plugins add webpack
   // configuration, which keeps the Playwright development server startable.
-  turbopack: {},
+  turbopack: {
+    root: __dirname,
+  },
   /* config options here */
   images: {
     minimumCacheTTL: 60 * 60 * 24, // Cache images for 24 hours
     remotePatterns: [
       { protocol: "https", hostname: "img.youtube.com" },
       { protocol: "https", hostname: "i.ytimg.com" },
+      { protocol: "https", hostname: "yt3.googleusercontent.com" },
       { protocol: "https", hostname: "**.hdslb.com" },
       { protocol: "http", hostname: "**.hdslb.com" },
       { protocol: "https", hostname: "**.biliimg.com" },
@@ -50,6 +54,14 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react'],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: SECURITY_HEADERS.map((header) => ({ ...header })),
+      },
+    ];
   },
   webpack: (config) => {
     const resolveModules = config.resolve?.modules ?? [];

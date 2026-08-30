@@ -141,7 +141,8 @@ class TestFallbackSummaryJson:
     @pytest.mark.asyncio
     async def test_summarize_no_api_key_raises_error(self, summarizer):
         # V4 requires API key - no fallback available
-        summarizer.config.api_key = None  # Set on config, not summarizer
+        summarizer.config.api_key = None
+        summarizer.config.is_llm_available = False
         with pytest.raises(RuntimeError, match="OpenAI API unavailable"):
             await summarizer.summarize("Some transcript", "zh")
 

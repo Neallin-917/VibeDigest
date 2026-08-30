@@ -187,6 +187,8 @@ jobs:
           --entrypoint python \
           vibedigest-backend:ci \
           -c "import worker"
+        docker run --rm --entrypoint python vibedigest-backend:ci -c \
+          "import importlib.util; assert importlib.util.find_spec('openai_codex') is None; assert importlib.util.find_spec('mcp') is None"
     - name: Verify build context exclusions
       run: |
         docker run --rm --entrypoint sh vibedigest-backend:ci -c \

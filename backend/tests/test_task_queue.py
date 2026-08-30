@@ -19,7 +19,11 @@ def test_submit_process_video_uses_atomic_database_boundary():
             "message_id": 42,
         }
     ]
-    queue = PostgresTaskQueue(db, queue_name="video_processing")
+    queue = PostgresTaskQueue(
+        db,
+        queue_name="video_processing",
+        guest_quota_limit=1,
+    )
 
     submission = queue.submit_process_video(
         video_url="https://example.com/video",
@@ -32,10 +36,37 @@ def test_submit_process_video_uses_atomic_database_boundary():
     assert submission.resolution == "created"
     assert submission.message_id == 42
     query, params = db._execute_query.call_args.args
-    assert "vibedigest_private.submit_video_task" in query
+    assert "vibedigest_private.submit_user_video_task" in query
     assert params["queue_name"] == "video_processing"
     assert params["guest_quota_limit"] == 1
+    assert ":is_demo" not in query
+    assert ":publish_on_complete" not in query
     assert json.loads(params["output_intent"])["target_locale"] == "zh"
+
+
+def test_submit_catalog_video_uses_the_dedicated_catalog_queue():
+    db = MagicMock()
+    db._execute_query.return_value = [
+        {"task_id": "task-2", "resolution": "created", "message_id": 43}
+    ]
+    queue = PostgresTaskQueue(
+        db,
+        queue_name="video_processing",
+        catalog_queue_name="podcast_supply",
+    )
+
+    queue.submit_catalog_video(
+        video_url="https://www.youtube.com/watch?v=episode",
+        user_id="00000000-0000-0000-0000-000000000001",
+        publish_on_complete=True,
+    )
+
+    query, params = db._execute_query.call_args.args
+    assert "vibedigest_private.submit_catalog_video_task" in query
+    assert ":is_demo" not in query
+    assert ":publish_on_complete" in query
+    assert params["publish_on_complete"] is True
+    assert params["queue_name"] == "podcast_supply"
 
 
 def test_submit_process_video_surfaces_atomic_guest_quota_rejection():
@@ -90,8 +121,10 @@ def test_submit_retry_output_uses_atomic_database_boundary():
         )
         == 43
     )
-    query, _ = db._execute_query.call_args.args
+    query, params = db._execute_query.call_args.args
     assert "vibedigest_private.submit_output_retry" in query
+    assert params["user_queue_name"] == "video_processing"
+    assert params["catalog_queue_name"] == "podcast_supply"
 
 
 def test_submit_retry_task_uses_atomic_database_boundary():
@@ -110,6 +143,8 @@ def test_submit_retry_task_uses_atomic_database_boundary():
     query, params = db._execute_query.call_args.args
     assert "vibedigest_private.retry_video_task" in query
     assert params["guest_id"] == "guest-1"
+    assert params["user_queue_name"] == "video_processing"
+    assert params["catalog_queue_name"] == "podcast_supply"
 
 
 def test_read_normalizes_pgmq_records():

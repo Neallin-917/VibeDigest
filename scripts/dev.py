@@ -9,8 +9,10 @@ session can stay in one terminal.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
+import secrets
 import shlex
 import shutil
 import socket
@@ -36,6 +38,7 @@ DEFAULT_BACKEND_PORT = 16081
 DEFAULT_FRONTEND_PORT = 3000
 DEFAULT_SCAN_LIMIT = 50
 DEFAULT_HEALTH_TIMEOUT = 90
+DEFAULT_LOCAL_CHAT_RUNTIME = "codex_local"
 
 
 @dataclass(frozen=True)
@@ -130,18 +133,60 @@ def parse_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-def load_dotenv_without_override(env: MutableMapping[str, str], project_root: Path) -> None:
+def load_dotenv_without_override(
+    env: MutableMapping[str, str], project_root: Path
+) -> None:
     for env_file in (project_root / ".env.local", project_root / ".env"):
         for key, value in parse_env_file(env_file).items():
             env.setdefault(key, value)
 
 
+def apply_local_frontend_runtime_default(env: MutableMapping[str, str]) -> str:
+    """Default only the local Next.js chat runtime; preserve explicit overrides."""
+    configured_runtime = env.get("LLM_RUNTIME", "").strip()
+    if configured_runtime:
+        return configured_runtime
+
+    env["LLM_RUNTIME"] = DEFAULT_LOCAL_CHAT_RUNTIME
+    return DEFAULT_LOCAL_CHAT_RUNTIME
+
+
+def configure_local_agent(
+    env: MutableMapping[str, str], project_root: Path, frontend_port: int
+) -> None:
+    """Share one private service key across Next, API and worker, never the browser.
+
+    Only local launchers create the key. Production must provision its own secret.
+    A key-derived queue separates developer workspaces on the same Cloud database.
+    """
+    key = env.get("AGENT_INTERNAL_SECRET", "").strip()
+    if not key:
+        key_path = project_root / ".agent-service-key"
+        try:
+            descriptor = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            key = key_path.read_text(encoding="utf-8").strip()
+        else:
+            key = secrets.token_urlsafe(48)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+                file.write(key)
+        env["AGENT_INTERNAL_SECRET"] = key
+    if len(key) < 32:
+        raise RuntimeError("AGENT_INTERNAL_SECRET must contain at least 32 characters")
+    runtime = apply_local_frontend_runtime_default(env)
+    env["AGENT_CONTINUATION_RUNTIME"] = runtime
+    env.setdefault(
+        "AGENT_CONTINUATION_QUEUE",
+        "agent_answers_local_" + hashlib.sha256(key.encode()).hexdigest()[:12],
+    )
+    env.setdefault(
+        "AGENT_CONTINUATION_URL",
+        f"http://host.docker.internal:{frontend_port}/api/internal/agent/continue",
+    )
+
+
 def merge_allowed_origins(existing: str | None, frontend_port: int) -> str:
-    candidates = [
-        item.strip()
-        for item in (existing or "").split(",")
-        if item.strip()
-    ]
+    candidates = [item.strip() for item in (existing or "").split(",") if item.strip()]
     candidates.extend(
         [
             f"http://localhost:{frontend_port}",
@@ -170,7 +215,9 @@ def build_compose_env(
     env["BACKEND_HOST_PORT"] = str(backend_port)
     env["FRONTEND_HOST_PORT"] = str(frontend_port)
     env["FRONTEND_URL"] = f"http://localhost:{frontend_port}"
-    env["ALLOWED_ORIGINS"] = merge_allowed_origins(env.get("ALLOWED_ORIGINS"), frontend_port)
+    env["ALLOWED_ORIGINS"] = merge_allowed_origins(
+        env.get("ALLOWED_ORIGINS"), frontend_port
+    )
     return env
 
 
@@ -184,6 +231,7 @@ def build_frontend_env(
 ) -> dict[str, str]:
     env = dict(base_env)
     load_dotenv_without_override(env, project_root)
+    apply_local_frontend_runtime_default(env)
     backend_url = f"http://localhost:{backend_port}"
     env["PORT"] = str(frontend_port)
     env["FRONTEND_URL"] = f"http://localhost:{frontend_port}"
@@ -211,7 +259,9 @@ def resolve_compose_command() -> list[str]:
     if shutil.which("docker-compose"):
         return ["docker-compose"]
 
-    raise RuntimeError("Docker Compose is not available. Install Docker Engine with Compose support.")
+    raise RuntimeError(
+        "Docker Compose is not available. Install Docker Engine with Compose support."
+    )
 
 
 def parse_compose_port(output: str) -> int | None:
@@ -259,7 +309,9 @@ def resolve_service_port(
         return find_available_port(requested_port, limit=scan_limit)
     except RuntimeError as exc:
         print(f"[dev] {name} port scan failed from {requested_port}: {exc}")
-        print(f"[dev] Port {requested_port} owner:\n{describe_port_owner(requested_port)}")
+        print(
+            f"[dev] Port {requested_port} owner:\n{describe_port_owner(requested_port)}"
+        )
         raise
 
 
@@ -343,7 +395,15 @@ def start_docker_log_tails(
     compose_cmd: Sequence[str],
     compose_env: Mapping[str, str],
 ) -> list[ProcessHandle]:
-    common_args = [*compose_cmd, "-f", str(COMPOSE_FILE), "logs", "-f", "--no-color", "--no-log-prefix"]
+    common_args = [
+        *compose_cmd,
+        "-f",
+        str(COMPOSE_FILE),
+        "logs",
+        "-f",
+        "--no-color",
+        "--no-log-prefix",
+    ]
     return [
         start_prefixed_process(
             "backend",
@@ -360,7 +420,9 @@ def start_docker_log_tails(
     ]
 
 
-def wait_for_backend_health(backend_port: int, *, timeout: int = DEFAULT_HEALTH_TIMEOUT) -> tuple[bool, str]:
+def wait_for_backend_health(
+    backend_port: int, *, timeout: int = DEFAULT_HEALTH_TIMEOUT
+) -> tuple[bool, str]:
     url = f"http://127.0.0.1:{backend_port}/health"
     deadline = time.monotonic() + timeout
     last_error = "backend did not respond"
@@ -392,7 +454,15 @@ def print_docker_diagnostics(
     )
     print("[docker] recent API/worker logs")
     subprocess.run(
-        [*compose_cmd, "-f", str(COMPOSE_FILE), "logs", "--tail=80", BACKEND_SERVICE, WORKER_SERVICE],
+        [
+            *compose_cmd,
+            "-f",
+            str(COMPOSE_FILE),
+            "logs",
+            "--tail=80",
+            BACKEND_SERVICE,
+            WORKER_SERVICE,
+        ],
         cwd=PROJECT_ROOT,
         env=dict(compose_env),
         check=False,
@@ -415,7 +485,16 @@ def start_compose_stack(
 ) -> tuple[bool, str]:
     code, output = run_prefixed_command(
         "docker",
-        [*compose_cmd, "-f", str(COMPOSE_FILE), "up", "--build", "-d", BACKEND_SERVICE, WORKER_SERVICE],
+        [
+            *compose_cmd,
+            "-f",
+            str(COMPOSE_FILE),
+            "up",
+            "--build",
+            "-d",
+            BACKEND_SERVICE,
+            WORKER_SERVICE,
+        ],
         cwd=PROJECT_ROOT,
         env=compose_env,
     )
@@ -429,6 +508,7 @@ def run_dev() -> int:
     health_timeout = int_from_env("VIBEDIGEST_HEALTH_TIMEOUT", DEFAULT_HEALTH_TIMEOUT)
 
     base_env = os.environ.copy()
+    load_dotenv_without_override(base_env, PROJECT_ROOT)
     initial_compose_env = dict(base_env)
     initial_compose_env["COMPOSE_PROJECT_NAME"] = COMPOSE_PROJECT_NAME
 
@@ -449,6 +529,7 @@ def run_dev() -> int:
         scan_limit=scan_limit,
     )
     frontend_port = find_available_port(frontend_start, limit=scan_limit)
+    configure_local_agent(base_env, PROJECT_ROOT, frontend_port)
 
     compose_env = build_compose_env(
         base_env=base_env,
@@ -456,27 +537,39 @@ def run_dev() -> int:
         frontend_port=frontend_port,
     )
 
-    print("[dev] Starting Docker API and worker against the configured Cloud development database")
+    print(
+        "[dev] Starting Docker API and local-only Agent worker against the selected Cloud database"
+    )
     print(f"[dev] Backend:  http://localhost:{backend_port}")
     print(f"[dev] Frontend: http://localhost:{frontend_port}")
 
-    stack_started, compose_output = start_compose_stack(compose_cmd=compose_cmd, compose_env=compose_env)
+    stack_started, compose_output = start_compose_stack(
+        compose_cmd=compose_cmd, compose_env=compose_env
+    )
     if not stack_started and is_port_bind_error(compose_output):
-        print("[dev] Docker reported a port bind race. Retrying with the next available backend port.")
+        print(
+            "[dev] Docker reported a port bind race. Retrying with the next available backend port."
+        )
         backend_port = find_available_port(backend_port + 1, limit=scan_limit)
         compose_env = build_compose_env(
             base_env=base_env,
             backend_port=backend_port,
             frontend_port=frontend_port,
         )
-        stack_started, compose_output = start_compose_stack(compose_cmd=compose_cmd, compose_env=compose_env)
+        stack_started, compose_output = start_compose_stack(
+            compose_cmd=compose_cmd, compose_env=compose_env
+        )
 
     if not stack_started:
         print("[dev] Docker backend stack failed to start.")
         return 1
 
-    log_handles = start_docker_log_tails(compose_cmd=compose_cmd, compose_env=compose_env)
-    health_ok, health_message = wait_for_backend_health(backend_port, timeout=health_timeout)
+    log_handles = start_docker_log_tails(
+        compose_cmd=compose_cmd, compose_env=compose_env
+    )
+    health_ok, health_message = wait_for_backend_health(
+        backend_port, timeout=health_timeout
+    )
     if not health_ok:
         print(f"[dev] Backend health check failed: {health_message}")
         print_docker_diagnostics(compose_cmd=compose_cmd, compose_env=compose_env)
@@ -492,6 +585,7 @@ def run_dev() -> int:
     )
 
     print("[dev] Backend health check passed.")
+    print(f"[dev] Frontend chat runtime: {frontend_env['LLM_RUNTIME']}")
     print(f"[dev] Open frontend: http://localhost:{frontend_port}")
     print("[dev] Press Ctrl-C to stop frontend and log tails. Docker services stay up.")
 

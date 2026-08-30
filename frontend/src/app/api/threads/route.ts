@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
- * GET /api/threads?taskId=xxx
- * List all threads for a given task (excluding deleted)
+ * GET /api/threads[?taskId=xxx]
+ * List the authenticated user's threads, optionally scoped to one task.
  */
 export async function GET(req: NextRequest) {
     const taskId = req.nextUrl.searchParams.get('taskId');
-
-    if (!taskId) {
-        return NextResponse.json({ error: 'Missing taskId parameter' }, { status: 400 });
-    }
 
     const supabase = await createClient();
 
@@ -20,12 +16,16 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch threads
-    const { data: threads, error } = await supabase
+    let query = supabase
         .from('chat_threads')
-        .select('id, title, status, created_at, updated_at')
-        .eq('task_id', taskId)
+        .select('id, title, task_id, status, created_at, updated_at')
         .eq('user_id', user.id)
+
+    if (taskId) {
+        query = query.eq('task_id', taskId)
+    }
+
+    const { data: threads, error } = await query
         .neq('status', 'deleted')
         .order('updated_at', { ascending: false });
 
@@ -42,8 +42,12 @@ export async function GET(req: NextRequest) {
  * Create a new thread for a task
  */
 export async function POST(req: NextRequest) {
-    const body = await req.json();
-    const { taskId, title } = body as { taskId: string; title?: string };
+    const body = await req.json().catch(() => null) as {
+        taskId?: unknown;
+        title?: unknown;
+    } | null;
+    const taskId = typeof body?.taskId === 'string' ? body.taskId.trim() : '';
+    const title = typeof body?.title === 'string' ? body.title.trim() : '';
 
     if (!taskId) {
         return NextResponse.json({ error: 'Missing taskId' }, { status: 400 });

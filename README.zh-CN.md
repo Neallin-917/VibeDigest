@@ -56,10 +56,15 @@ make start-worker
 ```text
 Frontend (Next.js App Router)
   -> POST /api/process-video
-  -> FastAPI creates task + enqueues PGMQ message
-  -> Python worker runs the video/AI pipeline
+  -> FastAPI 把 user_submission 原子写入 video_processing
+  -> Railway hosted_api Worker 使用 API provider 执行用户任务
   -> Supabase Postgres stores tasks and outputs
   -> Supabase Realtime updates the frontend
+
+Railway podcast cron
+  -> 发现节目并把 catalog_supply 原子写入 podcast_supply
+  -> 可信私有 trusted_codex Worker 使用现有 Codex subscription 执行
+  -> 完成且含有效摘要的内容进入公共播客库
 ```
 
 更细的实现细节请看 `docs/codemaps/`。
@@ -77,10 +82,13 @@ Frontend (Next.js App Router)
 | `make test-backend` | 后端单测，加上条件满足时的本地 smoke |
 | `make test-frontend` | 前端单测 |
 | `make create-demo-task` | 创建并处理默认公开 demo task |
+| `make sync-podcast-sources` | 同步定向播客源，不做发现和处理 |
+| `make discover-podcasts` | 发现并限量入队最近节目 |
+| `make process-podcast-supply` | 使用现有 Codex subscription 限量处理供给队列 |
 | `cd frontend && npm run build` | 前端生产构建校验 |
 | `make clean` | 清理本地生成物 |
 
-Demo task 默认使用 `https://www.youtube.com/watch?v=7rzYDM6vMtI`，会设置 `is_demo=true`，账号优先读取 `VIBEDIGEST_DEMO_USER_ID`、`DEMO_USER_ID`，否则使用第一条 `profiles` 记录。可用 `DEMO_URL='https://...' DEMO_USER_ID=... make create-demo-task` 覆盖；只建任务和输出占位符时用 `DEMO_NO_RUN=1`。
+Demo task 默认使用 `https://www.youtube.com/watch?v=7rzYDM6vMtI`，以 `catalog_supply` 入队，账号优先读取 `VIBEDIGEST_DEMO_USER_ID`、`DEMO_USER_ID`，否则使用第一条 `profiles` 记录。可用 `DEMO_URL='https://...' DEMO_USER_ID=... make create-demo-task` 覆盖；只入队、不立即运行 Codex 批次时用 `DEMO_NO_RUN=1`。可信机器需已有 ChatGPT 管理的 Codex 登录；API-key Codex 身份会被拒绝。
 
 ## 文档归属
 

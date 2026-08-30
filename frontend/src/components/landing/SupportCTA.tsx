@@ -11,39 +11,34 @@ export function SupportCTA() {
     const { t } = useI18n()
 
     return (
-        <section className="max-w-4xl mx-auto px-6 mb-20">
+        <section className="mx-auto mb-16 w-full max-w-[1080px] px-4 sm:px-6 md:mb-20 lg:px-10 xl:px-0">
             <div
                 className={cn(
-                    "backdrop-blur-xl border rounded-2xl p-10 md:p-16 text-center relative overflow-hidden group",
-                    // Light mode
-                    "bg-white/70 border-slate-200 shadow-2xl",
-                    // Dark mode
-                    "dark:bg-zinc-900/60 dark:border-white/10 dark:shadow-none"
+                    "relative overflow-hidden rounded-[14px] border p-7 sm:p-9 md:p-11",
+                    "border-border-strong bg-accent"
                 )}
             >
-                {/* Animated Glows */}
-                <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 dark:bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-500/20 dark:group-hover:bg-emerald-500/20 transition-colors duration-700" />
-                <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/10 dark:bg-indigo-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 group-hover:bg-purple-500/20 dark:group-hover:bg-indigo-500/20 transition-colors duration-700" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_100%_0%,rgba(70,108,80,0.13),transparent_55%)]" />
 
-                <div className="relative z-10 max-w-xl mx-auto">
-                    <Heading as="h2" className="text-2xl md:text-3xl font-bold mb-4 font-display text-slate-900 dark:text-white">
-                        {t("landing.stillHaveQuestions")}
-                    </Heading>
+                <div className="relative z-10 grid items-end gap-8 md:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="max-w-xl">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">{t("landing.supportEyebrow")}</p>
+                        <Heading as="h2" className="mt-4 text-[clamp(1.6rem,2.7vw,2rem)] font-semibold tracking-[-0.032em] text-foreground">
+                            {t("landing.stillHaveQuestions")}
+                        </Heading>
 
-                    <Text className="text-slate-600 dark:text-zinc-400 mb-8 text-base leading-relaxed">
-                        {t("landing.stillHaveQuestionsDesc")}
-                    </Text>
+                        <Text className="mt-3 text-sm leading-7 text-muted-foreground">
+                            {t("landing.stillHaveQuestionsDesc")}
+                        </Text>
+                    </div>
 
-                    <div className="flex flex-col sm:flex-row justify-center gap-3">
+                    <div className="flex">
                         <FeedbackDialog defaultCategory="support">
                             <Button
                                 variant="default"
                                 className={cn(
-                                    "font-bold text-sm h-10 px-6 rounded-full transition-all hover:-translate-y-1 gap-2 border-0",
-                                    // Light mode
-                                    "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40",
-                                    // Dark mode
-                                    "dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:shadow-[0_0_20px_rgba(255,255,255,0.3)] dark:hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]"
+                                    "min-h-11 gap-2 rounded-[9px] border border-primary-strong px-5 text-[13px] font-semibold transition-colors",
+                                    "bg-primary-strong text-primary-foreground hover:bg-primary"
                                 )}
                             >
                                 <Mail className="w-3.5 h-3.5" />

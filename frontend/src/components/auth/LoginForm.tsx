@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { CheckCircle2, Mail, Sparkles } from "lucide-react"
+import { CheckCircle2, Mail } from "lucide-react"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { LanguageInlineSelect } from "@/components/i18n/LanguageInlineSelect"
+import { BrandLogo } from "@/components/layout/BrandLogo"
+import Link from "next/link"
 
 interface LoginFormProps {
     className?: string
@@ -132,7 +134,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
     // Adaptive card styles based on context
     const cardStyles = isModal
         ? 'shadow-none border-0'
-        : 'bg-white/70 dark:bg-black/60 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 shadow-xl ring-1 ring-black/5 dark:ring-white/5'
+        : 'border border-slate-200/80 bg-white/90 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-black/25'
 
     return (
         <Card className={`w-full max-w-md relative overflow-hidden transition-all duration-300 ${cardStyles} ${className}`}>
@@ -143,9 +145,11 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
             )}
 
             <CardHeader className="text-center space-y-2 relative z-10">
-                <div className="mx-auto bg-emerald-500/10 dark:bg-emerald-500/20 p-3 rounded-full w-fit mb-2 shadow-[0_0_20px_rgba(62,207,142,0.15)]">
-                    <Sparkles className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                </div>
+                {!isModal && (
+                    <Link href={`/${locale}`} className="mx-auto mb-3 inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                        <BrandLogo textClassName="text-lg" />
+                    </Link>
+                )}
                 {hasPendingHandoff && (
                     <p className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -173,7 +177,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                     variant="outline"
                     onClick={handleGoogleLogin}
                     disabled={loading}
-                    className="w-full h-11 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium transition-transform hover:scale-[1.01] duration-200 dark:bg-white dark:text-black dark:hover:bg-gray-100 dark:border-0"
+                    className="h-11 w-full border border-gray-200 bg-white font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-0 dark:bg-white dark:text-black dark:hover:bg-gray-100"
                 >
                     <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
                         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
@@ -220,7 +224,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                     </div>
                     <Button
                         type="submit"
-                        className="w-full h-11 gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all duration-300"
+                        className="h-11 w-full gap-2 bg-emerald-700 text-white transition-colors hover:bg-emerald-800 dark:bg-emerald-300 dark:text-zinc-950 dark:hover:bg-emerald-200"
                         disabled={loading}
                     >
                         <Mail className="h-4 w-4" />

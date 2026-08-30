@@ -6,6 +6,9 @@ Historical record of major version changes. For current architecture, see [AGENT
 
 ## Unreleased
 
+- **Catalog Execution Routing**: Persisted `workload_kind`, split user and
+  catalog PGMQ queues, capability-locked hosted/Codex workers, routed retries,
+  ChatGPT subscription preflight, and execution provenance
 - **CI Reliability**: Updated stale V4 summary fixtures and mocked the comprehension
   boundary so backend and end-to-end workflow tests exercise the current contract
 - **Dependency Security**: Patched production vulnerabilities in Next.js, Sharp,

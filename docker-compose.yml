@@ -29,6 +29,12 @@ services:
       - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - AGENT_INTERNAL_SECRET=${AGENT_INTERNAL_SECRET:-}
+      - AGENT_CONTINUATION_URL=${AGENT_CONTINUATION_URL:-}
+      - AGENT_CONTINUATION_RUNTIME=${AGENT_CONTINUATION_RUNTIME:-api}
+      - AGENT_CONTINUATION_QUEUE=${AGENT_CONTINUATION_QUEUE:-agent_answers}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # No Traefik labels - Dev is NOT exposed to internet
 
   worker-dev:
@@ -42,10 +48,17 @@ services:
       - ./config/llm-provider-defaults.json:/app/llm-provider-defaults.json:ro
       - ./temp:/app/temp
       - ./downloads:/app/downloads
-    command: python worker.py
+    # Video jobs remain with the hosted worker, even when local dev uses the main DB.
+    command: ["python", "worker.py", "--agent-only"]
     env_file:
       - path: .env
       - path: .env.local
         required: false
     environment:
       - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
+      - AGENT_INTERNAL_SECRET=${AGENT_INTERNAL_SECRET:-}
+      - AGENT_CONTINUATION_URL=${AGENT_CONTINUATION_URL:-}
+      - AGENT_CONTINUATION_RUNTIME=${AGENT_CONTINUATION_RUNTIME:-api}
+      - AGENT_CONTINUATION_QUEUE=${AGENT_CONTINUATION_QUEUE:-agent_answers}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

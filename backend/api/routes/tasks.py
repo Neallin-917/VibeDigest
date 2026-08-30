@@ -194,6 +194,10 @@ def get_task_status(
         if is_guest
         else str(task.get("user_id")) == user_id
     )
-    if not is_owner and not task.get("is_demo"):
+    is_public = (
+        task.get("is_demo") is True
+        and task.get("publication_status") == "published"
+    )
+    if not is_owner and not is_public:
         raise HTTPException(status_code=403, detail="Unauthorized")
     return task

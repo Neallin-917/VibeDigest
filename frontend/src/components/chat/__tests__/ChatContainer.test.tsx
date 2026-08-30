@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ChatContainer } from '../ChatContainer'
 import type { ChatUIMessage } from '@/lib/chat-ui'
 
@@ -8,6 +8,9 @@ const mockSendMessage = vi.fn()
 const mockSetMessages = vi.fn()
 const mockRegenerate = vi.fn()
 const mockStop = vi.fn()
+const mockUseChatRealtime = vi.fn()
+let mockChatInputText = 'test message'
+let mockLocale = 'en'
 
 function createTextMessage(
   text: string,
@@ -30,6 +33,10 @@ vi.mock('@ai-sdk/react', () => ({
   },
 }))
 
+vi.mock('../useChatRealtime', () => ({
+  useChatRealtime: (options: unknown) => mockUseChatRealtime(options),
+}))
+
 vi.mock('@/components/i18n/I18nProvider', () => ({
   useI18n: () => ({
     t: (key: string) => {
@@ -45,14 +52,21 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.followUpInputLabel') return 'Follow-up question about this source'
       return key
     },
-    locale: 'en',
+    locale: mockLocale,
   }),
 }))
 
 vi.mock('../ChatInput', () => ({
-  ChatInput: ({ onSubmit, isLoading, disabled, placeholder, inputLabel }: any) => (
-    <div data-testid="chat-input" data-placeholder={placeholder} data-label={inputLabel}>
-      <button onClick={() => onSubmit('test message')} disabled={isLoading || disabled}>Send</button>
+  ChatInput: ({ onSubmit, onStop, isLoading, disabled, placeholder, inputLabel, variant, hideDisclaimer }: any) => (
+    <div
+      data-testid="chat-input"
+      data-placeholder={placeholder}
+      data-label={inputLabel}
+      data-variant={variant}
+      data-hide-disclaimer={String(Boolean(hideDisclaimer))}
+    >
+      <button onClick={() => onSubmit(mockChatInputText)} disabled={isLoading || disabled}>Send</button>
+      {onStop && <button onClick={onStop}>Stop response</button>}
     </div>
   )
 }))
@@ -80,6 +94,7 @@ vi.mock('../tools', () => ({
 
 describe('ChatContainer', () => {
   beforeEach(() => {
+    mockRegenerate.mockReset().mockResolvedValue(undefined)
     mockUseChat.mockReset()
     mockUseChat.mockReturnValue({
       messages: [],
@@ -92,10 +107,13 @@ describe('ChatContainer', () => {
     })
     
     localStorage.clear()
+    mockChatInputText = 'test message'
+    mockLocale = 'en'
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.restoreAllMocks()
   })
 
   it('renders WelcomeScreen when there are no messages', () => {
@@ -109,6 +127,36 @@ describe('ChatContainer', () => {
 
     expect(screen.getByTestId('welcome-screen')).toBeInTheDocument()
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
+  })
+
+  it('renders an inline follow-up composer without the welcome surface in embedded mode', () => {
+    render(<ChatContainer activeTaskId="selected-task" variant="embedded" />)
+
+    expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument()
+    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-variant', 'inline')
+    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-hide-disclaimer', 'true')
+  })
+
+  it('treats URLs as source questions instead of new submissions in embedded mode', () => {
+    mockChatInputText = 'What does https://example.com add to this argument?'
+
+    render(
+      <ChatContainer
+        activeTaskId="selected-task"
+        variant="embedded"
+        scope="source"
+        isAuthenticated={true}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Send'))
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'user',
+        parts: [{ type: 'text', text: mockChatInputText }],
+      })
+    )
   })
 
   it('renders ChatInput and lazily loads messages when there are messages', async () => {
@@ -324,106 +372,48 @@ describe('ChatContainer', () => {
     expect(localStorage.getItem('vibedigest_pending_message')).toBeNull()
   })
 
-  it('hydrates direct URL submissions from server-provided data parts', async () => {
+  it('sends a pending URL through the Agent without a direct-submit request', async () => {
     localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=test123')
-    const originalFetch = global.fetch
-    try {
-      const serverMessages: ChatUIMessage[] = [
-        {
-          id: 'direct-user-1',
-          role: 'user',
-          parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=test123' }],
-        },
-        {
-          id: 'direct-assistant-1',
-          role: 'assistant',
-          parts: [
-            {
-              type: 'data-task-status',
-              id: 'task-status-task-123',
-              data: {
-                taskId: 'task-123',
-                status: 'pending',
-                progress: 0,
-                videoUrl: 'https://www.youtube.com/watch?v=test123',
-              },
-            } as any,
-          ],
-        },
-      ]
+    const fetchSpy = vi.spyOn(global, 'fetch')
+    render(<ChatContainer isAuthenticated={true} />)
 
-      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ task_id: 'task-123', messages: serverMessages }),
-      } as Response)
-
-      render(<ChatContainer isAuthenticated={true} />)
-
-      await waitFor(() => {
-        expect(mockSetMessages).toHaveBeenCalledTimes(1)
-      })
-
-      const updater = mockSetMessages.mock.calls[0][0]
-      expect(typeof updater).toBe('function')
-
-      const nextMessages = updater([]) as ChatUIMessage[]
-      expect(nextMessages).toEqual(serverMessages)
-      expect(mockSendMessage).not.toHaveBeenCalled()
-    } finally {
-      global.fetch = originalFetch
-    }
+    await waitFor(() => expect(mockSendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'user',
+      parts: [{ type: 'text', text: 'https://www.youtube.com/watch?v=test123' }],
+    })))
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(mockSetMessages).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
   })
 
-  it('shows a direct-submit error and does not fall back to the chat transport', async () => {
-    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=broken123')
-    const originalFetch = global.fetch
-    try {
-      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        json: async () => ({
-          error: 'Task creation failed',
-          details: 'backend is down',
-        }),
-      } as Response)
-
-      render(<ChatContainer isAuthenticated={true} />)
-
-      await waitFor(() => {
-        expect(screen.getByText('backend is down')).toBeInTheDocument()
-      })
-
-      expect(mockSendMessage).not.toHaveBeenCalled()
-      expect(mockSetMessages).not.toHaveBeenCalled()
-    } finally {
-      global.fetch = originalFetch
-    }
+  it.each([
+    'https://www.youtube.com/watch?v=new123',
+    'Do not process https://www.youtube.com/watch?v=new123 yet; explain the options.',
+    'What does https://example.com mean in this source?',
+  ])('leaves URL intent decisions to the Agent: %s', text => {
+    mockChatInputText = text
+    render(<ChatContainer isAuthenticated={true} variant="embedded" />)
+    fireEvent.click(screen.getByText('Send'))
+    expect(mockSendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'user', parts: [{ type: 'text', text }],
+    }))
   })
 
-  it('localizes a quota rejection and links to plans', async () => {
-    localStorage.setItem('vibedigest_pending_message', 'https://www.youtube.com/watch?v=quota123')
-    const originalFetch = global.fetch
-    try {
-      ;(global as typeof globalThis).fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        json: async () => ({
-          code: 'QUOTA_EXCEEDED',
-          details: 'Quota exceeded',
-        }),
-      } as Response)
-
-      render(<ChatContainer isAuthenticated={true} />)
-
-      await waitFor(() => {
-        expect(screen.getByText('Your plan limit has been reached.')).toBeInTheDocument()
-      })
-      expect(screen.getByRole('link', { name: 'View Plans' })).toHaveAttribute(
-        'href',
-        '/en/settings/pricing',
-      )
-      expect(screen.queryByText('Quota exceeded')).not.toBeInTheDocument()
-    } finally {
-      global.fetch = originalFetch
-    }
+  it.each(['workspace', 'source'] as const)('sends the explicit %s scope and latest user message during regeneration', scope => {
+    render(<ChatContainer scope={scope} threadId="thread-1" activeTaskId="task-1" />)
+    const prepare = mockUseChat.mock.calls[0][0].transport.prepareSendMessagesRequest
+    const userMessage = createTextMessage('Latest question', 'user', 'user-latest')
+    const result = prepare({
+      trigger: 'regenerate-message',
+      messages: [
+        createTextMessage('Older question', 'user', 'user-old'),
+        userMessage,
+        createTextMessage('Incomplete assistant response', 'assistant', 'assistant-latest'),
+      ],
+    })
+    expect(result.body).toEqual({
+      message: userMessage, threadId: 'thread-1', taskId: 'task-1', locale: 'en', scope,
+    })
   })
 
   // -----------------------------------------------------------------------
@@ -502,6 +492,7 @@ describe('ChatContainer', () => {
         ]
       })
       expect(prepared?.body?.taskId).toBe('task-2')
+      expect(prepared?.body?.locale).toBe('en')
     })
   })
 
@@ -526,7 +517,7 @@ describe('ChatContainer', () => {
     expect(mockSetMessages).not.toHaveBeenCalled()
   })
 
-  it('hydrates messages when initialMessages change to a different thread history', () => {
+  it('delegates initial history and streaming state to the non-destructive realtime merger', () => {
     const currentMessages: ChatUIMessage[] = [
       createTextMessage('Old', 'user', 'm1'),
     ]
@@ -538,15 +529,44 @@ describe('ChatContainer', () => {
       messages: currentMessages,
       setMessages: mockSetMessages,
       sendMessage: mockSendMessage,
-      status: 'idle',
+      status: 'streaming',
       error: null,
       regenerate: mockRegenerate,
       stop: mockStop,
     } as any)
 
-    render(<ChatContainer initialMessages={nextInitialMessages} />)
+    render(<ChatContainer threadId="thread-1" initialMessages={nextInitialMessages} isAuthenticated />)
 
-    expect(mockSetMessages).toHaveBeenCalledWith(nextInitialMessages)
+    expect(mockUseChatRealtime).toHaveBeenLastCalledWith({
+      threadId: 'thread-1', enabled: true, status: 'streaming', messages: currentMessages,
+      initialMessages: nextInitialMessages, setMessages: mockSetMessages,
+    })
+    expect(mockSetMessages).not.toHaveBeenCalled()
+  })
+
+  it('uses the newest confirmed task reference after a completed Agent response', () => {
+    const onChatStarted = vi.fn()
+    render(<ChatContainer threadId="thread-1" activeTaskId="old-task" onChatStarted={onChatStarted} />)
+    const chatOptions = mockUseChat.mock.calls[0][0]
+    const messages: ChatUIMessage[] = [{
+      id: 'assistant-created-task', role: 'assistant',
+      parts: [
+        { type: 'data-task-status', data: { taskId: 'old-task', status: 'completed' } },
+        { type: 'data-task-status', data: { taskId: 'new-task', status: 'pending' } },
+      ],
+    }]
+    chatOptions.onFinish({ messages, isAbort: false, isError: false, isDisconnect: false })
+    expect(onChatStarted).toHaveBeenCalledWith('thread-1', 'new-task')
+    expect(chatOptions.transport.prepareSendMessagesRequest({
+      messages: [createTextMessage('Follow up', 'user', 'next-user')],
+    }).body.taskId).toBe('new-task')
+  })
+
+  it.each(['isAbort', 'isError', 'isDisconnect'])('does not report a persisted chat after %s', flag => {
+    const onChatStarted = vi.fn()
+    render(<ChatContainer onChatStarted={onChatStarted} />)
+    mockUseChat.mock.calls[0][0].onFinish({ messages: [], [flag]: true })
+    expect(onChatStarted).not.toHaveBeenCalled()
   })
 
   it('locks the composer while thread switching is in progress', () => {
@@ -610,6 +630,45 @@ describe('ChatContainer', () => {
     expect(await screen.findByTestId('inline-task-artifact')).toBeInTheDocument()
   })
 
+  it('hides duplicated task artifacts when the source is rendered by the detail page', () => {
+    const messages: ChatUIMessage[] = [{
+      id: 'assistant-inline-task',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'data-task-status',
+          id: 'task-status-existing-task',
+          data: {
+            taskId: 'existing-task',
+            status: 'completed',
+            progress: 100,
+            videoUrl: 'https://www.youtube.com/watch?v=existing-task',
+          },
+        } as any,
+      ],
+    }]
+
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      sendMessage: mockSendMessage,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      stop: mockStop,
+    } as any)
+
+    render(
+      <ChatContainer
+        activeTaskId="existing-task"
+        variant="embedded"
+        showTaskArtifacts={false}
+      />
+    )
+
+    expect(screen.queryByTestId('inline-task-artifact')).not.toBeInTheDocument()
+  })
+
   it('renders only the latest status card when history repeats the same task', async () => {
     const taskParts = [
       {
@@ -642,5 +701,192 @@ describe('ChatContainer', () => {
     render(<ChatContainer activeTaskId="repeated-task" />)
 
     expect(await screen.findAllByTestId('inline-task-artifact')).toHaveLength(1)
+  })
+
+  describe('durable answer continuation', () => {
+    function continuationMessages(state: NonNullable<ChatUIMessage['metadata']>['agentState']): ChatUIMessage[] {
+      return [
+        createTextMessage('Explain the business model', 'user', 'original-user-id'),
+        {
+          ...createTextMessage('Your video has been accepted.', 'assistant', 'continuation-assistant'),
+          metadata: { agentTurnId: 'turn-123', agentState: state },
+        },
+      ]
+    }
+
+    function configureMessages(messages: ChatUIMessage[], status = 'ready') {
+      mockUseChat.mockReturnValue({
+        messages, status, setMessages: mockSetMessages, sendMessage: mockSendMessage,
+        error: null, regenerate: mockRegenerate, stop: mockStop,
+      })
+    }
+
+    it.each([
+      ['waiting_task', 'Your answer will continue when the video is ready.'],
+      ['finalizing', 'Preparing your answer.'],
+    ] as const)('restores %s feedback and cancellation from persisted message metadata', (state, label) => {
+      const messages = continuationMessages(state)
+      configureMessages(messages)
+      render(<ChatContainer initialMessages={messages} threadId="thread-123" isAuthenticated />)
+      expect(screen.getByText(label)).toHaveAttribute('role', 'status')
+      expect(screen.getByRole('button', { name: 'Cancel answer' })).toBeEnabled()
+      expect(screen.queryByRole('button', { name: 'Retry answer' })).not.toBeInTheDocument()
+    })
+
+    it('retries a failed answer with the same user ID and never reprocesses the video', async () => {
+      const messages = continuationMessages('failed')
+      configureMessages(messages)
+      const fetchSpy = vi.spyOn(global, 'fetch')
+      let replayedMessage: ChatUIMessage | undefined
+      mockRegenerate.mockImplementation(async () => {
+        const options = mockUseChat.mock.calls[0][0]
+        replayedMessage = options.transport.prepareSendMessagesRequest({
+          trigger: 'regenerate-message', messages,
+        }).body.message
+      })
+
+      render(<ChatContainer initialMessages={messages} threadId="thread-123" activeTaskId="existing-video" isAuthenticated />)
+      expect(screen.getByText('The answer could not finish.')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry answer' }))
+      await waitFor(() => expect(mockRegenerate).toHaveBeenCalledOnce())
+      expect(replayedMessage).toEqual(messages[0])
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(mockSendMessage).not.toHaveBeenCalled()
+    })
+
+    it('posts cancellation without a body or token and only acknowledges a committed answer cancellation', async () => {
+      const messages = continuationMessages('waiting_task')
+      configureMessages(messages)
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true, json: async () => ({ cancelled: true }),
+      } as Response)
+      render(<ChatContainer initialMessages={messages} threadId="thread-123" isAuthenticated />)
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel answer' }))
+
+      expect(await screen.findByText('Follow-up answer cancelled. Video processing is unchanged.')).toBeInTheDocument()
+      expect(fetchSpy).toHaveBeenCalledExactlyOnceWith('/api/chat/turns/turn-123/cancel', { method: 'POST' })
+      expect(screen.queryByRole('button', { name: 'Cancel answer' })).not.toBeInTheDocument()
+      expect(mockStop).not.toHaveBeenCalled()
+      expect(mockSetMessages).not.toHaveBeenCalled()
+      expect(screen.queryByText(/video (?:processing )?(?:was |is )?cancelled/i)).not.toBeInTheDocument()
+    })
+
+    it('does not claim cancellation when the server reports the answer already terminal', async () => {
+      configureMessages(continuationMessages('finalizing'))
+      vi.spyOn(global, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ cancelled: false }) } as Response)
+      render(<ChatContainer isAuthenticated />)
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel answer' }))
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel answer' })).not.toBeInTheDocument())
+      expect(screen.queryByText('Follow-up answer cancelled. Video processing is unchanged.')).not.toBeInTheDocument()
+      expect(screen.queryByText('Preparing your answer.')).not.toBeInTheDocument()
+    })
+
+    it.each(['http', 'network', 'invalid-response'])('keeps cancellation retryable after a safe %s failure', async failure => {
+      configureMessages(continuationMessages('waiting_task'))
+      const fetchSpy = vi.spyOn(global, 'fetch')
+      if (failure === 'network') fetchSpy.mockRejectedValue(new Error('PRIVATE_TOKEN=do-not-display'))
+      else fetchSpy.mockResolvedValue({
+        ok: failure !== 'http',
+        json: async () => ({ privateError: 'PRIVATE_TOKEN=do-not-display' }),
+      } as Response)
+      render(<ChatContainer isAuthenticated />)
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel answer' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not cancel the answer. Please try again.')
+      expect(screen.getByRole('button', { name: 'Cancel answer' })).toBeEnabled()
+      expect(screen.queryByText(/PRIVATE_TOKEN/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Follow-up answer cancelled. Video processing is unchanged.')).not.toBeInTheDocument()
+    })
+
+    it('prevents duplicate cancellation while the request is pending', async () => {
+      configureMessages(continuationMessages('waiting_task'))
+      let complete!: (response: Response) => void
+      const pending = new Promise<Response>(resolve => { complete = resolve })
+      const fetchSpy = vi.spyOn(global, 'fetch').mockReturnValue(pending)
+      render(<ChatContainer isAuthenticated />)
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel answer' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel answer' }))
+      expect(screen.getByRole('button', { name: 'Cancel answer' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Cancel answer' })).toHaveAttribute('aria-busy', 'true')
+      expect(fetchSpy).toHaveBeenCalledOnce()
+      await act(async () => complete({ ok: true, json: async () => ({ cancelled: true }) } as Response))
+    })
+
+    it.each([
+      ['waiting_task', 'Cancel answer'],
+      ['failed', 'Retry answer'],
+    ] as const)('disables %s actions while interaction is locked or foreground generation is busy', (state, label) => {
+      const fetchSpy = vi.spyOn(global, 'fetch')
+      configureMessages(continuationMessages(state))
+      const { rerender } = render(<ChatContainer isAuthenticated isInteractionLocked />)
+      expect(screen.getByRole('button', { name: label })).toBeDisabled()
+      fireEvent.click(screen.getByRole('button', { name: label }))
+      for (const status of ['submitted', 'streaming']) {
+        configureMessages(continuationMessages(state), status)
+        rerender(<ChatContainer isAuthenticated />)
+        expect(screen.getByRole('button', { name: label })).toBeDisabled()
+        fireEvent.click(screen.getByRole('button', { name: label }))
+      }
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(mockRegenerate).not.toHaveBeenCalled()
+    })
+
+    it('requires resolved authentication for durable actions', () => {
+      configureMessages(continuationMessages('waiting_task'))
+      const { rerender } = render(<ChatContainer isAuthenticated={null} />)
+      expect(screen.getByRole('button', { name: 'Cancel answer' })).toBeDisabled()
+      rerender(<ChatContainer isAuthenticated={false} />)
+      expect(screen.getByRole('button', { name: 'Cancel answer' })).toBeDisabled()
+    })
+
+    it('reports a retry failure safely without creating a new message', async () => {
+      configureMessages(continuationMessages('failed'))
+      mockRegenerate.mockRejectedValue(new Error('PRIVATE_RESPONSE=do-not-display'))
+      render(<ChatContainer isAuthenticated />)
+      fireEvent.click(screen.getByRole('button', { name: 'Retry answer' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not retry the answer. Please try again.')
+      expect(screen.getByRole('button', { name: 'Retry answer' })).toBeEnabled()
+      expect(mockSendMessage).not.toHaveBeenCalled()
+    })
+
+    it('restores a cancelled answer without implying that video processing was cancelled', () => {
+      const messages = continuationMessages('cancelled')
+      configureMessages(messages)
+      render(<ChatContainer initialMessages={messages} isAuthenticated />)
+      expect(screen.getByText('Follow-up answer cancelled. Video processing is unchanged.')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Cancel answer' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry answer' })).not.toBeInTheDocument()
+    })
+
+    it.each(['failed', 'cancelled', 'waiting_task'] as const)('does not show an older %s state after a newer completed answer', oldState => {
+      configureMessages([
+        ...continuationMessages(oldState),
+        {
+          ...createTextMessage('The new answer is complete.', 'assistant', 'new-assistant'),
+          metadata: { agentTurnId: 'new-turn', agentState: 'completed' },
+        },
+      ])
+      render(<ChatContainer isAuthenticated />)
+      expect(screen.queryByRole('button', { name: 'Cancel answer' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retry answer' })).not.toBeInTheDocument()
+      expect(screen.queryByText('Follow-up answer cancelled. Video processing is unchanged.')).not.toBeInTheDocument()
+      expect(screen.queryByText('The answer could not finish.')).not.toBeInTheDocument()
+    })
+
+    it('keeps the foreground stop action separate from durable answer cancellation', () => {
+      configureMessages(continuationMessages('finalizing'), 'streaming')
+      const fetchSpy = vi.spyOn(global, 'fetch')
+      render(<ChatContainer isAuthenticated />)
+      fireEvent.click(screen.getByRole('button', { name: 'Stop response' }))
+      expect(mockStop).toHaveBeenCalledOnce()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+
+    it('uses concise Chinese continuation copy', () => {
+      mockLocale = 'zh'
+      configureMessages(continuationMessages('waiting_task'))
+      render(<ChatContainer isAuthenticated />)
+      expect(screen.getByText('视频处理完成后，将继续回答。')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '取消回答' })).toBeEnabled()
+    })
   })
 })

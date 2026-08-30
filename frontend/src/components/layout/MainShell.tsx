@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { AppSidebarProvider } from "@/components/layout/AppSidebarContext"
 import { MobileBottomNav, MobileHeader } from "@/components/layout/MobileNav"
+import { LandingNav } from "@/components/landing/LandingNav"
 import { TaskNotificationListener } from "@/components/tasks/TaskNotificationListener"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
@@ -14,12 +15,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const { locale } = useI18n()
   const router = useRouter()
   const pathname = usePathname()
+  const isPublicTaskDetail = pathname?.includes('/tasks/')
 
   // Public paths that don't require authentication
   // /tasks/* is public so unauthenticated users can view demo tasks
   // Check for paths like: /tasks/..., /explore, or /en/tasks/..., /en/explore
   const isPublicPath =
-    pathname?.includes('/tasks/') ||
+    isPublicTaskDetail ||
     pathname?.endsWith('/tasks') ||
     pathname?.includes('/explore') ||
     pathname?.endsWith('/explore')
@@ -50,6 +52,24 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     )
   }
 
+  if (isPublicTaskDetail) {
+    return (
+      <div className="relative min-h-screen overflow-x-clip bg-background">
+        <div className="pointer-events-none fixed inset-0 bg-grid opacity-20" />
+        <div className="pointer-events-none fixed left-0 top-0 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/5 blur-[120px]" />
+        <div
+          data-slot="task-detail-nav-scrim"
+          className="pointer-events-none fixed inset-x-0 top-0 z-40 h-24 bg-background/95 backdrop-blur-sm"
+          aria-hidden="true"
+        />
+        <LandingNav variant="content" />
+        <main className="relative flex min-h-screen flex-col pt-24">
+          {children}
+        </main>
+      </div>
+    )
+  }
+
   return (
     <AppSidebarProvider defaultCollapsed={true}>
       <div className="flex h-dvh overflow-hidden">
@@ -59,7 +79,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 bg-grid opacity-30 pointer-events-none z-0" />
 
         {/* Background glow for glass effect - Adapted for both modes */}
-        <div className="fixed top-0 left-0 w-[700px] h-[700px] bg-primary/5 blur-[150px] rounded-full pointer-events-none -translate-x-1/2 -translate-y-1/2 z-0 mix-blend-multiply dark:mix-blend-normal" />
+        <div className="pointer-events-none fixed left-0 top-0 z-0 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 mix-blend-multiply blur-[150px]" />
         <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-emerald-600/6 blur-[120px] rounded-full pointer-events-none translate-x-1/2 translate-y-1/2 z-0" />
 
         <AppSidebar />

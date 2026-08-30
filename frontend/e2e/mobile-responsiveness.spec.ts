@@ -31,7 +31,7 @@ test.describe('Mobile Responsiveness', () => {
     });
 
     // Mock Chat Threads
-    await page.route('**/api/chat/threads', async (route) => {
+    await page.route('**/api/threads', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -69,7 +69,7 @@ test.describe('Mobile Responsiveness', () => {
     // Use getByRole inside the dialog to be precise and avoid strict mode issues with desktop sidebar
     const drawer = page.getByRole('dialog');
     await expect(drawer.getByRole('button', { name: /New Chat|新对话/i }).first()).toBeVisible({ timeout: 10000 });
-    await expect(drawer.getByRole('button', { name: /Community|社区/i }).first()).toBeVisible({ timeout: 10000 });
+    await expect(drawer.getByRole('button', { name: /Podcast library|播客库/i }).first()).toBeVisible({ timeout: 10000 });
 
     // 5. Click close/overlay and verify Drawer closes
     await page.keyboard.press('Escape');

@@ -28,6 +28,35 @@ CHAT_TITLE_BACKFILL_MIGRATION = (
 )
 
 
+def _valid_public_summary() -> dict[str, object]:
+    return {
+        "version": 5,
+        "language": "zh",
+        "tl_dr": "这是一条已经通过质量门禁、可以直接展示在公开播客库中的核心结论。",
+        "overview": (
+            "This deliberately complete overview is longer than the publication threshold "
+            "and represents a source-grounded summary produced by the canonical pipeline."
+        ),
+        "keypoints": [
+            {
+                "title": "Point one",
+                "detail": "Detailed explanation one.",
+                "evidence": "Evidence one.",
+            },
+            {
+                "title": "Point two",
+                "detail": "Detailed explanation two.",
+                "evidence": "Evidence two.",
+            },
+            {
+                "title": "Point three",
+                "detail": "Detailed explanation three.",
+                "evidence": "Evidence three.",
+            },
+        ],
+    }
+
+
 @pytest.fixture(scope="module")
 def pgmq_db() -> DBClient:
     database_url = os.getenv(
@@ -69,14 +98,25 @@ def pgmq_db() -> DBClient:
 
     with engine.begin() as connection:
         connection.exec_driver_sql(platform_sql)
+        connection.exec_driver_sql("""CREATE TABLE IF NOT EXISTS public._test_applied_migrations (
+          name text primary key
+        )""")
         raw_connection = connection.connection.driver_connection
         with raw_connection.cursor() as cursor:
+            cursor.execute("SELECT name FROM public._test_applied_migrations")
+            applied = {row[0] for row in cursor.fetchall()}
             for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
+                if migration.name in applied:
+                    continue
                 # Execute migration files through psycopg directly. SQLAlchemy's
                 # exec_driver_sql passes an empty mapping to psycopg2, which
                 # misinterprets literal "%" characters in PL/pgSQL RAISE and
                 # format expressions as DBAPI placeholders.
                 cursor.execute(migration.read_text())
+                cursor.execute(
+                    "INSERT INTO public._test_applied_migrations(name) VALUES (%s)",
+                    (migration.name,),
+                )
 
     client = DBClient()
     client.db_url = database_url
@@ -97,14 +137,24 @@ def test_task_submission_database_contract_is_ready_after_migrations(
 ):
     rows = pgmq_db._execute_query(TASK_SUBMISSION_READINESS_SQL)
 
-    assert rows == [{
-        "submission_function_ready": True,
-        "queue_schema_ready": True,
-        "task_intent_ready": True,
-        "output_intent_ready": True,
-        "output_provenance_ready": True,
-        "monthly_quota_ready": True,
-    }]
+    assert rows == [
+        {
+            "submission_function_ready": True,
+            "queue_schema_ready": True,
+            "task_intent_ready": True,
+            "output_intent_ready": True,
+            "output_provenance_ready": True,
+            "monthly_quota_ready": True,
+            "publication_status_ready": True,
+            "podcast_sources_ready": True,
+            "podcast_episodes_ready": True,
+            "workload_kind_ready": True,
+            "catalog_queue_ready": True,
+            "retry_routing_ready": True,
+            "agent_turns_ready": True,
+            "chat_realtime_ready": True,
+        }
+    ]
 
 
 def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
@@ -138,6 +188,7 @@ def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
         {"task_id": submission.task_id},
     )
     assert len(task_rows) == 1
+    assert task_rows[0]["workload_kind"] == "user_submission"
     assert {row["kind"] for row in output_rows} == {
         "script",
         "summary",
@@ -169,6 +220,255 @@ def test_atomic_submit_read_and_archive(pgmq_db: DBClient):
         {"job_id": jobs[0].job_id},
     )
     assert handoff == [{"status": "completed"}]
+
+
+def test_podcast_submission_uses_queue_and_publishes_only_after_quality_gate(
+    pgmq_db: DBClient,
+):
+    user_queue_name = f"video_processing_user_{uuid4().hex[:12]}"
+    catalog_queue_name = f"podcast_supply_test_{uuid4().hex[:12]}"
+    _create_queue(pgmq_db, user_queue_name)
+    _create_queue(pgmq_db, catalog_queue_name)
+    queue = PostgresTaskQueue(
+        pgmq_db,
+        queue_name=user_queue_name,
+        catalog_queue_name=catalog_queue_name,
+    )
+    user_id = str(uuid4())
+    video_url = f"https://www.youtube.com/watch?v={uuid4().hex[:11]}"
+    pgmq_db._execute_query(
+        "insert into auth.users (id, email) values (cast(:id as uuid), :email)",
+        {"id": user_id, "email": f"{user_id}@example.com"},
+    )
+
+    submission = queue.submit_catalog_video(
+        video_url=video_url,
+        user_id=user_id,
+        output_intent={"target_locale": "zh"},
+        publish_on_complete=True,
+    )
+    queued_task = pgmq_db.get_task(submission.task_id)
+
+    assert submission.resolution == "created"
+    assert queued_task is not None
+    assert queued_task["is_demo"] is True
+    assert queued_task["publication_status"] == "processing"
+    assert queued_task["publish_on_complete"] is True
+    assert queued_task["workload_kind"] == "catalog_supply"
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
+    catalog_jobs = PostgresTaskQueue(
+        pgmq_db,
+        queue_name=catalog_queue_name,
+    ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+    assert len(catalog_jobs) == 1
+
+    source_slug = f"quality-source-{uuid4().hex[:10]}"
+    source_rows = pgmq_db._execute_query(
+        """
+        insert into public.podcast_sources (slug, name, source_url, active, auto_publish)
+        values (:slug, :name, :source_url, true, true)
+        returning id
+        """,
+        {
+            "slug": source_slug,
+            "name": "Quality Source",
+            "source_url": f"https://example.com/source/{source_slug}",
+        },
+    )
+    pgmq_db._execute_query(
+        """
+        insert into public.podcast_episodes (
+          source_id, external_id, video_url, title, task_id, discovery_status
+        )
+        values (
+          cast(:source_id as uuid), :external_id, :video_url, :title,
+          cast(:task_id as uuid), 'queued'
+        )
+        """,
+        {
+            "source_id": source_rows[0]["id"],
+            "external_id": uuid4().hex,
+            "video_url": video_url,
+            "title": "A quality-gated podcast episode",
+            "task_id": submission.task_id,
+        },
+    )
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="processing",
+        progress=90,
+        video_title="A quality-gated podcast episode",
+        thumbnail_url="https://i.ytimg.com/vi/quality/maxresdefault.jpg",
+        author="Quality Source",
+    )
+
+    outputs = pgmq_db.get_task_outputs(submission.task_id)
+    summary = next(output for output in outputs if output["kind"] == "summary")
+    script = next(output for output in outputs if output["kind"] == "script")
+    pgmq_db.update_output_status(
+        summary["id"],
+        status="completed",
+        progress=100,
+        content=json.dumps(_valid_public_summary(), ensure_ascii=False),
+        locale="zh",
+    )
+    pgmq_db.update_output_status(
+        script["id"],
+        status="completed",
+        progress=100,
+        content="A complete transcript is available for source-grounded reading.",
+        locale="zh",
+    )
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="completed",
+        progress=100,
+    )
+
+    published_task = pgmq_db.get_task(submission.task_id)
+    duplicate = queue.submit_catalog_video(
+        video_url=video_url,
+        user_id=user_id,
+        output_intent={"target_locale": "zh"},
+        publish_on_complete=True,
+    )
+    profile = pgmq_db._execute_query(
+        "select usage_count from public.profiles where id = cast(:id as uuid)",
+        {"id": user_id},
+    )
+
+    assert published_task is not None
+    assert published_task["publication_status"] == "published"
+    assert published_task["published_at"] is not None
+    assert published_task["publication_block_reason"] is None
+    assert published_task["public_keypoint_count"] == 3
+    assert published_task["public_quality_score"] == 100
+    assert published_task["podcast_source_slug"] == source_slug
+    assert duplicate.task_id == submission.task_id
+    assert duplicate.resolution == "reused_completed"
+    assert profile == [{"usage_count": 0}]
+
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="processing",
+        progress=50,
+    )
+    retrying_task = pgmq_db.get_task(submission.task_id)
+    assert retrying_task is not None
+    assert retrying_task["publication_status"] == "processing"
+    assert retrying_task["published_at"] is None
+
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="completed",
+        progress=100,
+    )
+    republished_task = pgmq_db.get_task(submission.task_id)
+    assert republished_task is not None
+    assert republished_task["publication_status"] == "published"
+
+
+def test_catalog_task_with_incomplete_summary_stays_out_of_public_library(
+    pgmq_db: DBClient,
+):
+    queue_name = f"podcast_quality_reject_{uuid4().hex[:12]}"
+    _create_queue(pgmq_db, queue_name)
+    user_id = str(uuid4())
+    pgmq_db._execute_query(
+        "insert into auth.users (id, email) values (cast(:id as uuid), :email)",
+        {"id": user_id, "email": f"{user_id}@example.com"},
+    )
+    submission = PostgresTaskQueue(
+        pgmq_db,
+        catalog_queue_name=queue_name,
+    ).submit_catalog_video(
+        video_url=f"https://www.youtube.com/watch?v={uuid4().hex[:11]}",
+        user_id=user_id,
+        output_intent={"target_locale": "zh"},
+        publish_on_complete=True,
+    )
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="processing",
+        progress=90,
+        video_title="Incomplete summary fixture",
+        thumbnail_url="https://i.ytimg.com/vi/incomplete/maxresdefault.jpg",
+    )
+    outputs = pgmq_db.get_task_outputs(submission.task_id)
+    for output in outputs:
+        pgmq_db.update_output_status(
+            output["id"],
+            status="completed",
+            progress=100,
+            content='{"version":5,"language":"zh","overview":"too short","keypoints":[]}'
+            if output["kind"] == "summary"
+            else "Transcript exists, but the summary contract is incomplete.",
+            locale="zh",
+        )
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="completed",
+        progress=100,
+    )
+
+    task = pgmq_db.get_task(submission.task_id)
+    assert task is not None
+    assert task["publication_status"] == "pending_review"
+    assert task["published_at"] is None
+    assert task["publication_block_reason"] == "summary_contract_invalid"
+
+
+def test_legacy_catalog_submission_cannot_route_to_user_queue(pgmq_db: DBClient):
+    user_queue_name = f"legacy_user_queue_{uuid4().hex[:10]}"
+    _create_queue(pgmq_db, user_queue_name)
+    user_id = str(uuid4())
+    pgmq_db._execute_query(
+        "insert into auth.users (id, email) values (cast(:id as uuid), :email)",
+        {"id": user_id, "email": f"{user_id}@example.com"},
+    )
+
+    rows = pgmq_db._execute_query(
+        """
+        select * from vibedigest_private.submit_video_task(
+          cast(:user_id as uuid),
+          :video_url,
+          null,
+          1,
+          '{}'::jsonb,
+          :legacy_queue_name,
+          true,
+          false
+        )
+        """,
+        {
+            "user_id": user_id,
+            "video_url": f"https://example.com/legacy-catalog/{uuid4()}",
+            "legacy_queue_name": user_queue_name,
+        },
+    )
+
+    assert rows[0]["resolution"] == "created"
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
+    catalog_jobs = PostgresTaskQueue(
+        pgmq_db,
+        queue_name="podcast_supply",
+    ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+    assert len(catalog_jobs) == 1
+    task = pgmq_db.get_task(str(rows[0]["task_id"]))
+    assert task is not None
+    assert task["workload_kind"] == "catalog_supply"
 
 
 def test_retry_task_resets_terminal_state_and_reuses_the_process_message_contract(
@@ -229,6 +529,128 @@ def test_retry_task_resets_terminal_state_and_reuses_the_process_message_contrac
         "task_id": submission.task_id,
     }
     assert retry_job.message_id == retry_message_id
+
+
+def test_catalog_task_retry_returns_to_catalog_queue(pgmq_db: DBClient):
+    user_queue_name = f"video_processing_user_retry_{uuid4().hex[:10]}"
+    catalog_queue_name = f"podcast_supply_retry_{uuid4().hex[:10]}"
+    _create_queue(pgmq_db, user_queue_name)
+    _create_queue(pgmq_db, catalog_queue_name)
+    submitting_queue = PostgresTaskQueue(
+        pgmq_db,
+        queue_name=user_queue_name,
+        catalog_queue_name=catalog_queue_name,
+    )
+    catalog_worker_queue = PostgresTaskQueue(
+        pgmq_db,
+        queue_name=catalog_queue_name,
+    )
+    user_id = str(uuid4())
+    pgmq_db._execute_query(
+        "insert into auth.users (id, email) values (cast(:id as uuid), :email)",
+        {"id": user_id, "email": f"{user_id}@example.com"},
+    )
+
+    submission = submitting_queue.submit_catalog_video(
+        video_url=f"https://example.com/catalog-retry/{uuid4()}",
+        user_id=user_id,
+        publish_on_complete=True,
+    )
+    original_job = catalog_worker_queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+    pgmq_db.update_task_status(
+        submission.task_id,
+        status="error",
+        progress=100,
+        error="temporary failure",
+    )
+    catalog_worker_queue.archive(
+        job_id=original_job.job_id,
+        message_id=original_job.message_id,
+        status="failed",
+    )
+
+    retry_message_id = submitting_queue.submit_retry_task(
+        task_id=submission.task_id,
+        user_id=user_id,
+        guest_id=None,
+    )
+
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
+    retry_job = catalog_worker_queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+    assert retry_job.message_id == retry_message_id
+    assert retry_job.message["task_id"] == submission.task_id
+
+
+def test_catalog_output_retry_returns_to_catalog_queue(pgmq_db: DBClient):
+    user_queue_name = f"video_processing_output_{uuid4().hex[:10]}"
+    catalog_queue_name = f"podcast_supply_output_{uuid4().hex[:10]}"
+    _create_queue(pgmq_db, user_queue_name)
+    _create_queue(pgmq_db, catalog_queue_name)
+    submitting_queue = PostgresTaskQueue(
+        pgmq_db,
+        queue_name=user_queue_name,
+        catalog_queue_name=catalog_queue_name,
+    )
+    catalog_worker_queue = PostgresTaskQueue(
+        pgmq_db,
+        queue_name=catalog_queue_name,
+    )
+    user_id = str(uuid4())
+    pgmq_db._execute_query(
+        "insert into auth.users (id, email) values (cast(:id as uuid), :email)",
+        {"id": user_id, "email": f"{user_id}@example.com"},
+    )
+    submission = submitting_queue.submit_catalog_video(
+        video_url=f"https://example.com/catalog-output/{uuid4()}",
+        user_id=user_id,
+    )
+    process_job = catalog_worker_queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+    catalog_worker_queue.archive(
+        job_id=process_job.job_id,
+        message_id=process_job.message_id,
+        status="failed",
+    )
+    summary = next(
+        output
+        for output in pgmq_db.get_task_outputs(submission.task_id)
+        if output["kind"] == "summary"
+    )
+    pgmq_db.update_output_status(summary["id"], status="error", progress=100)
+
+    retry_message_id = submitting_queue.submit_retry_output(
+        output_id=summary["id"],
+        user_id=user_id,
+        guest_id=None,
+    )
+
+    assert (
+        PostgresTaskQueue(
+            pgmq_db,
+            queue_name=user_queue_name,
+        ).read(visibility_timeout_seconds=30, max_poll_seconds=1)
+        == []
+    )
+    retry_job = catalog_worker_queue.read(
+        visibility_timeout_seconds=30,
+        max_poll_seconds=1,
+    )[0]
+    assert retry_job.message_id == retry_message_id
+    assert retry_job.message["output_id"] == str(summary["id"])
 
 
 def test_default_chat_title_backfill_is_useful_and_idempotent(pgmq_db: DBClient):
@@ -343,9 +765,9 @@ def test_default_chat_title_backfill_is_useful_and_idempotent(pgmq_db: DBClient)
         assert first_run[descriptive_thread_id]["title"] == "请总结这期访谈"
         assert first_run[custom_thread_id]["title"] == "Keep my title"
         assert first_run[empty_thread_id]["title"] == "New Chat"
-        assert {
-            row["updated_at"].isoformat() for row in first_run.values()
-        } == {original_updated_at}
+        assert {row["updated_at"].isoformat() for row in first_run.values()} == {
+            original_updated_at
+        }
 
         with raw_connection.cursor() as cursor:
             cursor.execute(CHAT_TITLE_BACKFILL_MIGRATION.read_text())
@@ -477,9 +899,7 @@ def test_authenticated_basic_quota_resets_atomically_each_calendar_month(
     )
 
     assert submission.resolution == "created"
-    assert profile == [
-        {"usage_count": 1, "usage_limit": 3, "resets_in_future": True}
-    ]
+    assert profile == [{"usage_count": 1, "usage_limit": 3, "resets_in_future": True}]
 
 
 def test_guest_quota_is_safe_under_concurrent_submissions(pgmq_db: DBClient):

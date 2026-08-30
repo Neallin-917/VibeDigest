@@ -1,0 +1,220 @@
+"""Signed application boundary tests, with no database or provider traffic."""
+
+import hashlib
+import hmac
+import json
+import time
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+from uuid import uuid4
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from pg8000.dbapi import DatabaseError
+from sqlalchemy.exc import DBAPIError
+
+from api.routes import agent
+from dependencies import get_db_client
+
+SECRET = "agent-boundary-test-secret-not-a-real-credential"
+
+
+@pytest.fixture
+def setup(monkeypatch):
+    monkeypatch.setenv("AGENT_INTERNAL_SECRET", SECRET)
+    monkeypatch.setenv("AGENT_CONTINUATION_RUNTIME", "api")
+    monkeypatch.setenv(
+        "AGENT_CONTINUATION_URL", "https://frontend.test/api/internal/agent/continue"
+    )
+    monkeypatch.delenv("AGENT_CONTINUATION_QUEUE", raising=False)
+    monkeypatch.delenv("RAILWAY_PROJECT_ID", raising=False)
+    db = MagicMock()
+    service = MagicMock()
+    monkeypatch.setattr(agent, "AgentTurns", lambda _: service)
+    app = FastAPI()
+    app.include_router(agent.router, prefix="/api/internal/agent")
+    app.dependency_overrides[get_db_client] = lambda: db
+    return TestClient(app), db, service
+
+
+def _post(client, path, body, *, age=0, signed_path=None, key=SECRET):
+    data = json.dumps(body)
+    sent_at = str(int(time.time()) - age)
+    signature = hmac.new(
+        key.encode(),
+        f"{sent_at}\nPOST\n{signed_path or path}\n{data}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return client.post(
+        path,
+        content=data,
+        headers={
+            "content-type": "application/json",
+            "x-agent-sent-at": sent_at,
+            "x-agent-signature": signature,
+        },
+    )
+
+
+def _accept():
+    return {
+        "userId": str(uuid4()),
+        "threadId": str(uuid4()),
+        "messageId": "user-test",
+        "parts": [{"type": "text", "text": "Explain this source"}],
+        "title": "Explain source",
+        "runtimeConfig": {
+            "runtime": "api",
+            "provider": "openrouter",
+            "model": "test-model",
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"age": 120}, {"key": "incorrect"}, {"signed_path": "/different"}]
+)
+def test_service_signature_binds_path_time_and_body(setup, kwargs):
+    client, _, service = setup
+    assert (
+        _post(client, "/api/internal/agent/turns", _accept(), **kwargs).status_code
+        == 401
+    )
+    service.accept.assert_not_called()
+
+
+def test_browser_cannot_call_internal_agent_without_signature(setup):
+    client, _, service = setup
+    assert client.post("/api/internal/agent/turns", json=_accept()).status_code == 401
+    service.accept.assert_not_called()
+
+
+def test_missing_secret_fails_closed(setup, monkeypatch):
+    client, _, _ = setup
+    monkeypatch.delenv("AGENT_INTERNAL_SECRET")
+    assert _post(client, "/api/internal/agent/turns", _accept()).status_code == 503
+
+
+def test_missing_callback_cannot_accept_orphaned_work(setup, monkeypatch):
+    client, _, service = setup
+    monkeypatch.delenv("AGENT_CONTINUATION_URL")
+    assert _post(client, "/api/internal/agent/turns", _accept()).status_code == 503
+    service.accept.assert_not_called()
+
+
+def test_accept_binds_server_identity_and_validated_input(setup):
+    client, _, service = setup
+    service.accept.return_value = {"id": str(uuid4()), "status": "running"}
+    payload = _accept()
+    assert _post(client, "/api/internal/agent/turns", payload).status_code == 200
+    assert service.accept.call_args.kwargs["user_id"] == payload["userId"]
+    assert service.accept.call_args.kwargs["parts"] == payload["parts"]
+    assert service.accept.call_args.kwargs["continuation_queue"] == "agent_answers"
+
+
+def test_local_runtime_requires_developer_queue_and_never_railway(setup, monkeypatch):
+    client, _, service = setup
+    payload = _accept()
+    payload["runtimeConfig"].update(runtime="codex_local", provider="codex_local")
+    assert _post(client, "/api/internal/agent/turns", payload).status_code == 503
+    monkeypatch.setenv("AGENT_CONTINUATION_RUNTIME", "codex_local")
+    assert _post(client, "/api/internal/agent/turns", payload).status_code == 503
+    monkeypatch.setenv("AGENT_CONTINUATION_QUEUE", "agent_answers_local_fixture")
+    monkeypatch.setenv("RAILWAY_PROJECT_ID", "test-project")
+    assert _post(client, "/api/internal/agent/turns", payload).status_code == 503
+    service.accept.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        [{"type": "tool-read_source", "output": {"transcript": "PRIVATE"}}],
+        [
+            {
+                "type": "data-task-status",
+                "data": {"taskId": "x", "transcript": "PRIVATE"},
+            }
+        ],
+        [{"type": "text", "text": "answer", "raw": "PRIVATE"}],
+    ],
+)
+def test_finish_rejects_raw_tool_parts_and_unexpected_fields(setup, parts):
+    client, _, service = setup
+    path = f"/api/internal/agent/turns/{uuid4()}/finish"
+    response = _post(
+        client, path, {"userId": str(uuid4()), "token": str(uuid4()), "parts": parts}
+    )
+    assert response.status_code == 400
+    service.finish.assert_not_called()
+
+
+def test_finish_metadata_allowlist_discards_internal_credentials(setup):
+    client, _, service = setup
+    service.finish.return_value = True
+    response = _post(
+        client,
+        f"/api/internal/agent/turns/{uuid4()}/finish",
+        {
+            "userId": str(uuid4()),
+            "token": str(uuid4()),
+            "parts": [{"type": "text", "text": "Answer"}],
+            "metadata": {"model": "test-model", "secret": "PRIVATE"},
+        },
+    )
+    assert response.json() == {"saved": True}
+    assert service.finish.call_args.kwargs["metadata"] == {"model": "test-model"}
+
+
+def test_internal_source_read_checks_turn_and_task_ownership(setup):
+    client, db, service = setup
+    user, token, task = str(uuid4()), str(uuid4()), str(uuid4())
+    service.get.return_value = {
+        "user_id": user,
+        "execution_token": token,
+        "status": "running",
+    }
+    db.get_task.return_value = {"user_id": str(uuid4()), "is_demo": False}
+    path = f"/api/internal/agent/turns/{uuid4()}/read"
+    assert (
+        _post(
+            client, path, {"userId": user, "token": token, "taskId": task}
+        ).status_code
+        == 404
+    )
+    assert (
+        _post(
+            client, path, {"userId": str(uuid4()), "token": token, "taskId": task}
+        ).status_code
+        == 403
+    )
+    db._execute_query.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "code,status", [("42501", 403), ("22023", 409), ("55P03", 409), ("XX000", 503)]
+)
+@pytest.mark.parametrize("driver", ["pg8000", "psycopg2", "psycopg"])
+def test_database_failures_never_leak_sql_or_secrets(setup, code, status, driver):
+    client, _, service = setup
+    error = (
+        DatabaseError({"C": code, "M": "PRIVATE database detail"})
+        if driver == "pg8000"
+        else SimpleNamespace(**{"pgcode" if driver == "psycopg2" else "sqlstate": code})
+    )
+    service.accept.side_effect = DBAPIError("PRIVATE SQL", {}, error)
+    response = _post(client, "/api/internal/agent/turns", _accept())
+    assert response.status_code == status
+    assert "PRIVATE" not in response.text
+
+
+@pytest.mark.parametrize(
+    "error",
+    [DatabaseError(), DatabaseError("PRIVATE"), DatabaseError({"M": "PRIVATE"})],
+)
+def test_unrecognized_database_errors_stay_generic(setup, error):
+    client, _, service = setup
+    service.accept.side_effect = DBAPIError("PRIVATE SQL", {}, error)
+    response = _post(client, "/api/internal/agent/turns", _accept())
+    assert response.status_code == 503
+    assert "PRIVATE" not in response.text

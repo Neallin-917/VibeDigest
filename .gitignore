@@ -97,6 +97,7 @@ out/
 .claude_settings.json
 .worktrees/
 .security-key
+.agent-service-key
 logs/security/
 
 # AI / Agent workspace artifacts
@@ -104,6 +105,8 @@ logs/security/
 !/.codex/config.toml
 !/.codex/agents/
 !/.codex/agents/*.toml
+/.playwright-cli/
+/output/
 /.opencode/
 /.shared/
 /.reports/
@@ -119,7 +122,7 @@ backend/.langgraph_api/
 backend/logs/
 backend/downloads/
 backend/temp/
-frontend/.next-test/
+frontend/.next-*/
 frontend/playwright-report/
 frontend/test-results/
 # next-agents-md

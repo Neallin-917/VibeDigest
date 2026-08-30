@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-> Last verified: 2026-07-30
+> Last verified: 2026-08-25
 > Scope: current Cloud UI implementation, not historical performance analysis
 
 ## Product boundary
@@ -56,6 +56,7 @@ src/app/
 └── api/
     ├── process-video/                # authenticated FastAPI proxy
     ├── chat/                         # streamed AI chat and tools
+    ├── tasks/[id]/transcript/        # retired public endpoint; returns 404
     ├── threads/                      # thread persistence
     ├── image-proxy/                  # constrained media proxy
     └── health/backend-origin/        # deployment diagnostic
@@ -66,7 +67,8 @@ src/app/
 | Area | Owner | Notes |
 | --- | --- | --- |
 | Chat workspace | `src/components/chat/` | Conversation UI and task data parts |
-| Task presentation | `src/components/tasks/` | Video/audio/transcript rendering and Realtime listener |
+| Task presentation | `src/components/tasks/` | Source overview, insights, player and source-scoped follow-up; no public transcript surface |
+| Public podcast library | `src/components/templates/ServerCommunityTemplates.tsx` + `CommunityTemplates.tsx` | Server-filtered 18-item pages, source aggregation, projected card data, responsive editorial/compact layout |
 | Inline knowledge blocks | `src/components/chat/KnowledgeUiBlocks.tsx` | Whitelisted table, chart, and steps renderers for validated V5 summary data |
 | App shell | `src/components/layout/` | Navigation, sidebar, feedback |
 | Shared primitives | `src/components/ui/` | Check here before creating a component; use CVA for variants |
@@ -76,10 +78,17 @@ src/app/
 | Live task events | `src/lib/task-live.ts` | Supabase Realtime only |
 | Supabase clients | `src/lib/supabase*.ts` | Browser/public and server credential boundaries |
 | Durable chat schema | `src/lib/chat-message-boundary.ts` | Validate request, replay, and persistence boundaries |
+| Follow-up context budget | `src/app/api/chat/context-budget.ts` | Keep recent complete UI messages within message and character limits |
+| Task Agent | `src/lib/agent/` | Shared intent/tools/runner, signed backend client, source index and citations |
+| Chat updates | `src/components/chat/useChatRealtime.ts` | INSERT/UPDATE subscription, reconnect snapshot, buffered merge during streaming; no HTTP polling |
 | Locale content | `src/lib/i18n.ts` | `en`, `zh`, and `ja` |
 
 Transient loading UI must not be persisted as an empty assistant message. Chat
 messages cross the single `chat-message-boundary.ts` validation boundary.
+The Agent chooses when to read a locale-matched summary, search or read source
+evidence. Source content is untrusted. A public projection strips all native tool
+results from streaming/persistence. Continuations use the same runner and tool
+definitions, but no action tools. Durable metadata drives answer retry/cancel UI.
 
 ## Rendering rules
 
@@ -90,6 +99,10 @@ messages cross the single `chat-message-boundary.ts` validation boundary.
 - Keep task loading calm and explicit; avoid decorative skeletons, shimmer, and
   redundant progress surfaces.
 - Keep browser-visible errors sanitized through `safe-error.ts`.
+- Keep public-library filtering in URL state and Server Components. Load more on
+  the same route; do not send every card's complete summary payload to the client.
+- Fetch only summary outputs for the first task-detail render. Public task
+  details never fetch/render transcripts; evidence reaches the Agent privately.
 - Treat model-selected UI as data, not markup: `summary-contract.ts` validates
   `ui_blocks` again in the browser and `KnowledgeUiBlocks.tsx` renders only the
   approved table, bar-chart, and steps shapes. Malformed blocks disappear while

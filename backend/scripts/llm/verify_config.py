@@ -10,6 +10,7 @@ load_env()
 
 from config import settings  # noqa: E402
 from utils.openai_client import create_chat_model  # noqa: E402
+from utils.provider_diagnostics import provider_failure_message  # noqa: E402
 
 def verify_config():
     print("\n=== 1. Checking Configuration Loading ===")
@@ -36,8 +37,8 @@ def verify_factory_logic():
         model_smart = create_chat_model(smart_name)
         actual_temp = getattr(model_smart, 'temperature', 'N/A')
         print(f"  [SUCCESS] Created Smart Client. Instance Temp: {actual_temp}")
-    except Exception as e:
-        print(f"  [FAIL] Could not create Smart Client: {e}")
+    except Exception as error:
+        print(f"  [FAIL] Could not create Smart Client: {provider_failure_message(error)}")
 
     # Test Fast Model Creation
     fast_name = settings.MODEL_FAST
@@ -48,8 +49,8 @@ def verify_factory_logic():
         model_fast = create_chat_model(fast_name)
         actual_temp = getattr(model_fast, 'temperature', 'N/A')
         print(f"  [SUCCESS] Created Fast Client.  Instance Temp: {actual_temp}")
-    except Exception as e:
-        print(f"  [FAIL] Could not create Fast Client: {e}")
+    except Exception as error:
+        print(f"  [FAIL] Could not create Fast Client: {provider_failure_message(error)}")
 
 async def verify_connection():
     print("\n=== 3. Real-World Connection Test (Dry Run) ===")
@@ -65,8 +66,8 @@ async def verify_connection():
         response = await model.ainvoke("Hello, are you operational?")
         print(f"  [SUCCESS] Response: {response.content[:50]}...")
         return True
-    except Exception as e:
-        print(f"  [FAIL] Connection failed: {e}")
+    except Exception as error:
+        print(f"  [FAIL] Connection failed: {provider_failure_message(error)}")
         return False
 
 

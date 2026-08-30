@@ -23,6 +23,13 @@ describe('llm-model-registry', () => {
         });
     });
 
+    it('returns explicit defaults for the local Codex runtime', () => {
+        expect(getProviderModelDefaults('codex_local')).toEqual({
+            smart: 'gpt-5.6-luna',
+            fast: 'gpt-5.6-luna',
+        });
+    });
+
     it('prefers environment overrides when provided', () => {
         expect(
             resolveProviderModel('custom', 'fast', {
@@ -45,7 +52,7 @@ describe('llm-model-registry', () => {
 
     it('throws for unsupported providers', () => {
         expect(() => getProviderModelDefaults('anthropic')).toThrow(
-            "Unsupported provider: 'anthropic'. Expected one of: openai, openrouter, custom."
+            "Unsupported provider: 'anthropic'. Expected one of: openai, openrouter, custom, codex_local."
         );
     });
 });

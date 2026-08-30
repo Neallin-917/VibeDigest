@@ -9,7 +9,7 @@ from dependencies import (
 from fastapi import APIRouter, Body, Depends, Form, Header, HTTPException
 from services.output_intent import build_output_intent
 from services.task_queue import GuestQuotaExceededError, QuotaExceededError, TaskQueue
-from utils.url import normalize_video_url
+from utils.url import is_supported_content_url, normalize_video_url
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -27,6 +27,8 @@ def process_video(
     queue: TaskQueue = Depends(get_task_queue),
 ):
     """Create and durably enqueue a video-processing task."""
+    if not is_supported_content_url(video_url):
+        raise HTTPException(status_code=400, detail="Invalid video URL")
     video_url = normalize_video_url(video_url)
     if not video_url:
         raise HTTPException(status_code=400, detail="Invalid video URL")
@@ -195,8 +197,7 @@ def get_task_status(
         else str(task.get("user_id")) == user_id
     )
     is_public = (
-        task.get("is_demo") is True
-        and task.get("publication_status") == "published"
+        task.get("is_demo") is True and task.get("publication_status") == "published"
     )
     if not is_owner and not is_public:
         raise HTTPException(status_code=403, detail="Unauthorized")

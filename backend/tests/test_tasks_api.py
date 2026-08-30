@@ -7,7 +7,11 @@ from dependencies import (
 from fastapi import HTTPException as FastAPIHTTPException
 from httpx import ASGITransport, AsyncClient
 from main import app
-from services.task_queue import GuestQuotaExceededError, QuotaExceededError, TaskSubmission
+from services.task_queue import (
+    GuestQuotaExceededError,
+    QuotaExceededError,
+    TaskSubmission,
+)
 
 
 @pytest.mark.asyncio
@@ -33,6 +37,31 @@ async def test_process_video_success(api_client, mock_task_queue):
             "preserve_source_terms": False,
         },
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "video_url",
+    [
+        "https://youtube.com",
+        "https://podcasts.apple.com",
+        "https://example.com/video/123",
+        "https://notyoutube.com/watch?v=spoofed",
+    ],
+)
+async def test_process_video_rejects_urls_without_supported_content(
+    api_client,
+    mock_task_queue,
+    video_url,
+):
+    response = await api_client.post(
+        "/api/process-video",
+        data={"video_url": video_url},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid video URL"}
+    mock_task_queue.submit_process_video.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -88,14 +117,13 @@ async def test_process_video_preserves_explicit_output_language_intent(
         "preserve_source_terms": False,
     }
 
+
 @pytest.mark.asyncio
 async def test_process_video_returns_503_when_queue_is_unavailable(
     api_client,
     mock_task_queue,
 ):
-    mock_task_queue.submit_process_video.side_effect = RuntimeError(
-        "pgmq unavailable"
-    )
+    mock_task_queue.submit_process_video.side_effect = RuntimeError("pgmq unavailable")
 
     response = await api_client.post(
         "/api/process-video",
@@ -258,9 +286,7 @@ async def test_retry_output_returns_503_when_queue_is_unavailable(
         "user_id": "test_user_id",
         "guest_id": None,
     }
-    mock_task_queue.submit_retry_output.side_effect = RuntimeError(
-        "pgmq unavailable"
-    )
+    mock_task_queue.submit_retry_output.side_effect = RuntimeError("pgmq unavailable")
 
     response = await api_client.post(
         "/api/retry-output",
@@ -500,17 +526,17 @@ async def test_authenticated_user_can_create_task(
         assert response.status_code == 200
         mock_task_queue.submit_process_video.assert_called_once_with(
             video_url="https://youtube.com/watch?v=123",
-        user_id="auth-user-id",
-        guest_id=None,
-        output_intent={
-            "version": 1,
-            "request_text": "https://youtube.com/watch?v=123",
-            "target_locale": None,
-            "locale_source": "source_language",
-            "depth": "standard",
-            "audience": None,
-            "preserve_source_terms": False,
-        },
-    )
+            user_id="auth-user-id",
+            guest_id=None,
+            output_intent={
+                "version": 1,
+                "request_text": "https://youtube.com/watch?v=123",
+                "target_locale": None,
+                "locale_source": "source_language",
+                "depth": "standard",
+                "audience": None,
+                "preserve_source_terms": False,
+            },
+        )
     finally:
         app.dependency_overrides = saved

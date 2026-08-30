@@ -16,6 +16,7 @@ from sqlalchemy.exc import DBAPIError
 
 from api.routes import agent
 from dependencies import get_db_client
+from services.agent_turns import AgentTurns
 
 SECRET = "agent-boundary-test-secret-not-a-real-credential"
 
@@ -88,6 +89,77 @@ def test_browser_cannot_call_internal_agent_without_signature(setup):
     client, _, service = setup
     assert client.post("/api/internal/agent/turns", json=_accept()).status_code == 401
     service.accept.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "video_url",
+    [
+        "https://youtube.com",
+        "https://podcasts.apple.com",
+        "https://notyoutube.com/watch?v=spoofed",
+    ],
+)
+def test_agent_submit_rejects_urls_without_supported_content(video_url):
+    db = MagicMock()
+
+    with pytest.raises(ValueError, match="Invalid video URL"):
+        AgentTurns(db).submit_video(
+            turn_id=str(uuid4()),
+            user_id=str(uuid4()),
+            token=str(uuid4()),
+            video_url=video_url,
+            locale="en",
+        )
+
+    db._execute_query.assert_not_called()
+
+
+def test_agent_accept_allowlists_only_supported_content_urls():
+    db = MagicMock()
+    db._execute_query.side_effect = [
+        [],
+        [{"result": {"id": str(uuid4()), "status": "running"}}],
+    ]
+
+    AgentTurns(db).accept(
+        user_id=str(uuid4()),
+        thread_id=str(uuid4()),
+        message_id="message-1",
+        parts=[
+            {
+                "type": "text",
+                "text": (
+                    "Compare https://youtube.com, https://example.com/video, "
+                    "and process https://youtu.be/content-id."
+                ),
+            }
+        ],
+        title="Compare sources",
+        task_id=None,
+        runtime_config={"runtime": "api", "locale": "en"},
+        continuation_queue="agent_answers",
+    )
+
+    command_arguments = db._execute_query.call_args_list[1].args[1]
+    assert command_arguments["allowed_video_urls"] == [
+        "https://youtube.com/watch?v=content-id"
+    ]
+
+
+def test_agent_submit_normalizes_supported_content_before_database_command():
+    db = MagicMock()
+    db._execute_query.return_value = [{"result": {"taskId": str(uuid4())}}]
+
+    AgentTurns(db).submit_video(
+        turn_id=str(uuid4()),
+        user_id=str(uuid4()),
+        token=str(uuid4()),
+        video_url="https://youtu.be/content-id?t=42",
+        locale="en",
+    )
+
+    command_arguments = db._execute_query.call_args.args[1]
+    assert command_arguments["video_url"] == "https://youtube.com/watch?v=content-id"
 
 
 def test_missing_secret_fails_closed(setup, monkeypatch):

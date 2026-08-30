@@ -164,7 +164,7 @@ describe("HeroSection", () => {
 
         let accepted: void | boolean | undefined
         await act(async () => {
-            accepted = await mocks.submit?.("https://example.com/video")
+            accepted = await mocks.submit?.("https://youtube.com")
         })
 
         expect(accepted).toBe(false)

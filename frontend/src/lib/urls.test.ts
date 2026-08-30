@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isSupportedUrl } from './urls'
+import { getSupportedUrlDetails, isSupportedUrl } from './urls'
 
 describe('isSupportedUrl', () => {
     it('should return true for valid YouTube URLs', () => {
@@ -30,5 +30,23 @@ describe('isSupportedUrl', () => {
         expect(isSupportedUrl('hello world')).toBe(false)
         expect(isSupportedUrl('   ')).toBe(false)
         expect(isSupportedUrl('')).toBe(false)
+    })
+
+    it('retains the complete original URL while identifying its source', () => {
+        const originalUrl = 'https://www.youtube.com/watch?v=test123&list=playlist#t=42'
+
+        expect(getSupportedUrlDetails(originalUrl)).toEqual({
+            originalUrl,
+            href: originalUrl,
+            sourceName: 'YouTube',
+        })
+    })
+
+    it('adds a safe protocol only to the rendered link', () => {
+        expect(getSupportedUrlDetails('bilibili.com/video/BV1test')).toEqual({
+            originalUrl: 'bilibili.com/video/BV1test',
+            href: 'https://bilibili.com/video/BV1test',
+            sourceName: 'Bilibili',
+        })
     })
 })

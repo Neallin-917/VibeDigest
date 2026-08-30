@@ -22,6 +22,10 @@ test.describe("Public task detail", () => {
         await expect(page.getByRole("heading", { name: "来源" })).toBeVisible()
         await expect(page.getByText("完整整理", { exact: true })).toBeVisible()
         await expect(page.getByRole("heading", { name: "基于本期内容继续追问" })).toBeVisible()
+        const followUpAnchor = page.locator('[data-slot="follow-up-discovery-anchor"]')
+        await expect(followUpAnchor).toBeVisible()
+        await expect(followUpAnchor).toHaveAttribute('href', '#task-follow-up')
+        await expect(followUpAnchor).toContainText('哪些证据支持这个结论？')
         await expect(page.getByText("逐字稿", { exact: true })).toHaveCount(0)
         await expect(page.getByRole("link", { name: /打开原视频/ })).toHaveCount(1)
 
@@ -32,6 +36,7 @@ test.describe("Public task detail", () => {
             }
 
             return {
+                discovery: top('[data-slot="follow-up-discovery-anchor"]'),
                 summary: top("#task-summary-title"),
                 keyIdeas: top("#task-key-ideas-title"),
                 source: top("#task-source-title"),
@@ -40,6 +45,7 @@ test.describe("Public task detail", () => {
             }
         })
 
+        expect(readingOrder.discovery!).toBeLessThan(readingOrder.summary!)
         expect(readingOrder.summary!).toBeLessThan(readingOrder.keyIdeas!)
         expect(readingOrder.keyIdeas!).toBeLessThan(readingOrder.source!)
         expect(readingOrder.source!).toBeLessThan(readingOrder.fullDigest!)
@@ -60,6 +66,24 @@ test.describe("Public task detail", () => {
         expect(transcriptResponse.status()).toBe(404)
         await expect(transcriptResponse.json()).resolves.toEqual({ error: "Not found" })
         expect(pageErrors.filter((message) => message.includes("Hydration failed"))).toEqual([])
+    })
+
+    test("uses a native follow-up anchor and removes transition motion when requested", async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        await page.goto(TASK_PATH)
+
+        const followUpAnchor = page.locator('[data-slot="follow-up-discovery-anchor"]')
+        const transitionDurationsMs = await followUpAnchor.evaluate(element =>
+            getComputedStyle(element).transitionDuration.split(',').map(value => {
+                const duration = Number.parseFloat(value)
+                return value.trim().endsWith('ms') ? duration : duration * 1000
+            })
+        )
+        expect(Math.max(...transitionDurationsMs)).toBeLessThanOrEqual(0.01)
+
+        await followUpAnchor.click()
+        await expect(page).toHaveURL(/#task-follow-up$/)
+        await expect(page.getByRole("region", { name: "基于本期内容继续追问" })).toBeVisible()
     })
 
     test("keeps a readable two-column hierarchy on desktop", async ({ page }) => {

@@ -21,6 +21,11 @@ test.describe('Landing Page Acquisition Flow', () => {
     test('submitting URL on landing page redirects to login (if unauthenticated)', async ({ page, context }) => {
         // Ensure no cookies exist to force unauthenticated state
         await context.clearCookies();
+        await page.setViewportSize({ width: 390, height: 844 })
+        const chatRequests: string[] = []
+        page.on('request', request => {
+            if (request.url().includes('/api/chat')) chatRequests.push(request.url())
+        })
         
         await page.goto('/en')
 
@@ -29,7 +34,8 @@ test.describe('Landing Page Acquisition Flow', () => {
         await expect(urlInput).toBeVisible()
 
         // Type a valid URL
-        await urlInput.fill('https://youtube.com/watch?v=testVideo123')
+        const originalUrl = 'https://youtube.com/watch?v=testVideo123&list=playlist#t=42'
+        await urlInput.fill(originalUrl)
 
         // Click generate button
         const generateBtn = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).filter({ visible: true }).first()
@@ -40,6 +46,22 @@ test.describe('Landing Page Acquisition Flow', () => {
         await expect(page).toHaveURL(/\/login/)
         await expect(page.getByText('Your link is saved')).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Continue your digest' })).toBeVisible()
+        const handoff = page.getByRole('region', { name: 'Saved source and next steps' })
+        await expect(handoff).toContainText('Recognized source')
+        await expect(handoff).toContainText('YouTube')
+        await expect(handoff).toContainText('A summary, key ideas, supporting evidence, and source-grounded follow-up.')
+        await expect(handoff).toContainText('The Agent will continue with this exact link inside your account.')
+        await expect(handoff.getByRole('link', { name: originalUrl })).toHaveAttribute('href', originalUrl)
+
+        const retainedMessage = await page.evaluate(() => localStorage.getItem('vibedigest_pending_message'))
+        expect(retainedMessage).toBe(originalUrl)
+        expect(chatRequests).toEqual([])
+
+        const widthAudit = await page.evaluate(() => ({
+            viewport: window.innerWidth,
+            document: document.documentElement.scrollWidth,
+        }))
+        expect(widthAudit.document).toBe(widthAudit.viewport)
     })
 
     test('should disable button for empty URL', async ({ page }) => {

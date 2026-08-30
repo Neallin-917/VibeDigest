@@ -5,7 +5,7 @@ import { LoginForm } from "@/components/auth/LoginForm"
 
 export default function LoginPage() {
     return (
-        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+        <div className="relative flex min-h-[100dvh] items-start justify-center overflow-x-hidden bg-background p-4 sm:items-center">
             <div className="pointer-events-none absolute inset-0 bg-grid opacity-20" />
             <div className="pointer-events-none absolute left-1/2 top-1/2 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/10 blur-[120px] dark:bg-emerald-400/[0.06]" />
 

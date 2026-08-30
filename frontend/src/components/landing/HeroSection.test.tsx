@@ -114,10 +114,13 @@ describe("HeroSection", () => {
     it("preserves the chat destination for a guest submission", async () => {
         render(<HeroSection />)
 
+        const originalUrl = "https://www.youtube.com/watch?v=test123&list=playlist#t=42"
+
         await act(async () => {
-            await mocks.submit?.("https://www.youtube.com/watch?v=test123")
+            await mocks.submit?.(originalUrl)
         })
 
+        expect(localStorage.getItem("vibedigest_pending_message")).toBe(originalUrl)
         expect(mocks.push).toHaveBeenCalledWith(
             "/en/login?next=%2Fen%2Fchat",
         )

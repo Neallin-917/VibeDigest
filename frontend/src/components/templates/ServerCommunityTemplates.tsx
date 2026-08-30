@@ -27,6 +27,7 @@ const PODCAST_TOPICS = new Set<PodcastTopic>([
 const PAGE_SIZE = 18
 const MAX_PAGE = 20
 const DEFAULT_PREVIEW_LIMIT = 4
+const PUBLIC_LANGUAGE_FIELD = "public_quality_flags->>language"
 
 const toPodcastSource = (value: unknown): PodcastSource | undefined => {
   if (!isRecord(value)) return undefined
@@ -135,6 +136,25 @@ function sortSources(items: SourceShelfItem[]) {
   )
 }
 
+function mergeLocalePreferredTasks(
+  preferredRows: Array<Record<string, unknown>>,
+  fallbackRows: Array<Record<string, unknown>>,
+  limit: number,
+) {
+  const merged: Task[] = []
+  const seen = new Set<string>()
+
+  for (const row of [...preferredRows, ...fallbackRows]) {
+    const task = toTask(row)
+    if (!task || seen.has(task.id)) continue
+    seen.add(task.id)
+    merged.push(task)
+    if (merged.length >= limit) break
+  }
+
+  return merged
+}
+
 async function fetchSourceShelf(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<SourceShelfItem[]> {
@@ -238,9 +258,10 @@ export async function ServerCommunityTemplates({
 
   const supabase = await createClient()
 
-  const createTasksQuery = (queryLimit: number) => supabase
-    .from("tasks")
-    .select(`
+  const createTasksQuery = (queryLimit: number, preferredLocale?: Locale) => {
+    let query = supabase
+      .from("tasks")
+      .select(`
       id,
       video_url,
       video_title,
@@ -267,19 +288,33 @@ export async function ServerCommunityTemplates({
         )
       )
     `)
-    .eq("is_demo", true)
-    .eq("status", "completed")
-    .eq("publication_status", "published")
-    .order("library_source_published_at", { ascending: false, nullsFirst: false })
-    .order("public_quality_score", { ascending: false, nullsFirst: false })
-    .order("published_at", { ascending: false })
-    .limit(queryLimit)
+      .eq("is_demo", true)
+      .eq("status", "completed")
+      .eq("publication_status", "published")
+      .order("library_source_published_at", { ascending: false, nullsFirst: false })
+      .order("public_quality_score", { ascending: false, nullsFirst: false })
+      .order("published_at", { ascending: false })
+      .limit(queryLimit)
+
+    if (preferredLocale) query = query.eq(PUBLIC_LANGUAGE_FIELD, preferredLocale)
+    return query
+  }
 
   if (layout === "landingPreview") {
-    const { data, error } = await createTasksQuery(previewLimit)
-    const initialTasks = (data || [])
-      .map((task) => toTask(task))
-      .filter((task): task is Task => Boolean(task))
+    const [{ data: preferredData, error: preferredError }, { data, error }] = await Promise.all([
+      createTasksQuery(previewLimit, locale),
+      createTasksQuery(previewLimit),
+    ])
+
+    if (preferredError) {
+      console.error("Failed to fetch locale-prioritized public demo tasks", {
+        locale,
+        code: preferredError.code,
+        message: preferredError.message,
+      })
+    }
+
+    const initialTasks = mergeLocalePreferredTasks(preferredData || [], data || [], previewLimit)
 
     return (
       <CommunityTemplates
@@ -311,24 +346,34 @@ export async function ServerCommunityTemplates({
   tasksQuery = applySearchLike(tasksQuery, normalizedQuery)
   if (activeSource !== "all") tasksQuery = tasksQuery.eq("podcast_source_slug", activeSource)
 
-  const [sourceItems, { count: totalCount, error: totalError }, { data, error }] = await Promise.all([
+  let preferredTasksQuery = createTasksQuery(pageLimit, locale)
+  preferredTasksQuery = applySearchLike(preferredTasksQuery, normalizedQuery)
+  if (activeSource !== "all") preferredTasksQuery = preferredTasksQuery.eq("podcast_source_slug", activeSource)
+
+  const [
+    sourceItems,
+    { count: totalCount, error: totalError },
+    { data, error },
+    { data: preferredData, error: preferredError },
+  ] = await Promise.all([
     fetchSourceShelf(supabase),
     totalQuery,
     tasksQuery,
+    preferredTasksQuery,
   ])
 
-  if (error || totalError) {
+  if (error || totalError || preferredError) {
     console.error("Failed to fetch public demo tasks", {
       tasksCode: error?.code,
       tasksMessage: error?.message,
       countCode: totalError?.code,
       countMessage: totalError?.message,
+      preferredTasksCode: preferredError?.code,
+      preferredTasksMessage: preferredError?.message,
     })
   }
 
-  const initialTasks = (data || [])
-    .map((task) => toTask(task))
-    .filter((task): task is Task => Boolean(task))
+  const initialTasks = mergeLocalePreferredTasks(preferredData || [], data || [], pageLimit)
   const readyCount = totalCount ?? initialTasks.length
 
   return (

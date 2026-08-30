@@ -8,7 +8,7 @@ from typing import Any
 
 from db_client import DBClient
 from services.output_intent import build_output_intent
-from utils.url import normalize_video_url
+from utils.url import is_supported_content_url, normalize_video_url
 
 
 class AgentTurns:
@@ -63,7 +63,10 @@ class AgentTurns:
                 for raw in re.findall(
                     r"https?://[^\s<>\"\u201c\u201d]+", str(part.get("text", ""))
                 ):
-                    normalized = normalize_video_url(raw.rstrip(".,;!?，。；！？)]}"))
+                    raw = raw.rstrip(".,;!?，。；！？)]}")
+                    if not is_supported_content_url(raw):
+                        continue
+                    normalized = normalize_video_url(raw)
                     if normalized:
                         urls.add(normalized)
         return self._call(
@@ -99,6 +102,8 @@ class AgentTurns:
         locale: str,
         queue_name: str = "video_processing",
     ) -> dict[str, Any]:
+        if not is_supported_content_url(video_url):
+            raise ValueError("Invalid video URL")
         normalized = normalize_video_url(video_url)
         if not normalized:
             raise ValueError("Invalid video URL")

@@ -1,7 +1,41 @@
 """Tests for URL utility functions."""
 
 import pytest
-from utils.url import normalize_video_url
+from utils.url import is_supported_content_url, normalize_video_url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://youtube.com/watch?v=dQw4w9WgXcQ",
+        "https://youtu.be/dQw4w9WgXcQ",
+        "https://youtube.com/shorts/dQw4w9WgXcQ",
+        "https://youtube.com/live/dQw4w9WgXcQ",
+        "https://podcasts.apple.com/us/podcast/show/id123456?i=1000123",
+        "https://bilibili.com/video/BV1xx411c7XW",
+        "https://xiaoyuzhoufm.com/episode/12345",
+    ],
+)
+def test_supported_content_url_requires_a_known_source_and_identifier(url):
+    assert is_supported_content_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://youtube.com",
+        "https://youtu.be",
+        "https://youtube.com/@channel",
+        "https://youtube.com/playlist?list=PL123",
+        "https://podcasts.apple.com",
+        "https://bilibili.com",
+        "https://xiaoyuzhoufm.com/podcast/123",
+        "https://example.com/video/123",
+        "https://notyoutube.com/watch?v=spoofed",
+    ],
+)
+def test_supported_content_url_rejects_sites_without_supported_content(url):
+    assert not is_supported_content_url(url)
 
 
 class TestNormalizeVideoUrl:

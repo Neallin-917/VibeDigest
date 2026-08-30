@@ -9,6 +9,28 @@ const SUPPORTED_SOURCES = [
 export const SUPPORTED_DOMAINS = SUPPORTED_SOURCES.map(source => source.domain)
 export type SupportedSource = (typeof SUPPORTED_SOURCES)[number]['source']
 
+function hasContentIdentifier(url: URL, source: SupportedSource): boolean {
+    const pathSegments = url.pathname.split('/').filter(Boolean)
+
+    switch (source) {
+        case 'youtube': {
+            const hostname = url.hostname.toLowerCase().replace(/^www\./, '')
+            if (hostname === 'youtu.be') return Boolean(pathSegments[0])
+            if (url.pathname.replace(/\/$/, '') === '/watch') {
+                return Boolean(url.searchParams.get('v')?.trim())
+            }
+            return ['shorts', 'live', 'embed'].includes(pathSegments[0] ?? '')
+                && Boolean(pathSegments[1])
+        }
+        case 'apple_podcasts':
+            return pathSegments.some(segment => /^id\d+$/i.test(segment))
+        case 'bilibili':
+            return /^\/video\/(?:BV[0-9A-Za-z]+|av\d+)(?:\/|$)/i.test(url.pathname)
+        case 'xiaoyuzhou':
+            return pathSegments[0] === 'episode' && Boolean(pathSegments[1])
+    }
+}
+
 export type SupportedUrlDetails = {
     /** The complete visitor input, trimmed only at its outer boundary. */
     originalUrl: string
@@ -31,7 +53,7 @@ export function getSupportedUrlDetails(input: string): SupportedUrlDetails | nul
         const source = SUPPORTED_SOURCES.find(candidate =>
             hostname === candidate.domain || hostname.endsWith(`.${candidate.domain}`)
         )
-        if (!source) return null
+        if (!source || !hasContentIdentifier(parsed, source.source)) return null
 
         return {
             originalUrl,

@@ -1,4 +1,54 @@
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+import re
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+
+def _host_matches(host: str, domain: str) -> bool:
+    return host == domain or host.endswith(f".{domain}")
+
+
+def is_supported_content_url(url: str | None) -> bool:
+    """Return whether a URL identifies one supported video or podcast source."""
+    if not url or not url.strip():
+        return False
+
+    candidate = url.strip()
+    if not candidate.startswith(("http://", "https://")):
+        candidate = "https://" + candidate
+
+    try:
+        parsed = urlparse(candidate)
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return False
+
+        host = (parsed.hostname or "").lower().rstrip(".")
+        path = parsed.path
+        segments = [segment for segment in path.split("/") if segment]
+
+        if _host_matches(host, "youtu.be"):
+            return bool(segments)
+        if _host_matches(host, "youtube.com"):
+            if path.rstrip("/") == "/watch":
+                return bool((parse_qs(parsed.query).get("v") or [""])[0].strip())
+            return (
+                len(segments) >= 2
+                and segments[0] in {"shorts", "live", "embed"}
+                and bool(segments[1])
+            )
+        if _host_matches(host, "podcasts.apple.com"):
+            return any(
+                re.fullmatch(r"id\d+", segment, re.IGNORECASE) for segment in segments
+            )
+        if _host_matches(host, "bilibili.com"):
+            return bool(
+                re.match(
+                    r"^/video/(?:BV[0-9A-Za-z]+|av\d+)(?:/|$)", path, re.IGNORECASE
+                )
+            )
+        if _host_matches(host, "xiaoyuzhoufm.com"):
+            return len(segments) >= 2 and segments[0] == "episode" and bool(segments[1])
+        return False
+    except (TypeError, ValueError):
+        return False
 
 
 def normalize_video_url(url: str) -> str:
@@ -25,6 +75,7 @@ def normalize_video_url(url: str) -> str:
         parsed = urlparse(url)
         scheme = parsed.scheme.lower()
         netloc = parsed.netloc.lower()
+        host = (parsed.hostname or "").lower().rstrip(".")
         path = parsed.path
         query = parse_qs(parsed.query)
 
@@ -33,14 +84,14 @@ def normalize_video_url(url: str) -> str:
             netloc = netloc[4:]
 
         # Handle YouTube specific normalization
-        if "youtube.com" in netloc or "youtu.be" in netloc:
+        if _host_matches(host, "youtube.com") or _host_matches(host, "youtu.be"):
             video_id = None
-            if "youtu.be" in netloc:
+            if _host_matches(host, "youtu.be"):
                 # https://youtu.be/VIDEO_ID
                 parts = path.split("/")
                 if len(parts) > 1:
                     video_id = parts[1]
-            elif "youtube.com" in netloc:
+            elif _host_matches(host, "youtube.com"):
                 # https://youtube.com/watch?v=VIDEO_ID
                 # https://youtube.com/shorts/VIDEO_ID
                 if "/shorts/" in path:
@@ -81,7 +132,7 @@ def normalize_video_url(url: str) -> str:
         new_query_string = urlencode(new_query_parts)
 
         # Bilibili specific: normalize to https://bilibili.com/video/BV...
-        if "bilibili.com" in netloc:
+        if _host_matches(host, "bilibili.com"):
             # Check for /video/BV...
             # We preserve 'p' (page) if present, as it changes the content.
             pass

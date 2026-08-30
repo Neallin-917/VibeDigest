@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 import { normalizeTaskStatus } from "@/lib/safe-error"
 import { isLocale } from "@/lib/i18n"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
+import { resolvePodcastSourceId } from "@/lib/podcast-sources"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
 import { ArrowDown, ArrowLeft, ChevronDown, ExternalLink, MessageCircleQuestion } from "lucide-react"
 import { cache } from "react"
@@ -312,7 +313,12 @@ export default async function TaskDetailPage(props: Props) {
     const status = normalizeTaskStatus(task.status)
     const initialThreadId = getSingleSearchParam(returnState.threadId)
     const sourceLabel = task.video_url ? getSourceLabel(task.video_url, task.author) : ""
-    const sourceId = getOptionalString(task, "podcast_source_slug") || sourceLabel || "unknown"
+    const sourceId = resolvePodcastSourceId({
+        taskId: id,
+        sourceSlug: getOptionalString(task, "podcast_source_slug"),
+        author: getOptionalString(task, "author"),
+        videoUrl: getOptionalString(task, "video_url"),
+    })
     const sourceAuthorUrl = getOptionalString(task, "author_url")
     const sourceDuration = getOptionalString(task, "durationLabel") || formatDuration(getOptionalNumber(task, "duration"), locale)
     const sourceUploadDate = getOptionalString(task, "upload_date")

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { findPodcastSource, PODCAST_SOURCES } from "./podcast-sources"
+import { findPodcastSource, PODCAST_SOURCES, resolvePodcastSourceId } from "./podcast-sources"
 
 describe("podcast source catalog", () => {
   it("contains the 21 curated sources with stable unique ids", () => {
@@ -15,5 +15,22 @@ describe("podcast source catalog", () => {
 
   it("does not classify unrelated demo content as an AI podcast source", () => {
     expect(findPodcastSource("Business Breakdowns", "https://www.youtube.com/watch?v=example")).toBeNull()
+  })
+
+  it("uses one bounded source id resolution path for library and detail events", () => {
+    expect(resolvePodcastSourceId({
+      taskId: "task-1",
+      sourceSlug: "legacy-catalog-show",
+      author: "Latent Space",
+      videoUrl: "https://youtube.com/watch?v=fixture",
+    })).toBe("legacy-catalog-show")
+    expect(resolvePodcastSourceId({
+      taskId: "task-2",
+      author: "The MAD Podcast with Matt Turck",
+    })).toBe("mad-podcast")
+    expect(resolvePodcastSourceId({
+      taskId: "task-3",
+      author: "Business Breakdowns",
+    })).toBe("business-breakdowns")
   })
 })

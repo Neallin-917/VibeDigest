@@ -8,7 +8,7 @@ import { cva } from "class-variance-authority"
 import { ChevronDown, ExternalLink, Search } from "lucide-react"
 import type { Locale } from "@/lib/i18n"
 import { trackGrowthEvent } from "@/lib/growth-events"
-import { findPodcastSource, type PodcastSource } from "@/lib/podcast-sources"
+import { findPodcastSource, resolvePodcastSourceId, type PodcastSource } from "@/lib/podcast-sources"
 import { buildTaskSlug } from "@/lib/task-path"
 import { cn } from "@/lib/utils"
 
@@ -220,12 +220,12 @@ function sourceForTask(task: Task) {
     if (catalogSource) return catalogSource
 
     const fallbackName = task.author?.trim() || "VibeDigest"
-    const fallbackId = fallbackName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || `digest-${task.id}`
     return {
-        id: fallbackId,
+        id: resolvePodcastSourceId({
+            taskId: task.id,
+            author: task.author,
+            videoUrl: task.video_url,
+        }),
         name: fallbackName,
         channelUrl: task.video_url,
         aliases: [],

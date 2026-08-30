@@ -107,6 +107,11 @@ export function resolveSummaryLanguageTag(language: string | null | undefined, f
   return normalizeSummaryLanguageTag(language) || LOCALE_DATE_TAG[fallback]
 }
 
+export function resolveEvidenceLanguageTag(language?: string | null) {
+  const normalized = normalizeSummaryLanguageTag(language)
+  return normalized && normalized !== "unknown" ? normalized : "und"
+}
+
 export function latestValidDate(...values: Array<string | null | undefined>) {
   let latest: Date | null = null
 

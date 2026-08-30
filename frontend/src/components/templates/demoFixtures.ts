@@ -268,6 +268,7 @@ export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
                 locale,
                 created_at: task.created_at,
                 updated_at: task.updated_at,
+                provenance: { transcript_language: locale },
             },
         ],
     }

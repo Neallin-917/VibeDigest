@@ -30,6 +30,7 @@ import {
     buildPublicTaskMetadata,
     buildTaskSlug,
     isPublishedPublicTask,
+    resolveEvidenceLanguageTag,
     resolveSummaryLanguageTag,
     serializeJsonLd,
 } from "@/lib/public-task-seo"
@@ -155,6 +156,7 @@ type TaskOutput = {
     locale?: string | null
     created_at?: string | null
     updated_at?: string | null
+    provenance?: unknown
 }
 
 const DETAIL_COPY = {
@@ -240,7 +242,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     if (task) {
         const { data, error: outputsError } = await supabase
             .from('task_outputs')
-            .select('kind, content, status, locale, created_at, updated_at')
+            .select('kind, content, status, locale, created_at, updated_at, provenance')
             .eq('task_id', id)
             .eq('kind', 'summary')
             .order('created_at', { ascending: false })
@@ -328,6 +330,9 @@ export default async function TaskDetailPage(props: Props) {
         })
         : null
     const summaryLanguageTag = resolveSummaryLanguageTag(structuredSummary?.language, locale)
+    const evidenceLanguageTag = resolveEvidenceLanguageTag(
+        getOptionalString(summaryOutput?.provenance, "transcript_language")
+    )
     const statusVariantMap: Record<string, "success" | "processing" | "secondary" | "destructive"> = {
         completed: "success",
         processing: "processing",
@@ -463,7 +468,7 @@ export default async function TaskDetailPage(props: Props) {
                                                         )}
                                                         <ChevronDown className="ml-auto size-3.5 transition-transform group-open/evidence:rotate-180" aria-hidden="true" />
                                                     </summary>
-                                                    <p lang={summaryLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
+                                                    <p lang={evidenceLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
                                                     {typeof keypoint.startSeconds === "number" && task.video_url && (
                                                         <a
                                                             href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}

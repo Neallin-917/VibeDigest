@@ -29,6 +29,7 @@ test.describe("Public task detail", () => {
         await expect(page.getByRole("button", { name: "复制分享链接" })).toBeVisible()
         await expect(page.locator("article")).not.toHaveAttribute("lang", /.+/)
         await expect(page.locator('p[lang="zh"]').first()).toBeVisible()
+        await expect(page.getByText("本地演示数据").first()).toHaveAttribute("lang", "zh")
         await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /index, follow/)
         const jsonLdPayloads = await page.locator('script[type="application/ld+json"]').allTextContents()
         const articleJsonLd = jsonLdPayloads

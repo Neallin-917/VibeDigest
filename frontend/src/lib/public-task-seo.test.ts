@@ -14,6 +14,7 @@ import {
   isPublishedPublicTask,
   latestValidDate,
   normalizeSummaryLanguageTag,
+  resolveEvidenceLanguageTag,
   resolveSummaryLanguageTag,
   serializeJsonLd,
   type PublicTaskSeoRecord,
@@ -115,6 +116,13 @@ describe("public task SEO", () => {
     expect(normalizeSummaryLanguageTag("Korean")).toBe("ko")
     expect(resolveSummaryLanguageTag("ko", "en")).toBe("ko")
     expect(resolveSummaryLanguageTag("not a language", "ja")).toBe("ja-JP")
+  })
+
+  it("marks evidence with its source language and leaves missing provenance undetermined", () => {
+    expect(resolveEvidenceLanguageTag("English")).toBe("en")
+    expect(resolveEvidenceLanguageTag("es_MX")).toBe("es-MX")
+    expect(resolveEvidenceLanguageTag("unknown")).toBe("und")
+    expect(resolveEvidenceLanguageTag()).toBe("und")
   })
 
   it("selects the chronologically latest valid public timestamp", () => {

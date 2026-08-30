@@ -2,6 +2,7 @@
 
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isDataUIPart } from 'ai'
+import Link from 'next/link'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
 import { cn } from '@/lib/utils'
@@ -18,6 +19,8 @@ import { LazyMessageRow as MessageRow, preloadMessageRow } from './LazyMessageRo
 import type { ChatExample } from '@/lib/chat-examples'
 import { ProcessingIndicator } from './ProcessingIndicator'
 import { sanitizeErrorMessage } from '@/lib/safe-error'
+import { AGENT_QUOTA_EXCEEDED_CODE, isAgentQuotaExceededError } from '@/lib/agent/error-codes'
+import { trackGrowthEvent } from '@/lib/growth-events'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -211,6 +214,7 @@ export function ChatContainer({
   })
 
   const requiresAuth = useMemo(() => isAuthRequiredError(error), [error])
+  const liveQuotaExceeded = useMemo(() => isAgentQuotaExceededError(error), [error])
 
   const handleLogin = () => {
     const nextPath = `${window.location.pathname}${window.location.search}`
@@ -287,13 +291,18 @@ export function ChatContainer({
 
   const isLoading = status === 'streaming' || status === 'submitted'
   const continuationCopy = CONTINUATION_COPY[locale]
+  const lastMessage = messages[messages.length - 1]
   const latestAssistant = [...messages].reverse().find(message => message.role === 'assistant')
   const agentTurnId = latestAssistant?.metadata?.agentTurnId
   const agentState = latestAssistant?.metadata?.agentState
+  const persistedQuotaExceeded = agentState === 'failed'
+    && latestAssistant?.metadata?.errorCode === AGENT_QUOTA_EXCEEDED_CODE
+    && latestAssistant.id === lastMessage?.id
+  const quotaExceeded = liveQuotaExceeded || persistedQuotaExceeded
   const matchingActionResult = answerActionResult?.threadId === effectiveThreadId
     && answerActionResult.turnId === agentTurnId ? answerActionResult : null
   const hasPendingContinuation = agentState === 'waiting_task' || agentState === 'finalizing'
-  const continuationState = agentTurnId && (
+  const continuationState = !persistedQuotaExceeded && agentTurnId && (
     hasPendingContinuation || agentState === 'failed' || agentState === 'cancelled'
   ) ? hasPendingContinuation && matchingActionResult?.state === 'cancelled'
       ? 'cancelled'
@@ -334,7 +343,7 @@ export function ChatContainer({
   }
 
   const handleRetryAnswer = async () => {
-    if (!agentTurnId || agentState !== 'failed' || !canRetryAnswer || answerActionsDisabled || answerActionInFlight.current) return
+    if (persistedQuotaExceeded || !agentTurnId || agentState !== 'failed' || !canRetryAnswer || answerActionsDisabled || answerActionInFlight.current) return
     answerActionInFlight.current = true
     setIsAnswerActionPending(true)
     setAnswerActionResult(null)
@@ -355,18 +364,21 @@ export function ChatContainer({
 
   const displayErrorMessage = taskRetryError ?? (requiresAuth
     ? t('auth.signInToContinue', { appName: t('brand.appName') })
-    : error
-      ? t('chat.genericError')
-      : null)
+    : quotaExceeded
+      ? t('taskForm.quotaExceeded.description')
+      : error
+        ? t('chat.genericError')
+        : null)
   const hasRenderableAssistant = useMemo(
     () => checkHasRenderableAssistant(messages),
     [messages]
   )
-  const lastMessage = messages[messages.length - 1]
   const streamingMessage =
     status === 'streaming' && lastMessage?.role === 'assistant' ? lastMessage : null
   const historyMessages = streamingMessage ? messages.slice(0, -1) : messages
-  const renderMessages = historyMessages
+  const renderMessages = persistedQuotaExceeded && latestAssistant
+    ? historyMessages.filter(message => message.id !== latestAssistant.id)
+    : historyMessages
   const hasActiveSource = Boolean(activeTaskId && !NO_TASK_IDS.has(activeTaskId))
   const latestTaskIdsByMessage = useMemo(() => {
     const latestTaskMessageIds = new Map<string, string>()
@@ -540,6 +552,17 @@ export function ChatContainer({
                   >
                     {t('auth.signIn')}
                   </button>
+                ) : quotaExceeded && !taskRetryError ? (
+                  <Link
+                    href={`/${locale}/settings/pricing`}
+                    onClick={() => trackGrowthEvent('quota_pricing_open', {
+                      locale,
+                      surface: scope === 'source' ? 'source_followup' : 'workspace',
+                    })}
+                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    {t('taskForm.quotaExceeded.confirm')}
+                  </Link>
                 ) : error && !taskRetryError && continuationState !== 'failed' ? (
                   <button
                     onClick={() => regenerate()}

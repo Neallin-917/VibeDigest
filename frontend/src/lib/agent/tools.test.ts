@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAgentTools } from './tools'
-import type { AgentTurn, TaskData, TurnClient } from './backend'
+import { AgentServiceError, type AgentTurn, type TaskData, type TurnClient } from './backend'
 import { buildSourceIndex } from './source-index'
 import { buildSummaryMarkdownFromContent } from '@/lib/summary-contract'
 
@@ -258,6 +258,17 @@ describe('shared context budget', () => {
 })
 
 describe('durable action receipts', () => {
+  it('retains quota exhaustion after the SDK converts a thrown tool error into a tool result', async () => {
+    const { call, bundle, client } = setup()
+    client.submit.mockRejectedValue(new AgentServiceError(402))
+
+    await expect(call('create_video_task', {
+      videoUrl: 'https://youtu.be/fixture', locale: 'zh',
+    })).rejects.toMatchObject({ status: 402 })
+    expect(bundle.quotaFailure()).toMatchObject({ status: 402 })
+    expect(bundle.isWaiting()).toBe(false)
+  })
+
   it('emits a lightweight task card only after the backend confirms a waiting receipt', async () => {
     const onPart = vi.fn()
     const { call, bundle, client } = setup(undefined, { onPart })

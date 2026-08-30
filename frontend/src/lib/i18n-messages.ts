@@ -1530,6 +1530,12 @@ export const messages: Record<Locale, Messages> = {
       processing: "処理中...",
       generate: "生成",
       pleaseLogin: "先にログインしてください！",
+      quotaExceeded: {
+        title: "利用上限に達しました",
+        description: "プランの上限に達したか、クレジットが不足しています。続けるにはプランをアップグレードするか、クレジットを追加してください。",
+        confirm: "プランを見る",
+        cancel: "キャンセル"
+      },
     },
     tasks: {
       urlPlaceholder: "YouTube, Apple Podcasts, Bilibili, Xiaoyuzhouのリンクを入力...",

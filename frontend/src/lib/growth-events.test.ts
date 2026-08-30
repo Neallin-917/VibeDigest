@@ -22,4 +22,16 @@ describe("growth event vocabulary", () => {
       method: "copy_link",
     })
   })
+
+  it("forwards the quota pricing intent with only locale and bounded surface", () => {
+    trackGrowthEvent("quota_pricing_open", {
+      locale: "ja",
+      surface: "source_followup",
+    })
+
+    expect(analytics.track).toHaveBeenCalledWith("quota_pricing_open", {
+      locale: "ja",
+      surface: "source_followup",
+    })
+  })
 })

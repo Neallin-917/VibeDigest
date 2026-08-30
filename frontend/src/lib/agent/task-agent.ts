@@ -10,6 +10,7 @@ import type { ChatMessageMetadata, ChatUIMessage, ChatUIMessagePart } from '@/li
 import { selectRecentChatMessages } from '@/app/api/chat/context-budget'
 import { createAgentTools } from './tools'
 import { AgentServiceError, type AgentRuntimeConfig, type AgentTurn, type TurnClient } from './backend'
+import { AGENT_QUOTA_EXCEEDED_CODE, isAgentQuotaExceededError } from './error-codes'
 
 export const TASK_AGENT_INSTRUCTIONS = `You are VibeDigest, an agent that helps users watch and understand podcasts and long videos.
 Understand the user's current goal and choose the tools needed; there is no mandatory retrieval sequence.
@@ -77,6 +78,7 @@ export async function runTaskAgent(
 ) {
   const started = Date.now()
   const config = turn.runtime_config
+  let toolBundle: ReturnType<typeof createAgentTools> | undefined
   const metadata: ChatMessageMetadata & { durationMs?: number; actualModel?: string } = {
     runtime: config.runtime, provider: config.provider, model: config.model,
     modelTier: 'smart', reasoningEffort: config.reasoningEffort, createdAt: new Date().toISOString(),
@@ -99,6 +101,7 @@ export async function runTaskAgent(
       readOnly: continuation,
       onPart: part => { parts.push(part); callbacks.onPart?.(part) },
     })
+    toolBundle = bundle
     if (config.runtime === 'codex_local') {
       const result = await runLocalCodex(messages.map(message => `${message.role.toUpperCase()}:\n${message.content}`).join('\n\n'), {
         model: config.model, reasoningEffort: 'high', instructions,
@@ -110,7 +113,7 @@ export async function runTaskAgent(
       const provider = createProviderClient(config.provider)
       const agent = new ToolLoopAgent({
         model: provider.chat(config.model), instructions, tools: bundle.tools,
-        stopWhen: [isStepCount(8), () => bundle.isWaiting()],
+        stopWhen: [isStepCount(8), () => bundle.isWaiting() || Boolean(bundle.quotaFailure())],
         maxOutputTokens: 4096,
         providerOptions: config.provider === 'openai' ? { openai: { reasoningEffort: 'none' } } : undefined,
       })
@@ -145,6 +148,7 @@ export async function runTaskAgent(
       metadata.totalTokens = usage.totalTokens
       metadata.actualModel = (await result.finalStep).response.modelId
     }
+    if (bundle.quotaFailure()) throw bundle.quotaFailure()
     if (answer.trim()) parts.unshift({ type: 'text', text: answer })
     if (!parts.length) throw new Error('Agent returned no public answer or receipt.')
     metadata.durationMs = Date.now() - started
@@ -154,14 +158,25 @@ export async function runTaskAgent(
     if (!saved && !bundle.isWaiting()) throw new AgentServiceError(409)
     return { parts, metadata, waiting: bundle.isWaiting(), saved }
   } catch (error) {
+    const effectiveError = toolBundle?.quotaFailure() ?? error
+    const quotaExceeded = isAgentQuotaExceededError(effectiveError)
     // Keep operational failures diagnosable without logging prompts, sources,
     // credentials, provider response bodies or native tool results.
     console.error('[Task Agent] run failed', {
       turnId: turn.id, runtime: config.runtime, provider: config.provider,
-      errorKind: error instanceof AgentServiceError ? 'state' : callbacks.signal?.aborted ? 'cancelled' : 'inference',
-      statusCode: failureStatus(error),
+      errorKind: callbacks.signal?.aborted
+        ? 'cancelled'
+        : quotaExceeded || error instanceof AgentServiceError
+          ? 'state'
+          : 'inference',
+      statusCode: failureStatus(effectiveError),
     })
-    await client.finish([], metadata, callbacks.signal?.aborted ? 'cancelled' : 'model_unavailable').catch(() => undefined)
-    throw error
+    const errorCode = callbacks.signal?.aborted
+      ? 'cancelled'
+      : quotaExceeded
+        ? AGENT_QUOTA_EXCEEDED_CODE
+        : 'model_unavailable'
+    await client.finish([], metadata, errorCode).catch(() => undefined)
+    throw effectiveError
   }
 }

@@ -15,6 +15,7 @@ export const messageMetadataSchema = z.object({
   durationMs: z.number().nonnegative().optional(),
   agentTurnId: z.string().optional(),
   agentState: z.enum(['running', 'waiting_task', 'finalizing', 'completed', 'failed', 'cancelled']).optional(),
+  errorCode: z.literal('quota_exceeded').optional(),
 })
 
 export type ChatMessageMetadata = z.infer<typeof messageMetadataSchema>

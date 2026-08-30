@@ -6,6 +6,7 @@ import { buildSummaryMarkdownFromContent, pickPreferredSummaryOutput } from '@/l
 import { normalizeTaskStatus } from '@/lib/safe-error'
 import type { LocalCodexTool } from '@/lib/local-codex'
 import type { ChatUIMessagePart } from '@/lib/chat-ui'
+import { isAgentQuotaExceededError } from './error-codes'
 import { buildSourceIndex, readSource, searchSource, type SourceIndex, type SourceSegment } from './source-index'
 import type { AgentTurn, TaskData, TurnClient } from './backend'
 
@@ -43,6 +44,7 @@ export function createAgentTools(
   let remainingCharacters = 32_000
   let calls = 0
   let waiting = false
+  let quotaFailure: unknown
   const taskParts: ChatUIMessagePart[] = []
 
   const addReference = (data: TaskData, segment?: SourceSegment) => {
@@ -93,6 +95,10 @@ export function createAgentTools(
       if (++calls > 16) return { error: 'Tool budget exhausted. Answer from available evidence.' }
       options.onProgress?.(name, 'running')
       try { return await execute(schema.parse(input)) }
+      catch (error) {
+        if (isAgentQuotaExceededError(error)) quotaFailure = error
+        throw error
+      }
       finally { options.onProgress?.(name, 'finished') }
     }
     return { sdk: tool({ description, inputSchema: schema, execute: run }),
@@ -137,5 +143,6 @@ export function createAgentTools(
     localTools: Object.values(all).map(definition => definition.local),
     references: sources, taskParts,
     isWaiting: () => waiting,
+    quotaFailure: () => quotaFailure,
   }
 }

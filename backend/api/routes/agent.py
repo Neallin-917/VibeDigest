@@ -99,9 +99,9 @@ class ReadCommand(TaskCommand):
 class FinishCommand(TurnCommand):
     parts: list[dict[str, Any]] = Field(default_factory=list, max_length=80)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    errorCode: Literal["model_unavailable", "cancelled", "delivery_failed"] | None = (
-        None
-    )
+    errorCode: Literal[
+        "model_unavailable", "quota_exceeded", "cancelled", "delivery_failed"
+    ] | None = None
 
 
 class ClaimCommand(Command):

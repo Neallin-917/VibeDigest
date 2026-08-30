@@ -148,7 +148,9 @@ describe('chat request validation and safe failures', () => {
     acceptTurn.mockRejectedValue(new AgentServiceError(status))
     const response = await POST(request())
     expect(response.status).toBe(status)
-    expect(await response.json()).toEqual({ error: new AgentServiceError(status).message })
+    expect(await response.json()).toEqual(status === 402
+      ? { error: new AgentServiceError(status).message, code: 'quota_exceeded' }
+      : { error: new AgentServiceError(status).message })
     expect(runAgent).not.toHaveBeenCalled()
   })
 
@@ -169,6 +171,13 @@ describe('chat request validation and safe failures', () => {
     expect(chunks).toContainEqual({ type: 'error', errorText: expect.stringContaining('accepted video task will continue') })
     expect(chunks.some(chunk => chunk.type === 'finish')).toBe(false)
     expect(JSON.stringify(chunks)).not.toContain('PRIVATE_PROVIDER_KEY')
+  })
+
+  it('projects quota exhaustion as a stable client signal after streaming starts', async () => {
+    runAgent.mockRejectedValue(new AgentServiceError(402))
+    const chunks = await events(await POST(request()))
+    expect(chunks).toContainEqual({ type: 'error', errorText: 'VIBEDIGEST_QUOTA_EXCEEDED' })
+    expect(chunks.some(chunk => chunk.type === 'finish')).toBe(false)
   })
 })
 

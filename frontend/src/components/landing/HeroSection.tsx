@@ -14,12 +14,13 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { isSupportedUrl } from "@/lib/urls"
+import { getSupportedUrlDetails } from "@/lib/urls"
+import { trackGrowthEvent } from "@/lib/growth-events"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
 import { DigestPreview } from "./DigestPreview"
 
 export function HeroSection() {
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const router = useRouter()
     const [showUrlHelp, setShowUrlHelp] = useState(false)
     const {
@@ -29,10 +30,10 @@ export function HeroSection() {
     } = useCurrentUserQuery()
 
     const handleHeroSubmit = async (text: string) => {
-        // Validate URL format for any non-empty input
-        if (text.trim() && !isSupportedUrl(text)) {
+        const source = getSupportedUrlDetails(text)
+        if (!source) {
             setShowUrlHelp(true)
-            return
+            return false
         }
 
         // Save message for handoff (works for both logged in and guest)
@@ -44,9 +45,14 @@ export function HeroSection() {
             user = result.data ?? null
         }
 
-        // Get current locale from URL or use default
-        const locale = window.location.pathname.split('/')[1] || 'en'
         const chatPath = `/${locale}/chat`
+        const destination = user ? "chat" : "login"
+
+        trackGrowthEvent("landing_agent_intent", {
+            locale,
+            destination,
+            source: source.source,
+        })
 
         if (user) {
             // Logged in -> Go to chat

@@ -1,5 +1,6 @@
 import { track } from "@vercel/analytics"
 import type { Locale } from "@/lib/i18n"
+import type { SupportedSource } from "@/lib/urls"
 
 type EpisodePlacement =
   | "hero"
@@ -19,6 +20,11 @@ type PricingCheckoutProduct = "pro" | "topup"
 type PricingCheckoutBilling = "monthly" | "annual" | "one_time"
 
 type GrowthEventPayloads = {
+  landing_agent_intent: {
+    locale: Locale
+    destination: "chat" | "login"
+    source: SupportedSource
+  }
   library_view: { locale: Locale }
   library_digest_open: { locale: Locale; source: string; area: EpisodePlacement }
   library_filter_source: { locale: Locale; source: string }

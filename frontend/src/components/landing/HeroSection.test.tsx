@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => ({
         data: null as { id: string } | null | undefined,
         isPending: false,
     },
-    submit: undefined as ((text: string) => Promise<void>) | undefined,
+    locale: "en" as "en" | "zh" | "ja",
+    submit: undefined as ((text: string) => Promise<void | boolean>) | undefined,
+    trackGrowthEvent: vi.fn(),
 }))
 
 // Mock next/navigation
@@ -25,9 +27,14 @@ vi.mock("@/hooks/useAccountQueries", () => ({
     }),
 }))
 
+vi.mock("@/lib/growth-events", () => ({
+    trackGrowthEvent: mocks.trackGrowthEvent,
+}))
+
 // Mock I18n
 vi.mock("@/components/i18n/I18nProvider", () => ({
     useI18n: () => ({
+        locale: mocks.locale,
         t: (key: string) => {
             if (key === "landing.smartSummarizationDesc") return "Analysis **with power**"
             if (key === "landing.trustedBy") return "Supports YouTube and podcasts"
@@ -61,6 +68,7 @@ describe("HeroSection", () => {
         localStorage.clear()
         mocks.account.data = null
         mocks.account.isPending = false
+        mocks.locale = "en"
         mocks.submit = undefined
         window.history.replaceState({}, "", "/en")
     })
@@ -109,12 +117,18 @@ describe("HeroSection", () => {
         expect(localStorage.getItem("vibedigest_pending_message"))
             .toBe("https://www.youtube.com/watch?v=test123")
         expect(mocks.push).toHaveBeenCalledWith("/en/chat")
+        expect(mocks.trackGrowthEvent).toHaveBeenCalledWith("landing_agent_intent", {
+            locale: "en",
+            destination: "chat",
+            source: "youtube",
+        })
     })
 
     it("preserves the chat destination for a guest submission", async () => {
+        mocks.locale = "zh"
         render(<HeroSection />)
 
-        const originalUrl = "https://www.youtube.com/watch?v=test123&list=playlist#t=42"
+        const originalUrl = "https://podcasts.apple.com/us/podcast/id123456?i=episode#notes"
 
         await act(async () => {
             await mocks.submit?.(originalUrl)
@@ -122,8 +136,13 @@ describe("HeroSection", () => {
 
         expect(localStorage.getItem("vibedigest_pending_message")).toBe(originalUrl)
         expect(mocks.push).toHaveBeenCalledWith(
-            "/en/login?next=%2Fen%2Fchat",
+            "/zh/login?next=%2Fzh%2Fchat",
         )
+        expect(mocks.trackGrowthEvent).toHaveBeenCalledWith("landing_agent_intent", {
+            locale: "zh",
+            destination: "login",
+            source: "apple_podcasts",
+        })
     })
 
     it("resolves an unknown account once before routing", async () => {
@@ -138,5 +157,20 @@ describe("HeroSection", () => {
 
         expect(mocks.refetch).toHaveBeenCalledTimes(1)
         expect(mocks.push).toHaveBeenCalledWith("/en/chat")
+    })
+
+    it("keeps unsupported input in place and does not report activation", async () => {
+        render(<HeroSection />)
+
+        let accepted: void | boolean | undefined
+        await act(async () => {
+            accepted = await mocks.submit?.("https://example.com/video")
+        })
+
+        expect(accepted).toBe(false)
+        expect(screen.getByText("taskForm.urlHelp.title")).toBeInTheDocument()
+        expect(localStorage.getItem("vibedigest_pending_message")).toBeNull()
+        expect(mocks.trackGrowthEvent).not.toHaveBeenCalled()
+        expect(mocks.push).not.toHaveBeenCalled()
     })
 })

@@ -208,12 +208,10 @@ export function findPodcastSource(author?: string, videoUrl?: string): PodcastSo
 }
 
 export function resolvePodcastSourceId({
-  taskId,
   sourceSlug,
   author,
   videoUrl,
 }: {
-  taskId: string
   sourceSlug?: string | null
   author?: string | null
   videoUrl?: string | null
@@ -225,5 +223,5 @@ export function resolvePodcastSourceId({
   if (catalogSource) return catalogSource.id
 
   const fallbackName = author?.trim() || "VibeDigest"
-  return normalizeSourceId(fallbackName) || `digest-${taskId}`
+  return normalizeSourceId(fallbackName) || "unknown"
 }

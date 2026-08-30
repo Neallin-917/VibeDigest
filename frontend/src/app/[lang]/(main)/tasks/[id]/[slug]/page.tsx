@@ -314,7 +314,6 @@ export default async function TaskDetailPage(props: Props) {
     const initialThreadId = getSingleSearchParam(returnState.threadId)
     const sourceLabel = task.video_url ? getSourceLabel(task.video_url, task.author) : ""
     const sourceId = resolvePodcastSourceId({
-        taskId: id,
         sourceSlug: getOptionalString(task, "podcast_source_slug"),
         author: getOptionalString(task, "author"),
         videoUrl: getOptionalString(task, "video_url"),

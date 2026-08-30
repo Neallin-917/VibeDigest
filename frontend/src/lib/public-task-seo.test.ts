@@ -114,7 +114,9 @@ describe("public task SEO", () => {
     expect(normalizeSummaryLanguageTag("ko")).toBe("ko")
     expect(normalizeSummaryLanguageTag("es_MX")).toBe("es-MX")
     expect(normalizeSummaryLanguageTag("Korean")).toBe("ko")
+    expect(normalizeSummaryLanguageTag("unknown")).toBeNull()
     expect(resolveSummaryLanguageTag("ko", "en")).toBe("ko")
+    expect(resolveSummaryLanguageTag("unknown", "zh")).toBe("zh-CN")
     expect(resolveSummaryLanguageTag("not a language", "ja")).toBe("ja-JP")
   })
 
@@ -158,6 +160,18 @@ describe("public task SEO", () => {
     })
     expect(JSON.stringify(jsonLd)).not.toContain("transcript")
     expect(JSON.stringify(jsonLd)).not.toContain("contentUrl")
+  })
+
+  it("uses the route language in Article schema when detection persisted the unknown sentinel", () => {
+    const jsonLd = buildPublicTaskJsonLd({
+      task: publicTask,
+      locale: "zh",
+      canonicalUrl: "https://vibedigest.io/zh/tasks/task-123/Agent-Systems-in-Production",
+      description: "A source-grounded summary.",
+      contentLanguage: "unknown",
+    })
+
+    expect(jsonLd).toMatchObject({ inLanguage: "zh-CN" })
   })
 
   it("never emits dateModified before a newer publication time", () => {

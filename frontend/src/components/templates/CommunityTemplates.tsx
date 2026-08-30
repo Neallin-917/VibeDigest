@@ -222,7 +222,6 @@ function sourceForTask(task: Task) {
     const fallbackName = task.author?.trim() || "VibeDigest"
     return {
         id: resolvePodcastSourceId({
-            taskId: task.id,
             author: task.author,
             videoUrl: task.video_url,
         }),

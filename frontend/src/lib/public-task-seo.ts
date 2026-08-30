@@ -87,6 +87,7 @@ export function normalizeSummaryLanguageTag(language?: string | null) {
   if (!raw || raw.length > 64) return null
 
   const normalized = raw.toLowerCase().replace(/_/g, "-")
+  if (normalized === "unknown") return null
   const candidate = LANGUAGE_NAME_ALIASES[normalized] || normalized
 
   try {
@@ -109,7 +110,7 @@ export function resolveSummaryLanguageTag(language: string | null | undefined, f
 
 export function resolveEvidenceLanguageTag(language?: string | null) {
   const normalized = normalizeSummaryLanguageTag(language)
-  return normalized && normalized !== "unknown" ? normalized : "und"
+  return normalized || "und"
 }
 
 export function latestValidDate(...values: Array<string | null | undefined>) {

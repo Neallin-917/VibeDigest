@@ -19,18 +19,18 @@ describe("podcast source catalog", () => {
 
   it("uses one bounded source id resolution path for library and detail events", () => {
     expect(resolvePodcastSourceId({
-      taskId: "task-1",
       sourceSlug: "legacy-catalog-show",
       author: "Latent Space",
       videoUrl: "https://youtube.com/watch?v=fixture",
     })).toBe("legacy-catalog-show")
     expect(resolvePodcastSourceId({
-      taskId: "task-2",
       author: "The MAD Podcast with Matt Turck",
     })).toBe("mad-podcast")
     expect(resolvePodcastSourceId({
-      taskId: "task-3",
       author: "Business Breakdowns",
     })).toBe("business-breakdowns")
+    expect(resolvePodcastSourceId({
+      author: "李沐",
+    })).toBe("unknown")
   })
 })

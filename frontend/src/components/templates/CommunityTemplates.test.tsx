@@ -96,14 +96,14 @@ describe("CommunityTemplates", () => {
   })
 
   it("prioritizes only the leading thumbnail and supplies responsive image sizes", () => {
-    renderGallery()
+    const { container } = renderGallery()
 
-    const leadingImage = screen.getByRole("img", { name: "Leading example" })
-    const laterImage = screen.getByRole("img", { name: "Later example" })
+    const [leadingImage, laterImage] = Array.from(container.querySelectorAll("[data-card-role] img"))
     expect(leadingImage).toHaveAttribute("loading", "eager")
     expect(leadingImage).toHaveAttribute("fetchpriority", "high")
     expect(leadingImage).toHaveAttribute("sizes")
     expect(laterImage).toHaveAttribute("loading", "lazy")
+    expect(leadingImage).toHaveAttribute("alt", "")
   })
 
   it("falls back to the source initial when a remote avatar fails", () => {
@@ -169,14 +169,28 @@ describe("CommunityTemplates", () => {
   it("opens the exact episode externally and the digest internally", () => {
     renderGallery({ initialSource: "latent-space", initialQuery: "AI" })
 
-    expect(screen.getAllByRole("link", { name: "Original episode" })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "Original episode: Leading example" })[0]).toHaveAttribute(
       "href",
       tasks[0].video_url
     )
-    expect(screen.getAllByRole("link", { name: "View digest" })[0]).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "View digest: Leading example" })).toHaveAttribute(
       "href",
       "/en/tasks/example-1/Leading-example?fromShow=latent-space&fromQuery=AI"
     )
+  })
+
+  it("uses one digest link and one explicitly named source link per feature card", () => {
+    const { container } = renderGallery()
+    const leadingCard = screen.getByText("Leading example").closest("article")
+
+    expect(leadingCard).not.toBeNull()
+    expect(leadingCard?.querySelectorAll("a")).toHaveLength(2)
+    expect(screen.getByRole("link", { name: "View digest: Leading example" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Original episode: Leading example" })).toHaveAttribute(
+      "rel",
+      "noopener noreferrer"
+    )
+    expect(container.querySelector("[data-card-role] [data-slot='episode-card-media']")).not.toHaveAttribute("href")
   })
 
   it("uses a full-width horizontal result when a filter has only one item", () => {
@@ -211,7 +225,9 @@ describe("CommunityTemplates", () => {
       "[data-card-role='supporting'] [data-slot='episode-card-media']"
     )
     expect(hero).toHaveClass("lg:grid-rows-[minmax(0,1fr)_auto]")
-    expect(heroMedia).toHaveClass("lg:aspect-[1.55/1]")
+    expect(hero).toHaveClass("sm:min-h-[25rem]")
+    expect(hero).not.toHaveClass("min-h-[25rem]")
+    expect(heroMedia).toHaveClass("aspect-[16/9]", "sm:aspect-[1.38/1]", "lg:aspect-[1.55/1]")
     expect(heroContent).toHaveClass("lg:flex-none")
     expect(heroFooter).toHaveClass("mt-4")
     expect(heroFooter).not.toHaveClass("mt-auto")
@@ -230,7 +246,7 @@ describe("CommunityTemplates", () => {
 
     expect(screen.getByText("Legacy mature output")).toBeInTheDocument()
     expect(screen.getByText("Independent AI Show")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Original episode" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Original episode: Legacy mature output" })).toHaveAttribute(
       "href",
       legacyTask.video_url
     )

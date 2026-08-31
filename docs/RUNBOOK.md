@@ -97,6 +97,38 @@ CI additionally runs the real PGMQ lifecycle test against
 `ghcr.io/pgmq/pg16-pgmq:v1.5.1`. Local Docker validation is optional, but a
 release must not proceed unless that CI job passes.
 
+## Database TLS
+
+Production Supabase must keep database SSL enforcement enabled. Application
+traffic uses Supavisor transaction mode; migrations, backup/restore, and other
+single-session administration should use the direct connection when IPv6 is
+available, or Supavisor session mode on IPv4-only networks.
+
+All remote `pg8000` connections verify both the certificate chain and hostname.
+The Supabase production root is versioned at
+`backend/certs/supabase-prod-ca-2021.crt`; its expected SHA-256 fingerprint is
+`80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`
+and it expires on 2031-04-26. `DATABASE_SSL_ROOT_CERT` may override the CA for a
+different remote Postgres provider. Never use `CERT_NONE`, disable hostname
+verification, or commit a private credential alongside the public CA.
+
+Before and after a database-connection release:
+
+1. Compare the bundled CA fingerprint with the certificate downloaded from the
+   Supabase project Database Settings page.
+2. Confirm a credential-free TLS handshake verifies the pooler hostname.
+3. Run `backend/scripts/db/check_connection.py` and `/health/ready` using the
+   candidate image.
+4. Confirm Supabase reports database SSL enforcement enabled.
+5. Monitor API, worker, podcast cron, and trusted runner logs for TLS/connection
+   errors before considering the release complete.
+
+Review the Supabase changelog and certificate expiry at least quarterly. For a
+CA rotation, add the new trusted CA, validate every client, deploy the compatible
+image, and only then remove the retiring CA. If an incident blocks all clients,
+temporarily disabling server-side enforcement is the reversible platform
+rollback; do not “fix” it by shipping a client that skips certificate checks.
+
 ## Podcast discovery schedule
 
 The cron runs every six hours in UTC. Each pass looks back seven days and

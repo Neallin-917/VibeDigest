@@ -1,6 +1,6 @@
 # Data Codemap
 
-> Last verified: 2026-08-25
+> Last verified: 2026-08-31
 > Authoritative schema changes live in `supabase/migrations/`.
 
 ## Core state
@@ -25,6 +25,9 @@ guest_usage is keyed by X-Guest-Id.
 - `guest_usage`: guest trial quota.
 - `vibedigest_private.task_queue_handoffs`: server-only idempotency and terminal
   acknowledgement record.
+- `vibedigest_private.ops_excluded_users`: explicit internal/development/test
+  identity exclusions for read-only operations reporting; the report never
+  infers exclusions from email or usage patterns.
 - `podcast_sources`: curated supply registry, bounded discovery settings, and
   resumable historical backfill cursor.
 - `podcast_episodes`: stable `(source_id, external_id)` discovery ledger and its

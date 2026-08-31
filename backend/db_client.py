@@ -9,6 +9,7 @@ import json
 import jwt
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientConnectionError, PyJWKClientError
+from utils.database_ssl import pg8000_connect_args
 from utils.error_messages import sanitize_error_message
 
 # Configure logging
@@ -60,13 +61,7 @@ class DBClient:
 
         if self.db_url:
             try:
-                connect_args: dict = {}
-                if "pg8000" in self.db_url:
-                    import ssl as _ssl
-                    _ctx = _ssl.create_default_context()
-                    _ctx.check_hostname = False
-                    _ctx.verify_mode = _ssl.CERT_NONE
-                    connect_args["ssl_context"] = _ctx
+                connect_args = pg8000_connect_args(self.db_url)
 
                 self.engine = create_engine(
                     self.db_url, connect_args=connect_args,

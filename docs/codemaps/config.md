@@ -7,7 +7,8 @@
 
 | Variable | Consumer | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | API + worker | Direct Postgres connection; private queue functions require the migration owner/server role |
+| `DATABASE_URL` | API + worker | Postgres application connection, normally Supavisor transaction mode; private queue functions require the migration owner/server role |
+| `DATABASE_SSL_ROOT_CERT` | API + worker + ops scripts | Optional CA override for non-Supabase remote Postgres; Supabase production CA is bundled and hostname verification is mandatory |
 | `SUPABASE_URL` | API + frontend | Auth/JWKS and project endpoint |
 | `SUPABASE_SERVICE_KEY` | API + worker | Server-only Supabase operations; never expose to the browser |
 | `SUPABASE_JWT_SECRET` | API | HS256 fallback validation where configured |
@@ -86,3 +87,8 @@ Exact validation/defaults are owned by `backend/config.py`,
 Production must keep `DEV_AUTH_BYPASS` and `MOCK_MODE` disabled. The backend
 fails at startup when Railway production metadata is present and either flag is
 enabled.
+
+Remote `pg8000` database connections fail closed unless certificate-chain and
+hostname verification succeed. Supabase uses the versioned
+`backend/certs/supabase-prod-ca-2021.crt`; local loopback databases may run
+without TLS. Do not reintroduce `CERT_NONE` or hostname-verification bypasses.

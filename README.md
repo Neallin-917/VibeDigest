@@ -108,6 +108,7 @@ The implementation details live in the codemaps under `docs/codemaps/`.
 | `make test-backend` | Backend unit tests plus local smoke when prerequisites exist |
 | `make test-provider-smoke` | Verify the configured LLM provider with a real API call |
 | `make test-frontend` | Frontend unit tests |
+| `make ops-daily-report` | Generate the previous day's read-only operations report |
 | `make create-demo-task` | Create and process the default public demo task |
 | `make sync-podcast-sources` | Sync the curated podcast source registry without discovery |
 | `make discover-podcasts` | Discover recent episodes and enqueue a bounded set through PGMQ |
@@ -145,6 +146,7 @@ The repo uses explicit document ownership so facts are maintained in one place.
 | Deployment, monitoring, rollback | [docs/RUNBOOK.md](./docs/RUNBOOK.md) |
 | Architecture and directory mappings | [docs/codemaps/architecture.md](./docs/codemaps/architecture.md) |
 | Testing strategy, prerequisites, coverage policy | [docs/testing/README.md](./docs/testing/README.md) |
+| Operations daily-report metrics and exclusions | [docs/operations/daily-report.md](./docs/operations/daily-report.md) |
 
 ## Additional Docs
 

@@ -4,7 +4,7 @@
 .PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts backfill-podcasts process-podcast-supply
 .PHONY: stop restart-dev rebuild-dev
 .PHONY: perf perf-frontend perf-check perf-update-baseline
-.PHONY: ops-audit
+.PHONY: ops-audit ops-daily-report
 
 # --- Configuration ---
 # 提取端口 (macOS 兼容)
@@ -34,6 +34,7 @@ help:
 	@echo "  make test-llm-live - Run opt-in real-provider contract tests"
 	@echo "  make test-provider-smoke - Verify the configured LLM provider with a real API call"
 	@echo "  make ops-audit    - Run read-only deployment and local ops checks"
+	@echo "  make ops-daily-report - Generate the previous day's read-only operations report"
 	@echo "  make create-demo-task - Create and process the default demo task"
 	@echo "  make sync-podcast-sources - Sync the podcast source catalog into Postgres"
 	@echo "  make discover-podcasts - Discover and enqueue recent podcast episodes"
@@ -41,6 +42,9 @@ help:
 	@echo "  make process-podcast-supply - Process a bounded catalog batch with Codex subscription"
 	@echo "  make lint          - Run formatters and linters"
 	@echo "  make clean         - Clean up temporary files"
+
+ops-daily-report:
+	uv run python backend/scripts/generate_ops_daily_report.py
 
 # --- Installation ---
 install: install-backend install-frontend

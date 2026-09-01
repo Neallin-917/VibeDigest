@@ -36,8 +36,8 @@ test.describe('Landing Page', () => {
         // describing capabilities, and its CTA must lead to public demos.
         const digestPreview = page.getByRole('region', { name: 'State of the Claw: Peter Steinberger' });
         await expect(digestPreview).toBeVisible();
-        await expect(digestPreview.getByRole('heading', { name: 'Structured summary' })).toBeVisible();
-        await expect(digestPreview.getByRole('heading', { name: 'Source-grounded follow-up' })).toBeVisible();
+        await expect(digestPreview.getByRole('heading', { name: 'Summary' })).toBeVisible();
+        await expect(digestPreview.getByRole('heading', { name: 'Follow-up' })).toBeVisible();
         await expect(digestPreview.getByRole('heading', { name: 'Key ideas' })).toBeVisible();
         await expect(digestPreview.getByRole('complementary', { name: 'Source' })).toBeVisible();
         await expect(digestPreview.getByRole('tablist')).toHaveCount(0);
@@ -71,7 +71,7 @@ test.describe('Landing Page', () => {
 
         // Fixture data makes the landing page representative without relying on
         // a remote Supabase project or production demo rows.
-        await expect(page.getByRole('heading', { name: 'See what the agent has already organized' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Podcast library' })).toBeVisible();
 
     });
 

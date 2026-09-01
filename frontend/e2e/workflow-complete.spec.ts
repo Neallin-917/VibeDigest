@@ -183,8 +183,8 @@ test.describe('Complete Task Workflow (Mocked)', () => {
 
     await page.goto('/en/chat?task=mock-task-123')
 
-    await expect(page.getByText('Opening chat...')).toBeVisible({ timeout: 1500 })
-    await expect(page.locator('h1')).toContainText(/What do you want to understand today\?/i)
+    await expect(page.getByText('Opening chat...')).toHaveCount(0)
+    await expect(page.locator('h1')).toContainText(/What do you want to understand\?/i)
     await expect(page.getByText('Processing plan')).toBeHidden()
     await expect(page.getByLabel(/Chat input/i)).toBeEnabled()
 
@@ -198,7 +198,7 @@ test.describe('Complete Task Workflow (Mocked)', () => {
     const chatPage = new ChatPage(page)
 
     await chatPage.goto()
-    await expect(chatPage.welcomeHeading).toContainText(/What do you want to understand today\?/i)
+    await expect(chatPage.welcomeHeading).toContainText(/What do you want to understand\?/i)
     await expect(page).toHaveURL(/threadId=/)
     const initialThreadId = new URL(page.url()).searchParams.get('threadId')
 

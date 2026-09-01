@@ -44,15 +44,11 @@ test.describe('Landing Page Acquisition Flow', () => {
         // Should redirect to login
         await page.waitForURL(/\/login/, { timeout: 30000 });
         await expect(page).toHaveURL(/\/login/)
-        await expect(page.getByText('Your link is saved')).toBeVisible()
-        await expect(page.getByRole('heading', { name: 'Continue your digest' })).toBeVisible()
-        await expect(page.getByText('Sign in to continue with this source in your account.')).toBeVisible()
-        await expect(page.getByText('Sign in to continue with your saved request in your account.')).toHaveCount(0)
+        await expect(page.getByText('Link saved')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Continue' })).toBeVisible()
         const handoff = page.getByRole('region', { name: 'Saved source and next steps' })
-        await expect(handoff).toContainText('Recognized source')
+        await expect(handoff).toContainText('Source')
         await expect(handoff).toContainText('YouTube')
-        await expect(handoff).toContainText('A summary, key ideas, supporting evidence, and source-grounded follow-up.')
-        await expect(handoff).toContainText('The Agent will continue with this exact link inside your account.')
         await expect(handoff.getByRole('link', { name: originalUrl })).toHaveAttribute('href', originalUrl)
 
         const retainedMessage = await page.evaluate(() => localStorage.getItem('vibedigest_pending_message'))
@@ -75,9 +71,8 @@ test.describe('Landing Page Acquisition Flow', () => {
 
         await page.goto('/en/login?next=%2Fen%2Fchat')
 
-        await expect(page.getByText('Your request is saved')).toBeVisible()
-        await expect(page.getByText('Sign in to continue with your saved request in your account.')).toBeVisible()
-        await expect(page.getByText('Sign in to continue with this source in your account.')).toHaveCount(0)
+        await expect(page.getByText('Request saved')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Continue' })).toBeVisible()
         await expect(page.getByRole('region', { name: 'Saved source and next steps' })).toHaveCount(0)
         await expect.poll(() => page.evaluate(() => localStorage.getItem('vibedigest_pending_message')))
             .toBe('What is the main risk?')
@@ -104,6 +99,7 @@ test.describe('Landing Page Acquisition Flow', () => {
         // The dialog usually has a role="dialog"
         const dialog = page.getByRole('dialog').first()
         await expect(dialog).toBeVisible({ timeout: 5000 })
-        await expect(dialog).toContainText(/Supported platforms|Use specific URL/i)
+        await expect(dialog).toContainText('Unsupported URL')
+        await expect(dialog).toContainText('Use a YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou link.')
     })
 })

@@ -86,9 +86,9 @@ test.describe("Shared account state", () => {
 
         await page.goto("/en")
 
-        await expect(page.getByRole("link", { name: "Go to Dashboard" })).toBeVisible()
+        await expect(page.getByRole("link", { name: "Open app" })).toBeVisible()
         expect(authRequests).toBe(1)
-        await page.getByRole("link", { name: "Go to Dashboard" }).click()
+        await page.getByRole("link", { name: "Open app" }).click()
 
         await expect(page.getByLabel("Chat input")).toBeVisible()
         await expect(page.getByRole("button", { name: "Pro", exact: true })).toBeVisible()
@@ -96,7 +96,7 @@ test.describe("Shared account state", () => {
         expect(profileRequests).toBe(1)
 
         await page.getByRole("button", { name: "Pro", exact: true }).click()
-        await page.getByRole("link", { name: /Monthly Credits/ }).click()
+        await page.getByRole("link", { name: /^Monthly/ }).click()
 
         await expect(page.getByRole("heading", { name: "Plan" })).toBeVisible()
         await expect(page.getByRole("button", { name: "Manage Subscription" })).toBeVisible()

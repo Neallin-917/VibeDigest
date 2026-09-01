@@ -115,7 +115,7 @@ test.describe('Chat Interface Flow', () => {
     await expect(page).toHaveURL(/.*\/chat/);
 
     // Wait for React hydration and Welcome Screen
-    await expect(chatPage.welcomeHeading).toContainText(/What do you want to understand today\?/i)
+    await expect(chatPage.welcomeHeading).toContainText(/What do you want to understand\?/i)
 
     // Paste URL and Submit (mock auth returns authenticated user)
     await chatPage.submitMessage('https://youtube.com/watch?v=e2e');

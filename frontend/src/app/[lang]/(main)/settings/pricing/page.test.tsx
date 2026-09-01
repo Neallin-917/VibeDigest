@@ -91,8 +91,8 @@ describe("PricingPage", () => {
     it("shows a consistent Pro state from one profile request", async () => {
         renderPricingPage()
 
-        expect(await screen.findByText("pricing.pro.subtitle")).toBeInTheDocument()
-        expect(screen.getByText("pricing.active")).toBeInTheDocument()
+        expect(await screen.findByText("pricing.active")).toBeInTheDocument()
+        expect(screen.queryByText("pricing.pro.subtitle")).not.toBeInTheDocument()
         expect(screen.getByText("pricing.included")).toBeInTheDocument()
         expect(screen.queryByText("pricing.pro.annual")).not.toBeInTheDocument()
         expect(screen.queryByText("$8.33")).not.toBeInTheDocument()

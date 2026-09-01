@@ -1,5 +1,6 @@
 
 import { ServerCommunityTemplates } from "@/components/templates/ServerCommunityTemplates"
+import { TopicHubLinks } from "@/components/templates/TopicHubLinks"
 import { Suspense } from 'react'
 import { LandingNav } from "@/components/landing/LandingNav"
 import { TemplatesSkeleton } from "@/components/templates/TemplatesSkeleton"
@@ -104,6 +105,11 @@ export default async function ExplorePage({
             </div>
 
             <main className="relative z-10 mx-auto min-h-screen w-full max-w-[1440px] px-5 pb-14 pt-24 sm:px-8 md:pt-28 lg:px-14">
+                <TopicHubLinks
+                    locale={locale}
+                    title={locale === "zh" ? "主题" : locale === "ja" ? "トピック" : "Topics"}
+                    className="mb-8"
+                />
                 <Suspense fallback={<TemplatesSkeleton />}>
                     <ServerCommunityTemplates
                         showHeader={false}

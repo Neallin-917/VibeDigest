@@ -24,7 +24,7 @@ vi.mock("@/lib/supabase-public", () => ({
   supabasePublic: { from: supabaseMocks.from },
 }))
 
-import sitemap, { buildSitemapEntries, STATIC_SITEMAP_PATHS } from "./sitemap"
+import sitemap, { buildSitemapEntries, STATIC_SITEMAP_PATHS, TOPIC_SITEMAP_PATHS } from "./sitemap"
 import robots from "./robots"
 
 describe("public discovery metadata", () => {
@@ -77,7 +77,9 @@ describe("public discovery metadata", () => {
       ],
     }])
 
-    expect(entries).toHaveLength(STATIC_SITEMAP_PATHS.length * 3 + 1)
+    expect(entries).toHaveLength((STATIC_SITEMAP_PATHS.length + TOPIC_SITEMAP_PATHS.length) * 3 + 1)
+    expect(entries.some((entry) => entry.url === "https://vibedigest.io/en/topics/agents")).toBe(true)
+    expect(entries.some((entry) => entry.url === "https://vibedigest.io/zh/topics/agents")).toBe(true)
     const englishTask = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))
     expect(englishTask).toMatchObject({
       url: "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",

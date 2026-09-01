@@ -5,13 +5,14 @@ import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle2, Link2, Mail } from "lucide-react"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { LanguageInlineSelect } from "@/components/i18n/LanguageInlineSelect"
 import { BrandLogo } from "@/components/layout/BrandLogo"
 import Link from "next/link"
 import { getSupportedUrlDetails } from "@/lib/urls"
+import { trackGrowthEvent } from "@/lib/growth-events"
 
 interface LoginFormProps {
     className?: string
@@ -96,6 +97,10 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
             if (error) {
                 setMessage({ type: 'error', text: getErrorMessage(error.message) })
             } else {
+                trackGrowthEvent('auth_signup_submit', {
+                    locale,
+                    surface: hasPendingHandoff ? 'handoff' : 'direct',
+                })
                 if (data.session) {
                     window.location.href = redirectTarget
                 } else {
@@ -165,15 +170,6 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                             ? t("auth.continueDigest")
                             : t("auth.welcomeBack")}
                 </CardTitle>
-                <CardDescription className="text-gray-500 dark:text-gray-400">
-                    {isSignUp
-                        ? (t("auth.signUpToContinue") || "Sign up to get started")
-                        : hasPendingHandoff
-                            ? pendingSource
-                                ? t("auth.handoffDescription")
-                                : t("auth.handoffMessageDescription")
-                            : t("auth.signInToContinue", { appName: t("brand.name") })}
-                </CardDescription>
                 {hasPendingHandoff && pendingSource && (
                     <section
                         aria-label={t("auth.handoffDetails")}
@@ -196,16 +192,6 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                                 >
                                     {pendingSource.originalUrl}
                                 </a>
-                            </div>
-                        </div>
-                        <div className="grid gap-3 text-sm sm:grid-cols-2">
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("auth.handoffOutputs")}</p>
-                                <p className="mt-1 leading-5 text-gray-800 dark:text-gray-200">{t("auth.handoffOutputsValue")}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("auth.handoffNext")}</p>
-                                <p className="mt-1 leading-5 text-gray-800 dark:text-gray-200">{t("auth.handoffNextValue")}</p>
                             </div>
                         </div>
                     </section>

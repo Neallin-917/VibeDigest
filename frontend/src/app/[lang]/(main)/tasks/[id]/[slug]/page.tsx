@@ -612,6 +612,7 @@ export default async function TaskDetailPage(props: Props) {
                             videoUrl={task.video_url}
                             thumbnailUrl={task.thumbnail_url}
                             initialThreadId={THREAD_ID_PATTERN.test(initialThreadId) ? initialThreadId : null}
+                            sourceId={sourceId}
                             copy={copy.followUp}
                         />
                     </div>

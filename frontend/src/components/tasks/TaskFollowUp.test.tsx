@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-import { TaskFollowUp } from './TaskFollowUp'
-
 const replaceMock = vi.fn()
 let mockIsAuthenticated: boolean | null = false
 let mockThreadPayload = {
@@ -32,6 +30,7 @@ vi.mock('@/components/chat/ChatContainer', () => ({
     initialMessages?: unknown[]
     variant?: string
     scope?: 'workspace' | 'source'
+    sourceId?: string
     showTaskArtifacts?: boolean
     onChatStarted?: (threadId: string) => void
   }) => (
@@ -42,6 +41,7 @@ vi.mock('@/components/chat/ChatContainer', () => ({
       data-message-count={String(props.initialMessages?.length ?? 0)}
       data-variant={props.variant}
       data-scope={props.scope}
+      data-source-id={props.sourceId}
       data-show-task-artifacts={String(props.showTaskArtifacts)}
     >
       <button
@@ -53,6 +53,8 @@ vi.mock('@/components/chat/ChatContainer', () => ({
     </div>
   ),
 }))
+
+import { TaskFollowUp } from './TaskFollowUp'
 
 const copy = {
   title: '基于本期内容继续追问',
@@ -66,6 +68,7 @@ const defaultProps = {
   videoTitle: 'A useful source',
   videoUrl: 'https://example.com/video',
   thumbnailUrl: 'https://example.com/cover.jpg',
+  sourceId: 'latent-space',
   copy,
 }
 
@@ -91,6 +94,7 @@ describe('TaskFollowUp', () => {
     expect(await screen.findByTestId('embedded-chat')).toHaveAttribute('data-variant', 'embedded')
     expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-task-id', 'task-1')
     expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-scope', 'source')
+    expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-source-id', 'latent-space')
     expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-show-task-artifacts', 'false')
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -136,5 +140,18 @@ describe('TaskFollowUp', () => {
 
     expect(await screen.findByTestId('embedded-chat')).toHaveAttribute('data-message-count', '1')
     expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-show-task-artifacts', 'true')
+  })
+
+  it('keeps a restored thread bound to the same source', async () => {
+    render(
+      <TaskFollowUp
+        {...defaultProps}
+        initialThreadId="f47ac10b-58cc-4372-a567-0e02b2c3d479"
+      />
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Persist chat' }))
+
+    expect(screen.getByTestId('embedded-chat')).toHaveAttribute('data-source-id', 'latent-space')
   })
 })

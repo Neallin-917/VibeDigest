@@ -132,7 +132,7 @@ describe('WelcomeScreen', () => {
     expect(onSubmit).toHaveBeenCalledWith('hello')
   })
 
-  it('explains the sign-in handoff to unauthenticated visitors', () => {
+  it('keeps the guest welcome screen free of sign-in instructions', () => {
     render(
       <WelcomeScreen
         onSelectExample={vi.fn()}
@@ -142,6 +142,6 @@ describe('WelcomeScreen', () => {
       />
     )
 
-    expect(screen.getByText('auth.guestSubmitHint')).toBeInTheDocument()
+    expect(screen.queryByText('auth.guestSubmitHint')).not.toBeInTheDocument()
   })
 })

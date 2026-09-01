@@ -80,12 +80,9 @@ describe("HeroSection", () => {
         expect(screen.getByText("landing.previewTitle")).toBeInTheDocument()
     })
 
-    it("renders parsed markdown in description", () => {
+    it("does not render explanatory copy above the input", () => {
         render(<HeroSection />)
-        // Should have "with power" in bold
-        const bold = screen.getByText("with power")
-        expect(bold.tagName).toBe("SPAN")
-        expect(bold.className).toContain("font-semibold")
+        expect(screen.queryByText(/Analysis/)).not.toBeInTheDocument()
     })
 
     it("renders ChatInput in inline mode", () => {

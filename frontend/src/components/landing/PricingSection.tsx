@@ -92,13 +92,9 @@ export function PricingSection() {
         <section id="pricing" className="scroll-mt-24 px-4 py-20 sm:px-6 md:py-24 lg:px-10 lg:py-28 xl:px-6">
             <div className="mx-auto max-w-[1080px]">
                 <div className="mb-12 max-w-2xl">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-strong">03 · {t("landing.navPricing")}</p>
-                    <Heading as="h2" className="mt-5 text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
+                    <Heading as="h2" className="text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
                         {t("landing.simplePricing")}
                     </Heading>
-                    <Text className="mt-4 text-[15px] leading-7 text-muted-foreground">
-                        {t("landing.simplePricingSubtitle")}
-                    </Text>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

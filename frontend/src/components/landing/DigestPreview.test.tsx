@@ -25,7 +25,8 @@ describe("DigestPreview", () => {
 
         const source = within(preview).getByRole("complementary", { name: "landing.previewSourceLabel" })
         expect(within(source).getByText("landing.previewSourceName")).toBeVisible()
-        expect(within(source).getByText("landing.previewSourceType")).toBeVisible()
+        expect(within(source).queryByText("landing.previewSourceType")).not.toBeInTheDocument()
+        expect(within(preview).queryByText("landing.previewKicker")).not.toBeInTheDocument()
 
         expect(within(preview).queryByRole("tablist")).not.toBeInTheDocument()
         expect(within(preview).queryByText("landing.previewReady")).not.toBeInTheDocument()

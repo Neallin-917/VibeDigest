@@ -1,7 +1,7 @@
 "use client"
 
 import { useI18n } from "@/components/i18n/I18nProvider"
-import { Heading, Text } from "@/components/ui/typography"
+import { Heading } from "@/components/ui/typography"
 import { Button } from "@/components/ui/button"
 import { Mail } from "lucide-react"
 import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
@@ -22,14 +22,9 @@ export function SupportCTA() {
 
                 <div className="relative z-10 grid items-end gap-8 md:grid-cols-[minmax(0,1fr)_auto]">
                     <div className="max-w-xl">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">{t("landing.supportEyebrow")}</p>
-                        <Heading as="h2" className="mt-4 text-[clamp(1.6rem,2.7vw,2rem)] font-semibold tracking-[-0.032em] text-foreground">
+                        <Heading as="h2" className="text-[clamp(1.6rem,2.7vw,2rem)] font-semibold tracking-[-0.032em] text-foreground">
                             {t("landing.stillHaveQuestions")}
                         </Heading>
-
-                        <Text className="mt-3 text-sm leading-7 text-muted-foreground">
-                            {t("landing.stillHaveQuestionsDesc")}
-                        </Text>
                     </div>
 
                     <div className="flex">

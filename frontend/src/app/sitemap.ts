@@ -4,6 +4,7 @@ import { buildAlternateLanguages, SITE_URL } from '@/lib/seo'
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n'
 import { buildPublicTaskPath, latestValidDate } from '@/lib/public-task-seo'
 import { listPublicSummaryLocales } from '@/lib/summary-contract'
+import { TOPIC_ROUTE_ORDER } from '@/lib/topic-hubs'
 
 export type PublicSitemapTask = {
   id: string
@@ -29,15 +30,17 @@ export const STATIC_SITEMAP_PATHS = [
   '/faq',
 ] as const
 
+export const TOPIC_SITEMAP_PATHS = TOPIC_ROUTE_ORDER.map((topic) => `/topics/${topic}`) as string[]
+
 export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = []
 
-  for (const path of STATIC_SITEMAP_PATHS) {
+  for (const path of [...STATIC_SITEMAP_PATHS, ...TOPIC_SITEMAP_PATHS]) {
     for (const locale of SUPPORTED_LOCALES) {
       entries.push({
         url: `${SITE_URL}/${locale}${path}`,
-        changeFrequency: path === '' ? 'daily' : 'weekly',
-        priority: path === '' ? 1 : 0.8,
+        changeFrequency: path === '' ? 'daily' : path.startsWith('/topics/') ? 'weekly' : 'weekly',
+        priority: path === '' ? 1 : path.startsWith('/topics/') ? 0.7 : 0.8,
         alternates: { languages: buildAlternateLanguages(path) },
       })
     }

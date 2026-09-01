@@ -163,6 +163,7 @@ describe('ChatContainer', () => {
         activeTaskId="selected-task"
         variant="embedded"
         scope="source"
+        sourceId="latent-space"
         isAuthenticated={true}
       />
     )
@@ -175,6 +176,27 @@ describe('ChatContainer', () => {
         parts: [{ type: 'text', text: mockChatInputText }],
       })
     )
+    expect(growth.trackGrowthEvent).toHaveBeenCalledWith('source_followup_started', {
+      locale: 'en',
+      source: 'latent-space',
+    })
+  })
+
+  it('tracks source follow-up intent once across repeated questions', () => {
+    render(
+      <ChatContainer
+        activeTaskId="selected-task"
+        variant="embedded"
+        scope="source"
+        sourceId="latent-space"
+        isAuthenticated={true}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Send'))
+    fireEvent.click(screen.getByText('Send'))
+
+    expect(growth.trackGrowthEvent).toHaveBeenCalledTimes(1)
   })
 
   it('renders ChatInput and lazily loads messages when there are messages', async () => {

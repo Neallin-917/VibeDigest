@@ -23,6 +23,7 @@ type TaskFollowUpProps = {
   videoUrl?: string | null
   thumbnailUrl?: string | null
   initialThreadId?: string | null
+  sourceId: string
   copy: FollowUpCopy
 }
 
@@ -50,6 +51,7 @@ export function TaskFollowUp({
   videoUrl,
   thumbnailUrl,
   initialThreadId,
+  sourceId,
   copy,
 }: TaskFollowUpProps) {
   const { isAuthenticated } = useAuth()
@@ -190,6 +192,7 @@ export function TaskFollowUp({
             initialMessages={initialMessages}
             isAuthenticated={isAuthenticated}
             scope="source"
+            sourceId={sourceId}
             showTaskArtifacts={taskStatus !== 'completed'}
             onChatStarted={handleChatStarted}
           />

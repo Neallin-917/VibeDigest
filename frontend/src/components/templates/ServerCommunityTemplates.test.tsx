@@ -13,6 +13,7 @@ const queryState = vi.hoisted(() => ({
   preferredTasks: { data: [], count: null, error: null } as QueryResult,
   sources: { data: [], error: null } as QueryResult,
   eqCalls: [] as Array<[string, unknown]>,
+  inCalls: [] as Array<[string, unknown[]]>,
   limits: [] as number[],
   languageFilters: [] as string[],
 }))
@@ -34,6 +35,10 @@ vi.mock("@/lib/supabase/server", () => ({
           if (column === "public_quality_flags->>language" && typeof value === "string") {
             queryState.languageFilters.push(value)
           }
+          return query
+        },
+        in: (column: string, values: unknown[]) => {
+          queryState.inCalls.push([column, values])
           return query
         },
         ilike: () => query,
@@ -106,6 +111,7 @@ describe("ServerCommunityTemplates", () => {
     queryState.preferredTasks = { data: [], count: null, error: null }
     queryState.sources = { data: [], error: null }
     queryState.eqCalls = []
+    queryState.inCalls = []
     queryState.limits = []
     queryState.languageFilters = []
   })
@@ -187,6 +193,43 @@ describe("ServerCommunityTemplates", () => {
     expect(screen.getByTestId("community-takeaway-locales")).toHaveTextContent("en")
     expect(screen.getByTestId("source-shelf")).toHaveTextContent("Latent Space:12")
     expect(screen.getByTestId("total-count")).toHaveTextContent("1")
+  })
+
+  it("filters topic pages to the mapped source ids and topic shelf", async () => {
+    queryState.sources = {
+      data: [
+        {
+          slug: "latent-space",
+          name: "Latent Space",
+          source_url: "https://www.youtube.com/@LatentSpacePod",
+          aliases: [],
+          topics: ["agents"],
+          featured: true,
+          catalog_order: 1,
+          published_count: 12,
+        },
+        {
+          slug: "lennys-podcast",
+          name: "Lenny's Podcast",
+          source_url: "https://www.youtube.com/@LennysPodcast",
+          aliases: [],
+          topics: ["product"],
+          featured: true,
+          catalog_order: 2,
+          published_count: 9,
+        },
+      ],
+      error: null,
+    }
+
+    render(await ServerCommunityTemplates({ showHeader: false, locale: "en", topic: "agents" }))
+
+    expect(queryState.inCalls).toContainEqual([
+      "podcast_source_slug",
+      expect.arrayContaining(["latent-space", "a16z"]),
+    ])
+    expect(screen.getByTestId("source-shelf")).toHaveTextContent("Latent Space:12")
+    expect(screen.getByTestId("source-shelf")).not.toHaveTextContent("Lenny's Podcast:9")
   })
 
   it("puts locale-matching public digests first while keeping other digests discoverable", async () => {

@@ -3,6 +3,7 @@ import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import type { Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { resolveSummaryLocale } from "@/lib/summary-contract"
+import { getTopicSourceIds } from "@/lib/topic-hubs"
 import {
   CommunityTemplates,
   type CommunityTemplatesIntro,
@@ -157,6 +158,7 @@ function mergeLocalePreferredTasks(
 
 async function fetchSourceShelf(
   supabase: Awaited<ReturnType<typeof createClient>>,
+  topic?: PodcastTopic,
 ): Promise<SourceShelfItem[]> {
   const { data, error } = await supabase
     .from("podcast_library_source_counts")
@@ -184,6 +186,7 @@ async function fetchSourceShelf(
   const sourceItems = (data || []).flatMap((row) => {
     const source = toPodcastSource(row)
     if (!source) return []
+    if (topic && !source.topics.includes(topic)) return []
     const count = typeof row.published_count === "number"
       ? row.published_count
       : Number(row.published_count) || 0
@@ -201,6 +204,7 @@ export async function ServerCommunityTemplates({
   initialSource,
   initialQuery,
   page = 1,
+  topic,
 }: {
   limit?: number
   showHeader?: boolean
@@ -210,6 +214,7 @@ export async function ServerCommunityTemplates({
   initialSource?: string
   initialQuery?: string
   page?: number
+  topic?: PodcastTopic
 }) {
   const t = createTranslator(locale)
   const copy = {
@@ -224,10 +229,13 @@ export async function ServerCommunityTemplates({
   const normalizedPage = normalizePage(page)
   const pageLimit = normalizedPage * PAGE_SIZE
   const previewLimit = Math.max(1, Math.min(limit ?? DEFAULT_PREVIEW_LIMIT, 8))
+  const topicSourceIds = topic ? getTopicSourceIds(topic) : []
 
   if (shouldUseDemoFixtures()) {
     const fixtureLimit = layout === "landingPreview" ? previewLimit : Math.max(pageLimit, 8)
-    const fixtureTasks = getDemoFixtureTasks(fixtureLimit)
+    const fixtureTasks = getDemoFixtureTasks(fixtureLimit).filter(
+      (task) => !topic || Boolean(task.source && topicSourceIds.includes(task.source.id)),
+    )
     return (
       <CommunityTemplates
         showHeader={showHeader}
@@ -297,6 +305,7 @@ export async function ServerCommunityTemplates({
       .limit(queryLimit)
 
     if (preferredLocale) query = query.eq(PUBLIC_LANGUAGE_FIELD, preferredLocale)
+    if (topicSourceIds.length > 0) query = query.in("podcast_source_slug", topicSourceIds)
     return query
   }
 
@@ -340,6 +349,7 @@ export async function ServerCommunityTemplates({
     .eq("publication_status", "published")
 
   totalQuery = applySearchLike(totalQuery, normalizedQuery)
+  if (topicSourceIds.length > 0) totalQuery = totalQuery.in("podcast_source_slug", topicSourceIds)
   if (activeSource !== "all") totalQuery = totalQuery.eq("podcast_source_slug", activeSource)
 
   let tasksQuery = createTasksQuery(pageLimit)
@@ -356,7 +366,7 @@ export async function ServerCommunityTemplates({
     { data, error },
     { data: preferredData, error: preferredError },
   ] = await Promise.all([
-    fetchSourceShelf(supabase),
+    fetchSourceShelf(supabase, topic),
     totalQuery,
     tasksQuery,
     preferredTasksQuery,

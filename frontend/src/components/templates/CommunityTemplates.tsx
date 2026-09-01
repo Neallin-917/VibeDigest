@@ -704,9 +704,7 @@ export function CommunityTemplates({
             {intro ? (
                 <header className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,32rem)] lg:items-end">
                     <div className="max-w-3xl">
-                        <p className="mb-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">{intro.eyebrow}</p>
                         <h1 className="font-display text-4xl font-bold tracking-[-0.04em] text-slate-950 sm:text-5xl dark:text-white">{intro.title}</h1>
-                        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600 dark:text-zinc-400">{intro.description}</p>
                     </div>
                     <section id="podcast-search" aria-label={podcastCopy.search} className="scroll-mt-24">
                         <div className="relative block w-full">
@@ -739,7 +737,6 @@ export function CommunityTemplates({
             {showHeader ? (
                 <div>
                     <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">{copy.title}</h2>
-                    <p className="mt-2 text-sm text-slate-600 dark:text-zinc-400">{copy.hint}</p>
                 </div>
             ) : null}
 

@@ -229,12 +229,6 @@ function MobileMenuDrawerComponent({
 
         </nav>
 
-        {/* Footer - Simplified hint */}
-        <div className="p-4 border-t border-slate-200/60 dark:border-white/10">
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
-            {t('chat.moreOptionsHint')}
-          </p>
-        </div>
       </SheetContent>
     </Sheet>
   )

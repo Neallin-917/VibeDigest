@@ -14,12 +14,9 @@ export function DigestPreview() {
             className="w-full overflow-hidden rounded-[18px] border border-border bg-surface-raised text-foreground shadow-[0_28px_80px_-58px_rgba(45,67,51,0.28)]"
         >
             <header className="border-b border-border/70 px-5 py-6 sm:px-8 sm:py-8">
-                <p className="text-xs font-semibold text-primary">
-                    {t("landing.previewKicker")}
-                </p>
                 <h2
                     id="digest-preview-title"
-                    className="mt-2 max-w-3xl text-[clamp(1.5rem,3.1vw,2.25rem)] font-semibold leading-[1.12] tracking-[-0.035em] text-foreground"
+                    className="max-w-3xl text-[clamp(1.5rem,3.1vw,2.25rem)] font-semibold leading-[1.12] tracking-[-0.035em] text-foreground"
                 >
                     {t("landing.previewTitle")}
                 </h2>
@@ -81,9 +78,6 @@ export function DigestPreview() {
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-foreground">
                         {t("landing.previewSourceName")}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {t("landing.previewSourceType")}
                     </p>
                 </aside>
             </div>

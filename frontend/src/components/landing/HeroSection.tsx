@@ -64,33 +64,16 @@ export function HeroSection() {
         }
     }
 
-    const renderWithBold = (text: string) => {
-        const parts = text.split(/(\*\*.*?\*\*)/g)
-        return parts.map((part, index) => {
-            if (part.startsWith("**") && part.endsWith("**")) {
-                return <span key={index} className="font-semibold text-primary">{part.slice(2, -2)}</span>
-            }
-            return part
-        })
-    }
-
     return (
         <section id="hero" className="relative overflow-hidden px-4 pb-20 pt-32 sm:px-6 md:pb-28 md:pt-36 lg:px-10 xl:px-6">
             <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[42rem] bg-[linear-gradient(to_bottom,rgba(76,103,82,0.055),transparent_72%)]" />
             <div className="mx-auto w-full max-w-[1080px]">
                 <div className="max-w-[760px]">
-                    <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-strong">
-                        <span className="h-px w-7 bg-primary/55" aria-hidden="true" />
-                        {t("landing.badge")}
-                    </p>
-                    <h1 className="mt-5 max-w-[730px] text-[clamp(2.5rem,4.1vw,3.125rem)] font-semibold leading-[1.07] tracking-[-0.042em] text-foreground">
+                    <h1 className="max-w-[730px] text-[clamp(2.5rem,4.1vw,3.125rem)] font-semibold leading-[1.07] tracking-[-0.042em] text-foreground">
                         {t("landing.titlePrefix")}{" "}
                         <span className="text-primary">{t("landing.titleEmphasis")}</span>
                     </h1>
 
-                    <p className="mt-6 max-w-[35rem] text-base leading-7 text-muted-foreground">
-                        {renderWithBold(t("landing.smartSummarizationDesc"))}
-                    </p>
                     <div className="mt-8 w-full max-w-[34rem]">
                         <div className="rounded-[14px] border border-border bg-card p-1.5 shadow-[0_10px_35px_-24px_rgba(31,41,34,0.28)]">
                             <ChatInput
@@ -117,15 +100,12 @@ export function HeroSection() {
                             <ExternalLink className="w-5 h-5 text-primary" />
                             {t("taskForm.urlHelp.title")}
                         </DialogTitle>
-                        <DialogDescription className="pt-2">
+                        <DialogDescription className="sr-only">
                             {t("taskForm.urlHelp.description")}
                         </DialogDescription>
                     </DialogHeader>
                     
                     <div className="py-4">
-                        <p className="mb-3 text-sm font-semibold text-foreground">
-                            {t("taskForm.urlHelp.supportedPlatforms")}
-                        </p>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2.5 text-sm text-muted-foreground">
                                 <Youtube className="w-4 h-4 text-red-500" />

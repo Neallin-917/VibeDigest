@@ -54,6 +54,10 @@ describe("growth event vocabulary", () => {
       locale: "en",
       surface: "workspace",
     })
+    trackGrowthEvent("source_followup_started", {
+      locale: "en",
+      source: "latent-space",
+    })
     trackGrowthEvent("task_result_view", {
       locale: "zh",
     })
@@ -72,28 +76,48 @@ describe("growth event vocabulary", () => {
       product: "pro",
       billing: "annual",
     })
+    trackGrowthEvent("source_followup_started", {
+      locale: "zh",
+      source: "latent-space",
+    })
+    trackGrowthEvent("auth_signup_submit", {
+      locale: "en",
+      surface: "handoff",
+    })
 
     expect(analytics.track).toHaveBeenNthCalledWith(1, "task_create_accepted", {
       locale: "en",
       surface: "workspace",
     })
-    expect(analytics.track).toHaveBeenNthCalledWith(2, "task_result_view", {
+    expect(analytics.track).toHaveBeenNthCalledWith(2, "source_followup_started", {
+      locale: "en",
+      source: "latent-space",
+    })
+    expect(analytics.track).toHaveBeenNthCalledWith(3, "task_result_view", {
       locale: "zh",
     })
-    expect(analytics.track).toHaveBeenNthCalledWith(3, "pricing_plan_open", {
+    expect(analytics.track).toHaveBeenNthCalledWith(4, "pricing_plan_open", {
       locale: "ja",
       plan: "topup",
       destination: "pricing",
     })
-    expect(analytics.track).toHaveBeenNthCalledWith(4, "pricing_plan_open", {
+    expect(analytics.track).toHaveBeenNthCalledWith(5, "pricing_plan_open", {
       locale: "en",
       plan: "free",
       destination: "chat",
     })
-    expect(analytics.track).toHaveBeenNthCalledWith(5, "pricing_checkout_redirect", {
+    expect(analytics.track).toHaveBeenNthCalledWith(6, "pricing_checkout_redirect", {
       locale: "en",
       product: "pro",
       billing: "annual",
+    })
+    expect(analytics.track).toHaveBeenNthCalledWith(7, "source_followup_started", {
+      locale: "zh",
+      source: "latent-space",
+    })
+    expect(analytics.track).toHaveBeenNthCalledWith(8, "auth_signup_submit", {
+      locale: "en",
+      surface: "handoff",
     })
   })
 

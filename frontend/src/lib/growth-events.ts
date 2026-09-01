@@ -31,6 +31,8 @@ type GrowthEventPayloads = {
   library_load_more: { locale: Locale; source: string; page: number }
   public_digest_view: { locale: Locale; source: string }
   public_digest_share: { locale: Locale; source: string; method: "copy_link" }
+  source_followup_started: { locale: Locale; source: string }
+  auth_signup_submit: { locale: Locale; surface: "handoff" | "direct" }
   quota_pricing_open: { locale: Locale; surface: "workspace" | "source_followup" }
   task_create_accepted: { locale: Locale; surface: TaskCreateAcceptedSurface }
   task_result_view: { locale: Locale }

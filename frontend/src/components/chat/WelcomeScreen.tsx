@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, use, useSyncExternalStore } from 'react'
+import { Suspense, use } from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
@@ -19,10 +19,6 @@ interface WelcomeScreenProps {
   /** Server-started examples request, streamed without blocking the input */
   initialExamples?: Promise<ChatExample[]> | null
 }
-
-const subscribeToMountState = () => () => undefined
-const getClientMountState = () => true
-const getServerMountState = () => false
 
 function ExamplesLoading() {
   const { t } = useI18n()
@@ -78,30 +74,16 @@ export function WelcomeScreen({
   onSelectExample,
   onSubmit,
   isLoading,
-  isAuthenticated = null,
   initialExamples = null,
 }: WelcomeScreenProps) {
   const { t } = useI18n()
-  const hasMounted = useSyncExternalStore(
-    subscribeToMountState,
-    getClientMountState,
-    getServerMountState,
-  )
 
   return (
     <div className="flex flex-col items-center justify-start min-h-full px-6 py-8 md:py-12">
-      {/* Hero Section */}
       <div className="w-full text-center max-w-lg mb-8">
-
-        {/* Title */}
         <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-3">
           {t('chat.welcome.title')}
         </h1>
-
-        {/* Subtitle */}
-        <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 leading-relaxed">
-          {t('chat.welcome.subtitle')}
-        </p>
       </div>
 
       {/* Inline Chat Input - Centered, part of the content flow */}
@@ -112,11 +94,6 @@ export function WelcomeScreen({
           isLoading={isLoading}
           hideDisclaimer={true}
         />
-        {hasMounted && isAuthenticated === false && (
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
-            {t('auth.guestSubmitHint')}
-          </p>
-        )}
       </div>
 
       {initialExamples ? (

@@ -119,7 +119,7 @@ describe('MobileMenuDrawer', () => {
     expect(screen.getByText('Chat 25')).toBeInTheDocument()
   })
 
-  it('localizes persisted default titles and the mobile hint', () => {
+  it('localizes persisted default titles without a redundant mobile hint', () => {
     render(
       <MobileMenuDrawer
         isOpen={true}
@@ -135,6 +135,6 @@ describe('MobileMenuDrawer', () => {
     expect(screen.getAllByText('chat.newChat')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Open thread actions for chat.newChat' })).toBeInTheDocument()
     expect(screen.queryByText('New Chat')).not.toBeInTheDocument()
-    expect(screen.getByText('chat.moreOptionsHint')).toBeInTheDocument()
+    expect(screen.queryByText('chat.moreOptionsHint')).not.toBeInTheDocument()
   })
 })

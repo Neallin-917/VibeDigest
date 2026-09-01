@@ -18,6 +18,20 @@ an HTML file under `.reports/ops-daily/`. Use `--date YYYY-MM-DD`, `--timezone`,
 `--format json`, or `--output PATH` when needed. The database transaction is
 explicitly read-only.
 
+For a privacy-safe acquisition view that combines this database truth with
+anonymous Vercel Web Analytics aggregates, run:
+
+```bash
+uv run python backend/scripts/generate_acquisition_daily_report.py
+```
+
+It writes HTML under `.reports/acquisition-daily/`. It requires the same
+database access plus `VERCEL_API_TOKEN` (or `VERCEL_TOKEN`) and the linked
+`.vercel/project.json` (or `VERCEL_PROJECT_ID`). Path visitor counts can
+overlap, so the report does not present them as a conversion rate or join them
+to user identities. Vercel aggregates use a UTC calendar day; database metrics
+retain the selected operations timezone, and the HTML labels both explicitly.
+
 ## Exclusion contract
 
 Core metrics include only registered users and tasks satisfying all of these
@@ -72,8 +86,9 @@ full 24-hour opportunity to activate.
 - `payment_orders` does not contain a durable product/billing classification or
   complete renewal/refund ledger. Confirmed checkout volume must not be labeled
   revenue, MRR, or net revenue.
-- Vercel Analytics growth events are not joined into this database report. Page
-  views, result views, and aggregate pricing CTA events remain a separate
-  acquisition surface until a reviewed integration is added.
+- The acquisition companion reads anonymous Vercel page and referrer
+  aggregates separately from database metrics. Custom-event counts require a
+  Vercel plan that exposes the Web Analytics events API; when unavailable, the
+  report labels that gap instead of fabricating a click funnel.
 - Historical Agent-turn metrics begin when `vibedigest_private.agent_turns` was
   introduced; do not compare earlier periods as if coverage were unchanged.

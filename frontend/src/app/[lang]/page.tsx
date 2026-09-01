@@ -6,6 +6,7 @@ import { PricingSection } from "@/components/landing/PricingSection"
 import { LandingFAQ } from "@/components/landing/LandingFAQ"
 import { SupportCTA } from "@/components/landing/SupportCTA"
 import { ServerCommunityTemplates } from "@/components/templates/ServerCommunityTemplates"
+import { TopicHubLinks } from "@/components/templates/TopicHubLinks"
 import { TemplatesSkeleton } from "@/components/templates/TemplatesSkeleton"
 import { Suspense } from "react"
 import Link from "next/link"
@@ -132,11 +133,14 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
           <div className="mx-auto max-w-[1080px]">
             <div className="flex items-end justify-between gap-8">
               <div className="max-w-2xl">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">{t("landing.communityEyebrow")}</p>
-                <h2 id="community-title" className="mt-4 text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
+                <h2 id="community-title" className="text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
                   {t("landing.communityTitle")}
                 </h2>
-                <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">{t("landing.communityHint")}</p>
+                <TopicHubLinks
+                  locale={locale}
+                  title={locale === "zh" ? "主题" : locale === "ja" ? "トピック" : "Topics"}
+                  className="mt-6"
+                />
               </div>
               <Link
                 href={`/${locale}/explore`}

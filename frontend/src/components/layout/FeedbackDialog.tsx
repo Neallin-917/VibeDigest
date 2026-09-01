@@ -108,7 +108,7 @@ export function FeedbackDialog({
             <DialogContent className="sm:max-w-[425px] bg-white/90 dark:bg-black/40 backdrop-blur-md text-foreground border-slate-200 dark:border-white/10 shadow-2xl">
                 <DialogHeader>
                     <DialogTitle>{t("feedback.title")}</DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="sr-only">
                         {t("feedback.subtitle", { appName: t("brand.name") })}
                     </DialogDescription>
                 </DialogHeader>

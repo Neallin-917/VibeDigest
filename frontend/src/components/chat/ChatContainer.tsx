@@ -34,6 +34,7 @@ interface ChatContainerProps {
   initialExamples?: Promise<ChatExample[]> | null
   variant?: 'workspace' | 'embedded'
   scope?: 'workspace' | 'source'
+  sourceId?: string
   showTaskArtifacts?: boolean
 }
 
@@ -132,6 +133,7 @@ export function ChatContainer({
   initialExamples = null,
   variant = 'workspace',
   scope = 'workspace',
+  sourceId,
   showTaskArtifacts = true,
 }: ChatContainerProps) {
 
@@ -139,6 +141,7 @@ export function ChatContainer({
   const router = useRouter()
 
   const activeTaskIdRef = useRef<string | null | undefined>(activeTaskId)
+  const sourceFollowupTrackedRef = useRef(false)
 
   // Ensure we always have a valid UUID for the thread ID to satisfy DB requirements
   // Use lazy state initialization to generate once per component mount
@@ -276,6 +279,14 @@ export function ChatContainer({
 
     const trimmed = content.trim()
     if (!trimmed) return false
+
+    if (scope === 'source' && !sourceFollowupTrackedRef.current) {
+      sourceFollowupTrackedRef.current = true
+      trackGrowthEvent('source_followup_started', {
+        locale,
+        source: sourceId || 'unknown',
+      })
+    }
 
     // The initial browser session arrives asynchronously. Queue the submission
     // until that local session is known instead of misrouting a signed-in user.

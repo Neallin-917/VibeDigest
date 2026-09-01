@@ -5,7 +5,7 @@ import { useI18n } from "@/components/i18n/I18nProvider"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Heading, Text } from "@/components/ui/typography"
+import { Heading } from "@/components/ui/typography"
 import { useTaskNotification } from "@/hooks/useTaskNotification"
 import { Button } from "@/components/ui/button"
 import { Bell, BellOff } from "lucide-react"
@@ -16,28 +16,18 @@ export default function SettingsPage() {
     return (
         <PageContainer>
             <div className="max-w-4xl mx-auto space-y-6">
-                <div className="space-y-1">
-                    <Heading as="h1" variant="pageTitle">
-                        {t("settings.title")}
-                    </Heading>
-                    <Text tone="muted">
-                        {t("settings.subtitle")}
-                    </Text>
-                </div>
+                <Heading as="h1" variant="pageTitle">
+                    {t("settings.title")}
+                </Heading>
 
                 <div className="grid gap-6">
                     <Card className="overflow-visible">
                         <CardContent className="space-y-6 pt-6">
                             {/* Language Section */}
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <h3 className="text-sm font-medium text-foreground">
-                                        {t("settings.language")}
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        {t("settings.languageHint")}
-                                    </p>
-                                </div>
+                                <h3 className="text-sm font-medium text-foreground">
+                                    {t("settings.language")}
+                                </h3>
                                 <div className="w-full md:w-[200px]">
                                     <LanguageDropdown />
                                 </div>
@@ -47,14 +37,9 @@ export default function SettingsPage() {
 
                             {/* Notification Section */}
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <h3 className="text-sm font-medium text-foreground">
-                                        {t("settings.notifications")}
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        {t("settings.notificationsHint")}
-                                    </p>
-                                </div>
+                                <h3 className="text-sm font-medium text-foreground">
+                                    {t("settings.notifications")}
+                                </h3>
                                 <div>
                                     <NotificationSettings />
                                 </div>

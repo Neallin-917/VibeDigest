@@ -125,13 +125,10 @@ export default function PricingPage() {
             <div className="mx-auto w-full max-w-6xl space-y-8">
                 {/* Header + Usage */}
                 <section className="grid gap-6 lg:grid-cols-12 lg:items-start">
-                    <div className="space-y-3 text-center lg:col-span-7 lg:text-left">
+                    <div className="text-center lg:col-span-7 lg:text-left">
                         <Heading as="h1" variant="h1">
                             {t("pricing.title")}
                         </Heading>
-                        <Text tone="muted" className="max-w-2xl mx-auto lg:mx-0">
-                            {t(isPro ? "pricing.pro.subtitle" : "pricing.subtitle")}
-                        </Text>
                     </div>
 
                     <div className="lg:col-span-5">

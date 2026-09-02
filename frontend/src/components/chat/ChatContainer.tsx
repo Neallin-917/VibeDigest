@@ -512,10 +512,10 @@ export function ChatContainer({
             {(status === 'submitted' || (status === 'streaming' && !hasRenderableAssistant)) && (
               <div className="flex w-full">
                 <div className="flex flex-col gap-2">
-                  <div className="bg-white/40 dark:bg-white/5 px-5 py-3 rounded-2xl rounded-tl-sm border border-white/40 dark:border-white/5 flex items-center gap-2 w-fit">
+                  <div className="flex w-fit items-center gap-2 rounded-2xl rounded-tl-sm border border-border/80 bg-card/70 px-5 py-3">
                     <ProcessingIndicator
                       label={t('chat.thinking')}
-                      className="text-sm text-slate-500 dark:text-slate-400 font-medium"
+                      className="text-sm font-medium text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -565,16 +565,16 @@ export function ChatContainer({
             <div className="flex w-full">
               <div
                 role="alert"
-                className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 px-4 py-3 rounded-xl flex items-center gap-3"
+                className="flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3"
               >
-                <XCircle className="w-4 h-4 text-red-500" />
-                <div className="text-sm text-red-600 dark:text-red-400">
+                <XCircle className="h-4 w-4 text-destructive" />
+                <div className="text-sm text-destructive">
                   {displayErrorMessage}
                 </div>
                 {requiresAuth ? (
                   <button
                     onClick={handleLogin}
-                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="rounded border border-destructive/20 bg-card px-2 py-1 text-xs transition-colors hover:bg-destructive/10"
                   >
                     {t('auth.signIn')}
                   </button>
@@ -585,14 +585,14 @@ export function ChatContainer({
                       locale,
                       surface: scope === 'source' ? 'source_followup' : 'workspace',
                     })}
-                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="rounded border border-destructive/20 bg-card px-2 py-1 text-xs transition-colors hover:bg-destructive/10"
                   >
                     {t('taskForm.quotaExceeded.confirm')}
                   </Link>
                 ) : error && !taskRetryError && continuationState !== 'failed' ? (
                   <button
                     onClick={() => regenerate()}
-                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="rounded border border-destructive/20 bg-card px-2 py-1 text-xs transition-colors hover:bg-destructive/10"
                   >
                     {t('chat.retry')}
                   </button>

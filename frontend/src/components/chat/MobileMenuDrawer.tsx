@@ -91,12 +91,11 @@ function MobileMenuDrawerComponent({
         side="left"
         className={cn(
           "w-[280px] p-0 flex flex-col border-r shadow-2xl backdrop-blur-xl",
-          "bg-white/80 border-slate-200/60",
-          "dark:bg-black/60 dark:border-white/10"
+          "border-sidebar-border/80 bg-sidebar/95"
         )}
       >
         {/* Header */}
-        <SheetHeader className="p-5 border-b border-slate-200/60 dark:border-white/10">
+        <SheetHeader className="border-b border-sidebar-border/80 p-5">
           <SheetTitle asChild>
             <Link
               href={`/${locale}`}
@@ -127,7 +126,7 @@ function MobileMenuDrawerComponent({
             isActive={isCommunityActive}
           />
 
-          <div className="h-px bg-slate-200/60 dark:bg-white/10 my-3" />
+          <div className="my-3 h-px bg-sidebar-border/70" />
 
           {/* Chats Section */}
           <div className="mb-2">
@@ -135,8 +134,7 @@ function MobileMenuDrawerComponent({
               onClick={() => setIsChatsOpen(!isChatsOpen)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all rounded-xl w-full text-left",
-                "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
-                "dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-white/5"
+                "text-foreground-subtle hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               )}
             >
               {isChatsOpen ? (
@@ -150,7 +148,7 @@ function MobileMenuDrawerComponent({
             {isChatsOpen && (
               <div className="space-y-0.5 mt-1">
                 {activeThreads.length === 0 ? (
-                   <div className="px-3 py-2 text-xs text-slate-400">
+                   <div className="px-3 py-2 text-xs text-foreground-subtle">
                     {archivedThreads.length === 0 ? t('chat.noChats') : t('chat.noActiveChats')}
                   </div>
                 ) : (
@@ -171,7 +169,7 @@ function MobileMenuDrawerComponent({
                   <button
                     type="button"
                     onClick={loadMoreActiveThreads}
-                    className="w-full rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                    className="w-full rounded-xl px-3 py-2 text-sm text-foreground-subtle transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                   >
                     {t('chat.loadMore')}
                   </button>
@@ -185,8 +183,7 @@ function MobileMenuDrawerComponent({
                       onClick={() => setIsArchivedOpen((open) => !open)}
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all rounded-xl w-full text-left",
-                        "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
-                        "dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-white/5"
+                        "text-foreground-subtle hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                       )}
                     >
                       {shouldShowArchivedThreads ? (
@@ -214,7 +211,7 @@ function MobileMenuDrawerComponent({
                           <button
                             type="button"
                             onClick={loadMoreArchivedThreads}
-                            className="w-full rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                            className="w-full rounded-xl px-3 py-2 text-sm text-foreground-subtle transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                           >
                             {t('chat.loadMore')}
                           </button>
@@ -260,8 +257,8 @@ function MobileThreadListItem({
       className={cn(
         "flex items-center gap-1 rounded-xl",
         isSelected
-          ? "bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5"
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
       )}
     >
       <button
@@ -273,7 +270,7 @@ function MobileThreadListItem({
       >
         <MessageSquare className={cn(
           "w-4 h-4 shrink-0",
-          isSelected ? "text-emerald-500" : "text-slate-400"
+          isSelected ? "text-sidebar-primary" : "text-foreground-subtle"
         )} />
         <span className="text-sm font-medium truncate">{displayTitle}</span>
       </button>
@@ -307,11 +304,11 @@ function MenuButton({
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left",
         isActive
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/30 dark:text-emerald-400 font-semibold shadow-sm shadow-emerald-900/5"
-          : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+          ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-sm"
+          : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
       )}
     >
-      <Icon className={cn("w-5 h-5", isActive && "text-emerald-600 dark:text-emerald-400")} />
+      <Icon className={cn("w-5 h-5", isActive && "text-sidebar-primary")} />
       <span className="text-sm font-medium">{label}</span>
     </button>
   )

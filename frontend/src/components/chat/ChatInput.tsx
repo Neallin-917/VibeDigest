@@ -85,10 +85,10 @@ export function ChatInput({
           onSubmit={handleSubmit}
           className={cn(
             "relative rounded-[2rem] p-2 pl-6 flex items-center gap-3 ring-1 transition-all duration-300",
-            "bg-card/80 ring-border shadow-[0_8px_40px_-12px_rgba(40,55,44,0.12)]",
+            "bg-card/80 ring-border shadow-[var(--shadow-soft)]",
             
             // Focus State - Soft Glow
-            isFocused && "ring-primary/35 shadow-[0_0_0_4px_rgba(70,108,80,0.1)]"
+            isFocused && "ring-primary/35 shadow-[var(--shadow-focus)]"
           )}
         >
           <div className="flex-1 min-w-0">
@@ -118,7 +118,7 @@ export function ChatInput({
               isStopMode
                 ? "bg-foreground text-primary-foreground hover:bg-foreground-soft"
                 : (input.trim() && !isLoading && !disabled
-                  ? "bg-primary-strong text-primary-foreground shadow-[0_8px_18px_-10px_rgba(54,90,64,0.55)] hover:bg-primary"
+                  ? "bg-primary-strong text-primary-foreground shadow-[var(--shadow-action)] hover:bg-primary"
                   : "cursor-not-allowed bg-muted/70 text-foreground-subtle shadow-none")
             )}
             aria-label={isStopMode ? t('chat.stopGeneration') : t('chat.sendMessage')}

@@ -122,10 +122,10 @@ export function ChatWorkspace({
         {isThreadSwitching && (
           <div
             aria-label={switchingStatus}
-            className="absolute inset-0 z-30 flex items-center justify-center bg-white/32 dark:bg-black/24 backdrop-blur-[2px] transition-opacity duration-150"
+            className="absolute inset-0 z-30 flex items-center justify-center bg-background/35 backdrop-blur-[2px] transition-opacity duration-150"
           >
-            <div className="pointer-events-none inline-flex items-center gap-2 rounded-full border border-white/60 dark:border-white/10 bg-white/82 dark:bg-zinc-900/82 px-3 py-1.5 text-sm text-slate-600 dark:text-zinc-300 shadow-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-zinc-500" />
+            <div className="pointer-events-none inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
+              <Loader2 className="h-4 w-4 animate-spin text-processing" />
               <span className="max-w-[min(20rem,calc(100vw-7rem))] truncate">{switchingStatus}</span>
             </div>
           </div>

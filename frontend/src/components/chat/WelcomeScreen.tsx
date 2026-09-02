@@ -24,7 +24,7 @@ function ExamplesLoading() {
   const { t } = useI18n()
 
   return (
-    <div className="flex items-center gap-2 text-slate-400">
+    <div className="flex items-center gap-2 text-foreground-subtle">
       <Loader2 className="h-4 w-4 animate-spin" />
       <span className="text-sm">{t('chat.loadingExamples')}</span>
     </div>
@@ -48,11 +48,11 @@ function WelcomeExamples({
       <div className="flex items-center gap-2 mb-4 px-1">
         <span className={cn(
           "text-xs font-medium uppercase tracking-wider",
-          "text-slate-400 dark:text-slate-500"
+          "text-foreground-subtle"
         )}>
           {t('chat.welcome.tryExamples')}
         </span>
-        <div className="flex-1 h-px bg-slate-200/60 dark:bg-white/10" />
+        <div className="h-px flex-1 bg-border/70" />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
@@ -81,7 +81,7 @@ export function WelcomeScreen({
   return (
     <div className="flex flex-col items-center justify-start min-h-full px-6 py-8 md:py-12">
       <div className="w-full text-center max-w-lg mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-3">
+        <h1 className="mb-3 text-2xl font-bold text-foreground md:text-3xl">
           {t('chat.welcome.title')}
         </h1>
       </div>

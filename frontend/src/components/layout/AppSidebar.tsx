@@ -95,8 +95,7 @@ export function AppSidebar({
       className={cn(
         "h-screen flex-none flex flex-col py-4 hidden md:flex transition-all duration-300 ease-in-out relative z-30",
         "border-r backdrop-blur-xl",
-        "bg-slate-100/90 border-slate-200/60",
-        "dark:bg-zinc-900/80 dark:border-white/10",
+        "border-sidebar-border/80 bg-sidebar/90",
         isCollapsed ? "w-[72px] px-3" : "w-[280px] px-4",
         className
       )}
@@ -110,8 +109,7 @@ export function AppSidebar({
           onClick={toggleSidebar}
           className={cn(
             "p-2.5 rounded-xl transition-all",
-            "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
-            "dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10"
+            "text-foreground-subtle hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}
           aria-label="Toggle sidebar"
         >
@@ -147,11 +145,11 @@ export function AppSidebar({
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-1 mx-1",
               isNewChatActive
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/30 dark:text-emerald-400 font-semibold shadow-sm shadow-emerald-900/5"
-                : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-sm"
+                : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
             )}
           >
-            <Plus className={cn("w-5 h-5", isNewChatActive && "text-emerald-600 dark:text-emerald-400")} />
+            <Plus className={cn("w-5 h-5", isNewChatActive && "text-sidebar-primary")} />
             <span className="text-sm font-medium">{t("chat.newChat") || "New chat"}</span>
           </button>
 
@@ -161,16 +159,16 @@ export function AppSidebar({
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-3 mx-1",
               isCommunityActive
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/30 dark:text-emerald-400 font-semibold shadow-sm shadow-emerald-900/5"
-                : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-sm"
+                : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
             )}
           >
-            <Library className={cn("w-5 h-5", isCommunityActive && "text-emerald-600 dark:text-emerald-400")} />
+            <Library className={cn("w-5 h-5", isCommunityActive && "text-sidebar-primary")} />
             <span className="text-sm font-medium">{t("chat.community") || "Community"}</span>
           </button>
 
           {/* Divider */}
-          <div className="h-px mx-3 mb-3 bg-slate-200/60 dark:bg-white/10" />
+          <div className="mx-3 mb-3 h-px bg-sidebar-border/70" />
 
           {/* Chats Section */}
           <div className="flex-1 min-h-0 flex flex-col mb-2">
@@ -178,8 +176,7 @@ export function AppSidebar({
               onClick={() => setIsChatsOpen(!isChatsOpen)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all rounded-xl mx-1",
-                "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
-                "dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-white/5"
+                "text-foreground-subtle hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               )}
             >
               {isChatsOpen ? (
@@ -194,7 +191,7 @@ export function AppSidebar({
               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar mt-1 px-1 space-y-0.5">
                 {activeThreads.length === 0 ? (
                   <div className="text-center py-4 px-4">
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-foreground-subtle">
                       {archivedThreads.length === 0 ? t("chat.noChats") : t("chat.noActiveChats")}
                     </p>
                   </div>
@@ -216,7 +213,7 @@ export function AppSidebar({
                   <button
                     type="button"
                     onClick={loadMoreActiveThreads}
-                    className="w-full rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                    className="w-full rounded-xl px-3 py-2 text-sm text-foreground-subtle transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                   >
                     {t("chat.loadMore")}
                   </button>
@@ -230,8 +227,7 @@ export function AppSidebar({
                       onClick={() => setIsArchivedOpen((open) => !open)}
                       className={cn(
                         "flex w-full items-center gap-2 px-3 py-2 text-sm font-medium transition-all rounded-xl",
-                        "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
-                        "dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-white/5"
+                        "text-foreground-subtle hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                       )}
                     >
                       {shouldShowArchivedThreads ? (
@@ -259,7 +255,7 @@ export function AppSidebar({
                           <button
                             type="button"
                             onClick={loadMoreArchivedThreads}
-                            className="w-full rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                            className="w-full rounded-xl px-3 py-2 text-sm text-foreground-subtle transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                           >
                             {t("chat.loadMore")}
                           </button>
@@ -302,8 +298,8 @@ function ThreadListItem({
     <div
       className={cn(
         "group flex items-center gap-1 rounded-xl transition-all",
-        "hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300",
-        isSelected && "bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+        "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+        isSelected && "bg-sidebar-accent text-sidebar-accent-foreground"
       )}
     >
       <button
@@ -315,7 +311,7 @@ function ThreadListItem({
       >
         <MessageSquare className={cn(
           "w-4 h-4 shrink-0",
-          isSelected ? "text-emerald-500" : "text-slate-400"
+          isSelected ? "text-sidebar-primary" : "text-foreground-subtle"
         )} />
         <div className="flex-1 min-w-0">
           <div className="text-sm truncate">

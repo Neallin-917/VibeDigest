@@ -17,14 +17,14 @@ export function TaskItem({ task, onSelect, onDelete, isDeleting }: TaskItemProps
             onClick={onSelect}
             className={cn(
                 "group w-full text-left px-3 py-2 rounded-xl transition-all flex items-center gap-3 cursor-pointer relative",
-                "hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             )}
         >
             {/* Status Icon */}
             <StatusIcon status={task.status} />
 
             {/* Title */}
-            <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 truncate">
+            <span className="flex-1 truncate text-sm text-foreground-soft group-hover:text-sidebar-accent-foreground">
                 {task.video_title || 'Untitled'}
             </span>
 
@@ -33,7 +33,7 @@ export function TaskItem({ task, onSelect, onDelete, isDeleting }: TaskItemProps
                 onClick={onDelete}
                 className={cn(
                     "p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all shrink-0",
-                    "hover:bg-red-100 dark:hover:bg-red-500/20 text-slate-400 hover:text-red-500",
+                    "text-foreground-subtle hover:bg-destructive/10 hover:text-destructive",
                     isDeleting && "opacity-100"
                 )}
                 aria-label="Delete"
@@ -51,12 +51,12 @@ export function TaskItem({ task, onSelect, onDelete, isDeleting }: TaskItemProps
 function StatusIcon({ status }: { status: string }) {
     switch (status) {
         case 'completed':
-            return <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+            return <CheckCircle className="h-4 w-4 shrink-0 text-success" />
         case 'processing':
-            return <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />
+            return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-processing" />
         case 'failed':
-            return <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            return <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
         default:
-            return <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+            return <Clock className="h-4 w-4 shrink-0 text-foreground-subtle" />
     }
 }

@@ -492,7 +492,16 @@ async def build_agent_worker() -> AgentAnswerWorker | None:
     db = get_db_client()
     if queue_name.startswith("agent_answers_local_"):
         await asyncio.to_thread(
-            db._execute_query, "SELECT pgmq.create(:name)", {"name": queue_name}
+            db._execute_query,
+            """
+            SELECT pgmq.create(:name)
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM pgmq.list_queues()
+                WHERE queue_name = :name
+            )
+            """,
+            {"name": queue_name},
         )
     return AgentAnswerWorker(
         PostgresTaskQueue(db, queue_name=queue_name),

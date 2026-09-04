@@ -26,14 +26,6 @@ const EXPLORE_COPY = {
         terms: "服务条款",
         copyright: "保留所有权利。",
     },
-    ja: {
-        eyebrow: "VibeDigest Agent の出力",
-        title: "整理済みのポッドキャスト",
-        description: "要約、重要ポイント、根拠を読み、元の内容に基づいて続けて質問できます。",
-        privacy: "プライバシーポリシー",
-        terms: "利用規約",
-        copyright: "All rights reserved.",
-    },
 } as const
 
 const SEO_COPY: Record<string, { title: string; description: string }> = {
@@ -46,11 +38,6 @@ const SEO_COPY: Record<string, { title: string; description: string }> = {
         title: "播客整理内容库 | VibeDigest",
         description:
             "浏览由 VibeDigest Agent 整理完成的公开播客内容，包括摘要、关键观点、支撑证据和继续追问。",
-    },
-    ja: {
-        title: "整理済みポッドキャスト | VibeDigest",
-        description:
-            "VibeDigest Agent が整理したポッドキャストの要約、重要ポイント、根拠を閲覧できます。",
     },
 }
 
@@ -107,7 +94,7 @@ export default async function ExplorePage({
             <main className="relative z-10 mx-auto min-h-screen w-full max-w-[1440px] px-5 pb-14 pt-24 sm:px-8 md:pt-28 lg:px-14">
                 <TopicHubLinks
                     locale={locale}
-                    title={locale === "zh" ? "主题" : locale === "ja" ? "トピック" : "Topics"}
+                    title={locale === "zh" ? "主题" : "Topics"}
                     className="mb-8"
                 />
                 <Suspense fallback={<TemplatesSkeleton />}>

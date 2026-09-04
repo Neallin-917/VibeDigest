@@ -52,7 +52,7 @@ logger.info("🔧 Monkey-patched OpenAI.Completions.create to enforce GPT-5 and 
 # Constants
 DEMO_TASK_ID = "1e60a06c-ef37-4f82-bffd-1a5135cb45c7"
 # Copied from frontend/src/lib/i18n.ts
-SUPPORTED_LOCALES = ["en", "zh", "ja"]
+SUPPORTED_LOCALES = ["en", "zh"]
 
 async def translate_summary_content(translator: Translator, content_json: Dict, target_locale: str) -> Dict:
     """

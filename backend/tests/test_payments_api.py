@@ -48,21 +48,32 @@ async def test_create_checkout_session(api_client, mock_db_client):
             with patch("api.routes.payments.httpx.AsyncClient", return_value=mock_ac_instance):
                 response = await api_client.post(
                     "/api/create-checkout-session",
-                    data={"plan_key": "pro_monthly", "locale": "ja"},
+                    data={"plan_key": "pro_monthly", "locale": "zh"},
                 )
                 assert response.status_code == 200
                 assert response.json()["url"] == "http://creem.com/pay"
                 mock_db_client.create_payment_order.assert_called()
                 mock_settings.get_price_by_plan_key.assert_called_once_with("pro_monthly")
                 checkout_payload = mock_ac_instance.post.await_args.kwargs["json"]
-                assert checkout_payload["success_url"] == "http://front/ja/settings/pricing?success=true"
+                assert checkout_payload["success_url"] == "http://front/zh/settings/pricing?success=true"
+
+
+@pytest.mark.parametrize("locale", ["ja", "fr"])
+@pytest.mark.asyncio
+async def test_create_checkout_session_rejects_unsupported_locale(api_client, locale):
+    response = await api_client.post(
+        "/api/create-checkout-session",
+        data={"plan_key": "pro_monthly", "locale": locale},
+    )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_create_checkout_session_rejects_unknown_locale(api_client):
+async def test_create_crypto_charge_rejects_retired_product_locale(api_client):
     response = await api_client.post(
-        "/api/create-checkout-session",
-        data={"plan_key": "pro_monthly", "locale": "fr"},
+        "/api/create-crypto-charge",
+        data={"price_id": "price_1", "locale": "ja"},
     )
 
     assert response.status_code == 422

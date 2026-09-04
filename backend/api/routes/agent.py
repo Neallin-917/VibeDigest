@@ -59,7 +59,7 @@ class RuntimeConfig(Command):
     model: str = Field(min_length=1, max_length=200)
     modelTier: Literal["smart"] = "smart"
     reasoningEffort: str = Field(default="high", max_length=20)
-    locale: Literal["zh", "en", "ja"] = "en"
+    locale: Literal["zh", "en"] = "en"
     scope: Literal["workspace", "source"] = "workspace"
 
 
@@ -84,12 +84,12 @@ class CancelCommand(Command):
 
 class SubmitCommand(TurnCommand):
     videoUrl: str = Field(min_length=1, max_length=4000)
-    locale: Literal["zh", "en", "ja"]
+    locale: Literal["zh", "en"]
 
 
 class TaskCommand(TurnCommand):
     taskId: UUID
-    locale: Literal["zh", "en", "ja"] = "en"
+    locale: Literal["zh", "en"] = "en"
 
 
 class ReadCommand(TaskCommand):

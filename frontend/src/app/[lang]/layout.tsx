@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Syne, Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -9,7 +10,7 @@ import { Providers } from "@/components/providers";
 import { Vignette } from "@/components/ui/vignette";
 import { buildLocalizedPath, getOpenGraphLocale, SITE_URL } from "@/lib/seo";
 import { env } from "@/env";
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale, type Locale } from "@/lib/i18n";
+import { SUPPORTED_LOCALES, isLocale, type Locale } from "@/lib/i18n";
 import { createTranslator, getMessages } from "@/lib/i18n-server";
 import { buildSoftwareApplicationSchema, serializeJsonLd } from "@/lib/billing/structured-data";
 
@@ -88,21 +89,6 @@ const LOCALE_METADATA: Record<Locale, {
     twitterTitle: "VibeDigest - 播客与视频 AI Agent",
     imageAlt: "VibeDigest 默认封面",
   },
-  ja: {
-    title: "VibeDigest - ポッドキャストと長尺動画のAIエージェント",
-    description: "ポッドキャストや長尺動画を、要約、重要なポイント、根拠、情報源に基づく回答に整理します。",
-    keywords: [
-      "AI動画要約",
-      "YouTube要約",
-      "ポッドキャスト要約",
-      "動画ノート",
-      "AI学習アシスタント",
-    ],
-    openGraphTitle: "VibeDigest - 動画と音声を構造化された知識に",
-    openGraphDescription: "要約、重要なポイント、根拠、情報源に基づく対話で長いコンテンツを理解できます。",
-    twitterTitle: "VibeDigest - ポッドキャストと動画のAIエージェント",
-    imageAlt: "VibeDigestのデフォルトカバー",
-  },
 };
 
 export async function generateMetadata({
@@ -111,7 +97,8 @@ export async function generateMetadata({
   params: Promise<{ lang: string }>;
 }): Promise<Metadata> {
   const { lang } = await params;
-  const locale = isLocale(lang) ? lang : DEFAULT_LOCALE;
+  if (!isLocale(lang)) notFound()
+  const locale = lang
   const copy = LOCALE_METADATA[locale];
 
   return {
@@ -187,7 +174,8 @@ export default async function RootLayout({
   params: Promise<{ lang: string }>;
 }>) {
   const { lang } = await params;
-  const locale = isLocale(lang) ? lang : DEFAULT_LOCALE;
+  if (!isLocale(lang)) notFound()
+  const locale = lang
   const messages = getMessages(locale);
   const t = createTranslator(locale);
   const structuredData = [

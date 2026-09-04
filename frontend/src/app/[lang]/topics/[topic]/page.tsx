@@ -92,7 +92,7 @@ export default async function TopicHubPage({ params, searchParams }: Props) {
         />
         <TopicHubLinks
           locale={locale}
-          title={locale === "zh" ? "继续浏览其他主题" : locale === "ja" ? "他のトピックを見る" : "Browse more topics"}
+          title={locale === "zh" ? "继续浏览其他主题" : "Browse more topics"}
           tone="strong"
           className="mb-8"
         />

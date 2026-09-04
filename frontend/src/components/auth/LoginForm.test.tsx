@@ -10,7 +10,7 @@ const authMocks = vi.hoisted(() => ({
 }))
 const loginState = vi.hoisted(() => ({
   nextUrl: '/en/chat',
-  locale: 'en' as 'en' | 'zh' | 'ja',
+  locale: 'en' as 'en' | 'zh',
   callbackError: null as string | null,
 }))
 
@@ -53,32 +53,26 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       'auth.errors.invalidCredentials': {
         en: 'Invalid login credentials',
         zh: '登录凭据无效',
-        ja: 'ログイン情報が正しくありません',
       }[loginState.locale],
       'auth.errors.userAlreadyRegistered': {
         en: 'User already registered',
         zh: '该用户已注册',
-        ja: 'このユーザーはすでに登録されています',
       }[loginState.locale],
       'auth.errors.weakPassword': {
         en: 'Password should be at least 6 characters',
         zh: '密码长度至少需要6个字符',
-        ja: 'パスワードは6文字以上にしてください',
       }[loginState.locale],
       'auth.errors.generic': {
         en: 'An error occurred',
         zh: '发生错误',
-        ja: 'エラーが発生しました',
       }[loginState.locale],
       'auth.errors.callbackFailed': {
         en: 'Sign-in could not be completed. Please try again.',
         zh: '暂时无法完成登录，请重试。',
-        ja: 'ログインを完了できませんでした。もう一度お試しください。',
       }[loginState.locale],
       'auth.errors.callbackMissingCode': {
         en: 'The sign-in link is incomplete. Please try again.',
         zh: '登录链接不完整，请重试。',
-        ja: 'ログインリンクが不完全です。もう一度お試しください。',
       }[loginState.locale],
     })[key] ?? key,
   }),
@@ -147,7 +141,6 @@ describe('LoginForm', () => {
   it.each([
     ['en', 'An error occurred'],
     ['zh', '发生错误'],
-    ['ja', 'エラーが発生しました'],
   ] as const)('uses a localized safe fallback for unknown %s auth errors', async (locale, expected) => {
     loginState.locale = locale
     loginState.nextUrl = `/${locale}/chat`
@@ -165,7 +158,6 @@ describe('LoginForm', () => {
   it.each([
     ['en', 'Invalid login credentials'],
     ['zh', '登录凭据无效'],
-    ['ja', 'ログイン情報が正しくありません'],
   ] as const)('keeps known auth error codes actionable in %s', async (locale, expected) => {
     loginState.locale = locale
     loginState.nextUrl = `/${locale}/chat`
@@ -183,7 +175,6 @@ describe('LoginForm', () => {
   it.each([
     ['en', 'An error occurred'],
     ['zh', '发生错误'],
-    ['ja', 'エラーが発生しました'],
   ] as const)('localizes callback errors without rendering the URL value in %s', (locale, expected) => {
     loginState.locale = locale
     loginState.nextUrl = `/${locale}/chat`
@@ -198,10 +189,8 @@ describe('LoginForm', () => {
   it.each([
     ['en', 'auth_callback_failed', 'Sign-in could not be completed. Please try again.'],
     ['zh', 'auth_callback_failed', '暂时无法完成登录，请重试。'],
-    ['ja', 'auth_callback_failed', 'ログインを完了できませんでした。もう一度お試しください。'],
     ['en', 'auth_callback_missing_code', 'The sign-in link is incomplete. Please try again.'],
     ['zh', 'auth_callback_missing_code', '登录链接不完整，请重试。'],
-    ['ja', 'auth_callback_missing_code', 'ログインリンクが不完全です。もう一度お試しください。'],
   ] as const)('maps stable callback error codes for %s', (locale, callbackError, expected) => {
     loginState.locale = locale
     loginState.nextUrl = `/${locale}/chat`

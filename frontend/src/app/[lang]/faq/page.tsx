@@ -24,11 +24,6 @@ const FAQ_SEO: Record<string, { title: string; description: string; ogDescriptio
         description: "关于 VibeDigest 的常见问题解答。了解如何使用 AI 快速摘要 YouTube 和 Bilibili 视频，以及我们的定价和功能详情。",
         ogDescription: "了解 VibeDigest 的常见问题与功能支持。",
     },
-    ja: {
-        title: "よくある質問 (FAQ) - VibeDigest AI動画要約ツール",
-        description: "VibeDigestに関するよくある質問と回答。AIによるYouTube動画の要約方法、料金プラン、対応プラットフォームについて。",
-        ogDescription: "VibeDigestの機能、料金、対応プラットフォームに関するよくある質問。",
-    },
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {

@@ -38,7 +38,7 @@ Understanding:
 Background continuation:
 When this is a continuation, the video task has reached a terminal state. Complete the latest user's actual goal using the source; do not repeat a generic summary or an old acknowledgement. You have only read tools in this phase.`
 
-export function resolveAgentRuntime(locale: 'zh' | 'en' | 'ja'): AgentRuntimeConfig {
+export function resolveAgentRuntime(locale: 'zh' | 'en'): AgentRuntimeConfig {
   const runtime = isLocalCodexRuntime() ? 'codex_local' : 'api'
   const provider = runtime === 'codex_local' ? 'codex_local' : resolveProvider(env.OPENAI_BASE_URL, env.LLM_PROVIDER)
   return {

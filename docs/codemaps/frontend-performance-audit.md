@@ -127,15 +127,14 @@ authentication benefit should not be traded away without conversion evidence.
 
 ## Current Locale-Payload Intervention
 
-The locale provider previously imported one module containing the English,
-Chinese, and Japanese dictionaries. Because the provider is a client boundary,
-every localized route downloaded and parsed all three dictionaries.
+The locale provider previously imported one module containing every locale
+dictionary. Because the provider is a client boundary, every localized route
+downloaded and parsed all dictionaries.
 
 The server now selects and completes only the requested locale before passing
-that serializable dictionary to the provider. Japanese keeps the existing
-English fallback behavior through a server-side merge; the browser receives one
-complete dictionary and no additional request or translation loading state was
-introduced.
+that serializable dictionary to the provider. The browser receives one complete
+English or Chinese dictionary and no additional request or translation loading
+state is introduced.
 
 Measured on the Chinese landing route with gzip transfer:
 

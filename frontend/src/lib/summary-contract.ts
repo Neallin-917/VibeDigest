@@ -350,7 +350,7 @@ export function normalizeSummaryLanguageTag(language?: string | null) {
 
 export function resolveSummaryLocale(language?: string | null): Locale | null {
   const baseLanguage = normalizeSummaryLanguageTag(language)?.split('-')[0]
-  return baseLanguage === 'en' || baseLanguage === 'zh' || baseLanguage === 'ja'
+  return baseLanguage === 'en' || baseLanguage === 'zh'
     ? baseLanguage
     : null
 }
@@ -378,7 +378,7 @@ function resolvePublicOutputLocale<T extends SummaryOutputCandidate>(
   return resolveSummaryLocale(projectedLanguage)
 }
 
-const PUBLIC_LOCALE_PRIORITY: Locale[] = ["en", "zh", "ja"]
+const PUBLIC_LOCALE_PRIORITY: Locale[] = ["en", "zh"]
 
 function sortPublicLocales(locales: Iterable<Locale>) {
   const localeSet = new Set(locales)
@@ -510,17 +510,11 @@ const SUMMARY_MARKDOWN_COPY = {
     inBrief: '内容摘要', overview: '内容概览', keyPoints: '关键观点', sections: '更多内容',
     whyItMatters: '为什么重要', evidence: '原文证据',
   },
-  ja: {
-    inBrief: '要点', overview: '概要', keyPoints: '重要ポイント', sections: 'その他の内容',
-    whyItMatters: '重要な理由', evidence: '根拠',
-  },
 } as const
 
 function summaryMarkdownCopy(locale?: string | null) {
   const language = normalizeLocale(locale).split('-')[0]
-  return language === 'zh' || language === 'ja'
-    ? SUMMARY_MARKDOWN_COPY[language]
-    : SUMMARY_MARKDOWN_COPY.en
+  return language === 'zh' ? SUMMARY_MARKDOWN_COPY.zh : SUMMARY_MARKDOWN_COPY.en
 }
 
 export function buildSummaryMarkdown(summary: CurrentSummary, locale?: string | null): string {

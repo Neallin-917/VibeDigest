@@ -111,7 +111,7 @@ export function AppSidebar({
             "p-2.5 rounded-xl transition-all",
             "text-foreground-subtle hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}
-          aria-label="Toggle sidebar"
+          aria-label={t("nav.toggleSidebar")}
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -122,7 +122,7 @@ export function AppSidebar({
             type="button"
             onClick={() => router.push(`/${locale}`)}
             className="flex items-center gap-2 cursor-pointer group"
-            aria-label="Go to home"
+            aria-label={t("nav.goHome")}
           >
             <BrandLogo textClassName="text-sm" />
           </button>
@@ -150,7 +150,7 @@ export function AppSidebar({
             )}
           >
             <Plus className={cn("w-5 h-5", isNewChatActive && "text-sidebar-primary")} />
-            <span className="text-sm font-medium">{t("chat.newChat") || "New chat"}</span>
+            <span className="text-sm font-medium">{t("chat.newChat")}</span>
           </button>
 
           {/* Community Button */}
@@ -164,7 +164,7 @@ export function AppSidebar({
             )}
           >
             <Library className={cn("w-5 h-5", isCommunityActive && "text-sidebar-primary")} />
-            <span className="text-sm font-medium">{t("chat.community") || "Community"}</span>
+            <span className="text-sm font-medium">{t("chat.community")}</span>
           </button>
 
           {/* Divider */}
@@ -184,7 +184,7 @@ export function AppSidebar({
               ) : (
                 <ChevronRight className="w-4 h-4" />
               )}
-              <span>{t("chat.chats") || "Chats"}</span>
+              <span>{t("chat.chats")}</span>
             </button>
 
             {isChatsOpen && (
@@ -223,7 +223,7 @@ export function AppSidebar({
                   <div className="pt-3">
                     <button
                       type="button"
-                      aria-label="Toggle archived chats"
+                      aria-label={t("nav.toggleArchivedChats")}
                       onClick={() => setIsArchivedOpen((open) => !open)}
                       className={cn(
                         "flex w-full items-center gap-2 px-3 py-2 text-sm font-medium transition-all rounded-xl",
@@ -235,7 +235,7 @@ export function AppSidebar({
                       ) : (
                         <ChevronRight className="w-4 h-4" />
                       )}
-                      <span>{t("chat.archived") || "Archived"}</span>
+                      <span>{t("chat.archived")}</span>
                     </button>
 
                     {shouldShowArchivedThreads ? (

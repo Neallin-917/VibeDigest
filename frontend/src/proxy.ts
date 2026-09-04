@@ -8,6 +8,7 @@ const PROTECTED_ROUTES = ['/history', '/settings']
 const PUBLIC_ROUTES = ['/login', '/auth', '/register', '/faq', '/explore', '/terms', '/privacy', '/about', '/chat']
 const CHAT_HISTORY_MESSAGES_PATH = /^\/api\/chat\/threads\/[^/]+\/messages$/
 const isLocalUiDemo = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_LOCAL_DEMO === '1'
+const LOCALE_HEADER = 'x-vd-locale'
 
 function isAuthenticatedChatHistoryRead(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -61,6 +62,8 @@ export async function proxy(request: NextRequest) {
   const pathParts = pathname.split('/')
   const pathLocale = SUPPORTED_LOCALES.find(l => pathParts[1] === l)
   const locale = pathLocale || DEFAULT_LOCALE
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(LOCALE_HEADER, locale)
   let pathWithoutLocale = pathLocale ? '/' + pathParts.slice(2).join('/') : pathname
   if (!pathWithoutLocale.startsWith('/')) pathWithoutLocale = '/' + pathWithoutLocale
 
@@ -75,11 +78,15 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(newUrl)
     }
 
-    return NextResponse.next()
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    })
   }
 
   // Initialize the session before any route that requires server-side auth.
-  const { response, user } = await updateSession(request)
+  const { response, user } = await updateSession(request, requestHeaders)
 
   if (!pathLocale) {
     const detectedLocale = getLocale(request)

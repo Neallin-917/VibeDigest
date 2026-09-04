@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import ChatPage from "./page"
+import ChatPage, { generateMetadata } from "./page"
 
 const getChatExamplesMock = vi.hoisted(() => vi.fn())
 const getChatExampleMock = vi.hoisted(() => vi.fn())
@@ -68,5 +68,24 @@ describe("ChatPage", () => {
 
     expect(getChatExamplesMock).not.toHaveBeenCalled()
     expect(page.props.initialExamples).toBeNull()
+  })
+
+  it.each([
+    ["en", "Chat", "Ask VibeDigest to process a source or answer questions grounded in it."],
+    ["zh", "对话", "让 VibeDigest 整理来源内容，或回答基于来源的问题。"],
+    ["ja", "チャット", "VibeDigest にソース整理や、ソースに基づく質問への回答を依頼できます。"],
+  ])("generates %s metadata", async (locale, title, description) => {
+    const metadata = await generateMetadata({ params: Promise.resolve({ lang: locale }) })
+
+    expect(metadata.title).toBe(title)
+    expect(metadata.description).toBe(description)
+    expect(metadata.robots).toEqual({ index: false, follow: false })
+  })
+
+  it("uses English metadata for an unsupported locale", async () => {
+    const metadata = await generateMetadata({ params: Promise.resolve({ lang: "fr" }) })
+
+    expect(metadata.title).toBe("Chat")
+    expect(metadata.description).toBe("Ask VibeDigest to process a source or answer questions grounded in it.")
   })
 })

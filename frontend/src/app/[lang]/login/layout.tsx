@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
+import { createTranslator } from "@/lib/i18n-server"
 
 export async function generateMetadata({
   params,
@@ -7,15 +9,15 @@ export async function generateMetadata({
   params: Promise<{ lang: string }>
 }): Promise<Metadata> {
   const { lang } = await params
+  const locale = isLocale(lang) ? lang : DEFAULT_LOCALE
   const path = "/login"
-  const title = "Log In - VibeDigest"
-  const description = "Sign in to VibeDigest to access your workspace and saved summaries."
+  const t = createTranslator(locale)
 
   return {
-    title,
-    description,
+    title: t("metadata.login.title"),
+    description: t("metadata.login.description"),
     alternates: {
-      canonical: buildLocalizedPath(lang, path),
+      canonical: buildLocalizedPath(locale, path),
       languages: buildAlternateLanguages(path),
     },
     robots: {

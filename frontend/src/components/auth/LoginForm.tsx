@@ -13,6 +13,7 @@ import { BrandLogo } from "@/components/layout/BrandLogo"
 import Link from "next/link"
 import { getSupportedUrlDetails } from "@/lib/urls"
 import { trackGrowthEvent } from "@/lib/growth-events"
+import { sanitizeErrorMessage } from "@/lib/safe-error"
 
 interface LoginFormProps {
     className?: string
@@ -24,16 +25,68 @@ const getPendingHandoffSnapshot = () =>
     typeof window !== "undefined" ? window.localStorage.getItem("vibedigest_pending_message") || "" : ""
 const getPendingHandoffServerSnapshot = () => ""
 
+type AuthErrorMessageKey = 'invalidCredentials' | 'userAlreadyRegistered' | 'weakPassword'
+type AuthCallbackErrorMessageKey = 'callbackFailed' | 'callbackMissingCode'
+
+const AUTH_ERROR_KEYS_BY_CODE: Record<string, AuthErrorMessageKey> = {
+    invalid_credentials: 'invalidCredentials',
+    user_already_exists: 'userAlreadyRegistered',
+    user_already_registered: 'userAlreadyRegistered',
+    email_exists: 'userAlreadyRegistered',
+    weak_password: 'weakPassword',
+}
+
+const AUTH_CALLBACK_ERROR_KEYS_BY_CODE: Record<string, AuthCallbackErrorMessageKey> = {
+    auth_callback_failed: 'callbackFailed',
+    auth_callback_missing_code: 'callbackMissingCode',
+}
+
+function getAuthErrorMessage(error: unknown, t: (key: string) => string) {
+    const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+        ? error.code.toLowerCase()
+        : ''
+    const message = error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+            ? error.message
+            : ''
+    const knownKey = AUTH_ERROR_KEYS_BY_CODE[code]
+        ?? (/invalid login credentials/i.test(message)
+            ? 'invalidCredentials'
+            : /user already registered/i.test(message)
+                ? 'userAlreadyRegistered'
+                : /password should be at least/i.test(message)
+                    ? 'weakPassword'
+                    : null)
+
+    return knownKey
+        ? t(`auth.errors.${knownKey}`)
+        : sanitizeErrorMessage(error, t('auth.errors.generic'))
+}
+
+function getAuthCallbackErrorMessage(
+    errorCode: string | null,
+    t: (key: string) => string,
+) {
+    if (!errorCode) return null
+
+    const key = AUTH_CALLBACK_ERROR_KEYS_BY_CODE[errorCode.toLowerCase()]
+    return key ? t(`auth.errors.${key}`) : t('auth.errors.generic')
+}
+
 export function LoginForm({ className, isModal = false }: LoginFormProps) {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [isPasswordLogin, setIsPasswordLogin] = useState(false)
     const [isSignUp, setIsSignUp] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
     const supabase = useMemo(() => createClient(), [])
     const { t, locale } = useI18n()
     const searchParams = useSearchParams()
+    const callbackError = searchParams.get('error')
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(() =>
+        callbackError ? { type: 'error', text: getAuthCallbackErrorMessage(callbackError, t) ?? t('auth.errors.generic') } : null
+    )
     const nextUrl = searchParams.get('next')
     const pendingMessage = useSyncExternalStore(
         subscribeToPendingHandoff,
@@ -52,13 +105,6 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
     }, [locale, nextUrl])
     const hasPendingHandoff = isChatHandoff && Boolean(pendingMessage.trim())
 
-    const getErrorMessage = (errorMsg: string) => {
-        if (errorMsg.includes("Invalid login credentials")) return t("auth.errors.invalidCredentials") || errorMsg
-        if (errorMsg.includes("User already registered")) return t("auth.errors.userAlreadyRegistered") || errorMsg
-        if (errorMsg.includes("Password should be at least")) return t("auth.errors.weakPassword") || errorMsg
-        return errorMsg
-    }
-
     const handleGoogleLogin = async () => {
         setLoading(true)
         const callbackUrl = new URL(`${window.location.origin}/${locale}/auth/callback`)
@@ -71,7 +117,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 redirectTo: callbackUrl.toString()
             }
         })
-        if (error) setMessage({ type: 'error', text: getErrorMessage(error.message) })
+        if (error) setMessage({ type: 'error', text: getAuthErrorMessage(error, t) })
         setLoading(false)
     }
 
@@ -95,7 +141,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 }
             })
             if (error) {
-                setMessage({ type: 'error', text: getErrorMessage(error.message) })
+                setMessage({ type: 'error', text: getAuthErrorMessage(error, t) })
             } else {
                 trackGrowthEvent('auth_signup_submit', {
                     locale,
@@ -113,7 +159,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 password,
             })
             if (error) {
-                setMessage({ type: 'error', text: getErrorMessage(error.message) })
+                setMessage({ type: 'error', text: getAuthErrorMessage(error, t) })
             } else {
                 window.location.href = redirectTarget
             }
@@ -130,7 +176,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
             })
 
             if (error) {
-                setMessage({ type: 'error', text: getErrorMessage(error.message) })
+                setMessage({ type: 'error', text: getAuthErrorMessage(error, t) })
             } else {
                 setMessage({ type: 'success', text: t("auth.checkYourEmail") })
             }
@@ -285,7 +331,10 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 </form>
 
                 {message && (
-                    <div className={`p-3 rounded-lg text-sm text-center animate-in fade-in slide-in-from-top-2 duration-300 ${message.type === 'error' ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'}`}>
+                    <div
+                        role={message.type === 'error' ? 'alert' : 'status'}
+                        className={`p-3 rounded-lg text-sm text-center animate-in fade-in slide-in-from-top-2 duration-300 ${message.type === 'error' ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'}`}
+                    >
                         {message.text}
                     </div>
                 )}

@@ -89,6 +89,7 @@ function MobileMenuDrawerComponent({
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="left"
+        closeLabel={t('common.close')}
         className={cn(
           "w-[280px] p-0 flex flex-col border-r shadow-2xl backdrop-blur-xl",
           "border-sidebar-border/80 bg-sidebar/95"
@@ -101,7 +102,7 @@ function MobileMenuDrawerComponent({
               href={`/${locale}`}
               onClick={() => onOpenChange(false)}
               className="flex items-center gap-2.5"
-              aria-label="Go to home"
+              aria-label={t('nav.goHome')}
             >
               <BrandLogo showText={true} />
             </Link>
@@ -113,7 +114,7 @@ function MobileMenuDrawerComponent({
           {/* New Chat */}
           <MenuButton
             icon={MessageSquarePlus}
-            label={t('chat.newChat') || 'New Chat'}
+            label={t('chat.newChat')}
             onClick={handleNewChat}
             isActive={isNewChatActive}
           />
@@ -121,7 +122,7 @@ function MobileMenuDrawerComponent({
           {/* Community (formerly Library) - Aligned with Desktop */}
           <MenuButton
             icon={Library}
-            label={t('chat.community') || 'Community'}
+            label={t('chat.community')}
             onClick={handleCommunityClick}
             isActive={isCommunityActive}
           />
@@ -142,7 +143,7 @@ function MobileMenuDrawerComponent({
               ) : (
                 <ChevronRight className="w-4 h-4" />
               )}
-              <span className="uppercase tracking-wider text-xs">{t("chat.chats") || "Chats"}</span>
+              <span className="uppercase tracking-wider text-xs">{t("chat.chats")}</span>
             </button>
             
             {isChatsOpen && (
@@ -179,7 +180,7 @@ function MobileMenuDrawerComponent({
                   <div className="pt-3">
                     <button
                       type="button"
-                      aria-label="Toggle archived chats"
+                      aria-label={t('nav.toggleArchivedChats')}
                       onClick={() => setIsArchivedOpen((open) => !open)}
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all rounded-xl w-full text-left",
@@ -191,7 +192,7 @@ function MobileMenuDrawerComponent({
                       ) : (
                         <ChevronRight className="w-4 h-4" />
                       )}
-                      <span className="uppercase tracking-wider text-xs">{t("chat.archived") || "Archived"}</span>
+                      <span className="uppercase tracking-wider text-xs">{t("chat.archived")}</span>
                     </button>
 
                     {shouldShowArchivedThreads ? (

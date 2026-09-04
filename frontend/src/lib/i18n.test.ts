@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { getCompleteMessages } from "@/lib/i18n-messages"
+import { getCompleteMessages, getRawMessages } from "@/lib/i18n-messages"
 import { createTranslator, getLocaleDisplayName, type Messages } from "@/lib/i18n"
 
 function leafKeys(messages: Messages, prefix = ""): string[] {
@@ -17,14 +17,16 @@ describe("i18n messages", () => {
     expect(getLocaleDisplayName("ja", "ja")).toBe("日本語")
   })
 
-  it("keeps every locale structurally complete", () => {
-    const englishKeys = leafKeys(getCompleteMessages("en")).sort()
+  it("keeps English and Chinese catalogs structurally identical before fallback", () => {
+    expect(leafKeys(getRawMessages("zh")).sort()).toEqual(leafKeys(getRawMessages("en")).sort())
+    expect(getCompleteMessages("zh")).toBe(getRawMessages("zh"))
+  })
 
-    for (const locale of ["zh", "ja"] as const) {
-      const localeKeys = new Set(leafKeys(getCompleteMessages(locale)))
-      const missingKeys = englishKeys.filter((key) => !localeKeys.has(key))
-      expect(missingKeys, `${locale} is missing English fallback keys`).toEqual([])
-    }
+  it("keeps Japanese complete through the explicit English fallback", () => {
+    const japaneseKeys = new Set(leafKeys(getCompleteMessages("ja")))
+    const missingKeys = leafKeys(getRawMessages("en")).filter((key) => !japaneseKeys.has(key))
+
+    expect(missingKeys).toEqual([])
   })
 
   it("translates and interpolates from one selected locale", () => {

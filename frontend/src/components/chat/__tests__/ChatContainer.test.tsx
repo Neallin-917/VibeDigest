@@ -52,8 +52,18 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'auth.signIn') return 'Sign In'
       if (key === 'brand.appName') return 'VibeDigest'
       if (key === 'chat.thinking') return 'Thinking...'
-      if (key === 'chat.genericError') return 'Something went wrong.'
+      if (key === 'chat.genericError') return {
+        en: 'Something went wrong.',
+        zh: '出现错误，请重试。',
+        ja: 'エラーが発生しました。もう一度お試しください。',
+      }[mockLocale]
       if (key === 'chat.retry') return 'Retry'
+      if (key === 'chat.retryQueued') return 'Retry queued'
+      if (key === 'chat.directSubmit.unavailable') return {
+        en: 'Unable to process this video right now.',
+        zh: '暂时无法处理这个视频，请稍后重试。',
+        ja: '現在この動画を処理できません。しばらくしてからお試しください。',
+      }[mockLocale]
       if (key === 'taskForm.quotaExceeded.description') return {
         en: 'Your plan limit has been reached.',
         zh: '您的方案额度已用完。',
@@ -340,6 +350,47 @@ describe('ChatContainer', () => {
     expect(screen.getByText('Something went wrong.')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Retry'))
     expect(mockRegenerate).toHaveBeenCalled()
+  })
+
+  it.each([
+    ['zh', '出现错误，请重试。'],
+    ['ja', 'エラーが発生しました。もう一度お試しください。'],
+  ] as const)('uses the %s route fallback when a task retry returns unsafe details', async (locale, expected) => {
+    mockLocale = locale
+    const messages: ChatUIMessage[] = [{
+      id: 'assistant-failed-task',
+      role: 'assistant',
+      parts: [{
+        type: 'data-task-status',
+        id: 'failed-task-status',
+        data: {
+          taskId: 'failed-task',
+          status: 'failed',
+          progress: 20,
+          videoUrl: 'https://www.youtube.com/watch?v=failed-task',
+          errorMessage: 'PRIVATE_TOKEN=initial-secret',
+        },
+      } as any],
+    }]
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      sendMessage: mockSendMessage,
+      stop: mockStop,
+    })
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      json: async () => ({ details: 'PRIVATE_TOKEN=retry-secret' }),
+    } as Response)
+
+    render(<ChatContainer activeTaskId="failed-task" isAuthenticated />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+
+    expect(await screen.findByText(expected)).toBeInTheDocument()
+    expect(screen.queryByText(/PRIVATE_TOKEN/)).not.toBeInTheDocument()
   })
 
   it.each([

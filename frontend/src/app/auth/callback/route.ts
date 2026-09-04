@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server'
 import { env } from '@/env'
 
 const DEFAULT_LANG = 'en'
+const AUTH_CALLBACK_FAILED = 'auth_callback_failed'
+const AUTH_CALLBACK_MISSING_CODE = 'auth_callback_missing_code'
 
 function resolveLang(searchParams: URLSearchParams, nextPath: string | null) {
     const paramLang = searchParams.get('lang')
@@ -60,9 +62,9 @@ export async function GET(request: Request) {
             return NextResponse.redirect(`${origin}${next}`)
         }
 
-        console.error('Auth callback error:', error)
-        return NextResponse.redirect(`${origin}/${lang}/login?error=${encodeURIComponent(error.message)}`)
+        console.error('Auth callback session exchange failed')
+        return NextResponse.redirect(`${origin}/${lang}/login?error=${AUTH_CALLBACK_FAILED}`)
     }
 
-    return NextResponse.redirect(`${origin}/${lang}/login?message=Could not login with provider&reason=no_code`)
+    return NextResponse.redirect(`${origin}/${lang}/login?error=${AUTH_CALLBACK_MISSING_CODE}`)
 }

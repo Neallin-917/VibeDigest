@@ -8,6 +8,7 @@ import type { Thread } from "@/types"
 import { preloadMessageRow } from "@/components/chat/LazyMessageRow"
 import { createTaskDataParts } from "@/lib/chat-ui"
 import type { ChatExample } from "@/lib/chat-examples"
+import { useI18n } from "@/components/i18n/I18nProvider"
 
 interface UseThreadNavigationOptions {
     threads: Thread[]
@@ -44,6 +45,7 @@ export function useThreadNavigation({
     refetchThreads,
     publicExample = null,
 }: UseThreadNavigationOptions): ThreadNavigationState {
+    const { t } = useI18n()
     const searchParams = useSearchParams()
     const { replace } = useRouter()
     const pathname = usePathname()
@@ -435,7 +437,7 @@ export function useThreadNavigation({
             isUserNavigatingRef.current = false
             setPendingThreadId(null)
             setIsThreadSwitching(false)
-            toast.error('Failed to load chat history')
+            toast.error(t('chat.errors.historyLoad'))
         }
     }, [
         commitThreadSelection,
@@ -443,6 +445,7 @@ export function useThreadNavigation({
         loadThreadPayload,
         pendingThreadId,
         resolvedActiveThreadId,
+        t,
     ])
 
     // Handle Task Selection (from Sidebar or Workspace)

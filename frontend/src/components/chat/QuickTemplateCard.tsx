@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { PlayCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChatExample } from '@/lib/chat-examples'
+import { useI18n } from '@/components/i18n/I18nProvider'
 
 interface QuickTemplateCardProps {
   task: ChatExample
@@ -30,6 +31,7 @@ export function QuickTemplateCard({
   onSelect,
   highPriorityThumbnail = false,
 }: QuickTemplateCardProps) {
+  const { t } = useI18n()
   const platform = getPlatformFromUrl(task.video_url)
 
   return (
@@ -46,7 +48,7 @@ export function QuickTemplateCard({
         {task.thumbnail_url ? (
           <Image
             src={task.thumbnail_url}
-            alt={task.video_title || "Video thumbnail"}
+            alt={task.video_title || t('tasks.videoThumbnailAlt')}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             referrerPolicy="no-referrer"
@@ -75,7 +77,7 @@ export function QuickTemplateCard({
       {/* Title */}
       <div className="hidden @md:block p-3">
         <h4 className="line-clamp-2 text-xs font-medium leading-snug text-foreground-soft">
-          {task.video_title || 'Untitled'}
+          {task.video_title || t('common.untitled')}
         </h4>
       </div>
     </button>

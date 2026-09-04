@@ -263,7 +263,7 @@ export function ChatContainer({
             : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
               ? errorPayload.error
               : t('chat.genericError')
-        setTaskRetryError(sanitizeErrorMessage(details))
+        setTaskRetryError(sanitizeErrorMessage(details, t('chat.genericError')))
         return false
       }
 

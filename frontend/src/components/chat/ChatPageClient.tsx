@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useThreadsQuery } from "@/hooks/useThreadsQuery"
 import { useThreadNavigation } from "@/hooks/useThreadNavigation"
 import type { ChatExample } from "@/lib/chat-examples"
+import { useI18n } from "@/components/i18n/I18nProvider"
 
 function ChatPageContent({
     initialExamples,
@@ -17,6 +18,7 @@ function ChatPageContent({
     initialExamples: Promise<ChatExample[]> | null
     publicExample: ChatExample | null
 }) {
+    const { t } = useI18n()
     const { isAuthenticated } = useAuth()
     const { threads, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery({
         enabled: isAuthenticated === true,
@@ -28,7 +30,7 @@ function ChatPageContent({
             await updateThreadStatus(threadId, status)
         } catch (error) {
             console.error('Failed to update thread status', error)
-            toast.error(status === 'archived' ? 'Failed to archive chat' : 'Failed to restore chat')
+            toast.error(status === 'archived' ? t('chat.errors.archive') : t('chat.errors.restore'))
         }
     }
 

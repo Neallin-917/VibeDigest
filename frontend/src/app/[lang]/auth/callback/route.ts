@@ -3,6 +3,9 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { env } from '@/env'
 
+const AUTH_CALLBACK_FAILED = 'auth_callback_failed'
+const AUTH_CALLBACK_MISSING_CODE = 'auth_callback_missing_code'
+
 export async function GET(request: Request, { params }: { params: Promise<{ lang: string }> }) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
@@ -46,13 +49,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ lang
                 return NextResponse.redirect(`${origin}${next}`)
             }
         } else {
-            console.error('Auth callback error:', error)
-            return NextResponse.redirect(`${origin}/${lang}/login?error=${encodeURIComponent(error.message)}`)
+            console.error('Auth callback session exchange failed')
+            return NextResponse.redirect(`${origin}/${lang}/login?error=${AUTH_CALLBACK_FAILED}`)
         }
     } else {
         console.log('No code found in auth callback URL')
     }
 
     // return the user to an error page with instructions
-    return NextResponse.redirect(`${origin}/${lang}/login?message=Could not login with provider&reason=no_code`)
+    return NextResponse.redirect(`${origin}/${lang}/login?error=${AUTH_CALLBACK_MISSING_CODE}`)
 }

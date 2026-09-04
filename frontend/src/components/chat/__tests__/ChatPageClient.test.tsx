@@ -25,6 +25,7 @@ const fetchThreadTaskIdMock = vi.fn<(threadId: string) => Promise<string | null>
 const loadMessageRowMock = vi.fn<() => Promise<unknown>>()
 const idleCallbacks: IdleRequestCallback[] = []
 const authState = vi.hoisted(() => ({ isAuthenticated: true as boolean | null }))
+const toastError = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => ({
@@ -47,6 +48,18 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => authState,
 }))
 
+vi.mock('@/components/i18n/I18nProvider', () => ({
+  useI18n: () => ({
+    t: (key: string) => ({
+      'chat.errors.historyLoad': 'Failed to load chat history.',
+      'chat.errors.archive': 'Failed to archive chat.',
+      'chat.errors.restore': 'Failed to restore chat.',
+    } as Record<string, string>)[key] ?? key,
+  }),
+}))
+
+vi.mock('sonner', () => ({ toast: { error: toastError } }))
+
 vi.mock('@/components/chat/LazyMessageRow', () => ({
   preloadMessageRow: () => loadMessageRowMock()
 }))
@@ -62,6 +75,7 @@ vi.mock('@/components/layout/AppSidebar', () => ({
       data-selected-thread-id={props.selectedThreadId || props.activeThreadId || ''}
     >
       <button onClick={() => props.onPrefetchThread?.('thread-b')}>Prefetch Thread B</button>
+      <button onClick={() => props.onUpdateThreadStatus?.('thread-a', 'archived')}>Archive Thread A</button>
     </div>
   )
 }))
@@ -164,6 +178,25 @@ describe('ChatPageClient', () => {
     await waitFor(() => {
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
       expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'false')
+    })
+  })
+
+  it('localizes an archive failure', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString()
+      if (url === '/api/threads' && !init?.method) return jsonResponse([])
+      if (url === '/api/threads/thread-a' && init?.method === 'PATCH') {
+        return { ok: false, status: 500, json: async () => ({}) } as Response
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithQueryClient(<ChatPageClient />)
+    fireEvent.click(screen.getByText('Archive Thread A'))
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith('Failed to archive chat.')
     })
   })
 

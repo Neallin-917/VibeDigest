@@ -59,7 +59,7 @@ class RuntimeConfig(Command):
     model: str = Field(min_length=1, max_length=200)
     modelTier: Literal["smart"] = "smart"
     reasoningEffort: str = Field(default="high", max_length=20)
-    locale: Literal["zh", "en", "ja"] = "zh"
+    locale: Literal["zh", "en", "ja"] = "en"
     scope: Literal["workspace", "source"] = "workspace"
 
 
@@ -89,7 +89,7 @@ class SubmitCommand(TurnCommand):
 
 class TaskCommand(TurnCommand):
     taskId: UUID
-    locale: Literal["zh", "en", "ja"] = "zh"
+    locale: Literal["zh", "en", "ja"] = "en"
 
 
 class ReadCommand(TaskCommand):

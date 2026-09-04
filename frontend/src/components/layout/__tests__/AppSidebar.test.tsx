@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { AppSidebar } from '../AppSidebar'
 
 const pushMock = vi.fn()
+const i18nMock = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' | 'ja' }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -21,8 +22,20 @@ vi.mock('../AppSidebarContext', () => ({
 
 vi.mock('@/components/i18n/I18nProvider', () => ({
   useI18n: () => ({
-    locale: 'en',
-    t: (key: string) => key,
+    locale: i18nMock.locale,
+    t: (key: string) => {
+      const en: Record<string, string> = {
+        'nav.toggleSidebar': 'Toggle sidebar',
+        'nav.goHome': 'Go to home',
+        'nav.toggleArchivedChats': 'Toggle archived chats',
+      }
+      const zh: Record<string, string> = {
+        'nav.toggleSidebar': '切换侧边栏',
+        'nav.goHome': '返回首页',
+        'nav.toggleArchivedChats': '切换已归档对话',
+      }
+      return i18nMock.locale === 'zh' ? zh[key] ?? key : en[key] ?? key
+    },
   }),
 }))
 
@@ -53,6 +66,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 describe('AppSidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    i18nMock.locale = 'en'
   })
 
   it('navigates directly to a fresh chat thread when no onNewChat handler is provided', () => {
@@ -170,5 +184,21 @@ describe('AppSidebar', () => {
     expect(screen.getAllByText('chat.newChat')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Open thread actions for chat.newChat' })).toBeInTheDocument()
     expect(screen.queryByText('New Chat')).not.toBeInTheDocument()
+  })
+
+  it('uses Chinese accessibility labels on the Chinese route', () => {
+    i18nMock.locale = 'zh'
+
+    render(
+      <AppSidebar
+        threads={[
+          { id: 'thread-archived', title: 'Archived chat', updated_at: '2026-04-18T00:00:00Z', status: 'archived' },
+        ]}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: '切换侧边栏' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '返回首页' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '切换已归档对话' })).toBeInTheDocument()
   })
 })

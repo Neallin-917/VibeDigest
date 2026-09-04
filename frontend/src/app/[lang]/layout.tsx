@@ -9,7 +9,7 @@ import { Providers } from "@/components/providers";
 import { Vignette } from "@/components/ui/vignette";
 import { buildLocalizedPath, getOpenGraphLocale, SITE_URL } from "@/lib/seo";
 import { env } from "@/env";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale, type Locale } from "@/lib/i18n";
 import { createTranslator, getMessages } from "@/lib/i18n-server";
 import { buildSoftwareApplicationSchema, serializeJsonLd } from "@/lib/billing/structured-data";
 
@@ -37,6 +37,10 @@ export const viewport: Viewport = {
   themeColor: '#f3f1ea',
   width: 'device-width',
   initialScale: 1,
+}
+
+export function generateStaticParams() {
+  return SUPPORTED_LOCALES.map((lang) => ({ lang }))
 }
 
 // Route-level SEO copy lives here because these strings describe the whole
@@ -205,29 +209,32 @@ export default async function RootLayout({
     },
   ];
   return (
-    <div
-      lang={locale}
-      className={cn(
-        manrope.className,
-        syne.variable,
-        jakarta.variable,
-        "min-h-screen text-foreground antialiased font-sans tracking-tight"
-      )}
-    >
-      <Vignette />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: serializeJsonLd(structuredData)
-        }}
-      />
-      <Providers locale={locale} messages={messages}>
-        {auth}
-        {children}
-      </Providers>
-      <Toaster />
-      <Analytics />
-      <SpeedInsights />
-    </div>
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <div
+          className={cn(
+            manrope.className,
+            syne.variable,
+            jakarta.variable,
+            "min-h-screen text-foreground antialiased font-sans tracking-tight"
+          )}
+        >
+          <Vignette />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: serializeJsonLd(structuredData)
+            }}
+          />
+          <Providers locale={locale} messages={messages}>
+            {auth}
+            {children}
+          </Providers>
+          <Toaster />
+          <Analytics />
+          <SpeedInsights />
+        </div>
+      </body>
+    </html>
   );
 }

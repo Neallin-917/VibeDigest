@@ -19,9 +19,27 @@ vi.mock("@/env", () => ({
   },
 }))
 
-import { generateMetadata } from "./layout"
+import RootLayout, { generateMetadata, generateStaticParams } from "./layout"
 
 describe("localized layout metadata", () => {
+  it("generates every supported locale as a static route", () => {
+    expect(generateStaticParams()).toEqual([
+      { lang: "en" },
+      { lang: "zh" },
+      { lang: "ja" },
+    ])
+  })
+
+  it.each(["en", "zh", "ja"])("renders %s into the server document", async (locale) => {
+    const layout = await RootLayout({
+      children: "content",
+      auth: "auth",
+      params: Promise.resolve({ lang: locale }),
+    })
+
+    expect(layout.props.lang).toBe(locale)
+  })
+
   it("generates Chinese title, description, Open Graph and Twitter metadata", async () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ lang: "zh" }) })
 

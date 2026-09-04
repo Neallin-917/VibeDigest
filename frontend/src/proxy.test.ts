@@ -165,7 +165,7 @@ describe('proxy', () => {
             expect(mockUpdateSession).toHaveBeenCalled()
         })
 
-        it('passes the normalized locale to the session refresh request without exposing it', async () => {
+        it('passes the normalized locale internally without exposing it', async () => {
             const response = await proxy(makeRequest('/zh/privacy', {
                 headers: { 'x-vd-locale': 'en' },
             }))

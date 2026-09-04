@@ -41,9 +41,11 @@ Exact versions belong to `frontend/package.json` and
 
 ```text
 src/app/
-├── layout.tsx, page.tsx              # root shell and locale redirect
+├── (root)/layout.tsx, page.tsx       # static English shell for `/` redirect
+├── global-not-found.tsx              # locale-aware full-document 404
 ├── manifest.ts, robots.ts, sitemap.ts
 ├── [lang]/
+│   ├── layout.tsx                    # locale root; owns `<html lang>`
 │   ├── page.tsx                      # landing page
 │   ├── chat/                         # primary chat workspace
 │   ├── explore/                      # public task discovery
@@ -93,6 +95,9 @@ definitions, but no action tools. Durable metadata drives answer retry/cancel UI
 ## Rendering rules
 
 - Prefer Server Components for static or server-owned reads.
+- Keep localized document language in the `[lang]` root layout from route
+  params. Request headers may localize the global 404, but must not make the
+  public locale tree dynamic.
 - Add `"use client"` only for browser APIs, Realtime, state, or interaction.
 - Keep command routes thin: authenticate, validate, forward, normalize errors.
 - Do not reproduce backend workflow or provider fallback logic in Next.js.

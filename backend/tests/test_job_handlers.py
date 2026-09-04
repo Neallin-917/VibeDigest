@@ -125,7 +125,7 @@ async def test_handle_retry_output_summary_success(mock_db_client, mock_summariz
 
 
 @pytest.mark.asyncio
-async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_language(
+async def test_handle_retry_output_retires_unsupported_persisted_locale(
     mock_db_client, mock_summarizer
 ):
     mock_db_client.get_output.return_value = {
@@ -147,10 +147,12 @@ async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_l
     mock_summarizer.optimize_transcript.return_value = "English transcript"
     mock_summarizer.summarize_in_language_with_anchors.return_value = json.dumps({
         "version": 4,
-        "language": "ja",
-        "tl_dr": "要約",
-        "overview": "概要",
-        "keypoints": [{"title": "点", "detail": "詳細", "evidence": "引用"}],
+        "language": "en",
+        "tl_dr": "Summary",
+        "overview": "Overview",
+        "keypoints": [
+            {"title": "Point", "detail": "Detail", "evidence": "Evidence"}
+        ],
     })
 
     with (
@@ -172,8 +174,17 @@ async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_l
 
     assert mock_summarizer.summarize_in_language_with_anchors.call_args.kwargs[
         "summary_language"
-    ] == "ja"
-    assert mock_db_client.update_output_status.call_args.kwargs["locale"] == "ja"
+    ] == "en"
+    assert mock_db_client.update_output_status.call_args.kwargs["locale"] == "en"
+    assert mock_db_client.update_output_status.call_args.kwargs["intent"] == {
+        "target_locale": "en",
+        "locale_source": "default_locale",
+        "version": 1,
+        "request_text": "",
+        "depth": "standard",
+        "audience": None,
+        "preserve_source_terms": False,
+    }
     assert mock_db_client.update_output_status.call_args.kwargs["provenance"] == {
         "source_task_id": "task_1",
         "source_kind": "script",

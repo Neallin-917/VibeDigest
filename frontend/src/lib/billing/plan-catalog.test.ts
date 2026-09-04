@@ -13,7 +13,7 @@ import {
   serializeJsonLd,
 } from "@/lib/billing/structured-data"
 
-const locales: Locale[] = ["en", "zh", "ja"]
+const locales: Locale[] = ["en", "zh"]
 const stalePromise = /\$4\.99|15.?min|15\s*分钟|15分|unlimited|无限|無制限|notion|pdf/i
 
 describe("customer plan catalog", () => {

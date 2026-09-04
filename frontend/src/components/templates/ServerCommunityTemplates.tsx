@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
-import type { Locale } from "@/lib/i18n"
+import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { resolveSummaryLocale } from "@/lib/summary-contract"
 import { getTopicSourceIds } from "@/lib/topic-hubs"
@@ -299,6 +299,7 @@ export async function ServerCommunityTemplates({
       .eq("is_demo", true)
       .eq("status", "completed")
       .eq("publication_status", "published")
+      .in(PUBLIC_LANGUAGE_FIELD, [...SUPPORTED_LOCALES])
       .order("library_source_published_at", { ascending: false, nullsFirst: false })
       .order("public_quality_score", { ascending: false, nullsFirst: false })
       .order("published_at", { ascending: false })
@@ -347,6 +348,7 @@ export async function ServerCommunityTemplates({
     .eq("is_demo", true)
     .eq("status", "completed")
     .eq("publication_status", "published")
+    .in(PUBLIC_LANGUAGE_FIELD, [...SUPPORTED_LOCALES])
 
   totalQuery = applySearchLike(totalQuery, normalizedQuery)
   if (topicSourceIds.length > 0) totalQuery = totalQuery.in("podcast_source_slug", topicSourceIds)

@@ -10,7 +10,7 @@ const mockRegenerate = vi.fn()
 const mockStop = vi.fn()
 const mockUseChatRealtime = vi.fn()
 let mockChatInputText = 'test message'
-let mockLocale: 'en' | 'zh' | 'ja' = 'en'
+let mockLocale: 'en' | 'zh' = 'en'
 
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
 const navigation = vi.hoisted(() => ({ push: vi.fn() }))
@@ -55,24 +55,20 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.genericError') return {
         en: 'Something went wrong.',
         zh: '出现错误，请重试。',
-        ja: 'エラーが発生しました。もう一度お試しください。',
       }[mockLocale]
       if (key === 'chat.retry') return 'Retry'
       if (key === 'chat.retryQueued') return 'Retry queued'
       if (key === 'chat.directSubmit.unavailable') return {
         en: 'Unable to process this video right now.',
         zh: '暂时无法处理这个视频，请稍后重试。',
-        ja: '現在この動画を処理できません。しばらくしてからお試しください。',
       }[mockLocale]
       if (key === 'taskForm.quotaExceeded.description') return {
         en: 'Your plan limit has been reached.',
         zh: '您的方案额度已用完。',
-        ja: 'プランの利用上限に達しました。',
       }[mockLocale]
       if (key === 'taskForm.quotaExceeded.confirm') return {
         en: 'View Plans',
         zh: '查看方案',
-        ja: 'プランを見る',
       }[mockLocale]
       if (key === 'chat.followUpPlaceholder') return 'Ask a follow-up about this source...'
       if (key === 'chat.followUpInputLabel') return 'Follow-up question about this source'
@@ -354,7 +350,6 @@ describe('ChatContainer', () => {
 
   it.each([
     ['zh', '出现错误，请重试。'],
-    ['ja', 'エラーが発生しました。もう一度お試しください。'],
   ] as const)('uses the %s route fallback when a task retry returns unsafe details', async (locale, expected) => {
     mockLocale = locale
     const messages: ChatUIMessage[] = [{
@@ -403,11 +398,11 @@ describe('ChatContainer', () => {
       surface: 'workspace',
     },
     {
-      locale: 'ja',
+      locale: 'zh',
       scope: 'source',
       transportError: new Error('VIBEDIGEST_QUOTA_EXCEEDED'),
-      description: 'プランの利用上限に達しました。',
-      confirm: 'プランを見る',
+      description: '您的方案额度已用完。',
+      confirm: '查看方案',
       surface: 'source_followup',
     },
   ] as const)(

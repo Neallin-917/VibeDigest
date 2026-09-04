@@ -232,7 +232,7 @@ describe("ServerCommunityTemplates", () => {
     expect(screen.getByTestId("source-shelf")).not.toHaveTextContent("Lenny's Podcast:9")
   })
 
-  it("puts locale-matching public digests first while keeping other digests discoverable", async () => {
+  it("puts locale-matching public digests first while keeping the other supported locale discoverable", async () => {
     queryState.tasks = {
       data: [
         {
@@ -253,17 +253,8 @@ describe("ServerCommunityTemplates", () => {
           public_takeaway: "Chinese takeaway",
           public_quality_flags: { language: "zh" },
         },
-        {
-          id: "task-ja-1",
-          video_url: "https://example.com/ja-1",
-          video_title: "Japanese still discoverable",
-          status: "completed",
-          created_at: "2026-08-25T08:00:00Z",
-          public_takeaway: "Japanese takeaway",
-          public_quality_flags: { language: "ja" },
-        },
       ],
-      count: 3,
+      count: 2,
       error: null,
     }
     queryState.preferredTasks = {
@@ -285,9 +276,13 @@ describe("ServerCommunityTemplates", () => {
     render(await ServerCommunityTemplates({ showHeader: false, locale: "zh" }))
 
     expect(screen.getByTestId("community-status")).toHaveTextContent(
-      "ready:Chinese first for zh users,English first in fallback order,Japanese still discoverable"
+      "ready:Chinese first for zh users,English first in fallback order"
     )
-    expect(screen.getByTestId("total-count")).toHaveTextContent("3")
+    expect(screen.getByTestId("total-count")).toHaveTextContent("2")
+    expect(queryState.inCalls).toContainEqual([
+      "public_quality_flags->>language",
+      ["en", "zh"],
+    ])
   })
 
   it("falls back to the general library when locale-priority lookup fails", async () => {

@@ -1,5 +1,5 @@
 // Mainstream internet/UI languages (UI locales).
-export const SUPPORTED_LOCALES = ["en", "zh", "ja"] as const
+export const SUPPORTED_LOCALES = ["en", "zh"] as const
 
 export type Locale = typeof SUPPORTED_LOCALES[number]
 
@@ -10,13 +10,11 @@ export const COOKIE_NAME = "vd_locale"
 export const LOCALE_LABEL: Record<Locale, string> = {
   en: "English",
   zh: "中文",
-  ja: "日本語",
 }
 
 export const LOCALE_DISPLAY_NAME: Record<Locale, Record<Locale, string>> = {
-  en: { en: "English", zh: "Chinese", ja: "Japanese" },
-  zh: { en: "英文", zh: "中文", ja: "日文" },
-  ja: { en: "英語", zh: "中国語", ja: "日本語" },
+  en: { en: "English", zh: "Chinese" },
+  zh: { en: "英文", zh: "中文" },
 }
 
 export function getLocaleDisplayName(locale: Locale, displayLocale: Locale) {
@@ -26,7 +24,6 @@ export function getLocaleDisplayName(locale: Locale, displayLocale: Locale) {
 export const LOCALE_DATE_TAG: Record<Locale, string> = {
   en: "en-US",
   zh: "zh-CN",
-  ja: "ja-JP",
 }
 
 export type MessageValue = string | Messages

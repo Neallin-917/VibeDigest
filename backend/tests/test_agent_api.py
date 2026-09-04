@@ -186,6 +186,54 @@ def test_accept_binds_server_identity_and_validated_input(setup):
     assert service.accept.call_args.kwargs["continuation_queue"] == "agent_answers"
 
 
+def test_accept_rejects_japanese_product_locale(setup):
+    client, _, service = setup
+    payload = _accept()
+    payload["runtimeConfig"]["locale"] = "ja"
+
+    response = _post(client, "/api/internal/agent/turns", payload)
+
+    assert response.status_code == 422
+    service.accept.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("route", "payload", "service_method"),
+    [
+        (
+            "submit",
+            {
+                "userId": str(uuid4()),
+                "token": str(uuid4()),
+                "videoUrl": "https://youtu.be/content-id",
+                "locale": "ja",
+            },
+            "submit_video",
+        ),
+        (
+            "watch",
+            {
+                "userId": str(uuid4()),
+                "token": str(uuid4()),
+                "taskId": str(uuid4()),
+                "locale": "ja",
+            },
+            "watch",
+        ),
+    ],
+)
+def test_task_commands_reject_japanese_product_locale(
+    setup, route, payload, service_method
+):
+    client, _, service = setup
+    path = f"/api/internal/agent/turns/{uuid4()}/{route}"
+
+    response = _post(client, path, payload)
+
+    assert response.status_code == 422
+    getattr(service, service_method).assert_not_called()
+
+
 def test_task_command_defaults_to_the_english_product_locale(setup):
     client, _, service = setup
     service.watch.return_value = {"status": "running"}

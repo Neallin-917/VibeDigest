@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = ['/login', '/auth', '/register', '/faq', '/explore', '/ter
 const CHAT_HISTORY_MESSAGES_PATH = /^\/api\/chat\/threads\/[^/]+\/messages$/
 const isLocalUiDemo = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_LOCAL_DEMO === '1'
 const LOCALE_HEADER = 'x-vd-locale'
+const RETIRED_LOCALES = new Set(['ja'])
 
 function isAuthenticatedChatHistoryRead(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -60,6 +61,13 @@ export async function proxy(request: NextRequest) {
   }
 
   const pathParts = pathname.split('/')
+  if (RETIRED_LOCALES.has(pathParts[1])) {
+    const target = request.nextUrl.clone()
+    const suffix = pathParts.slice(2).join('/')
+    target.pathname = `/${DEFAULT_LOCALE}${suffix ? `/${suffix}` : ''}`
+    return NextResponse.redirect(target, 308)
+  }
+
   const pathLocale = SUPPORTED_LOCALES.find(l => pathParts[1] === l)
   const locale = pathLocale || DEFAULT_LOCALE
   const requestHeaders = new Headers(request.headers)

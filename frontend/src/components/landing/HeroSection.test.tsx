@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
         data: null as { id: string } | null | undefined,
         isPending: false,
     },
-    locale: "en" as "en" | "zh" | "ja",
+    locale: "en" as "en" | "zh",
     submit: undefined as ((text: string) => Promise<void | boolean>) | undefined,
     trackGrowthEvent: vi.fn(),
 }))

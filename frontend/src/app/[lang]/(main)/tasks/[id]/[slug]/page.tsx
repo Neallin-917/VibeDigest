@@ -17,7 +17,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { Heading, Text } from "@/components/ui/typography"
 import { cn } from "@/lib/utils"
 import { normalizeTaskStatus } from "@/lib/safe-error"
-import { getLocaleDisplayName, isLocale } from "@/lib/i18n"
+import { getLocaleDisplayName, isLocale, type Locale } from "@/lib/i18n"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import { resolvePodcastSourceId } from "@/lib/podcast-sources"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
@@ -100,7 +100,7 @@ function getOptionalNumber(value: unknown, key: string) {
     return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null
 }
 
-function formatDuration(seconds: number | null, locale: "en" | "zh" | "ja") {
+function formatDuration(seconds: number | null, locale: Locale) {
     if (seconds === null || seconds <= 0) return ""
     const totalMinutes = Math.max(1, Math.round(seconds / 60))
     const hours = Math.floor(totalMinutes / 60)
@@ -108,20 +108,18 @@ function formatDuration(seconds: number | null, locale: "en" | "zh" | "ja") {
 
     if (hours === 0) {
         if (locale === "zh") return `${minutes} 分钟`
-        if (locale === "ja") return `${minutes}分`
         return `${minutes} min`
     }
 
     if (locale === "zh") return `${hours} 小时${minutes ? ` ${minutes} 分钟` : ""}`
-    if (locale === "ja") return `${hours}時間${minutes ? `${minutes}分` : ""}`
     return `${hours} hr${minutes ? ` ${minutes} min` : ""}`
 }
 
-function formatSourceDate(value: string, locale: "en" | "zh" | "ja") {
+function formatSourceDate(value: string, locale: Locale) {
     if (!value) return ""
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return ""
-    const dateLocale = locale === "zh" ? "zh-CN" : locale === "ja" ? "ja-JP" : "en-US"
+    const dateLocale = locale === "zh" ? "zh-CN" : "en-US"
     return new Intl.DateTimeFormat(dateLocale, {
         year: "numeric",
         month: "short",
@@ -200,25 +198,6 @@ const DETAIL_COPY = {
             restoreFailed: "未能恢复之前的对话，可以在下方开始新对话。",
         },
         status: { completed: "已完成", processing: "处理中", pending: "排队中", failed: "失败" },
-    },
-    ja: {
-        back: "ポッドキャスト一覧に戻る", source: "出典",
-        summary: "要約", keyIdeas: "重要ポイント", fullSummary: "整理内容をすべて読む", original: "元の動画を開く",
-        share: "共有リンクをコピー", copied: "コピー済み", copyFailed: "コピーできませんでした",
-        whyItMatters: "重要な理由", evidence: "根拠", openAt: "元の動画を開く",
-        failed: "このタスクは完了しませんでした。下から再試行できます。",
-        pending: "整理内容はまだありません。処理完了後にもう一度確認してください。",
-        summaryAvailableIn: (language: string) => `この整理は現在${language}で読めます。`,
-        switchToLanguage: (language: string) => `${language}版を開く`,
-        processedVideo: "処理済み動画",
-        followUp: {
-            title: "この内容について質問する",
-            discovery: "読み終えたら追加で質問",
-            example: "例：この結論を支える根拠は？",
-            restoring: "最近の会話を復元しています...",
-            restoreFailed: "以前の会話を復元できませんでした。下から新しい会話を始められます。",
-        },
-        status: { completed: "完了", processing: "処理中", pending: "待機中", failed: "失敗" },
     },
 } as const
 

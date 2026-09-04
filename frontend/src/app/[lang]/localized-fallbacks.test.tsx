@@ -33,12 +33,6 @@ const expectations: Record<Locale, {
         retry: "重试",
         home: "首页",
     },
-    ja: {
-        notFound: "ページが見つかりません",
-        error: "ページを表示できません",
-        retry: "再試行",
-        home: "ホーム",
-    },
 }
 
 const localeCases = Object.entries(expectations) as [

@@ -122,28 +122,9 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         resultCount: "条已整理内容",
         languageAvailable: (language) => `该整理当前提供${language}版本。`,
     },
-    ja: {
-        sourceShelf: "番組から探す",
-        all: "すべて",
-        showAll: "すべての番組を見る",
-        showLess: "折りたたむ",
-        curated: "すぐに読める整理内容",
-        recent: "その他の整理内容",
-        read: "整理内容を見る",
-        source: "元のエピソード",
-        search: "内容を検索",
-        searchPlaceholder: "エピソード、番組、ゲスト、トピックを検索",
-        empty: "現在の条件に一致する整理内容はありません。",
-        clearFilters: "絞り込みを解除",
-        loadMore: "さらに読み込む",
-        episodeUnit: "件の整理",
-        keyPointUnit: "の要点",
-        resultCount: "件の整理済み",
-        languageAvailable: (language) => `この整理は現在${language}で読めます。`,
-    },
 }
 
-const localeDateTag: Record<Locale, string> = { en: "en-US", zh: "zh-CN", ja: "ja-JP" }
+const localeDateTag: Record<Locale, string> = { en: "en-US", zh: "zh-CN" }
 const FEATURED_COUNT = 6
 
 type EpisodeCardRole = "hero" | "supporting" | "solo" | "standard"

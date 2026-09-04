@@ -131,6 +131,8 @@ describe('proxy', () => {
 
             expect(response.status).toBe(200)
             expect(mockUpdateSession).not.toHaveBeenCalled()
+            expect(response.headers.get('x-middleware-request-x-vd-locale')).toBe('zh')
+            expect(response.headers.get('x-vd-locale')).toBeNull()
         })
 
         it('should redirect a non-localized chat page without calling updateSession', async () => {
@@ -161,6 +163,23 @@ describe('proxy', () => {
             expect(response.status).toBe(307)
             expect(response.headers.get('location')).toContain('/en/history')
             expect(mockUpdateSession).toHaveBeenCalled()
+        })
+
+        it('passes the normalized locale to the session refresh request without exposing it', async () => {
+            const response = await proxy(makeRequest('/zh/privacy', {
+                headers: { 'x-vd-locale': 'en' },
+            }))
+            const localeHeaders = mockUpdateSession.mock.calls[0]?.[1] as Headers
+
+            expect(localeHeaders.get('x-vd-locale')).toBe('zh')
+            expect(response.headers.get('x-vd-locale')).toBeNull()
+        })
+
+        it('uses the default locale internally for an unsupported prefix', async () => {
+            await proxy(makeRequest('/fr/privacy'))
+            const localeHeaders = mockUpdateSession.mock.calls[0]?.[1] as Headers
+
+            expect(localeHeaders.get('x-vd-locale')).toBe('en')
         })
     })
 

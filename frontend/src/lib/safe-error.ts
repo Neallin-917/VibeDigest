@@ -3,7 +3,6 @@ const UPSTREAM_BLOCKED_MESSAGE =
   'The processing service is blocking automated access. Please try again later.'
 const UPSTREAM_HTML_MESSAGE =
   'The upstream service returned an unexpected error page. Please try again later.'
-const MAX_MESSAGE_LENGTH = 280
 
 export type NormalizedTaskStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -32,10 +31,6 @@ function looksLikeAntiBotChallenge(value: string) {
   return /cloudflare|challenge-platform|cf-chl|cdn-cgi|just a moment|challenge-error-text/i.test(value)
 }
 
-function looksLikeInternalProviderError(value: string) {
-  return /\b(?:litellm|badgatewayerror|openai(?:exception|error)|anthropic(?:exception|error)|unknown provider for model|traceback|stack trace)\b/i.test(value)
-}
-
 function tryParseJsonMessage(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
@@ -47,23 +42,23 @@ function tryParseJsonMessage(value: string): string | null {
   }
 }
 
-export function sanitizeErrorMessage(input: unknown, fallback = DEFAULT_ERROR_MESSAGE): string {
+export function sanitizeErrorMessage(input: unknown, safeFallback = DEFAULT_ERROR_MESSAGE): string {
+  const fallback = safeFallback.trim() || DEFAULT_ERROR_MESSAGE
   const extracted = extractMessage(input)
   const parsed = typeof extracted === 'string' ? tryParseJsonMessage(extracted) : null
-  const raw = (parsed ?? extracted ?? fallback).trim()
+  const raw = (parsed ?? extracted ?? '').trim()
 
   if (!raw) return fallback
 
-  if (looksLikeHtml(raw)) {
+  if (safeFallback === DEFAULT_ERROR_MESSAGE && looksLikeHtml(raw)) {
     return looksLikeAntiBotChallenge(raw) ? UPSTREAM_BLOCKED_MESSAGE : UPSTREAM_HTML_MESSAGE
   }
 
-  if (looksLikeInternalProviderError(raw)) return fallback
-
-  const compact = raw.replace(/\s+/g, ' ')
-  if (compact.length <= MAX_MESSAGE_LENGTH) return compact
-
-  return `${compact.slice(0, MAX_MESSAGE_LENGTH - 3)}...`
+  // Error text can contain provider names, request details, credentials, or a
+  // message in a language unrelated to the active route. Only caller-owned,
+  // localized copy is safe to render. Known actionable errors are classified
+  // by their call sites before reaching this boundary.
+  return fallback
 }
 
 export function normalizeTaskStatus(status: unknown): NormalizedTaskStatus {

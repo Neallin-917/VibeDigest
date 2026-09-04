@@ -1,11 +1,20 @@
 import type { Locale, Messages } from "@/lib/i18n"
 
-export const messages: Record<Locale, Messages> = {
-  en: {
+type MessageShape<T> = {
+  [K in keyof T]: T[K] extends string ? string : MessageShape<T[K]>
+}
+
+const enMessages = {
     brand: {
       name: "VibeDigest",
       appName: "VibeDigest",
       versionTag: "VibeDigest v3.0",
+    },
+    common: {
+      close: "Close",
+      language: "Language",
+      untitled: "Untitled",
+      delete: "Delete",
     },
     nav: {
       newTask: "New",
@@ -18,6 +27,61 @@ export const messages: Record<Locale, Messages> = {
       showSidebar: "Show sidebar",
       hideSidebar: "Hide sidebar",
       backToHome: "Home",
+      goHome: "Go to home",
+      toggleSidebar: "Toggle sidebar",
+      toggleArchivedChats: "Toggle archived chats",
+    },
+    metadata: {
+      chat: {
+        title: "Chat",
+        description: "Ask VibeDigest to process a source or answer questions grounded in it.",
+      },
+      login: {
+        title: "Sign in",
+        description: "Sign in to continue with VibeDigest.",
+      },
+    },
+    errorBoundary: {
+      eyebrow: "Error",
+      title: "Something went wrong",
+      description: "Try again or return home.",
+      retry: "Try again",
+      home: "Home",
+    },
+    notFound: {
+      title: "Page not found",
+      description: "The page you requested does not exist.",
+      home: "Home",
+    },
+    privacy: {
+      title: "Privacy Policy",
+      introduction: 'This Privacy Policy describes how VibeDigest ("we", "us", or "our") collects, uses, and discloses your personal information when you use our website and services.',
+      collection: {
+        title: "1. Information We Collect",
+        description: "We collect information you provide directly to us, including:",
+        email: "Email address",
+        name: "Name (if provided through social login)",
+        avatar: "Profile picture (if provided through social login)",
+      },
+      use: {
+        title: "2. How We Use Your Information",
+        description: "We use the information we collect to:",
+        service: "Provide, maintain, and improve our services",
+        authentication: "Authenticate your identity",
+        notices: "Send technical notices and support messages",
+      },
+      security: {
+        title: "3. Data Security",
+        description: "We use reasonable safeguards to protect your personal information. Authentication and data storage are provided by Supabase, which applies industry-standard security practices.",
+      },
+      contact: {
+        title: "4. Contact Us",
+        description: "If you have questions about this Privacy Policy, please contact us.",
+      },
+      metadata: {
+        title: "Privacy Policy",
+        description: "Learn how VibeDigest collects, uses, and protects your personal information.",
+      },
     },
     auth: {
       welcomeBack: "Sign in",
@@ -61,6 +125,8 @@ export const messages: Record<Locale, Messages> = {
         invalidCredentials: "Invalid login credentials",
         userAlreadyRegistered: "User already registered",
         weakPassword: "Password should be at least 6 characters",
+        callbackFailed: "Sign-in could not be completed. Please try again.",
+        callbackMissingCode: "The sign-in link is incomplete. Please try again.",
         generic: "An error occurred"
       }
     },
@@ -368,6 +434,9 @@ export const messages: Record<Locale, Messages> = {
       generatingContent: "Generating",
       percentComplete: "{percent}% complete",
       videoThumbnailAlt: "Video thumbnail",
+      audioCoverAlt: "Audio cover",
+      audioEpisodeFallback: "Episode",
+      audioUnsupported: "Your browser does not support audio playback.",
       confirmDelete: "Are you sure you want to delete this task?",
       deleteError: "Failed to delete task. Please try again.",
       updateError: "Failed to update task. Please try again.",
@@ -450,6 +519,11 @@ export const messages: Record<Locale, Messages> = {
       retry: "Retry",
       retryQueued: "Retry queued",
       genericError: "Something went wrong.",
+      errors: {
+        historyLoad: "Failed to load chat history.",
+        archive: "Failed to archive chat.",
+        restore: "Failed to restore chat.",
+      },
       loadingExamples: "Loading...",
       openingChat: "Opening...",
       openingThread: "Opening {title}",
@@ -469,6 +543,18 @@ export const messages: Record<Locale, Messages> = {
         noSummary: "No summary available.",
       },
       tools: {
+        result: "Result",
+        error: "Error",
+        state: {
+          "approval-requested": "Awaiting approval",
+          "approval-responded": "Responded",
+          "input-available": "Running",
+          "input-streaming": "Pending",
+          "output-available": "Completed",
+          "output-denied": "Denied",
+          "output-error": "Error",
+        },
+        parameters: "Parameters",
         status: {
           checking: "Checking task status...",
           checkingFor: "Checking task status for {id}...",
@@ -479,6 +565,9 @@ export const messages: Record<Locale, Messages> = {
           errorGetStatus: "Failed to get task status",
           unknownError: "Unknown error",
           videoTask: "Video task",
+          title: "Task status",
+          latest: "Latest status: {status}",
+          taskId: "Task ID: {id}",
           steps: {
             ingestLabel: "Fetch source data",
             transcribeLabel: "Transcribe audio",
@@ -502,6 +591,13 @@ export const messages: Record<Locale, Messages> = {
         outputs: {
           retrieving: "Retrieving content",
           retrieved: "Retrieved {count} output(s)",
+          title: "Retrieved results",
+          kinds: {
+            summary: "Summary",
+            script: "Transcript",
+            scriptRaw: "Raw transcript",
+            audio: "Audio",
+          },
           errorOutputs: "Failed to get outputs",
         },
         unknown: {
@@ -575,12 +671,19 @@ export const messages: Record<Locale, Messages> = {
         }
       }
     },
-  },
-  zh: {
+} as const
+
+const zhMessages: MessageShape<typeof enMessages> = {
     brand: {
       name: "VibeDigest",
       appName: "VibeDigest",
       versionTag: "Alpha",
+    },
+    common: {
+      close: "关闭",
+      language: "语言",
+      untitled: "未命名",
+      delete: "删除",
     },
     nav: {
       newTask: "新建",
@@ -593,6 +696,61 @@ export const messages: Record<Locale, Messages> = {
       showSidebar: "显示侧边栏",
       hideSidebar: "隐藏侧边栏",
       backToHome: "首页",
+      goHome: "返回首页",
+      toggleSidebar: "切换侧边栏",
+      toggleArchivedChats: "切换已归档对话",
+    },
+    metadata: {
+      chat: {
+        title: "对话",
+        description: "让 VibeDigest 整理来源内容，或回答基于来源的问题。",
+      },
+      login: {
+        title: "登录",
+        description: "登录以继续使用 VibeDigest。",
+      },
+    },
+    errorBoundary: {
+      eyebrow: "出错了",
+      title: "页面暂时无法显示",
+      description: "请重试或返回首页。",
+      retry: "重试",
+      home: "首页",
+    },
+    notFound: {
+      title: "页面不存在",
+      description: "你访问的页面不存在。",
+      home: "首页",
+    },
+    privacy: {
+      title: "隐私政策",
+      introduction: "本隐私政策说明 VibeDigest（以下简称“我们”）在您使用我们的网站和服务时，如何收集、使用和披露您的个人信息。",
+      collection: {
+        title: "1. 我们收集的信息",
+        description: "我们会收集您直接提供的信息，包括：",
+        email: "电子邮箱地址",
+        name: "姓名（如通过社交账号登录提供）",
+        avatar: "头像（如通过社交账号登录提供）",
+      },
+      use: {
+        title: "2. 我们如何使用您的信息",
+        description: "我们将收集的信息用于：",
+        service: "提供、维护和改进服务",
+        authentication: "验证您的身份",
+        notices: "发送技术通知和支持消息",
+      },
+      security: {
+        title: "3. 数据安全",
+        description: "我们采取合理的安全措施保护您的个人信息。身份验证与数据存储由 Supabase 提供，其采用行业标准的安全实践。",
+      },
+      contact: {
+        title: "4. 联系我们",
+        description: "如对本隐私政策有任何疑问，请联系我们。",
+      },
+      metadata: {
+        title: "隐私政策",
+        description: "了解 VibeDigest 如何收集、使用和保护您的个人信息。",
+      },
     },
     auth: {
       welcomeBack: "登录",
@@ -636,6 +794,8 @@ export const messages: Record<Locale, Messages> = {
         invalidCredentials: "登录凭据无效",
         userAlreadyRegistered: "该用户已注册",
         weakPassword: "密码长度至少需要6个字符",
+        callbackFailed: "暂时无法完成登录，请重试。",
+        callbackMissingCode: "登录链接不完整，请重试。",
         generic: "发生错误"
       }
     },
@@ -751,19 +911,6 @@ export const messages: Record<Locale, Messages> = {
       navPricing: "定价",
       navFAQ: "常见问题",
     },
-    home: {
-      titleEmphasis: "AI 视频",
-      subtitle: "智能摘要与笔记",
-      getStarted: "开始使用",
-      github: "GitHub",
-      feature1Title: "智能摘要",
-      feature1Desc: "自动提取视频核心内容，不仅是文字转写。",
-      feature2Title: "多语言支持",
-      feature2Desc: "支持 YouTube/Apple Podcasts/Bilibili/小宇宙 等多平台视频。",
-      feature3Title: "知识库",
-      feature3Desc: "自动整理你的视频学习笔记，随时回顾。",
-      footer: "由 Supabase & Next.js 驱动",
-    },
     categories: {
       tutorial: "教程",
       interview: "访谈",
@@ -796,12 +943,6 @@ export const messages: Record<Locale, Messages> = {
     settings: {
       title: "设置",
       subtitle: "管理你的偏好设置",
-      usage: {
-        title: "用量与额度",
-        monthly: "月度额度",
-        plan: "方案",
-        extra: "额外包"
-      },
       language: "界面语言",
       languageHint: "选择你偏好的界面语言",
       notifications: "通知设置",
@@ -931,14 +1072,6 @@ export const messages: Record<Locale, Messages> = {
     },
     tasks: {
       recentTasks: "最近",
-      urlPlaceholder: "输入 YouTube, Apple Podcasts, Bilibili, 小宇宙 链接...",
-      processing: "处理中",
-      generate: "生成笔记",
-      summary: "摘要",
-      english: "英文",
-      chinese: "中文",
-      japanese: "日文",
-      pleaseLogin: "请先登录以使用功能",
       loadingTasks: "加载中...",
       noTasks: "暂无任务记录",
       completed: "已完成",
@@ -971,6 +1104,9 @@ export const messages: Record<Locale, Messages> = {
       generatingContent: "生成中",
       percentComplete: "完成",
       videoThumbnailAlt: "视频缩略图",
+      audioCoverAlt: "音频封面",
+      audioEpisodeFallback: "单集",
+      audioUnsupported: "你的浏览器不支持音频播放。",
       confirmDelete: "确定要删除这个任务吗？",
       deleteError: "删除任务失败，请重试。",
       updateError: "更新任务失败，请重试。",
@@ -1053,6 +1189,11 @@ export const messages: Record<Locale, Messages> = {
       retry: "重试",
       retryQueued: "已安排重试",
       genericError: "出现错误，请重试。",
+      errors: {
+        historyLoad: "无法加载对话记录。",
+        archive: "无法归档对话。",
+        restore: "无法恢复对话。",
+      },
       loadingExamples: "加载中...",
       openingChat: "打开中...",
       openingThread: "正在打开「{title}」",
@@ -1072,6 +1213,18 @@ export const messages: Record<Locale, Messages> = {
         noSummary: "暂无摘要。",
       },
       tools: {
+        result: "结果",
+        error: "错误",
+        state: {
+          "approval-requested": "等待授权",
+          "approval-responded": "已响应",
+          "input-available": "运行中",
+          "input-streaming": "处理中",
+          "output-available": "已完成",
+          "output-denied": "已拒绝",
+          "output-error": "错误",
+        },
+        parameters: "参数",
         status: {
           checking: "正在查询任务状态...",
           checkingFor: "正在查询任务 {id} 的状态...",
@@ -1082,6 +1235,9 @@ export const messages: Record<Locale, Messages> = {
           errorGetStatus: "获取任务状态失败",
           unknownError: "未知错误",
           videoTask: "视频任务",
+          title: "任务状态",
+          latest: "当前状态：{status}",
+          taskId: "任务 ID：{id}",
           steps: {
             ingestLabel: "获取源数据",
             transcribeLabel: "转录音频",
@@ -1105,6 +1261,13 @@ export const messages: Record<Locale, Messages> = {
         outputs: {
           retrieving: "正在获取内容",
           retrieved: "已获取 {count} 个结果",
+          title: "已获取结果",
+          kinds: {
+            summary: "摘要",
+            script: "逐字稿",
+            scriptRaw: "原始逐字稿",
+            audio: "音频",
+          },
           errorOutputs: "获取结果失败",
         },
         unknown: {
@@ -1178,15 +1341,58 @@ export const messages: Record<Locale, Messages> = {
         }
       }
     },
-  },
-  ja: {
+}
+
+const jaMessages: Messages = {
     brand: {
       name: "AI 動画ノート",
       appName: "トランスクライバー",
       versionTag: "アルファ",
     },
+    common: {
+      close: "閉じる",
+      language: "言語",
+      untitled: "無題",
+      delete: "削除",
+    },
+    privacy: {
+      title: "プライバシーポリシー",
+      introduction: "本プライバシーポリシーは、VibeDigest（以下「当社」）が、当社のウェブサイトおよびサービスの利用時に個人情報をどのように収集、利用、開示するかを説明するものです。",
+      collection: {
+        title: "1. 収集する情報",
+        description: "当社は、お客様から直接提供される次の情報を収集します。",
+        email: "メールアドレス",
+        name: "氏名（ソーシャルログインで提供された場合）",
+        avatar: "プロフィール画像（ソーシャルログインで提供された場合）",
+      },
+      use: {
+        title: "2. 情報の利用目的",
+        description: "収集した情報は、次の目的で利用します。",
+        service: "サービスの提供、維持、改善",
+        authentication: "本人確認",
+        notices: "技術上のお知らせやサポートメッセージの送信",
+      },
+      security: {
+        title: "3. データセキュリティ",
+        description: "当社は、個人情報を保護するために合理的な安全対策を講じています。認証とデータ保存には、業界標準のセキュリティ対策を採用する Supabase を利用しています。",
+      },
+      contact: {
+        title: "4. お問い合わせ",
+        description: "本プライバシーポリシーに関するご質問は、当社までお問い合わせください。",
+      },
+      metadata: {
+        title: "プライバシーポリシー",
+        description: "VibeDigestによる個人情報の収集、利用、保護についてご案内します。",
+      },
+    },
+    policies: {
+      common: {
+        lastUpdated: "最終更新日：2024年12月",
+      },
+    },
     nav: {
       newTask: "新規タスク",
+      chat: "チャット",
       history: "履歴",
       settings: "設定",
       pricing: "プラン",
@@ -1195,6 +1401,31 @@ export const messages: Record<Locale, Messages> = {
       showSidebar: "サイドバーを表示",
       hideSidebar: "サイドバーを非表示",
       backToHome: "ホームに戻る",
+      goHome: "ホームに戻る",
+      toggleSidebar: "サイドバーを切り替える",
+      toggleArchivedChats: "アーカイブ済みチャットを切り替える",
+    },
+    metadata: {
+      chat: {
+        title: "チャット",
+        description: "VibeDigest にソース整理や、ソースに基づく質問への回答を依頼できます。",
+      },
+      login: {
+        title: "ログイン",
+        description: "VibeDigest を続けるにはログインしてください。",
+      },
+    },
+    errorBoundary: {
+      eyebrow: "エラー",
+      title: "ページを表示できません",
+      description: "再試行するか、ホームに戻ってください。",
+      retry: "再試行",
+      home: "ホーム",
+    },
+    notFound: {
+      title: "ページが見つかりません",
+      description: "アクセスしたページは存在しないか、移動されました。",
+      home: "ホーム",
     },
     chat: {
       newChat: "新しいチャット",
@@ -1220,9 +1451,19 @@ export const messages: Record<Locale, Messages> = {
       retry: "再試行",
       retryQueued: "再試行を待機中",
       genericError: "エラーが発生しました。もう一度お試しください。",
+      errors: {
+        historyLoad: "チャット履歴を読み込めませんでした。",
+        archive: "チャットをアーカイブできませんでした。",
+        restore: "チャットを復元できませんでした。",
+      },
       loadingExamples: "例を読み込み中...",
       openingChat: "チャットを開いています...",
       openingThread: "「{title}」を開いています",
+      welcome: {
+        title: "何を理解したいですか？",
+        subtitle: "動画やポッドキャストの URL を貼り付けると、要約、重要ポイント、ソースに基づく回答を得られます。",
+        tryExamples: "例を見る",
+      },
       directSubmit: {
         unavailable: "現在この動画を処理できません。しばらくしてからお試しください。",
         invalidResponse: "このURLのタスクを作成できませんでした。",
@@ -1232,6 +1473,18 @@ export const messages: Record<Locale, Messages> = {
         noSummary: "要約はありません。",
       },
       tools: {
+        result: "結果",
+        error: "エラー",
+        state: {
+          "approval-requested": "承認待ち",
+          "approval-responded": "応答済み",
+          "input-available": "実行中",
+          "input-streaming": "処理中",
+          "output-available": "完了",
+          "output-denied": "拒否",
+          "output-error": "エラー",
+        },
+        parameters: "パラメータ",
         status: {
           checking: "タスク状態を確認中...",
           checkingFor: "タスク {id} の状態を確認中...",
@@ -1242,6 +1495,9 @@ export const messages: Record<Locale, Messages> = {
           errorGetStatus: "タスク状態の取得に失敗",
           unknownError: "不明なエラー",
           videoTask: "動画タスク",
+          title: "タスク状態",
+          latest: "現在の状態: {status}",
+          taskId: "タスク ID: {id}",
           steps: {
             ingestLabel: "ソースデータを取得",
             transcribeLabel: "音声を文字起こし",
@@ -1265,6 +1521,13 @@ export const messages: Record<Locale, Messages> = {
         outputs: {
           retrieving: "コンテンツを取得中",
           retrieved: "{count} 件の出力を取得",
+          title: "取得した結果",
+          kinds: {
+            summary: "要約",
+            script: "文字起こし",
+            scriptRaw: "元の文字起こし",
+            audio: "音声",
+          },
           errorOutputs: "出力の取得に失敗",
         },
         unknown: {
@@ -1298,10 +1561,27 @@ export const messages: Record<Locale, Messages> = {
       sending: "送信中...",
       sendMagicLink: "リンクを送信",
       checkYourEmail: "メールを確認してください。",
+      passwordPlaceholder: "パスワード",
+      signIn: "ログイン",
+      useMagicLink: "メールリンクを使う",
+      usePassword: "パスワードでログイン",
+      createAccount: "アカウントを作成",
+      haveAccount: "ログイン",
+      noAccount: "アカウントを作成",
+      signUpToContinue: "使い始めるには登録してください",
       signUp: "新規登録",
       logout: "ログアウト",
       signOutFailed: "ログアウトできませんでした。もう一度お試しください。",
       goToDashboard: "アプリを開く",
+      checkEmailForConfirmation: "確認メールをご確認ください。",
+      errors: {
+        invalidCredentials: "ログイン情報が正しくありません",
+        userAlreadyRegistered: "このユーザーはすでに登録されています",
+        weakPassword: "パスワードは6文字以上にしてください",
+        callbackFailed: "ログインを完了できませんでした。もう一度お試しください。",
+        callbackMissingCode: "ログインリンクが不完全です。もう一度お試しください。",
+        generic: "エラーが発生しました",
+      },
     },
     landing: {
       titlePrefix: "AIがポッドキャストを",
@@ -1579,6 +1859,9 @@ export const messages: Record<Locale, Messages> = {
       generatingContent: "生成中",
       percentComplete: "完了",
       videoThumbnailAlt: "サムネイル",
+      audioCoverAlt: "音声カバー",
+      audioEpisodeFallback: "エピソード",
+      audioUnsupported: "お使いのブラウザは音声再生に対応していません。",
       confirmDelete: "このタスクを削除してもよろしいですか？",
       deleteError: "タスクの削除に失敗しました。もう一度お試しください。",
       updateError: "タスクの更新に失敗しました。もう一度お試しください。",
@@ -1637,7 +1920,16 @@ export const messages: Record<Locale, Messages> = {
         other: "その他",
       },
     },
-  },
+}
+
+export const messages: Record<Locale, Messages> = {
+  en: enMessages,
+  zh: zhMessages,
+  ja: jaMessages,
+}
+
+export function getRawMessages(locale: Locale): Messages {
+  return messages[locale]
 }
 
 function mergeMessages(fallback: Messages, primary: Messages): Messages {
@@ -1659,7 +1951,7 @@ function mergeMessages(fallback: Messages, primary: Messages): Messages {
 
 const completeMessages: Record<Locale, Messages> = {
   en: messages.en,
-  zh: mergeMessages(messages.en, messages.zh),
+  zh: messages.zh,
   ja: mergeMessages(messages.en, messages.ja),
 }
 

@@ -12,6 +12,13 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'chat.tools.outputs.retrieved') {
         return `Retrieved ${(values?.count as number | undefined) ?? 0} outputs`
       }
+      if (key === 'chat.tools.outputs.title') return 'Retrieved results'
+      if (key === 'chat.tools.outputs.kinds.summary') return 'Summary'
+      if (key === 'chat.tools.outputs.kinds.script') return 'Transcript'
+      if (key === 'chat.tools.state.input-available') return 'Running'
+      if (key === 'chat.tools.status.title') return 'Task status'
+      if (key === 'chat.tools.status.latest') return `Latest status: ${values?.status}`
+      if (key === 'chat.tools.status.taskId') return `Task ID: ${values?.id}`
       if (key === 'chat.tools.status.statusReady') return 'Ready'
       if (key === 'chat.tools.status.statusFailed') return 'Failed'
       if (key === 'chat.tools.status.statusProcessing') return 'Processing'
@@ -35,7 +42,7 @@ describe('Chat Tools', () => {
 
     expect(screen.getByText('Task status')).toBeInTheDocument()
     expect(screen.getByText('Latest status: Processing')).toBeInTheDocument()
-    expect(screen.getByText('taskId: task-1')).toBeInTheDocument()
+    expect(screen.getByText('Task ID: task-1')).toBeInTheDocument()
   })
 
   it('renders get_task_status errors', () => {
@@ -68,8 +75,8 @@ describe('Chat Tools', () => {
 
     expect(screen.getByText('Retrieved results')).toBeInTheDocument()
     expect(screen.getByText('Retrieved 2 outputs')).toBeInTheDocument()
-    expect(screen.getByText('summary')).toBeInTheDocument()
-    expect(screen.getByText('script')).toBeInTheDocument()
+    expect(screen.getByText('Summary')).toBeInTheDocument()
+    expect(screen.getByText('Transcript')).toBeInTheDocument()
   })
 
   it('renders unknown tool badge and title', () => {

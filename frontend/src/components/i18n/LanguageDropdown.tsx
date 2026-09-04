@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Check } from "lucide-react"
 
-import { LOCALE_LABEL, SUPPORTED_LOCALES, type Locale } from "@/lib/i18n"
+import { getLocaleDisplayName, SUPPORTED_LOCALES, type Locale } from "@/lib/i18n"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { cn } from "@/lib/utils"
 
@@ -14,7 +14,7 @@ type Props = {
 }
 
 export function LanguageDropdown({ className, align = "left", size = "md" }: Props) {
-  const { locale, setLocale } = useI18n()
+  const { locale, setLocale, t } = useI18n()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -35,7 +35,8 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
     }
   }, [open])
 
-  const currentLabel = useMemo(() => LOCALE_LABEL[locale], [locale])
+  const languageLabel = t("common.language")
+  const currentLabel = getLocaleDisplayName(locale, locale)
 
   return (
     <div ref={rootRef} className={cn("relative z-30", className)}>
@@ -52,6 +53,7 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={languageLabel}
       >
         <span className="truncate font-medium">{currentLabel}</span>
         <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", open && "rotate-180")} />
@@ -66,7 +68,7 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
             align === "right" ? "right-0" : "left-0"
           )}
           role="listbox"
-          aria-label="Language"
+          aria-label={languageLabel}
         >
           <div className="p-1.5 space-y-0.5">
             {SUPPORTED_LOCALES.map((l) => {
@@ -90,7 +92,7 @@ export function LanguageDropdown({ className, align = "left", size = "md" }: Pro
                   <span className="absolute left-3 flex h-3.5 w-3.5 items-center justify-center">
                     {active && <Check className="h-4 w-4" />}
                   </span>
-                  <span className="truncate">{LOCALE_LABEL[l]}</span>
+                  <span className="truncate">{getLocaleDisplayName(l, locale)}</span>
                 </button>
               )
             })}

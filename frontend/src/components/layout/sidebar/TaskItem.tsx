@@ -3,6 +3,7 @@
 import { Loader2, Trash2, CheckCircle, AlertCircle, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Task } from "@/types"
+import { useI18n } from "@/components/i18n/I18nProvider"
 
 interface TaskItemProps {
     task: Task
@@ -12,6 +13,8 @@ interface TaskItemProps {
 }
 
 export function TaskItem({ task, onSelect, onDelete, isDeleting }: TaskItemProps) {
+    const { t } = useI18n()
+
     return (
         <div
             onClick={onSelect}
@@ -25,7 +28,7 @@ export function TaskItem({ task, onSelect, onDelete, isDeleting }: TaskItemProps
 
             {/* Title */}
             <span className="flex-1 truncate text-sm text-foreground-soft group-hover:text-sidebar-accent-foreground">
-                {task.video_title || 'Untitled'}
+                {task.video_title || t("common.untitled")}
             </span>
 
             {/* Delete Button */}
@@ -36,7 +39,7 @@ export function TaskItem({ task, onSelect, onDelete, isDeleting }: TaskItemProps
                     "text-foreground-subtle hover:bg-destructive/10 hover:text-destructive",
                     isDeleting && "opacity-100"
                 )}
-                aria-label="Delete"
+                aria-label={t("common.delete")}
             >
                 {isDeleting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { useRouter } from "next/navigation"
-import { Youtube, Apple, ExternalLink } from "lucide-react"
+import { Video, Apple, ExternalLink } from "lucide-react"
 import { useState } from "react"
 import {
     Dialog,
@@ -108,7 +108,7 @@ export function HeroSection() {
                     <div className="py-4">
                         <div className="grid grid-cols-2 gap-3">
                             <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2.5 text-sm text-muted-foreground">
-                                <Youtube className="w-4 h-4 text-red-500" />
+                                <Video className="w-4 h-4 text-red-500" />
                                 <span>YouTube</span>
                             </div>
                             <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2.5 text-sm text-muted-foreground">

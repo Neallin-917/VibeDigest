@@ -17,6 +17,23 @@ describe('ApiClient', () => {
         expect(API_BASE_URL).toBeDefined()
     })
 
+    it.each([
+        { detail: 'PRIVATE_TOKEN=do-not-display' },
+        { error: '<html><script>window.secret = true</script></html>' },
+        { detail: 'Error: provider failed\n at privateFunction (/srv/app/provider.ts:42:7)' },
+    ])('does not expose upstream error details', async (payload) => {
+        fetchSpy.mockResolvedValueOnce({
+            ok: false,
+            statusText: 'Bad Gateway',
+            json: async () => payload,
+        } as Response)
+
+        const error = await ApiClient.retryOutput('out-123', mockToken).catch(value => value)
+
+        expect(error).toBeInstanceOf(Error)
+        expect(error.message).not.toMatch(/PRIVATE_TOKEN|window\.secret|\/srv\/app/)
+    })
+
     describe('retryOutput', () => {
         it('sends correct request', async () => {
             fetchSpy.mockResolvedValueOnce({

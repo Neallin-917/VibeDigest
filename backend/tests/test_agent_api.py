@@ -182,7 +182,27 @@ def test_accept_binds_server_identity_and_validated_input(setup):
     assert _post(client, "/api/internal/agent/turns", payload).status_code == 200
     assert service.accept.call_args.kwargs["user_id"] == payload["userId"]
     assert service.accept.call_args.kwargs["parts"] == payload["parts"]
+    assert service.accept.call_args.kwargs["runtime_config"]["locale"] == "en"
     assert service.accept.call_args.kwargs["continuation_queue"] == "agent_answers"
+
+
+def test_task_command_defaults_to_the_english_product_locale(setup):
+    client, _, service = setup
+    service.watch.return_value = {"status": "running"}
+    path = f"/api/internal/agent/turns/{uuid4()}/watch"
+
+    response = _post(
+        client,
+        path,
+        {
+            "userId": str(uuid4()),
+            "token": str(uuid4()),
+            "taskId": str(uuid4()),
+        },
+    )
+
+    assert response.status_code == 200
+    assert service.watch.call_args.kwargs["locale"] == "en"
 
 
 def test_local_runtime_requires_developer_queue_and_never_railway(setup, monkeypatch):

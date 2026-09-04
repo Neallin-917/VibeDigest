@@ -24,6 +24,11 @@ vi.mock('./useThreadPayload', () => ({
 }))
 vi.mock('@/components/chat/LazyMessageRow', () => ({ preloadMessageRow: preload }))
 vi.mock('sonner', () => ({ toast: { error: toastError } }))
+vi.mock('@/components/i18n/I18nProvider', () => ({
+  useI18n: () => ({
+    t: (key: string) => key === 'chat.errors.historyLoad' ? '无法加载对话记录。' : key,
+  }),
+}))
 
 const threadA = '11111111-1111-4111-8111-111111111111'
 const threadB = '22222222-2222-4222-8222-222222222222'
@@ -143,6 +148,19 @@ describe('fresh chat identity', () => {
     expect(result.current.activeThreadId).not.toBe(firstId)
     expect(result.current.activeThreadId).not.toBeNull()
     expect(uuid).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('localized navigation errors', () => {
+  it('shows a Chinese error when chat history cannot be loaded', async () => {
+    loadPayload.mockRejectedValueOnce(new Error('history unavailable'))
+    const { result } = mount({ threads: [thread(threadA)] })
+
+    await act(async () => {
+      await result.current.handleSelectThread(threadA)
+    })
+
+    expect(toastError).toHaveBeenCalledWith('无法加载对话记录。')
   })
 })
 

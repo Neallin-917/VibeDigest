@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const auth = vi.hoisted(() => ({
   exchangeCodeForSession: vi.fn(),
@@ -29,7 +29,13 @@ import { GET as getLocalizedCallback } from "../../[lang]/auth/callback/route"
 describe("auth callback return target", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    vi.spyOn(console, "log").mockImplementation(() => undefined)
     auth.exchangeCodeForSession.mockResolvedValue({ error: null })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it.each([
@@ -50,5 +56,50 @@ describe("auth callback return target", () => {
 
     expect(response.headers.get("location")).toBe(expected)
     expect(auth.exchangeCodeForSession).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    {
+      name: "root callback",
+      run: (request: Request) => getRootCallback(request),
+      url: "https://vibedigest.io/auth/callback?code=bad-code&lang=zh",
+    },
+    {
+      name: "localized callback",
+      run: (request: Request) => getLocalizedCallback(request, { params: Promise.resolve({ lang: "zh" }) }),
+      url: "https://vibedigest.io/zh/auth/callback?code=bad-code",
+    },
+  ])("returns only a stable error code from the $name", async ({ run, url }) => {
+    auth.exchangeCodeForSession.mockResolvedValue({
+      error: new Error("PRIVATE_TOKEN=secret <html>upstream failure</html>"),
+    })
+
+    const response = await run(new Request(url))
+    const location = response.headers.get("location")
+
+    expect(location).toBe("https://vibedigest.io/zh/login?error=auth_callback_failed")
+    expect(location).not.toContain("PRIVATE_TOKEN")
+    expect(location).not.toContain("upstream")
+    expect(console.error).toHaveBeenCalledWith("Auth callback session exchange failed")
+    expect(vi.mocked(console.error).mock.calls.flat().join(" ")).not.toContain("PRIVATE_TOKEN")
+  })
+
+  it.each([
+    {
+      name: "root callback",
+      run: (request: Request) => getRootCallback(request),
+      url: "https://vibedigest.io/auth/callback?lang=zh",
+    },
+    {
+      name: "localized callback",
+      run: (request: Request) => getLocalizedCallback(request, { params: Promise.resolve({ lang: "zh" }) }),
+      url: "https://vibedigest.io/zh/auth/callback",
+    },
+  ])("uses a stable missing-code error from the $name", async ({ run, url }) => {
+    const response = await run(new Request(url))
+
+    expect(response.headers.get("location"))
+      .toBe("https://vibedigest.io/zh/login?error=auth_callback_missing_code")
+    expect(auth.exchangeCodeForSession).not.toHaveBeenCalled()
   })
 })

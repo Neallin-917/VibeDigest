@@ -15,6 +15,11 @@ export function GetTaskOutputsTool({
   errorText,
 }: GetTaskOutputsToolProps) {
   const { t } = useI18n()
+  const outputKindLabel = (kind: string) => {
+    const key = kind === 'script_raw' ? 'scriptRaw' : kind
+    const translated = t(`chat.tools.outputs.kinds.${key}`)
+    return translated.startsWith('chat.tools.outputs.kinds.') ? kind : translated
+  }
 
   return (
     <Tool
@@ -24,7 +29,7 @@ export function GetTaskOutputsTool({
       <ToolHeader
         type="tool-get_task_outputs"
         state={state}
-        title="Retrieved results"
+        title={t('chat.tools.outputs.title')}
         className="text-foreground"
       />
       <ToolContent className="border-t border-border bg-transparent text-foreground">
@@ -36,7 +41,7 @@ export function GetTaskOutputsTool({
                 {output.outputs?.length ? (
                   <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
                     {output.outputs.map(item => (
-                      <li key={`${item.kind}-${item.status}`}>{item.kind}</li>
+                      <li key={`${item.kind}-${item.status}`}>{outputKindLabel(item.kind)}</li>
                     ))}
                   </ul>
                 ) : null}

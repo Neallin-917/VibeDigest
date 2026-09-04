@@ -255,6 +255,13 @@ def test_podcast_submission_uses_queue_and_publishes_only_after_quality_gate(
     assert queued_task["publication_status"] == "processing"
     assert queued_task["publish_on_complete"] is True
     assert queued_task["workload_kind"] == "catalog_supply"
+    assert queued_task["output_intent"]["required_locales"] == ["en", "zh"]
+    summary_locales = {
+        output["locale"]
+        for output in pgmq_db.get_task_outputs(submission.task_id)
+        if output["kind"] == "summary"
+    }
+    assert summary_locales == {"en", "zh"}
     assert (
         PostgresTaskQueue(
             pgmq_db,
@@ -309,10 +316,19 @@ def test_podcast_submission_uses_queue_and_publishes_only_after_quality_gate(
     )
 
     outputs = pgmq_db.get_task_outputs(submission.task_id)
-    summary = next(output for output in outputs if output["kind"] == "summary")
+    chinese_summary = next(
+        output
+        for output in outputs
+        if output["kind"] == "summary" and output["locale"] == "zh"
+    )
+    english_summary = next(
+        output
+        for output in outputs
+        if output["kind"] == "summary" and output["locale"] == "en"
+    )
     script = next(output for output in outputs if output["kind"] == "script")
     pgmq_db.update_output_status(
-        summary["id"],
+        chinese_summary["id"],
         status="completed",
         progress=100,
         content=json.dumps(_valid_public_summary(), ensure_ascii=False),
@@ -329,6 +345,23 @@ def test_podcast_submission_uses_queue_and_publishes_only_after_quality_gate(
         submission.task_id,
         status="completed",
         progress=100,
+    )
+    single_locale_task = pgmq_db.get_task(submission.task_id)
+    assert single_locale_task is not None
+    assert single_locale_task["publication_status"] == "pending_review"
+    assert single_locale_task["publication_block_reason"] == "bilingual_summary_missing"
+
+    english_payload = _valid_public_summary()
+    english_payload["language"] = "en"
+    english_payload["tl_dr"] = (
+        "This is a sufficiently complete public catalog takeaway in English."
+    )
+    pgmq_db.update_output_status(
+        english_summary["id"],
+        status="completed",
+        progress=100,
+        content=json.dumps(english_payload, ensure_ascii=False),
+        locale="en",
     )
 
     published_task = pgmq_db.get_task(submission.task_id)
@@ -402,14 +435,20 @@ def test_catalog_task_with_incomplete_summary_stays_out_of_public_library(
     )
     outputs = pgmq_db.get_task_outputs(submission.task_id)
     for output in outputs:
+        output_locale = output["locale"] or "zh"
         pgmq_db.update_output_status(
             output["id"],
             status="completed",
             progress=100,
-            content='{"version":5,"language":"zh","overview":"too short","keypoints":[]}'
+            content=json.dumps({
+                "version": 5,
+                "language": output_locale,
+                "overview": "too short",
+                "keypoints": [],
+            })
             if output["kind"] == "summary"
             else "Transcript exists, but the summary contract is incomplete.",
-            locale="zh",
+            locale=output_locale,
         )
     pgmq_db.update_task_status(
         submission.task_id,
@@ -934,3 +973,188 @@ def test_guest_quota_is_safe_under_concurrent_submissions(pgmq_db: DBClient):
         {"guest_id": guest_id},
     )
     assert usage == [{"usage_count": 1}]
+
+
+def _catalog_for_locale_backfill(db: DBClient, *, legacy: bool = False) -> str:
+    task_id = str(uuid4())
+    db._execute_query(
+        """INSERT INTO public.tasks
+          (id, user_id, video_url, video_title, thumbnail_url, workload_kind,
+           is_demo, status, progress, publish_on_complete)
+        VALUES (CAST(:id AS uuid), CAST(:user_id AS uuid), :url, 'Bilingual test',
+                'https://example.com/test.jpg', 'catalog_supply', true, 'completed', 100, false)""",
+        {"id": task_id, "user_id": AUTH_USER_ID, "url": f"https://example.com/{task_id}"},
+    )
+    if legacy:
+        db._execute_query(
+            "UPDATE public.tasks SET output_intent = '{}'::jsonb WHERE id = CAST(:id AS uuid)",
+            {"id": task_id},
+        )
+    db.upsert_completed_task_output(task_id, AUTH_USER_ID, "script", "Shared transcript")
+    english = _valid_public_summary()
+    english["language"] = "en"
+    english["tl_dr"] = "An English takeaway with enough context to pass the public quality gate."
+    db.upsert_completed_task_output(task_id, AUTH_USER_ID, "summary", json.dumps(english), locale="en")
+    return task_id
+
+
+def _enqueue_locale(db: DBClient, task_id: str, locale: str):
+    return db._execute_query(
+        "SELECT * FROM vibedigest_private.enqueue_catalog_summary_locale(CAST(:id AS uuid), :locale)",
+        {"id": task_id, "locale": locale},
+    )[0]
+
+
+def test_bilingual_backfill_is_idempotent_and_uses_catalog_queue(pgmq_db):
+    task_id = _catalog_for_locale_backfill(pgmq_db)
+    english_before = next(o for o in pgmq_db.get_task_outputs(task_id) if o["kind"] == "summary")
+    assert _enqueue_locale(pgmq_db, task_id, "en")["resolution"] == "already_completed"
+    first = _enqueue_locale(pgmq_db, task_id, "zh")
+    second = _enqueue_locale(pgmq_db, task_id, "zh-CN")
+    assert first["resolution"] == "queued"
+    assert second["resolution"] == "already_queued"
+    assert first["message_id"] == second["message_id"]
+    handoff = pgmq_db._execute_query(
+        "SELECT queue_name, kind FROM vibedigest_private.task_queue_handoffs WHERE entity_id = CAST(:id AS uuid)",
+        {"id": first["output_id"]},
+    )
+    assert handoff == [{"queue_name": "podcast_supply", "kind": "retry_output"}]
+    message = pgmq_db._execute_query(
+        "SELECT message FROM pgmq.q_podcast_supply WHERE msg_id = :id", {"id": first["message_id"]}
+    )[0]["message"]
+    assert set(message) == {"version", "kind", "job_id", "output_id"}
+    english_after = pgmq_db.get_output(english_before["id"])
+    assert english_after["content"] == english_before["content"]
+    assert english_after["status"] == "completed"
+
+
+def test_concurrent_bilingual_backfill_creates_one_handoff(pgmq_db):
+    task_id = _catalog_for_locale_backfill(pgmq_db)
+    barrier = Barrier(2)
+
+    def enqueue():
+        barrier.wait(timeout=5)
+        return _enqueue_locale(pgmq_db, task_id, "zh")
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: enqueue(), range(2)))
+    assert sorted(r["resolution"] for r in results) == ["already_queued", "queued"]
+    assert len({r["message_id"] for r in results}) == 1
+
+
+def test_bilingual_backfill_rolls_back_placeholder_when_queue_send_fails(pgmq_db):
+    from sqlalchemy.exc import DBAPIError
+
+    task_id = _catalog_for_locale_backfill(pgmq_db)
+    with pytest.raises(DBAPIError):
+        with pgmq_db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE pgmq.q_podcast_supply RENAME TO q_bilingual_unavailable"))
+            connection.execute(text(
+                "SELECT * FROM vibedigest_private.enqueue_catalog_summary_locale(CAST(:id AS uuid), 'zh')"
+            ), {"id": task_id})
+    assert not any(o["locale"] == "zh" for o in pgmq_db.get_task_outputs(task_id))
+    assert _enqueue_locale(pgmq_db, task_id, "zh")["resolution"] == "queued"
+
+
+def test_bilingual_backfill_skips_active_tasks_and_rejects_other_workloads(pgmq_db):
+    task_id = _catalog_for_locale_backfill(pgmq_db)
+    pgmq_db.update_task_status(task_id, status="processing")
+    assert _enqueue_locale(pgmq_db, task_id, "zh")["resolution"] == "task_active"
+    assert not any(o["locale"] == "zh" for o in pgmq_db.get_task_outputs(task_id))
+    pgmq_db._execute_query(
+        "UPDATE public.tasks SET workload_kind = 'user_submission' WHERE id = CAST(:id AS uuid)", {"id": task_id}
+    )
+    with pytest.raises(Exception, match="Catalog task not found"):
+        _enqueue_locale(pgmq_db, task_id, "zh")
+
+
+@pytest.mark.parametrize("payload", [
+    "not json", "[]", '{"version":99999999999999999999999999999}',
+    json.dumps({**_valid_public_summary(), "keypoints": {"title": "invalid"}}),
+    json.dumps({**_valid_public_summary(), "language": "en"}),
+])
+def test_catalog_summary_gate_rejects_malformed_or_wrong_language(pgmq_db, payload):
+    assert pgmq_db._execute_query(
+        "SELECT vibedigest_private.is_valid_catalog_summary(:content, 'zh') AS valid",
+        {"content": payload},
+    ) == [{"valid": False}]
+
+
+def test_backfill_repairs_wrong_language_and_keeps_hidden_tasks_hidden(pgmq_db):
+    task_id = _catalog_for_locale_backfill(pgmq_db)
+    wrong = {**_valid_public_summary(), "language": "en"}
+    pgmq_db.upsert_completed_task_output(task_id, AUTH_USER_ID, "summary", json.dumps(wrong), locale="zh")
+    assert _enqueue_locale(pgmq_db, task_id, "zh")["resolution"] == "queued"
+    pgmq_db._execute_query(
+        "UPDATE public.tasks SET publication_status = 'hidden' WHERE id = CAST(:id AS uuid)", {"id": task_id}
+    )
+    assert pgmq_db.get_task(task_id)["publication_status"] == "hidden"
+
+
+def test_localized_projection_preserves_legacy_publication_and_tracks_both_languages(pgmq_db):
+    task_id = _catalog_for_locale_backfill(pgmq_db, legacy=True)
+    pgmq_db._execute_query(
+        "UPDATE public.tasks SET publish_on_complete = true WHERE id = CAST(:id AS uuid)", {"id": task_id}
+    )
+    assert pgmq_db.get_task(task_id)["publication_status"] == "published"
+    result = _enqueue_locale(pgmq_db, task_id, "zh")
+    pgmq_db.update_output_status(result["output_id"], status="completed", progress=100,
+                                 content=json.dumps(_valid_public_summary()), locale="zh")
+    task = pgmq_db.get_task(task_id)
+    assert task["publication_status"] == "published"
+    projection = pgmq_db._execute_query(
+        "SELECT public_quality_flags, library_search_text FROM public.tasks WHERE id = CAST(:id AS uuid)",
+        {"id": task_id},
+    )[0]
+    assert projection["public_quality_flags"]["available_languages"] == ["en", "zh"]
+    assert set(projection["public_quality_flags"]["takeaways"]) == {"en", "zh"}
+    assert projection["public_quality_flags"]["takeaways"]["zh"] in projection["library_search_text"]
+
+
+def test_localized_projection_keeps_existing_japanese_support(pgmq_db):
+    task_id = _catalog_for_locale_backfill(pgmq_db, legacy=True)
+    japanese = {**_valid_public_summary(), "language": "ja"}
+    pgmq_db.upsert_completed_task_output(task_id, AUTH_USER_ID, "summary", json.dumps(japanese), locale="ja")
+    flags = pgmq_db._execute_query(
+        "SELECT public_quality_flags FROM public.tasks WHERE id = CAST(:id AS uuid)", {"id": task_id}
+    )[0]["public_quality_flags"]
+    assert flags["available_languages"] == ["en", "ja"]
+
+
+def test_backfill_preview_is_read_only_and_advances_past_queued_locale(pgmq_db):
+    from scripts.podcasts.backfill_summary_locales import enqueue_missing_summaries
+
+    task_id = _catalog_for_locale_backfill(pgmq_db)
+    pgmq_db._execute_query(
+        "UPDATE public.tasks SET published_at = '2100-01-01' WHERE id = CAST(:id AS uuid)", {"id": task_id}
+    )
+    preview = enqueue_missing_summaries(pgmq_db, limit=1)
+    assert preview["task_ids"] == [task_id]
+    assert not any(o["locale"] == "zh" for o in pgmq_db.get_task_outputs(task_id))
+    applied = enqueue_missing_summaries(pgmq_db, limit=1, apply=True)
+    assert applied["outputs_queued"] == 1
+    assert applied["resolutions"] == {"already_completed": 1, "queued": 1}
+    assert task_id not in enqueue_missing_summaries(pgmq_db, limit=1)["task_ids"]
+
+
+def test_bilingual_functions_are_not_callable_by_browser_roles(pgmq_db):
+    for role in ("anon", "authenticated"):
+        for function in (
+            "vibedigest_private.enqueue_catalog_summary_locale(uuid,text)",
+            "vibedigest_private.is_valid_catalog_summary(text,text)",
+        ):
+            assert pgmq_db._execute_query(
+                "SELECT has_function_privilege(:role, :function, 'EXECUTE') AS allowed",
+                {"role": role, "function": function},
+            ) == [{"allowed": False}]
+
+
+def test_missing_locale_backfill_preserves_manually_published_legacy_task(pgmq_db):
+    task_id = _catalog_for_locale_backfill(pgmq_db, legacy=True)
+    pgmq_db._execute_query(
+        "UPDATE public.tasks SET publication_status = 'published' WHERE id = CAST(:id AS uuid)",
+        {"id": task_id},
+    )
+    assert pgmq_db.get_task(task_id)["publish_on_complete"] is False
+    assert _enqueue_locale(pgmq_db, task_id, "zh")["resolution"] == "queued"
+    assert pgmq_db.get_task(task_id)["publication_status"] == "published"

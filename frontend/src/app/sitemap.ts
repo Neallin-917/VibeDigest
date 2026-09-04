@@ -12,7 +12,7 @@ export type PublicSitemapTask = {
   created_at: string
   updated_at: string | null
   published_at: string | null
-  public_quality_flags?: { language?: string | null } | null
+  public_quality_flags?: { language?: string | null; available_languages?: unknown } | null
   task_outputs?: Array<{
     kind?: string | null
     status?: string | null
@@ -54,7 +54,8 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
     const summaryModifiedDates = completedSummaryOutputs.map((output) => output.updated_at)
     const locales = listPublicSummaryLocales(
       completedSummaryOutputs,
-      task.public_quality_flags?.language
+      task.public_quality_flags?.language,
+      task.public_quality_flags?.available_languages
     )
     const lastModified = latestValidDate(
       task.updated_at,

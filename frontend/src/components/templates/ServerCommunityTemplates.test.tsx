@@ -23,18 +23,19 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
       let countOnly = false
-      const localEqCalls: Array<[string, unknown]> = []
+      let hasLanguageFilter = false
       const query = {
         select: (_columns: string, options?: { head?: boolean }) => {
           countOnly = options?.head === true
           return query
         },
         eq: (column: string, value: unknown) => {
-          localEqCalls.push([column, value])
           queryState.eqCalls.push([column, value])
-          if (column === "public_quality_flags->>language" && typeof value === "string") {
-            queryState.languageFilters.push(value)
-          }
+          return query
+        },
+        or: (filter: string) => {
+          hasLanguageFilter = true
+          queryState.languageFilters.push(filter)
           return query
         },
         in: (column: string, values: unknown[]) => {
@@ -52,7 +53,7 @@ vi.mock("@/lib/supabase/server", () => ({
             ? queryState.sources
             : countOnly
               ? { ...queryState.tasks, data: null }
-              : localEqCalls.some(([column]) => column === "public_quality_flags->>language")
+              : hasLanguageFilter
                 ? queryState.preferredTasks
                 : queryState.tasks
           return Promise.resolve(result).then(resolve, reject)
@@ -156,7 +157,9 @@ describe("ServerCommunityTemplates", () => {
     expect(queryState.eqCalls).toContainEqual(["status", "completed"])
     expect(queryState.eqCalls).toContainEqual(["publication_status", "published"])
     expect(queryState.limits).toContain(18)
-    expect(queryState.languageFilters).toContain("en")
+    expect(queryState.languageFilters).toContain(
+      'public_quality_flags.cs.{"available_languages":["en"]},and(public_quality_flags->available_languages.is.null,public_quality_flags->>language.eq.en)'
+    )
   })
 
   it("maps projected fields, source relations, and aggregated source counts", async () => {
@@ -189,10 +192,36 @@ describe("ServerCommunityTemplates", () => {
     render(await ServerCommunityTemplates({ showHeader: false, locale: "zh" }))
 
     expect(screen.getByTestId("community-sources")).toHaveTextContent("Latent Space")
-    expect(screen.getByTestId("community-takeaways")).toHaveTextContent("projected takeaway")
+    expect(screen.getByTestId("community-takeaways")).toBeEmptyDOMElement()
     expect(screen.getByTestId("community-takeaway-locales")).toHaveTextContent("en")
     expect(screen.getByTestId("source-shelf")).toHaveTextContent("Latent Space:12")
     expect(screen.getByTestId("total-count")).toHaveTextContent("1")
+  })
+
+  it.each(["en", "zh"] as const)("uses only the %s takeaway from the bilingual public projection", async (locale) => {
+    queryState.tasks = {
+      data: [{
+        id: "task-1",
+        video_url: "https://www.youtube.com/watch?v=episode",
+        video_title: "A bilingual catalog episode",
+        status: "completed",
+        created_at: "2026-08-25T10:00:00Z",
+        public_takeaway: "English fallback",
+        public_quality_flags: {
+          language: "en",
+          available_languages: ["en", "zh"],
+          takeaways: { en: "English takeaway", zh: "中文要点" },
+        },
+      }],
+      count: 1,
+      error: null,
+    }
+
+    render(await ServerCommunityTemplates({ showHeader: false, locale }))
+
+    expect(screen.getByTestId("community-takeaways")).toHaveTextContent(locale === "zh" ? "中文要点" : "English takeaway")
+    expect(screen.getByTestId("community-takeaways")).not.toHaveTextContent(locale === "zh" ? "English takeaway" : "中文要点")
+    expect(screen.getByTestId("community-takeaway-locales")).toHaveTextContent(locale)
   })
 
   it("filters topic pages to the mapped source ids and topic shelf", async () => {
@@ -230,6 +259,69 @@ describe("ServerCommunityTemplates", () => {
     ])
     expect(screen.getByTestId("source-shelf")).toHaveTextContent("Latent Space:12")
     expect(screen.getByTestId("source-shelf")).not.toHaveTextContent("Lenny's Podcast:9")
+  })
+
+  it.each([
+    { available_languages: [], takeaways: { en: "Unqualified English takeaway" } },
+    { available_languages: ["zh"], takeaways: { en: "Unqualified English takeaway", zh: "中文摘要" } },
+    { takeaways: { zh: "中文摘要" } },
+    { available_languages: ["en"], takeaways: {} },
+  ])("does not fall back to scalar text when localized projection omits the route: %j", async (projection) => {
+    queryState.tasks = {
+      data: [{
+        id: "task-1", video_url: "https://www.youtube.com/watch?v=episode",
+        video_title: "Projected digest", status: "completed", created_at: "2026-08-25T10:00:00Z",
+        public_takeaway: "Stale scalar English takeaway",
+        public_quality_flags: { language: "en", ...projection },
+      }], count: 1, error: null,
+    }
+
+    render(await ServerCommunityTemplates({ showHeader: false, locale: "en" }))
+
+    expect(screen.getByTestId("community-takeaways")).toBeEmptyDOMElement()
+  })
+
+  it.each([
+    { locale: "en", otherLocale: "zh", layout: "gallery" },
+    { locale: "zh", otherLocale: "en", layout: "gallery" },
+    { locale: "en", otherLocale: "zh", layout: "landingPreview" },
+    { locale: "zh", otherLocale: "en", layout: "landingPreview" },
+  ] as const)("prioritizes bilingual availability for $locale in $layout", async ({ locale, otherLocale, layout }) => {
+    const bilingual = {
+      id: "bilingual",
+      video_url: "https://www.youtube.com/watch?v=bilingual",
+      video_title: "Older bilingual digest",
+      status: "completed",
+      created_at: "2026-08-24T10:00:00Z",
+      public_takeaway: "Other-language primary takeaway",
+      public_quality_flags: {
+        language: otherLocale,
+        available_languages: ["en", "zh"],
+        takeaways: { en: "English localized takeaway", zh: "中文摘要" },
+      },
+    }
+    queryState.tasks = {
+      data: [{
+        ...bilingual,
+        id: "other-only",
+        video_title: "Newer other-language digest",
+        public_quality_flags: { language: otherLocale },
+      }, bilingual],
+      count: 2,
+      error: null,
+    }
+    queryState.preferredTasks = { data: [bilingual], error: null }
+
+    render(await ServerCommunityTemplates({ showHeader: false, locale, layout }))
+
+    expect(queryState.languageFilters).toEqual([
+      `public_quality_flags.cs.{"available_languages":["${locale}"]},and(public_quality_flags->available_languages.is.null,public_quality_flags->>language.eq.${locale})`,
+    ])
+    expect(screen.getByTestId("community-status")).toHaveTextContent(
+      "ready:Older bilingual digest,Newer other-language digest"
+    )
+    expect(screen.getByTestId("community-takeaways")).not.toHaveTextContent("Other-language primary takeaway")
+    expect(screen.getByTestId("community-takeaways")).toHaveTextContent(locale === "zh" ? "中文摘要" : "English localized takeaway")
   })
 
   it("puts locale-matching public digests first while keeping other digests discoverable", async () => {
@@ -369,6 +461,8 @@ describe("ServerCommunityTemplates", () => {
     expect(screen.getByTestId("community-status")).toHaveTextContent(
       "ready:Chinese preview priority,English preview fallback"
     )
-    expect(queryState.languageFilters).toContain("zh")
+    expect(queryState.languageFilters).toContain(
+      'public_quality_flags.cs.{"available_languages":["zh"]},and(public_quality_flags->available_languages.is.null,public_quality_flags->>language.eq.zh)'
+    )
   })
 })

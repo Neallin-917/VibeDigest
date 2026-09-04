@@ -332,23 +332,46 @@ describe('summary-contract', () => {
     })
   })
 
-  it('trusts the parsed summary language over a conflicting output locale', () => {
+  it.each([
+    { routeLocale: 'en', contentLocale: 'zh' },
+    { routeLocale: 'zh', contentLocale: 'en' },
+  ] as const)('rejects $contentLocale content mislabeled as $routeLocale', ({ routeLocale, contentLocale }) => {
     const matched = matchPublicSummaryOutput(
       [{
         kind: 'summary',
         status: 'completed',
-        locale: 'en',
-        content: JSON.stringify({ ...validSummary, language: 'zh' }),
+        locale: routeLocale,
+        content: JSON.stringify({ ...validSummary, language: contentLocale }),
       }],
-      'en'
+      routeLocale,
+      routeLocale
     )
 
     expect(matched).toMatchObject({
       output: null,
-      availableLocales: ['zh'],
-      alternativeLocale: 'zh',
+      availableLocales: [contentLocale],
+      alternativeLocale: contentLocale,
       routeMatches: false,
     })
+  })
+
+  it('does not relabel an unsupported explicit output locale using the legacy projection', () => {
+    const outputs = [{
+      kind: 'summary', status: 'completed', locale: 'ko',
+      content: JSON.stringify({ ...validSummary, language: 'unknown' }),
+    }]
+
+    expect(matchPublicSummaryOutput(outputs, 'en', 'en')).toMatchObject({
+      output: null, availableLocales: [], routeMatches: false,
+    })
+    expect(listPublicSummaryLocales(outputs, 'en')).toEqual([])
+  })
+
+  it('retains the legacy canonical locale alongside a completed translation in sitemap discovery', () => {
+    expect(listPublicSummaryLocales([
+      { kind: 'summary', status: 'completed', locale: null },
+      { kind: 'summary', status: 'completed', locale: 'en' },
+    ], 'zh')).toEqual(['en', 'zh'])
   })
 
   it('keeps sitemap locales lightweight and ordered by product priority', () => {
@@ -360,7 +383,7 @@ describe('summary-contract', () => {
     ])).toEqual(['en', 'zh'])
   })
 
-  it('uses the database-owned public language projection as the publication boundary', () => {
+  it('uses explicit localized outputs while retaining the projection for legacy rows', () => {
     const outputs = [
       {
         kind: 'summary',
@@ -376,25 +399,25 @@ describe('summary-contract', () => {
       },
     ]
 
-    expect(listPublicSummaryLocales(outputs, 'zh-CN')).toEqual(['zh'])
+    expect(listPublicSummaryLocales(outputs, 'zh-CN')).toEqual(['en', 'zh'])
     expect(matchPublicSummaryOutput(outputs, 'en', 'zh-CN')).toMatchObject({
-      output: null,
-      availableLocales: ['zh'],
-      alternativeLocale: 'zh',
-      routeMatches: false,
-    })
-    expect(matchPublicSummaryOutput(outputs, 'zh', 'zh-CN')).toMatchObject({
-      summaryLocale: 'zh',
-      availableLocales: ['zh'],
+      summaryLocale: 'en',
+      availableLocales: ['en', 'zh'],
       alternativeLocale: null,
       routeMatches: true,
     })
-    expect(listPublicSummaryLocales(outputs, 'ko')).toEqual([])
-    expect(matchPublicSummaryOutput(outputs, 'en', 'ko')).toMatchObject({
-      output: null,
-      availableLocales: [],
+    expect(matchPublicSummaryOutput(outputs, 'zh', 'zh-CN')).toMatchObject({
+      summaryLocale: 'zh',
+      availableLocales: ['en', 'zh'],
       alternativeLocale: null,
-      routeMatches: false,
+      routeMatches: true,
+    })
+    expect(listPublicSummaryLocales(outputs, 'ko')).toEqual(['en', 'zh'])
+    expect(matchPublicSummaryOutput(outputs, 'en', 'ko')).toMatchObject({
+      summaryLocale: 'en',
+      availableLocales: ['en', 'zh'],
+      alternativeLocale: null,
+      routeMatches: true,
     })
   })
 
@@ -421,5 +444,62 @@ describe('summary-contract', () => {
       }],
       'zh-CN'
     )).toEqual(['zh'])
+  })
+
+  it.each(['en', 'zh'] as const)('limits the %s route to database-qualified summary languages', (routeLocale) => {
+    const otherLocale = routeLocale === 'en' ? 'zh' : 'en'
+    const outputs = ['en', 'zh'].map((locale) => ({
+      kind: 'summary', status: 'completed', locale,
+      content: JSON.stringify({ ...validSummary, language: locale }),
+    }))
+
+    expect(matchPublicSummaryOutput(outputs, routeLocale, 'en', [otherLocale])).toMatchObject({
+      output: null, summary: null, routeMatches: false,
+      availableLocales: [otherLocale], alternativeLocale: otherLocale,
+    })
+    expect(matchPublicSummaryOutput(outputs, routeLocale, 'en', [routeLocale])).toMatchObject({
+      routeMatches: true, summaryLocale: routeLocale, availableLocales: [routeLocale],
+    })
+    expect(listPublicSummaryLocales(outputs, 'en', [otherLocale])).toEqual([otherLocale])
+    expect(matchPublicSummaryOutput(outputs, routeLocale, 'en')).toMatchObject({ routeMatches: true })
+  })
+
+  it.each([[], null, 'en', ['ko']].map((availability) => ({ availability })))('fails closed for an empty or invalid availability projection: $availability', ({ availability }) => {
+    const outputs = [{
+      kind: 'summary', status: 'completed', locale: 'en',
+      content: JSON.stringify(validSummary),
+    }]
+    expect(matchPublicSummaryOutput(outputs, 'en', 'en', availability)).toMatchObject({
+      output: null, availableLocales: [], alternativeLocale: null, routeMatches: false,
+    })
+    expect(listPublicSummaryLocales(outputs, 'en', availability)).toEqual([])
+  })
+
+  it('does not let published output locale mask conflicting content language', () => {
+    expect(matchPublicSummaryOutput([{
+      kind: 'summary', status: 'completed', locale: 'en',
+      content: JSON.stringify({ ...validSummary, language: 'zh' }),
+    }], 'en', 'en', ['en'])).toMatchObject({
+      output: null, availableLocales: [], routeMatches: false,
+    })
+  })
+
+  it.each(['en', 'zh'] as const)('skips unknown-language siblings before the qualified %s summary', (locale) => {
+    const validOutput = {
+      kind: 'summary', status: 'completed', locale,
+      content: JSON.stringify({ ...validSummary, language: locale, tl_dr: 'Qualified summary.' }),
+    }
+    const unknownOutputs = [null, locale].map((outputLocale) => ({
+      kind: 'summary', status: 'completed', locale: outputLocale,
+      content: JSON.stringify({ ...validSummary, language: 'unknown', tl_dr: 'Unqualified summary.' }),
+    }))
+
+    const matched = matchPublicSummaryOutput([...unknownOutputs, validOutput], locale, locale, [locale])
+    expect(matched.output).toBe(validOutput)
+    expect(matched.summary?.tl_dr).toBe('Qualified summary.')
+    expect(matchPublicSummaryOutput(unknownOutputs, locale, locale, [locale])).toMatchObject({
+      output: null, availableLocales: [], routeMatches: false,
+    })
+    expect(matchPublicSummaryOutput(unknownOutputs, locale, locale).routeMatches).toBe(true)
   })
 })

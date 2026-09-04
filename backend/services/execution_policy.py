@@ -14,6 +14,7 @@ from enum import StrEnum
 
 USER_QUEUE_NAME = "video_processing"
 CATALOG_QUEUE_NAME = "podcast_supply"
+CATALOG_SUMMARY_LOCALES = ("en", "zh")
 
 
 class WorkloadKind(StrEnum):

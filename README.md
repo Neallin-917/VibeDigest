@@ -113,6 +113,7 @@ The implementation details live in the codemaps under `docs/codemaps/`.
 | `make sync-podcast-sources` | Sync the curated podcast source registry without discovery |
 | `make discover-podcasts` | Discover recent episodes and enqueue a bounded set through PGMQ |
 | `make backfill-podcasts` | Inspect one bounded historical window and enqueue older episodes through PGMQ |
+| `make backfill-podcast-languages` | Preview a bounded batch of missing English/Chinese catalog summaries |
 | `make process-podcast-supply` | Process a bounded `podcast_supply` batch with the existing Codex subscription login |
 | `cd frontend && npm run demo:chat` | Start the local visual demo with deterministic landing-page cases |
 | `cd frontend && npx playwright test e2e/smoke.spec.ts --project=chromium-guest` | Run browser smoke with the same deterministic demo cases |
@@ -128,6 +129,11 @@ run looks back seven days and enqueues at most four episodes.
 Historical import is cursor-based and resumable. Use
 `PODCAST_SOURCE=latent-space PODCAST_MAX_ENQUEUES=1 make backfill-podcasts` for
 a controlled batch; normal scheduled runs add at most one historical episode.
+Use `PODCAST_LANGUAGE_BACKFILL_LIMIT=10 make backfill-podcast-languages` to
+preview missing or invalid English/Chinese summaries for completed catalog tasks.
+The limit is 1–100 tasks (at most two outputs per task); the command writes
+nothing by default. Add `PODCAST_LANGUAGE_BACKFILL_APPLY=1` to enqueue after
+reviewing the preview. Active task jobs and already queued locales are skipped.
 Run `PODCAST_MAX_JOBS=4 make process-podcast-supply` on the trusted machine to
 process a bounded batch. This command requires an existing ChatGPT-managed
 Codex login and refuses API-key Codex authentication.

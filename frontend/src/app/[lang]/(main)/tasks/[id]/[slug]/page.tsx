@@ -85,12 +85,16 @@ function getSourceLabel(videoUrl: string, author?: string | null) {
     }
 }
 
-function getOptionalString(value: unknown, key: string) {
-    if (!value || typeof value !== "object") return ""
-    const candidate = key.split(".").reduce<unknown>((current, part) => {
+function getOptionalValue(value: unknown, key: string) {
+    if (!value || typeof value !== "object") return undefined
+    return key.split(".").reduce<unknown>((current, part) => {
         if (!current || typeof current !== "object") return undefined
         return (current as Record<string, unknown>)[part]
     }, value)
+}
+
+function getOptionalString(value: unknown, key: string) {
+    const candidate = getOptionalValue(value, key)
     return typeof candidate === "string" ? candidate.trim() : ""
 }
 
@@ -280,7 +284,8 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     const publicSummary = matchPublicSummaryOutput(
         outputs as SummaryOutputCandidate[],
         locale,
-        getOptionalString(task, "public_quality_flags.language")
+        getOptionalString(task, "public_quality_flags.language"),
+        getOptionalValue(task, "public_quality_flags.available_languages")
     )
     const summaryText = publicSummary.output ? buildSummaryExcerptFromContent(publicSummary.output.content, 160, locale) : ""
 
@@ -315,7 +320,8 @@ export default async function TaskDetailPage(props: Props) {
     const publicSummary = matchPublicSummaryOutput(
         outputs as SummaryOutputCandidate[],
         locale,
-        getOptionalString(task, "public_quality_flags.language")
+        getOptionalString(task, "public_quality_flags.language"),
+        getOptionalValue(task, "public_quality_flags.available_languages")
     )
     const summaryOutput = publicSummary.output
     const detailedSummaryMarkdown = summaryOutput

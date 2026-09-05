@@ -175,4 +175,25 @@ describe("public discovery metadata", () => {
       sitemap: "https://vibedigest.io/sitemap.xml",
     })
   })
+
+  it.each([
+    { availability: [], expected: [] },
+    { availability: ["zh"], expected: ["zh"] },
+    { availability: undefined, expected: ["en", "zh"] },
+  ])("uses the database availability boundary for task sitemap entries: $availability", ({ availability, expected }) => {
+    const entries = buildSitemapEntries([{
+      id: "quality-boundary", video_title: "Qualified digest",
+      created_at: "2026-08-30T08:00:00.000Z", updated_at: null, published_at: null,
+      public_quality_flags: { language: "en", available_languages: availability },
+      task_outputs: [
+        { kind: "summary", status: "completed", updated_at: null, locale: "en" },
+        { kind: "summary", status: "completed", updated_at: null, locale: "zh" },
+      ],
+    }]).filter((entry) => entry.url.includes("/tasks/quality-boundary/"))
+
+    expect(entries.map((entry) => new URL(entry.url).pathname.split('/')[1])).toEqual(expected)
+    if (expected.length) {
+      expect(entries[0]?.alternates?.languages?.["x-default"]).toContain(`/${expected[0]}/tasks/`)
+    }
+  })
 })

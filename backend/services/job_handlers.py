@@ -9,7 +9,11 @@ from services.execution_policy import (
 )
 from services.formatting import format_markdown_from_raw_segments
 from services.output_intent import resolve_output_intent
-from services.summarizer.validation import parse_summary_payload_v4
+from services.summarizer.validation import (
+    parse_summary_payload_v4,
+    validate_catalog_summary_payload,
+)
+from utils.language_utils import normalize_lang_code
 from workflow import VideoProcessingState
 from workflow import app as workflow_app
 
@@ -138,7 +142,10 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
                 output_id,
             )
 
-        resolved_intent = resolve_output_intent(out.get("intent"), transcript_language)
+        persisted_intent = dict(out.get("intent") or {})
+        if out.get("locale"):
+            persisted_intent["target_locale"] = out["locale"]
+        resolved_intent = resolve_output_intent(persisted_intent, transcript_language)
         target_language = resolved_intent["target_locale"]
         summary_json = await summarizer.summarize_in_language_with_anchors(
             script_text,
@@ -146,8 +153,13 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
             video_title=video_title,
             script_raw_json=script_raw_json,
         )
+        payload = parse_summary_payload_v4(summary_json)
+        if normalize_lang_code(payload.get("language")) != target_language:
+            raise ValueError(f"Summary language does not match requested locale {target_language}")
+        if workload_kind == WorkloadKind.CATALOG_SUPPLY and target_language in {"en", "zh"}:
+            validate_catalog_summary_payload(payload, target_language)
         validated_summary = json.dumps(
-            parse_summary_payload_v4(summary_json),
+            payload,
             ensure_ascii=False,
         )
 

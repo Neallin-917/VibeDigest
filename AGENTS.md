@@ -16,8 +16,8 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 
 ## Core Rules
 
-1. **Verify before declaring success** — Never say "this should work now". Run the build, run the tests, check the output.
-2. **Explain before changing** — When diagnosing issues, provide explanation FIRST. Only edit code when explicitly asked or after confirming diagnosis.
+1. **Verify before declaring success** — Run checks appropriate to the affected scope and all repository-required checks; inspect the results before claiming success. Once checks pass, broaden or repeat them only when new changes, failures, or unresolved risks justify it. Do not add tests that merely mirror reversible, low-impact changes.
+2. **Explain before changing** — When the user requests a fix or implementation, briefly explain the diagnosis or intended change, then continue through implementation and verification without asking for the same authorization again. For diagnosis-only requests, report findings without editing. Resolve routine details using available context; ask only when missing information materially affects the result or the next action exceeds the authorized scope.
 3. **Cross-boundary validation** — After any refactor touching both frontend and backend, run: `cd frontend && npm run build` AND `make test-backend`
 
 ## Documentation Ownership (SSOT)
@@ -68,12 +68,9 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 5. **Model defaults SSOT**: provider default model names live only in `config/llm-provider-defaults.json`
 6. **Components**: Use CVA for variants, check `src/components/ui/` first
 7. **Tests**: Never call paid APIs in CI (mock everything)
-8. **Thinking Process**: Conduct all internal reasoning, tool calls, and architecture planning in English for maximum logical consistency.
+8. **Reporting**: Lead with the conclusion and use concise, plain language. Completion reports state what changed, how it was verified, and any remaining blockers or material limitations. Omit preambles, repeated summaries, stock phrases, and implementation details unrelated to the user's decision.
 9. **Language Alignment**: Strictly provide the final explanation and summary in Chinese.
-10. **Best Practice Alignment**:
-   1. Before implementing any solution, internally brainstorm at least two approaches.
-   2. Compare your proposed solution against industry-standard best practices (e.g., Clean Code, SOLID, OWASP for security, or framework-specific idioms like React Server Components or Pythonic PEP 8).
-   3. If there is a gap between your initial thought and the best practice, adopt the best practice and explicitly mention the "Industry Standard" reasoning in your final explanation.
+10. **Design Decisions**: Compare alternatives when there is a meaningful design tradeoff. Follow project conventions and established framework practices, prefer the simplest solution that meets the requirements, and explain only the reasoning that affects the decision.
 11. **Design Principle**: VibeDigest defaults to minimal design across visual style, interaction, copy, information architecture, and loading states. Prefer fewer UI surfaces, fewer decisions, shorter copy, and less visual noise. Avoid decorative complexity, skeleton screens, shimmer effects, multi-step transitional UI, and redundant status messaging unless a clear usability need justifies them.
 12. **UI Copy Principle**: Show only text required to act, choose, understand state, recover from an error, or meet a legal/accessibility requirement. Delete explanatory subtitles, helper text, repeated labels, decorative eyebrows, and redundant status copy when the interface or adjacent control already communicates the meaning. Do not replace removed copy with shorter filler. Keep error, billing, permission, destructive-action, and irreversible-action copy specific enough for users to decide or recover.
 13. **Motion Principle**: Minimal design does not imply low motion. Use motion when it improves comprehension, feedback, continuity, or delight; choose its amount, pacing, and complexity based on the interaction rather than an arbitrary low-motion preference. It must remain purposeful, performant, and respectful of `prefers-reduced-motion`.
@@ -85,19 +82,20 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 19. **Public Transcript Guardrail**: Transcripts are internal processing and retrieval artifacts. Public task details and public HTTP endpoints must not render or return verbatim transcripts. Public surfaces provide summaries, key ideas, evidence, original-source links, and source-grounded follow-up instead.
 20. **Agent tool boundary**: Source tools return internal evidence to the model only. Project public streams and persisted parts explicitly to answer text, source links and task receipts; never forward native tool-result streams. Tool schemas contain no user IDs, credentials or execution tokens. Creation URLs must originate in authenticated user messages. Keep one bounded task-level continuation, not an in-house general workflow engine.
 
-## Codex Model Routing
+## Codex Delegation
 
 - Users describe the task normally and do not need to select a model or request delegation.
 - The primary agent owns intent, risk classification, acceptance criteria, architectural decisions, and the final verified result.
-- The primary agent may automatically delegate bounded work when it materially improves speed or keeps noisy evidence out of the main context:
-  - `spark_explorer`: read-only code-path tracing, log triage, diff mapping, and evidence gathering.
-  - `spark_test_worker`: deterministic unit/offline replay tests, mocks, fixtures, and test-only repairs.
-  - `spark_ui_worker`: small targeted frontend, copy, styling, accessibility, type, lint, and component fixes after expected behavior is clear.
-- Prefer parallel delegation for independent read-heavy work. Use at most one write-capable agent at a time unless file ownership is provably disjoint.
-- Never delegate architecture, cross-boundary contracts, authentication or ownership, queue transactions or leases, database migrations or production data, paid-provider validation, secrets, deployment, rollback, security-sensitive decisions, or final high-risk review to a Spark agent.
-- A Spark agent must stop and return evidence when scope becomes ambiguous, validation requires a live or paid service, or the task crosses a prohibited boundary. The primary agent then continues with a stronger model.
+- Delegate concrete, bounded tasks when they can run independently alongside useful work and materially improve speed or quality. Use available agents for these responsibilities:
+  - Exploration: read-only code-path tracing, log triage, diff mapping, and evidence gathering.
+  - Testing: deterministic unit/offline replay tests, mocks, fixtures, and test-only repairs.
+  - Targeted UI changes: small frontend, copy, styling, accessibility, type, lint, and component fixes after expected behavior is clear.
+- Prefer parallel delegation for independent read-heavy work. Assign explicit file ownership to each write-capable agent; use at most one at a time unless ownership is provably disjoint. Agents must preserve others' edits and coordinate shared dependencies.
+- The primary agent retains responsibility for architecture, cross-boundary contracts, authentication or ownership, queue transactions or leases, database migrations or production data, paid-provider validation, secrets, deployment, rollback, security-sensitive decisions, and final high-risk review. These are outside the delegated responsibilities above.
+- A delegated agent must stop and return evidence when scope becomes ambiguous, validation requires a live or paid service, or the task crosses a prohibited boundary. The primary agent then continues within the authorized scope.
 - The primary agent reviews delegated changes and runs the repository-required verification before declaring success.
-- If a named Spark agent or model is unavailable, fall back to the current model or a built-in agent without blocking the task.
+- Keep model selection and reasoning effort in Codex settings or custom agent configuration; this file defines responsibilities and boundaries. Selecting a development model does not change VibeDigest's product runtime or provider defaults.
+- If a suitable agent is unavailable, the primary agent completes the task without blocking on delegation.
 
 ## Coverage Policy
 

@@ -23,6 +23,8 @@ export interface ThreadNavigationState {
     isThreadSwitching: boolean
     switchingThreadTitle: string | null
     isBootstrapping: boolean
+    initializationError: boolean
+    retryInitialization: () => void
     taskSelectionNonce: number
     initialMessages: ChatUIMessage[]
     handleNewChat: () => void
@@ -71,6 +73,13 @@ export function useThreadNavigation({
     const [isBootstrapping, setIsBootstrapping] = useState(
         () => Boolean(queryTaskId || queryThreadId)
     )
+    const [initializationError, setInitializationError] = useState(false)
+    const [initializationAttempt, setInitializationAttempt] = useState(0)
+    const retryInitialization = useCallback(() => {
+        setInitializationError(false)
+        setIsBootstrapping(true)
+        setInitializationAttempt((attempt) => attempt + 1)
+    }, [])
 
     // Refs
     const newThreadIdsRef = useRef<Set<string>>(new Set())
@@ -162,6 +171,7 @@ export function useThreadNavigation({
         ])
         setPendingThreadId(null)
         setIsThreadSwitching(false)
+        setInitializationError(false)
         hasBootstrappedRef.current = true
         setIsBootstrapping(false)
         safeReplace(params)
@@ -174,6 +184,7 @@ export function useThreadNavigation({
             setInitialMessages(payload.messages)
             setPendingThreadId(null)
             setIsThreadSwitching(false)
+            setInitializationError(false)
         })
 
         const params = getCurrentParams()
@@ -284,8 +295,9 @@ export function useThreadNavigation({
                 safeReplaceRef.current(params)
 
                 hasBootstrappedRef.current = true
+                setInitializationError(false)
                 setIsBootstrapping(false)
-                void refetchThreadsRef.current()
+                void refetchThreadsRef.current().catch(() => {})
                 return
             }
 
@@ -304,12 +316,10 @@ export function useThreadNavigation({
                 const initialPayloadPromise = queryThreadId
                     ? loadThreadPayloadRef.current(queryThreadId, queryTaskId)
                     : null
-                const [, resolvedThreadId] = await Promise.all([
-                    refetchThreadsRef.current(),
-                    queryThreadId
-                        ? Promise.resolve(queryThreadId)
-                        : resolveOrCreateThreadForTaskRef.current(queryTaskId),
-                ])
+                // The sidebar refresh is independent of loading this conversation.
+                void refetchThreadsRef.current().catch(() => {})
+                const resolvedThreadId = queryThreadId
+                    ?? await resolveOrCreateThreadForTaskRef.current(queryTaskId)
                 if (isStale()) return
 
                 if (!newThreadIdsRef.current.has(resolvedThreadId)) {
@@ -341,6 +351,7 @@ export function useThreadNavigation({
                     setActiveTaskId(null)
                     setInitialMessages([])
                     hasBootstrappedRef.current = true
+                    setInitializationError(false)
                     setIsBootstrapping(false)
                     return
                 }
@@ -374,16 +385,22 @@ export function useThreadNavigation({
 
             if (!isStale()) {
                 hasBootstrappedRef.current = true
+                setInitializationError(false)
                 setIsBootstrapping(false)
             }
         }
 
-        initialize()
+        void initialize().catch((error) => {
+            if (isStale()) return
+            console.error('Failed to initialize chat history', error)
+            setInitializationError(true)
+            setIsBootstrapping(false)
+        })
 
         return () => {
             cancelled = true
         }
-    }, [openPublicExample, publicExample, queryTaskId, queryThreadId])
+    }, [initializationAttempt, openPublicExample, publicExample, queryTaskId, queryThreadId])
 
     // Handle New Chat
     const handleNewChat = useCallback(() => {
@@ -398,6 +415,7 @@ export function useThreadNavigation({
         setInitialMessages([])
         setPendingThreadId(null)
         setIsThreadSwitching(false)
+        setInitializationError(false)
         hasBootstrappedRef.current = true
         setIsBootstrapping(false)
 
@@ -497,7 +515,7 @@ export function useThreadNavigation({
 
         params.set('threadId', resolvedThreadId)
         safeReplace(params)
-        refetchThreads()
+        void refetchThreads().catch(() => {})
     }, [refetchThreads, getCurrentParams, loadThreadPayload, resolveOrCreateThreadForTask, resolvedActiveThreadId, safeReplace])
 
     // Handle Demo Selection from Welcome Screen
@@ -524,7 +542,7 @@ export function useThreadNavigation({
         }
 
         safeReplace(params)
-        refetchThreads()
+        void refetchThreads().catch(() => {})
     }, [invalidateThreadPayload, refetchThreads, getCurrentParams, safeReplace])
 
     const prefetchThread = useCallback((threadId: string) => {
@@ -539,6 +557,8 @@ export function useThreadNavigation({
         isThreadSwitching,
         switchingThreadTitle,
         isBootstrapping,
+        initializationError,
+        retryInitialization,
         taskSelectionNonce,
         initialMessages,
         handleNewChat,

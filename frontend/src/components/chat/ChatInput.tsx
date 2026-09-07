@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
@@ -15,6 +15,7 @@ interface ChatInputProps {
   onStop?: () => void
   isLoading?: boolean
   error?: string
+  onInputChange?: (text: string) => void
   disabled?: boolean
   /** Override guidance for contexts that only accept a URL. */
   placeholder?: string
@@ -34,6 +35,8 @@ export function ChatInput({
   onSubmit, 
   onStop,
   isLoading, 
+  error,
+  onInputChange,
   disabled, 
   placeholder,
   inputLabel,
@@ -43,6 +46,8 @@ export function ChatInput({
   const [input, setInput] = useState('')
   const [isFocused, setIsFocused] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const errorId = useId()
   const { t } = useI18n()
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -58,6 +63,8 @@ export function ChatInput({
         setInput(currentInput =>
           currentInput === submittedInput ? '' : currentInput
         )
+      } else {
+        inputRef.current?.focus()
       }
     } finally {
       setIsSubmitting(false)
@@ -93,11 +100,17 @@ export function ChatInput({
         >
           <div className="flex-1 min-w-0">
             <input
+              ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value)
+                onInputChange?.(e.target.value)
+              }}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               aria-label={inputLabel ?? t('chat.inputLabel')}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
               data-testid="chat-input"
               className={cn(
                 "w-full border-none bg-transparent text-foreground focus:outline-none focus:ring-0",
@@ -132,6 +145,12 @@ export function ChatInput({
             </div>
           </button>
         </form>
+
+        {error && (
+          <p id={errorId} role="alert" className="mt-2 px-4 text-sm leading-5 text-destructive">
+            {error}
+          </p>
+        )}
 
         {/* Disclaimer - hidden on mobile for more space */}
         {!hideDisclaimer && (

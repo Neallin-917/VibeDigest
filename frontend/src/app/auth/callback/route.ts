@@ -2,29 +2,36 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { env } from '@/env'
+import { DEFAULT_LOCALE, isLocale } from '@/lib/i18n'
+import { localizePath, safeReturnPath } from '@/lib/locale-navigation'
 
-const DEFAULT_LANG = 'en'
 const AUTH_CALLBACK_FAILED = 'auth_callback_failed'
 const AUTH_CALLBACK_MISSING_CODE = 'auth_callback_missing_code'
 
 function resolveLang(searchParams: URLSearchParams, nextPath: string | null) {
     const paramLang = searchParams.get('lang')
-    if (paramLang) return paramLang
+    if (isLocale(paramLang)) return paramLang
 
     if (nextPath && nextPath.startsWith('/')) {
         const segment = nextPath.split('/')[1]
-        if (segment && segment.length === 2) return segment
+        if (isLocale(segment)) return segment
     }
 
-    return DEFAULT_LANG
+    return DEFAULT_LOCALE
 }
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
-    const nextPath = searchParams.get('next')
+    const nextPath = safeReturnPath(searchParams.get('next'))
     const lang = resolveLang(searchParams, nextPath)
-    const next = nextPath ?? `/${lang}/chat`
+    const next = localizePath(nextPath ?? `/${lang}/chat`, lang)
+    const loginErrorUrl = (error: string) => {
+        const login = new URL(`/${lang}/login`, origin)
+        login.searchParams.set('error', error)
+        if (nextPath) login.searchParams.set('next', next)
+        return login
+    }
 
     if (code) {
         const cookieStore = await cookies()
@@ -63,8 +70,8 @@ export async function GET(request: Request) {
         }
 
         console.error('Auth callback session exchange failed')
-        return NextResponse.redirect(`${origin}/${lang}/login?error=${AUTH_CALLBACK_FAILED}`)
+        return NextResponse.redirect(loginErrorUrl(AUTH_CALLBACK_FAILED))
     }
 
-    return NextResponse.redirect(`${origin}/${lang}/login?error=${AUTH_CALLBACK_MISSING_CODE}`)
+    return NextResponse.redirect(loginErrorUrl(AUTH_CALLBACK_MISSING_CODE))
 }

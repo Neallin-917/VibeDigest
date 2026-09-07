@@ -9,14 +9,15 @@ const authMocks = vi.hoisted(() => ({
   signUp: vi.fn(),
 }))
 const loginState = vi.hoisted(() => ({
-  nextUrl: '/en/chat',
+  nextUrl: '/en/chat' as string | null,
   locale: 'en' as 'en' | 'zh' | 'ja',
   callbackError: null as string | null,
 }))
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => {
-    const params = new URLSearchParams({ next: loginState.nextUrl })
+    const params = new URLSearchParams()
+    if (loginState.nextUrl !== null) params.set('next', loginState.nextUrl)
     if (loginState.callbackError) params.set('error', loginState.callbackError)
     return params
   },
@@ -91,6 +92,7 @@ vi.mock('@/components/i18n/LanguageInlineSelect', () => ({
 describe('LoginForm', () => {
   beforeEach(() => {
     localStorage.clear()
+    window.history.replaceState({}, '', '/en/login')
     vi.clearAllMocks()
     loginState.nextUrl = '/en/chat'
     loginState.locale = 'en'
@@ -99,6 +101,47 @@ describe('LoginForm', () => {
     authMocks.signInWithPassword.mockResolvedValue({ error: null })
     authMocks.signInWithOtp.mockResolvedValue({ error: null })
     authMocks.signUp.mockResolvedValue({ data: { session: null }, error: null })
+  })
+
+  it.each(['oauth', 'otp', 'signup'] as const)('preserves direct Chinese login via %s', async (method) => {
+    loginState.locale = 'zh'
+    loginState.nextUrl = null
+    render(<LoginForm />)
+    if (method === 'oauth') {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign in with Google' }))
+      await waitFor(() => expect(authMocks.signInWithOAuth).toHaveBeenCalled())
+    } else {
+      if (method === 'signup') fireEvent.click(screen.getByRole('button', { name: "Don't have an account? Sign Up" }))
+      fireEvent.change(screen.getByPlaceholderText('name@example.com'), { target: { value: 'test@example.com' } })
+      if (method === 'signup') fireEvent.change(screen.getByPlaceholderText('auth.passwordPlaceholder'), { target: { value: 'test-password' } })
+      fireEvent.submit(screen.getByPlaceholderText('name@example.com').closest('form')!)
+      await waitFor(() => expect(method === 'otp' ? authMocks.signInWithOtp : authMocks.signUp).toHaveBeenCalled())
+    }
+    const args = (method === 'oauth' ? authMocks.signInWithOAuth : method === 'otp' ? authMocks.signInWithOtp : authMocks.signUp).mock.calls[0][0]
+    const callback = new URL(args.options.redirectTo || args.options.emailRedirectTo)
+    expect(callback.pathname).toBe('/zh/auth/callback')
+    expect(callback.searchParams.get('next')).toBe('/zh/chat')
+  })
+
+  it('keeps the task handoff and anchor in the active language', async () => {
+    loginState.locale = 'zh'
+    loginState.nextUrl = '/en/chat?task=source-1#answer'
+    render(<LoginForm />)
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with Google' }))
+    await waitFor(() => expect(authMocks.signInWithOAuth).toHaveBeenCalled())
+    const callback = new URL(authMocks.signInWithOAuth.mock.calls[0][0].options.redirectTo)
+    expect(callback.searchParams.get('next')).toBe('/zh/chat?task=source-1#answer')
+  })
+
+  it('reattaches an anchor inherited through the server auth redirect', async () => {
+    loginState.locale = 'zh'
+    loginState.nextUrl = '/zh/settings/pricing?plan=pro'
+    window.history.replaceState({}, '', '/zh/login#topup')
+    render(<LoginForm />)
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with Google' }))
+    await waitFor(() => expect(authMocks.signInWithOAuth).toHaveBeenCalled())
+    expect(new URL(authMocks.signInWithOAuth.mock.calls[0][0].options.redirectTo).searchParams.get('next'))
+      .toBe('/zh/settings/pricing?plan=pro#topup')
   })
 
   it('confirms the saved link when a visitor arrives from a chat handoff', async () => {

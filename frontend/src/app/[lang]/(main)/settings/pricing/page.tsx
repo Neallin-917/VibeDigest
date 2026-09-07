@@ -7,7 +7,6 @@ import { useI18n } from "@/components/i18n/I18nProvider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
 import { Check, CirclePlus, Loader2, CreditCard, Database } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { ApiClient } from "@/lib/api"
@@ -145,7 +144,7 @@ export default function PricingPage() {
                         className={cn(
                             "rounded-xl border px-4 py-3 text-sm",
                             checkoutReturn === "success"
-                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+                                ? "border-primary/30 bg-accent text-primary-strong"
                                 : "border-border bg-muted/50 text-muted-foreground",
                         )}
                     >
@@ -160,7 +159,7 @@ export default function PricingPage() {
                     {/* FREE TIER */}
                     <Card
                         className={cn(
-                            "relative flex flex-col h-full border-border/50 bg-background/50 backdrop-blur-sm",
+                            "relative flex h-full flex-col rounded-xl border-border bg-card shadow-none backdrop-blur-none",
                             !isPro && "border-primary/20 bg-primary/5"
                         )}
                     >
@@ -203,44 +202,44 @@ export default function PricingPage() {
                     <Card
                         id="pro"
                         className={cn(
-                            "relative flex scroll-mt-24 flex-col h-full border-emerald-500/50 bg-emerald-950/10 backdrop-blur-md shadow-2xl shadow-emerald-500/10",
-                            isPro && "ring-2 ring-emerald-500"
+                            "relative flex h-full scroll-mt-24 flex-col rounded-xl border-primary/40 bg-accent/35 shadow-none backdrop-blur-none",
+                            isPro && "ring-2 ring-primary"
                         )}
                     >
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                            <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 px-3 py-1 text-xs">
+                            <Badge className="border-0 bg-primary-strong px-3 py-1 text-xs text-primary-foreground hover:bg-primary-strong">
                                 {t("landing.mostPopular")}
                             </Badge>
                         </div>
                         {isPro && (
                             <div className="absolute top-0 right-0 p-4">
-                                <Badge className="bg-emerald-500 text-white">{t("pricing.active")}</Badge>
+                                <Badge className="bg-primary-strong text-primary-foreground">{t("pricing.active")}</Badge>
                             </div>
                         )}
                         <CardHeader className="relative pt-8">
-                            <div className="flex items-start justify-between gap-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
                                 <Heading as="h3" variant="h3">
                                     {catalog.pro.title}
                                 </Heading>
                                 {!isPro && (
-                                    <div className="flex items-center gap-2">
-                                        <Text
-                                            as="span"
-                                            variant="caption"
-                                            weight="semibold"
-                                            className={cn(
-                                                "tracking-widest uppercase text-[10px]",
-                                                isAnnual ? "text-emerald-500" : "text-muted-foreground"
-                                            )}
-                                        >
-                                            {t("pricing.pro.annual")}
-                                        </Text>
-                                        <Switch
-                                            checked={isAnnual}
-                                            onCheckedChange={setIsAnnual}
-                                            className="scale-75 origin-right data-[state=checked]:bg-emerald-500"
-                                        />
-                                    </div>
+                                    <fieldset className="flex gap-1 rounded-lg border border-border bg-background p-1">
+                                        <legend className="sr-only">{t("pricing.billingPeriod")}</legend>
+                                        {([false, true] as const).map((annual) => (
+                                            <label key={String(annual)} className="relative cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="billing-period"
+                                                    value={annual ? "annual" : "monthly"}
+                                                    checked={isAnnual === annual}
+                                                    onChange={() => setIsAnnual(annual)}
+                                                    className="peer sr-only"
+                                                />
+                                                <span className="flex min-h-11 items-center justify-center rounded-md px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary-strong peer-checked:text-primary-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">
+                                                    {t(annual ? "pricing.pro.annual" : "pricing.pro.monthly")}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </fieldset>
                                 )}
                             </div>
 
@@ -270,7 +269,7 @@ export default function PricingPage() {
                                         </Text>
                                     </div>
                                     {isAnnual && (
-                                        <Text variant="caption" tone="muted" className="mt-1 text-[10px]">
+                                        <Text variant="caption" tone="muted" className="mt-1 text-xs leading-5">
                                             {catalog.pro.description}
                                         </Text>
                                     )}
@@ -281,7 +280,7 @@ export default function PricingPage() {
                             <ul className="space-y-2 text-xs leading-4">
                                 {catalog.pro.features.map((feature) => (
                                     <li key={feature} className="flex items-center gap-2">
-                                        <Check className="h-3 w-3 text-emerald-500" />
+                                        <Check className="h-3 w-3 shrink-0 text-primary" />
                                         <span className="text-xs leading-4">{feature}</span>
                                     </li>
                                 ))}
@@ -290,8 +289,8 @@ export default function PricingPage() {
                         <CardFooter>
                             {isPro ? (
                                 <Button
-                                    className="w-full bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/30 rounded-full"
-                                    size="xl"
+                                    className="w-full rounded-lg bg-primary-strong text-primary-foreground hover:bg-primary hover:scale-100 hover:shadow-none"
+                                    size="lg"
                                     onClick={handlePortal}
                                     disabled={!profileKnown || loadingAction !== null}
                                 >
@@ -300,8 +299,8 @@ export default function PricingPage() {
                                 </Button>
                             ) : (
                                 <Button
-                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-semibold shadow-lg shadow-emerald-500/20"
-                                    size="xl"
+                                    className="w-full rounded-lg bg-primary-strong font-semibold text-primary-foreground hover:bg-primary hover:scale-100 hover:shadow-none"
+                                    size="lg"
                                     onClick={() => handleCheckout(
                                         isAnnual
                                             ? catalog.pro.billingOptions.annual.planKey
@@ -321,7 +320,7 @@ export default function PricingPage() {
                     {/* TOP UP */}
                     <Card
                         id="topup"
-                        className="relative flex scroll-mt-24 flex-col h-full border-border/50 bg-background/50 backdrop-blur-sm"
+                        className="relative flex h-full scroll-mt-24 flex-col rounded-xl border-border bg-card shadow-none backdrop-blur-none"
                     >
                         <CardHeader>
                             <CardTitle className="text-base">{catalog.topUp.title}</CardTitle>
@@ -334,7 +333,7 @@ export default function PricingPage() {
                             <ul className="space-y-2 text-xs leading-4">
                                 {catalog.topUp.features.map((feature) => (
                                     <li key={feature} className="flex items-center gap-2">
-                                        <CreditCard className="h-3 w-3 text-blue-400" />
+                                        <CreditCard className="h-3 w-3 shrink-0 text-primary" />
                                         <span className="text-xs leading-4">{feature}</span>
                                     </li>
                                 ))}

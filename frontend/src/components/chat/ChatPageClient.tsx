@@ -20,10 +20,19 @@ function ChatPageContent({
 }) {
     const { t } = useI18n()
     const { isAuthenticated } = useAuth()
-    const { threads, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery({
+    const { threads, status: threadsStatus, isFetching: isThreadsFetching, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery({
         enabled: isAuthenticated === true,
     })
     const nav = useThreadNavigation({ threads, refetchThreads, publicExample })
+
+    const handleRetryThreads = () => {
+        if (nav.initializationError) {
+            nav.retryInitialization()
+            return
+        }
+        // The query retains its error and cached history if another attempt fails.
+        void refetchThreads().catch(() => {})
+    }
 
     const handleUpdateThreadStatus = async (threadId: string, status: 'active' | 'archived') => {
         try {
@@ -39,6 +48,9 @@ function ChatPageContent({
             <div className="h-screen w-full flex text-foreground overflow-hidden">
                 <AppSidebar
                     threads={threads}
+                    threadsStatus={threadsStatus}
+                    isThreadsFetching={isThreadsFetching}
+                    onRetryThreads={handleRetryThreads}
                     activeThreadId={nav.activeThreadId}
                     selectedThreadId={nav.selectedThreadId}
                     onNewChat={nav.handleNewChat}
@@ -52,6 +64,8 @@ function ChatPageContent({
                     selectedThreadId={nav.selectedThreadId}
                     activeTaskId={nav.activeTaskId}
                     isThreadSwitching={nav.isThreadSwitching || nav.isBootstrapping}
+                    historyLoadFailed={nav.initializationError}
+                    onRetryHistory={nav.retryInitialization}
                     switchingThreadTitle={nav.switchingThreadTitle}
                     taskSelectionNonce={nav.taskSelectionNonce}
                     initialMessages={nav.initialMessages}
@@ -63,6 +77,9 @@ function ChatPageContent({
                     onThreadCreated={refetchThreads}
                     onChatStarted={nav.handleChatStarted}
                     threads={threads}
+                    threadsStatus={threadsStatus}
+                    isThreadsFetching={isThreadsFetching}
+                    onRetryThreads={handleRetryThreads}
                     onUpdateThreadStatus={handleUpdateThreadStatus}
                     initialExamples={initialExamples}
                 />

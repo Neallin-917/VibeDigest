@@ -73,9 +73,11 @@ vi.mock('@/components/layout/AppSidebar', () => ({
     <div
       data-testid="sidebar"
       data-selected-thread-id={props.selectedThreadId || props.activeThreadId || ''}
+      data-history-status={props.threadsStatus}
     >
       <button onClick={() => props.onPrefetchThread?.('thread-b')}>Prefetch Thread B</button>
       <button onClick={() => props.onUpdateThreadStatus?.('thread-a', 'archived')}>Archive Thread A</button>
+      <button onClick={props.onRetryThreads}>Retry sidebar history</button>
     </div>
   )
 }))
@@ -88,10 +90,14 @@ vi.mock('../ChatWorkspace', () => ({
       data-task-id={props.activeTaskId || ''}
       data-locked={props.isThreadSwitching ? 'true' : 'false'}
       data-initial-message-count={String(props.initialMessages?.length ?? 0)}
+      data-history-status={props.threadsStatus}
+      data-history-failed={props.historyLoadFailed ? 'true' : 'false'}
     >
       <button onClick={() => props.onSelectTask('task-b')}>Select Task B</button>
       <button onClick={() => props.onSelectThread?.('thread-b')}>Select Thread B</button>
       <button onClick={() => props.onSelectThread?.('thread-c')}>Select Thread C</button>
+      <button onClick={props.onRetryThreads}>Retry mobile history</button>
+      <button onClick={props.onRetryHistory}>Retry conversation</button>
       <button onClick={() => props.onChatStarted?.(props.activeThreadId || 'thread-a')}>Chat Started</button>
       <button onClick={() => props.onChatStarted?.(props.activeThreadId || 'thread-a', 'task-new')}>
         Chat Started With Task
@@ -198,6 +204,45 @@ describe('ChatPageClient', () => {
     await waitFor(() => {
       expect(toastError).toHaveBeenCalledWith('Failed to archive chat.')
     })
+  })
+
+  it.each(['sidebar', 'mobile'])('retries failed history from the %s entry and updates both navigation surfaces', async (entry) => {
+    let available = false
+    vi.stubGlobal('fetch', vi.fn(async () => available
+      ? jsonResponse([])
+      : { ok: false, status: 503 } as Response))
+    renderWithQueryClient(<ChatPageClient />)
+    await waitFor(() => expect(screen.getByTestId('sidebar')).toHaveAttribute('data-history-status', 'error'))
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-history-status', 'error')
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-locked', 'false')
+
+    available = true
+    fireEvent.click(screen.getByText(`Retry ${entry} history`))
+    await waitFor(() => expect(screen.getByTestId('sidebar')).toHaveAttribute('data-history-status', 'success'))
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-history-status', 'success')
+  })
+
+  it('restores a directly linked conversation after history loading recovers', async () => {
+    currentSearchParams = new URLSearchParams('threadId=thread-a')
+    let available = false
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/threads') return available
+        ? jsonResponse([{ id: 'thread-a', title: 'Saved chat', updated_at: '2026-09-07T00:00:00Z', task_id: null }])
+        : { ok: false, status: 503 } as Response
+      if (url === '/api/chat/threads/thread-a/messages') return jsonResponse([
+        { id: 'saved', role: 'assistant', parts: [{ type: 'text', text: 'Saved answer' }] },
+      ])
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    }))
+    renderWithQueryClient(<ChatPageClient />)
+    await waitFor(() => expect(screen.getByTestId('workspace')).toHaveAttribute('data-history-failed', 'true'))
+
+    available = true
+    fireEvent.click(screen.getByText('Retry sidebar history'))
+    await waitFor(() => expect(screen.getByTestId('workspace')).toHaveAttribute('data-initial-message-count', '1'))
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-history-failed', 'false')
+    expect(screen.getByTestId('workspace')).toHaveAttribute('data-thread-id', 'thread-a')
   })
 
   it('opens a verified public demo without requesting private history', async () => {

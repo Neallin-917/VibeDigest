@@ -3,17 +3,8 @@
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { useRouter } from "next/navigation"
-import { Video, Apple, ExternalLink } from "lucide-react"
 import { useState } from "react"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { getSupportedUrlDetails } from "@/lib/urls"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
@@ -22,7 +13,7 @@ import { DigestPreview } from "./DigestPreview"
 export function HeroSection() {
     const { t, locale } = useI18n()
     const router = useRouter()
-    const [showUrlHelp, setShowUrlHelp] = useState(false)
+    const [hasUrlError, setHasUrlError] = useState(false)
     const {
         data: currentUser,
         isPending: isAccountPending,
@@ -32,9 +23,10 @@ export function HeroSection() {
     const handleHeroSubmit = async (text: string) => {
         const source = getSupportedUrlDetails(text)
         if (!source) {
-            setShowUrlHelp(true)
+            setHasUrlError(true)
             return false
         }
+        setHasUrlError(false)
 
         // Save message for handoff (works for both logged in and guest)
         localStorage.setItem('vibedigest_pending_message', text)
@@ -58,7 +50,6 @@ export function HeroSection() {
             // Logged in -> Go to chat
             router.push(chatPath)
         } else {
-            // Not logged in -> Force Login (Hard Wall)
             // Preserve the intended chat destination through every auth method.
             router.push(`/${locale}/login?next=${encodeURIComponent(chatPath)}`)
         }
@@ -69,21 +60,30 @@ export function HeroSection() {
             <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[42rem] bg-[linear-gradient(to_bottom,rgba(76,103,82,0.055),transparent_72%)]" />
             <div className="mx-auto w-full max-w-[1080px]">
                 <div className="max-w-[760px]">
-                    <h1 className="max-w-[730px] text-[clamp(2.5rem,4.1vw,3.125rem)] font-semibold leading-[1.07] tracking-[-0.042em] text-foreground">
-                        {t("landing.titlePrefix")}{" "}
-                        <span className="text-primary">{t("landing.titleEmphasis")}</span>
+                    <h1 className={cn(
+                        "max-w-[730px] font-semibold text-foreground",
+                        locale === "zh"
+                            ? "text-balance text-[clamp(2rem,4.1vw,3.125rem)] leading-[1.2] tracking-[-0.02em]"
+                            : "text-[clamp(2.5rem,4.1vw,3.125rem)] leading-[1.07] tracking-[-0.042em]"
+                    )}>
+                        <span className={locale === "zh" ? "inline-block whitespace-nowrap" : undefined}>
+                            {t("landing.titlePrefix")}
+                        </span>{" "}
+                        <span className={cn("text-primary", locale === "zh" && "inline-block whitespace-nowrap")}>
+                            {t("landing.titleEmphasis")}
+                        </span>
                     </h1>
 
                     <div className="mt-8 w-full max-w-[34rem]">
-                        <div className="rounded-[14px] border border-border bg-card p-1.5 shadow-[0_10px_35px_-24px_rgba(31,41,34,0.28)]">
-                            <ChatInput
-                                variant="inline"
-                                onSubmit={handleHeroSubmit}
-                                placeholder={t("taskForm.urlPlaceholder")}
-                                inputLabel={t("taskForm.urlInputLabel")}
-                                hideDisclaimer={true}
-                            />
-                        </div>
+                        <ChatInput
+                            variant="inline"
+                            onSubmit={handleHeroSubmit}
+                            onInputChange={() => setHasUrlError(false)}
+                            error={hasUrlError ? t("taskForm.urlHelp.description") : undefined}
+                            placeholder={t("taskForm.urlPlaceholder")}
+                            inputLabel={t("taskForm.urlInputLabel")}
+                            hideDisclaimer={true}
+                        />
                     </div>
                 </div>
 
@@ -91,53 +91,6 @@ export function HeroSection() {
                     <DigestPreview />
                 </div>
             </div>
-
-            {/* Unsupported URL Dialog */}
-            <Dialog open={showUrlHelp} onOpenChange={setShowUrlHelp}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <ExternalLink className="w-5 h-5 text-primary" />
-                            {t("taskForm.urlHelp.title")}
-                        </DialogTitle>
-                        <DialogDescription className="sr-only">
-                            {t("taskForm.urlHelp.description")}
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="py-4">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2.5 text-sm text-muted-foreground">
-                                <Video className="w-4 h-4 text-red-500" />
-                                <span>YouTube</span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2.5 text-sm text-muted-foreground">
-                                <Apple className="w-4 h-4 text-purple-500" />
-                                <span>Apple Podcasts</span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2.5 text-sm text-muted-foreground">
-                                <div className="w-4 h-4 rounded-sm bg-blue-400 flex items-center justify-center text-[10px] text-primary-foreground font-bold">B</div>
-                                <span>Bilibili</span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2.5 text-sm text-muted-foreground">
-                                <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-[10px] text-primary-foreground font-bold">X</div>
-                                <span>{t("taskForm.urlHelp.xiaoyuzhou")}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button 
-                            type="button" 
-                            variant="secondary"
-                            onClick={() => setShowUrlHelp(false)}
-                            className="w-full sm:w-auto rounded-xl"
-                        >
-                            {t("taskForm.urlHelp.gotIt")}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </section>
     )
 }

@@ -25,6 +25,9 @@ interface AppSidebarProps {
   onNewChat?: () => void
   className?: string
   threads?: Thread[]
+  threadsStatus?: 'pending' | 'success' | 'error'
+  isThreadsFetching?: boolean
+  onRetryThreads?: () => void
   activeThreadId?: string | null
   selectedThreadId?: string | null
   onSelectThread?: (threadId: string) => void
@@ -36,6 +39,9 @@ export function AppSidebar({
   onNewChat,
   className,
   threads = [],
+  threadsStatus = 'success',
+  isThreadsFetching = false,
+  onRetryThreads,
   activeThreadId,
   selectedThreadId,
   onSelectThread,
@@ -189,7 +195,20 @@ export function AppSidebar({
 
             {isChatsOpen && (
               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar mt-1 px-1 space-y-0.5">
-                {activeThreads.length === 0 ? (
+                {threadsStatus === 'error' ? (
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs" role="alert">
+                    <span className="min-w-0 flex-1 text-destructive">{t('chat.errors.historyListLoad')}</span>
+                    <button
+                      type="button"
+                      onClick={onRetryThreads}
+                      disabled={isThreadsFetching}
+                      className="shrink-0 rounded-md px-1 py-1 font-medium text-sidebar-foreground underline underline-offset-4 hover:text-sidebar-primary disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {t('common.retry')}
+                    </button>
+                  </div>
+                ) : null}
+                {activeThreads.length === 0 && threadsStatus === 'success' ? (
                   <div className="text-center py-4 px-4">
                     <p className="text-xs text-foreground-subtle">
                       {archivedThreads.length === 0 ? t("chat.noChats") : t("chat.noActiveChats")}

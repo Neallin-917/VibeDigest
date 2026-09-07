@@ -280,6 +280,7 @@ const enMessages = {
       comingSoon: "Settings features coming soon...",
     },
     pricing: {
+      billingPeriod: "Billing period",
       title: "Plan",
       subtitle: "Review your current usage, plan, and available top-up options.",
       free: {
@@ -293,7 +294,8 @@ const enMessages = {
         desc: "Billed {price} annually for a 12-month subscription",
         button: "Upgrade",
         manage: "Manage Subscription",
-        annual: "ANNUAL"
+        annual: "Annual",
+        monthly: "Monthly"
       },
       topup: {
         title: "Top Up",
@@ -394,7 +396,7 @@ const enMessages = {
       },
       urlHelp: {
         title: "Unsupported URL",
-        description: "Use a YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou link.",
+        description: "Paste a video or episode link from YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou.",
         supportedPlatforms: "Supported platforms:",
         xiaoyuzhou: "Xiaoyuzhou",
         gotIt: "Close"
@@ -521,6 +523,7 @@ const enMessages = {
       genericError: "Something went wrong.",
       errors: {
         historyLoad: "Failed to load chat history.",
+        historyListLoad: "History unavailable.",
         archive: "Failed to archive chat.",
         restore: "Failed to restore chat.",
       },
@@ -950,6 +953,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       comingSoon: "更多设置即将推出...",
     },
     pricing: {
+      billingPeriod: "计费周期",
       title: "方案",
       subtitle: "查看当前用量、方案与可用充值包。",
       free: {
@@ -963,7 +967,8 @@ const zhMessages: MessageShape<typeof enMessages> = {
         desc: "按年收取 {price}，订阅期为 12 个月",
         button: "升级",
         manage: "管理订阅",
-        annual: "年付"
+        annual: "年付",
+        monthly: "月付"
       },
       topup: {
         title: "充值包",
@@ -1064,7 +1069,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       },
       urlHelp: {
         title: "不支持的链接",
-        description: "请使用 YouTube、Apple Podcasts、Bilibili 或小宇宙链接。",
+        description: "请粘贴 YouTube、Apple Podcasts、Bilibili 或小宇宙的具体视频或单期播客链接。",
         supportedPlatforms: "支持的平台：",
         xiaoyuzhou: "小宇宙",
         gotIt: "关闭"
@@ -1191,6 +1196,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       genericError: "出现错误，请重试。",
       errors: {
         historyLoad: "无法加载对话记录。",
+        historyListLoad: "历史加载失败",
         archive: "无法归档对话。",
         restore: "无法恢复对话。",
       },
@@ -1453,6 +1459,7 @@ const jaMessages: Messages = {
       genericError: "エラーが発生しました。もう一度お試しください。",
       errors: {
         historyLoad: "チャット履歴を読み込めませんでした。",
+        historyListLoad: "履歴を読み込めません",
         archive: "チャットをアーカイブできませんでした。",
         restore: "チャットを復元できませんでした。",
       },
@@ -1723,6 +1730,7 @@ const jaMessages: Messages = {
       notificationsHint: "タスクの更新を受け取るためにブラウザ通知を有効にしてください。",
     },
     pricing: {
+      billingPeriod: "お支払い周期",
       title: "プラン",
       subtitle: "現在の利用状況、プラン、チャージオプションを確認できます。",
       free: {
@@ -1736,7 +1744,8 @@ const jaMessages: Messages = {
         desc: "12か月分として年額 {price} を請求",
         button: "アップグレード",
         manage: "サブスクリプション管理",
-        annual: "年払い"
+        annual: "年払い",
+        monthly: "月払い"
       },
       topup: {
         title: "チャージ",
@@ -1819,6 +1828,9 @@ const jaMessages: Messages = {
       processing: "処理中",
       generate: "生成",
       pleaseLogin: "ログインしてください。",
+      urlHelp: {
+        description: "YouTube、Apple Podcasts、Bilibili、小宇宙の動画またはエピソードのリンクを貼り付けてください。",
+      },
       quotaExceeded: {
         title: "クレジット不足",
         description: "プランの変更またはクレジットの追加が必要です。",

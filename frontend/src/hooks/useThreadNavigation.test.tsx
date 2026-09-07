@@ -83,6 +83,41 @@ afterEach(() => {
 })
 
 describe('fresh chat identity', () => {
+  it('keeps a new composer usable when background history loading fails', async () => {
+    const refetch = vi.fn<() => Promise<Thread[]>>().mockRejectedValue(new Error('History unavailable'))
+    const { result } = mount({ refetch })
+    await act(async () => {})
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.initializationError).toBe(false)
+    expect(result.current.activeThreadId).toMatch(/^aaaaaaaa-/)
+  })
+
+  it('does not mistake failed linked history for a new conversation and reloads it on retry', async () => {
+    const refetch = vi.fn<() => Promise<Thread[]>>()
+      .mockRejectedValueOnce(new Error('History unavailable'))
+      .mockResolvedValue([thread(threadA)])
+    loadPayload.mockResolvedValue({ taskId: null, messages: [message('saved')] })
+    const { result } = mount({ search: 'threadId=' + threadA, refetch })
+    await waitFor(() => expect(result.current.initializationError).toBe(true))
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(loadPayload).not.toHaveBeenCalled()
+
+    act(() => result.current.retryInitialization())
+    await waitFor(() => expect(result.current.initialMessages).toEqual([message('saved')]))
+    expect(result.current.initializationError).toBe(false)
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.activeThreadId).toBe(threadA)
+  })
+
+  it('opens a task-linked conversation even if its independent sidebar refresh fails', async () => {
+    const refetch = vi.fn<() => Promise<Thread[]>>().mockRejectedValue(new Error('History unavailable'))
+    loadPayload.mockResolvedValue({ taskId: taskB, messages: [message('saved')] })
+    const { result } = mount({ search: 'task=' + taskB + '&threadId=' + threadB, refetch })
+    await waitFor(() => expect(result.current.initialMessages).toEqual([message('saved')]))
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.initializationError).toBe(false)
+  })
+
   it('has a usable UUID on the first render and reuses it after initialization', () => {
     const { result, renders } = mount()
     const firstId = renders[0].threadId

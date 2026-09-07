@@ -289,6 +289,97 @@ describe('TaskDataGroup', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
   })
 
+  it('allows another retry after an accepted retry processes and fails again', async () => {
+    let publishTask: ((row: Record<string, unknown>) => void) | undefined
+    mockSubscribeToTask.mockImplementation((_taskId, listener) => {
+      publishTask = listener
+      return vi.fn()
+    })
+    const onRetryTask = vi.fn().mockResolvedValue(true)
+    render(
+      <TaskDataGroup
+        live
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-retry', status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-retry',
+          errorMessage: 'Previous failure',
+        }}
+      />
+    )
+
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+
+    act(() => { publishTask?.({ id: 'task-retry', status: 'processing', progress: 35 }) })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText('Transcribing')).toBeInTheDocument()
+
+    act(() => { publishTask?.({ id: 'task-retry', status: 'failed' }) })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(onRetryTask).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['rejected', 'thrown'])('unlocks retry when the request is %s', async (outcome) => {
+    const onRetryTask = outcome === 'rejected'
+      ? vi.fn().mockResolvedValue(false)
+      : vi.fn().mockRejectedValue(new Error('Network unavailable'))
+    render(
+      <TaskDataGroup
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-retry', status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-retry',
+        }}
+      />
+    )
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
+  })
+
+  it('unlocks for a newer failed row even when the intermediate retry events were missed', async () => {
+    let publishTask: ((row: Record<string, unknown>) => void) | undefined
+    const originalFailure = {
+      id: 'task-retry', status: 'failed', updated_at: '2026-09-07T04:00:00.000Z',
+    }
+    mockSubscribeToTask.mockImplementation((_taskId, listener) => {
+      publishTask = listener
+      listener(originalFailure)
+      return vi.fn()
+    })
+    const onRetryTask = vi.fn().mockResolvedValue(true)
+    render(
+      <TaskDataGroup
+        live
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-retry', status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-retry',
+        }}
+      />
+    )
+
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+
+    // Reconnects may replay the original or an older failed record.
+    act(() => { publishTask?.(originalFailure) })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+    act(() => { publishTask?.({ ...originalFailure, updated_at: '2026-09-07T03:59:59.000Z' }) })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+    expect(onRetryTask).toHaveBeenCalledTimes(1)
+
+    act(() => { publishTask?.({ ...originalFailure, updated_at: '2026-09-07T04:01:00.000Z' }) })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(onRetryTask).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+
+    act(() => { publishTask?.({ ...originalFailure, updated_at: '2026-09-07T04:01:00.000Z' }) })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+  })
+
   it('replays the local visual demo without querying Supabase', async () => {
     demoState.enabled = true
     vi.useFakeTimers()

@@ -1,22 +1,26 @@
-import { render, screen, within } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen, within } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DigestPreview } from "./DigestPreview"
+
+const i18n = vi.hoisted(() => ({ locale: "zh" }))
 
 vi.mock("@/components/i18n/I18nProvider", () => ({
     useI18n: () => ({
-        locale: "zh",
+        locale: i18n.locale,
         t: (key: string) => key,
     }),
 }))
 
 describe("DigestPreview", () => {
+    beforeEach(() => { i18n.locale = "zh" })
+
     it("shows the real task-detail reading hierarchy without dashboard controls", () => {
         render(<DigestPreview />)
 
         const preview = screen.getByRole("region", { name: "landing.previewTitle" })
 
         expect(within(preview).getByRole("heading", { name: "landing.outputSummary" })).toBeVisible()
-        expect(within(preview).getByRole("heading", { name: "landing.outputFollowUp" })).toBeVisible()
+        expect(within(preview).queryByRole("heading", { name: "landing.outputFollowUp" })).not.toBeInTheDocument()
         expect(within(preview).getByText("landing.previewQuestion")).toBeVisible()
         expect(within(preview).getByText("landing.previewAnswer")).toBeVisible()
         expect(within(preview).getByRole("heading", { name: "landing.outputKeyIdeas" })).toBeVisible()
@@ -24,7 +28,8 @@ describe("DigestPreview", () => {
         expect(within(preview).getByText("landing.previewPointTwo")).toBeVisible()
 
         const source = within(preview).getByRole("complementary", { name: "landing.previewSourceLabel" })
-        expect(within(source).getByText("landing.previewSourceName")).toBeVisible()
+        expect(within(source).getByRole("heading", { name: "landing.previewTitle" })).toBeVisible()
+        expect(within(source).getByRole("link", { name: /landing.previewSourceLabel.*landing.previewTitle/ })).toBeVisible()
         expect(within(source).queryByText("landing.previewSourceType")).not.toBeInTheDocument()
         expect(within(preview).queryByText("landing.previewKicker")).not.toBeInTheDocument()
 
@@ -33,9 +38,27 @@ describe("DigestPreview", () => {
         expect(within(preview).queryByText("landing.previewSourceMap")).not.toBeInTheDocument()
     })
 
-    it("links the illustrative interface to the real public library", () => {
+    it.each(["en", "zh", "ja"])("opens the current episode in the %s agent conversation", (locale) => {
+        i18n.locale = locale
         render(<DigestPreview />)
 
-        expect(screen.getByRole("link", { name: /landing.previewOpen/ })).toHaveAttribute("href", "/zh/explore")
+        expect(screen.getAllByRole("link", { name: /landing.previewOpen/ })).toHaveLength(1)
+        expect(screen.getByRole("link", { name: /landing.previewOpen/ })).toHaveAttribute(
+            "href", `/${locale}/chat?task=3a6c1431-239b-49f2-89be-00f3f52f59bc`
+        )
+    })
+
+    it("keeps the original episode accessible when its cover cannot load", () => {
+        render(<DigestPreview />)
+
+        const source = screen.getByRole("link", { name: /landing.previewSourceLabel.*landing.previewTitle/ })
+        expect(source).toHaveAttribute("href", "https://youtube.com/watch?v=zgNvts_2TUE")
+        expect(source).toHaveAttribute("rel", "noopener noreferrer")
+
+        fireEvent.error(within(source).getByAltText(""))
+
+        expect(within(source).queryByAltText("")).not.toBeInTheDocument()
+        expect(within(source).getByText("landing.previewTitle")).toBeVisible()
+        expect(source).toHaveAttribute("href", "https://youtube.com/watch?v=zgNvts_2TUE")
     })
 })

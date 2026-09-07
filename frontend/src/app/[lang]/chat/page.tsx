@@ -5,6 +5,7 @@ import { getChatExample, getChatExamples } from "@/lib/chat-examples"
 import { isLocalUiDemo } from "@/lib/local-ui-demo"
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
+import { LANDING_DEMO } from "@/lib/landing-demo"
 
 export async function generateMetadata({
     params,
@@ -29,10 +30,13 @@ export default async function ChatPage({
 }) {
     const params = await searchParams
     const selectedTaskId = typeof params.task === "string" ? params.task : null
-    const shouldLoadExamples = !selectedTaskId && !isLocalUiDemo()
+    const isDemo = isLocalUiDemo()
+    const shouldLoadExamples = !selectedTaskId && !isDemo
     const initialExamples = shouldLoadExamples ? getChatExamples() : null
-    const publicExample = selectedTaskId && !isLocalUiDemo()
-        ? await getChatExample(selectedTaskId)
+    const publicExample = selectedTaskId
+        ? isDemo
+            ? selectedTaskId === LANDING_DEMO.id ? LANDING_DEMO : null
+            : await getChatExample(selectedTaskId)
         : null
 
     return <ChatPageClient initialExamples={initialExamples} publicExample={publicExample} />

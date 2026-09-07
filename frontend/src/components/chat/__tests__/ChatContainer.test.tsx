@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ChatContainer } from '../ChatContainer'
-import type { ChatUIMessage } from '@/lib/chat-ui'
+import { createTaskDataParts, type ChatUIMessage } from '@/lib/chat-ui'
+import { LANDING_DEMO } from '@/lib/landing-demo'
 
 const mockUseChat = vi.fn()
 const mockSendMessage = vi.fn()
@@ -579,7 +580,9 @@ describe('ChatContainer', () => {
       locale: 'en',
       surface,
     })
-    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-new-1')
+    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-new-1', [
+      expect.objectContaining({ id: 'assistant-task-created', role: 'assistant' }),
+    ])
   })
 
   it('does not track task creation acceptance for an existing task follow-up', () => {
@@ -603,7 +606,9 @@ describe('ChatContainer', () => {
     })
 
     expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_create_accepted', expect.anything())
-    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-existing')
+    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-existing', [
+      expect.objectContaining({ id: 'assistant-followup', role: 'assistant' }),
+    ])
   })
 
   it.each([
@@ -776,10 +781,55 @@ describe('ChatContainer', () => {
       ],
     }]
     chatOptions.onFinish({ messages, isAbort: false, isError: false, isDisconnect: false })
-    expect(onChatStarted).toHaveBeenCalledWith('thread-1', 'new-task')
+    expect(onChatStarted).toHaveBeenCalledWith('thread-1', 'new-task', messages)
     expect(chatOptions.transport.prepareSendMessagesRequest({
       messages: [createTextMessage('Follow up', 'user', 'next-user')],
     }).body.taskId).toBe('new-task')
+  })
+
+  it('hands the complete first public-demo exchange back with its generated thread identity', () => {
+    const onChatStarted = vi.fn()
+    const digest = createTaskDataParts({
+      messageId: 'public-demo-' + LANDING_DEMO.id,
+      taskId: LANDING_DEMO.id,
+      status: 'completed',
+      progress: 100,
+      videoTitle: LANDING_DEMO.video_title,
+      videoUrl: LANDING_DEMO.video_url,
+      thumbnailUrl: LANDING_DEMO.thumbnail_url,
+    })
+    render(
+      <ChatContainer
+        activeTaskId={LANDING_DEMO.id}
+        threadId={null}
+        initialMessages={[digest]}
+        isAuthenticated
+        onChatStarted={onChatStarted}
+      />
+    )
+    const chatOptions = mockUseChat.mock.calls[0][0]
+    const finishedMessages = [
+      digest,
+      createTextMessage('How does the foundation preserve independence?', 'user', 'demo-question'),
+      createTextMessage('It keeps governance independent of any single company.', 'assistant', 'demo-answer'),
+    ]
+
+    act(() => {
+      chatOptions.onFinish({
+        messages: finishedMessages,
+        isAbort: false,
+        isError: false,
+        isDisconnect: false,
+      })
+    })
+
+    expect(chatOptions.id).toEqual(expect.any(String))
+    expect(onChatStarted).toHaveBeenCalledExactlyOnceWith(
+      chatOptions.id,
+      LANDING_DEMO.id,
+      finishedMessages,
+    )
+    expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_create_accepted', expect.anything())
   })
 
   it.each(['isAbort', 'isError', 'isDisconnect'])('does not report a persisted chat after %s', flag => {

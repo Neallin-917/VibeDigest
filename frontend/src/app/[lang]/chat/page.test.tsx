@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import ChatPage, { generateMetadata } from "./page"
+import { LANDING_DEMO } from "@/lib/landing-demo"
 
 const getChatExamplesMock = vi.hoisted(() => vi.fn())
 const getChatExampleMock = vi.hoisted(() => vi.fn())
@@ -68,6 +69,34 @@ describe("ChatPage", () => {
 
     expect(getChatExamplesMock).not.toHaveBeenCalled()
     expect(page.props.initialExamples).toBeNull()
+  })
+
+  it("opens the pinned landing episode in the local visual demo without a remote lookup", async () => {
+    demoState.enabled = true
+
+    const page = await ChatPage({ searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
+
+    expect(page.props.publicExample).toEqual(LANDING_DEMO)
+    expect(getChatExampleMock).not.toHaveBeenCalled()
+    expect(getChatExamplesMock).not.toHaveBeenCalled()
+  })
+
+  it("does not substitute the landing episode for another local task", async () => {
+    demoState.enabled = true
+
+    const page = await ChatPage({ searchParams: Promise.resolve({ task: "another-task" }) })
+
+    expect(page.props.publicExample).toBeNull()
+    expect(getChatExampleMock).not.toHaveBeenCalled()
+  })
+
+  it("requires the pinned landing task to remain public outside the local demo", async () => {
+    getChatExampleMock.mockResolvedValue(null)
+
+    const page = await ChatPage({ searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
+
+    expect(getChatExampleMock).toHaveBeenCalledWith(LANDING_DEMO.id)
+    expect(page.props.publicExample).toBeNull()
   })
 
   it.each([

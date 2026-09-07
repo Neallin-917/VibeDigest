@@ -33,17 +33,19 @@ test.describe('Landing Page', () => {
         await expect(page.getByRole('heading', { name: 'Let AI help you watch the whole podcast.' })).toBeVisible();
 
         // The hero should demonstrate the finished product rather than only
-        // describing capabilities, and its CTA must lead to public demos.
+        // describing capabilities, and its CTA opens this episode in the Agent.
         const digestPreview = page.getByRole('region', { name: 'State of the Claw: Peter Steinberger' });
         await expect(digestPreview).toBeVisible();
         await expect(digestPreview.getByRole('heading', { name: 'Summary' })).toBeVisible();
-        await expect(digestPreview.getByRole('heading', { name: 'Follow-up' })).toBeVisible();
+        await expect(digestPreview.getByRole('heading', { name: 'Follow-up' })).toHaveCount(0);
         await expect(digestPreview.getByRole('heading', { name: 'Key ideas' })).toBeVisible();
         await expect(digestPreview.getByRole('complementary', { name: 'Source' })).toBeVisible();
         await expect(digestPreview.getByRole('tablist')).toHaveCount(0);
         await expect(digestPreview).not.toContainText('Source map');
         await expect(digestPreview).not.toContainText('Ready to explore');
-        await expect(digestPreview.getByRole('link', { name: 'Explore ready-made digests' })).toHaveAttribute('href', '/en/explore');
+        const followUpLink = digestPreview.getByRole('link', { name: 'Ask about this episode' });
+        await expect(followUpLink).toHaveCount(1);
+        await expect(followUpLink).toHaveAttribute('href', '/en/chat?task=3a6c1431-239b-49f2-89be-00f3f52f59bc');
 
 
 

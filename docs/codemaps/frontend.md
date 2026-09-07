@@ -84,6 +84,18 @@ Public policy pages render outside `MainShell`. Protected-route redirects and
 all authentication methods preserve the localized return path, query, and anchor
 through `locale-navigation.ts`.
 
+The landing digest pins one public example in `src/lib/landing-demo.ts`. Its CTA
+opens `/[lang]/chat?task=...`; the existing chat page verifies public availability
+before showing the task, and retains that task through the sign-in handoff.
+The local visual demo uses the complete published English/Chinese summary snapshot
+in `src/lib/fixtures/landing-demo-summaries.json` for this episode; production still
+reads persisted task outputs. Inline digests render the overview, every key point,
+its significance, and all sections, with source evidence available in a disclosure.
+A standalone completed digest opens at the beginning; sending a follow-up resumes
+conversation scrolling.
+When its first follow-up receives a thread ID, the finished messages seed the
+workspace remount so the digest and new answer remain visible.
+
 Library navigation keeps filters and pagination in the URL. Detail links retain
 the validated originating library path and episode anchor, including when the
 digest is in another language. `TaskDetailRefresh` refreshes the server projection

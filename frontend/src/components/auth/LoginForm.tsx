@@ -14,6 +14,7 @@ import Link from "next/link"
 import { getSupportedUrlDetails } from "@/lib/urls"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { sanitizeErrorMessage } from "@/lib/safe-error"
+import { authCallbackUrl, localizePath, safeReturnPath } from "@/lib/locale-navigation"
 
 interface LoginFormProps {
     className?: string
@@ -24,6 +25,11 @@ const subscribeToPendingHandoff = () => () => undefined
 const getPendingHandoffSnapshot = () =>
     typeof window !== "undefined" ? window.localStorage.getItem("vibedigest_pending_message") || "" : ""
 const getPendingHandoffServerSnapshot = () => ""
+const subscribeToReturnHash = (notify: () => void) => {
+    window.addEventListener('hashchange', notify)
+    return () => window.removeEventListener('hashchange', notify)
+}
+const getReturnHashSnapshot = () => window.location.hash
 
 type AuthErrorMessageKey = 'invalidCredentials' | 'userAlreadyRegistered' | 'weakPassword'
 type AuthCallbackErrorMessageKey = 'callbackFailed' | 'callbackMissingCode'
@@ -87,7 +93,10 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(() =>
         callbackError ? { type: 'error', text: getAuthCallbackErrorMessage(callbackError, t) ?? t('auth.errors.generic') } : null
     )
-    const nextUrl = searchParams.get('next')
+    const safeNext = safeReturnPath(searchParams.get('next'))
+    // HTTP redirects inherit the original fragment in the browser; the server cannot read it.
+    const returnHash = useSyncExternalStore(subscribeToReturnHash, getReturnHashSnapshot, getPendingHandoffServerSnapshot)
+    const nextUrl = safeNext ? localizePath(`${safeNext}${safeNext.includes('#') ? '' : returnHash}`, locale) : null
     const pendingMessage = useSyncExternalStore(
         subscribeToPendingHandoff,
         getPendingHandoffSnapshot,
@@ -107,14 +116,10 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
 
     const handleGoogleLogin = async () => {
         setLoading(true)
-        const callbackUrl = new URL(`${window.location.origin}/${locale}/auth/callback`)
-        if (nextUrl) {
-            callbackUrl.searchParams.set('next', nextUrl)
-        }
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: callbackUrl.toString()
+                redirectTo: authCallbackUrl(window.location.origin, locale, nextUrl)
             }
         })
         if (error) setMessage({ type: 'error', text: getAuthErrorMessage(error, t) })
@@ -129,15 +134,11 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
         const redirectTarget = nextUrl || `/${locale}/chat`
 
         if (isSignUp) {
-            const signUpCallbackUrl = new URL(`${window.location.origin}/auth/callback`)
-            if (nextUrl) {
-                signUpCallbackUrl.searchParams.set('next', nextUrl)
-            }
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
-                    emailRedirectTo: signUpCallbackUrl.toString()
+                    emailRedirectTo: authCallbackUrl(window.location.origin, locale, nextUrl)
                 }
             })
             if (error) {
@@ -164,14 +165,10 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 window.location.href = redirectTarget
             }
         } else {
-            const otpCallbackUrl = new URL(`${window.location.origin}/auth/callback`)
-            if (nextUrl) {
-                otpCallbackUrl.searchParams.set('next', nextUrl)
-            }
             const { error } = await supabase.auth.signInWithOtp({
                 email,
                 options: {
-                    emailRedirectTo: otpCallbackUrl.toString()
+                    emailRedirectTo: authCallbackUrl(window.location.origin, locale, nextUrl)
                 }
             })
 
@@ -186,8 +183,8 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
 
     // Adaptive card styles based on context
     const cardStyles = isModal
-        ? 'shadow-none border-0'
-        : 'border border-slate-200/80 bg-white/90 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-black/25'
+        ? 'shadow-none border-0 bg-card'
+        : 'border border-border bg-card shadow-sm'
 
     return (
         <Card className={`relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain motion-safe:transition-all motion-safe:duration-300 ${cardStyles} ${className}`}>
@@ -199,17 +196,17 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
 
             <CardHeader className="text-center space-y-2 relative z-10">
                 {!isModal && (
-                    <Link href={`/${locale}`} className="mx-auto mb-3 inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    <Link href={`/${locale}`} className="mx-auto mb-3 inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <BrandLogo textClassName="text-lg" />
                     </Link>
                 )}
                 {hasPendingHandoff && (
-                    <p className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                    <p className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-surface-tint px-2.5 py-1 text-xs font-medium text-primary-strong">
                         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                         {pendingSource ? t("auth.handoffReady") : t("auth.handoffMessageReady")}
                     </p>
                 )}
-                <CardTitle className="font-bold text-2xl text-gray-900 dark:text-white">
+                <CardTitle className="font-semibold text-2xl text-foreground">
                     {isSignUp
                         ? (t("auth.createAccount") || "Create Account")
                         : hasPendingHandoff
@@ -219,22 +216,22 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 {hasPendingHandoff && pendingSource && (
                     <section
                         aria-label={t("auth.handoffDetails")}
-                        className="mt-4 w-full space-y-3 border-y border-slate-200/80 py-4 text-left dark:border-white/10"
+                        className="mt-4 w-full space-y-3 border-y border-border py-4 text-left"
                     >
                         <div className="flex items-start gap-2.5">
-                            <Link2 className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+                            <Link2 className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden="true" />
                             <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                <p className="text-xs font-medium text-muted-foreground">
                                     {t("auth.handoffSource")}
                                 </p>
-                                <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">
+                                <p className="mt-0.5 text-sm font-semibold text-foreground">
                                     {pendingSource.sourceName}
                                 </p>
                                 <a
                                     href={pendingSource.href}
                                     target="_blank"
                                     rel="nofollow noopener noreferrer"
-                                    className="mt-1 block break-all text-xs leading-5 text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-300 dark:hover:text-emerald-200"
+                                    className="mt-1 block break-all text-xs leading-5 text-primary-strong underline decoration-primary/30 underline-offset-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
                                     {pendingSource.originalUrl}
                                 </a>
@@ -249,7 +246,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                     variant="outline"
                     onClick={handleGoogleLogin}
                     disabled={loading}
-                    className="h-11 w-full border border-gray-200 bg-white font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-0 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                    className="h-11 w-full border border-border bg-card font-medium text-foreground transition-colors hover:bg-accent"
                 >
                     <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
                         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
@@ -263,10 +260,10 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
 
                 <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-gray-200 dark:border-white/10" />
+                        <span className="w-full border-t border-border" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white/80 dark:bg-black/40 px-3 text-gray-500 dark:text-gray-400 backdrop-blur-sm rounded-full">
+                        <span className="bg-card px-3 text-muted-foreground">
                             {isSignUp ? (t("auth.orWithEmail") || "Or with Email") : (isPasswordLogin ? t("auth.orWithEmail") : t("auth.orWithEmail"))}
                         </span>
                     </div>
@@ -277,26 +274,30 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                     <div className="space-y-2">
                         <Input
                             type="email"
+                            aria-label={t("auth.emailPlaceholder")}
+                            autoComplete="email"
                             placeholder={t("auth.emailPlaceholder")}
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                             required
-                            className="h-11 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                            className="h-11 bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-ring transition-colors"
                         />
                         {(isPasswordLogin || isSignUp) && (
                             <Input
                                 type="password"
+                                aria-label={t("auth.passwordPlaceholder")}
+                                autoComplete={isSignUp ? "new-password" : "current-password"}
                                 placeholder={t("auth.passwordPlaceholder") || "Password"}
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
                                 required
-                                className="h-11 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                                className="h-11 bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-ring transition-colors"
                             />
                         )}
                     </div>
                     <Button
                         type="submit"
-                        className="h-11 w-full gap-2 bg-emerald-700 text-white transition-colors hover:bg-emerald-800 dark:bg-emerald-300 dark:text-zinc-950 dark:hover:bg-emerald-200"
+                        className="h-11 w-full gap-2 bg-primary text-primary-foreground transition-colors hover:bg-primary-strong"
                         disabled={loading}
                     >
                         <Mail className="h-4 w-4" />
@@ -311,7 +312,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                             <button
                                 type="button"
                                 onClick={() => setIsPasswordLogin(!isPasswordLogin)}
-                                className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+                                className="min-h-11 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                             >
                                 {isPasswordLogin ? (t("auth.useMagicLink") || "Use Magic Link instead") : (t("auth.usePassword") || "Sign in with Password")}
                             </button>
@@ -323,7 +324,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                                 setIsPasswordLogin(false)
                                 setMessage(null)
                             }}
-                            className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+                            className="min-h-11 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                         >
                             {isSignUp ? (t("auth.haveAccount") || "Already have an account? Sign In") : (t("auth.noAccount") || "Don't have an account? Sign Up")}
                         </button>
@@ -333,7 +334,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
                 {message && (
                     <div
                         role={message.type === 'error' ? 'alert' : 'status'}
-                        className={`p-3 rounded-lg text-sm text-center animate-in fade-in slide-in-from-top-2 duration-300 ${message.type === 'error' ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'}`}
+                        className={`p-3 rounded-lg text-sm text-center animate-in fade-in slide-in-from-top-2 duration-300 ${message.type === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' : 'bg-surface-tint text-primary-strong border border-primary/20'}`}
                     >
                         {message.text}
                     </div>

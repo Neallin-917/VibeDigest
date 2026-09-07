@@ -1,13 +1,26 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CommunityTemplates, type SourceShelfItem, type Task } from "./CommunityTemplates"
 
-const navigation = vi.hoisted(() => ({ replace: vi.fn() }))
+const navigation = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn(), pathname: "/en/explore" }))
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/en/explore",
-  useRouter: () => ({ replace: navigation.replace }),
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ replace: navigation.replace, push: navigation.push }),
+}))
+
+vi.mock("next/link", () => ({
+  default: ({ href, onNavigate, onClick, scroll, ...props }: React.ComponentProps<typeof import("next/link").default>) => {
+    void scroll
+    return <a {...props} href={String(href)} onClick={(event) => {
+      onClick?.(event)
+      if (!event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+        onNavigate?.({ preventDefault: () => event.preventDefault() })
+      }
+      event.preventDefault()
+    }} />
+  },
 }))
 
 const sources: SourceShelfItem[] = [
@@ -74,8 +87,8 @@ const copy = {
   unavailable: "Examples are temporarily unavailable.",
 }
 
-function renderGallery(overrides: Partial<React.ComponentProps<typeof CommunityTemplates>> = {}) {
-  return render(
+function gallery(overrides: Partial<React.ComponentProps<typeof CommunityTemplates>> = {}) {
+  return (
     <CommunityTemplates
       initialTasks={tasks}
       sourceItems={sources}
@@ -92,10 +105,19 @@ function renderGallery(overrides: Partial<React.ComponentProps<typeof CommunityT
   )
 }
 
+function renderGallery(overrides: Partial<React.ComponentProps<typeof CommunityTemplates>> = {}) {
+  return render(gallery(overrides))
+}
+
 describe("CommunityTemplates", () => {
   beforeEach(() => {
     navigation.replace.mockReset()
+    navigation.push.mockReset()
+    navigation.pathname = "/en/explore"
+    window.history.replaceState({}, "", "/en/explore")
   })
+
+  afterEach(() => vi.useRealTimers())
 
   it("prioritizes only the leading thumbnail and supplies responsive image sizes", () => {
     const { container } = renderGallery()
@@ -142,17 +164,13 @@ describe("CommunityTemplates", () => {
     expect(container.querySelector(".grid")).toHaveClass("sm:grid-cols-2", "xl:grid-cols-4")
   })
 
-  it("keeps source filtering on the same page and preserves the search query", () => {
+  it("keeps source filtering on the same page and preserves the search query", async () => {
+    const user = userEvent.setup()
     renderGallery({ initialQuery: "agents" })
-
-    expect(screen.getByRole("link", { name: /Latent Space/ })).toHaveAttribute(
-      "href",
-      "/en/explore?show=latent-space&q=agents"
-    )
-    expect(screen.getByRole("link", { name: "All" })).toHaveAttribute(
-      "href",
-      "/en/explore?q=agents"
-    )
+    await user.selectOptions(screen.getByRole("combobox", { name: "Browse by show" }), "latent-space")
+    expect(navigation.push).toHaveBeenLastCalledWith("/en/explore?show=latent-space&q=agents", { scroll: false })
+    await user.selectOptions(screen.getByRole("combobox", { name: "Browse by show" }), "all")
+    expect(navigation.push).toHaveBeenLastCalledWith("/en/explore?q=agents", { scroll: false })
   })
 
   it("debounces search into a server-rendered URL without adding a workflow step", async () => {
@@ -168,6 +186,113 @@ describe("CommunityTemplates", () => {
     })
   })
 
+  it("preserves a newer draft when a delayed search response arrives", async () => {
+    const view = renderGallery()
+    const search = screen.getByRole("searchbox", { name: "Search content" })
+    fireEvent.change(search, { target: { value: "AI" } })
+    await waitFor(() => expect(navigation.replace).toHaveBeenLastCalledWith("/en/explore?q=AI", { scroll: false }))
+
+    fireEvent.change(search, { target: { value: "AI agents" } })
+    view.rerender(gallery({ initialQuery: "AI" }))
+    expect(search).toHaveValue("AI agents")
+    await waitFor(() => expect(navigation.replace).toHaveBeenLastCalledWith("/en/explore?q=AI+agents", { scroll: false }))
+    view.rerender(gallery({ initialQuery: "AI agents" }))
+    expect(search).toHaveValue("AI agents")
+
+    view.rerender(gallery({ initialQuery: "AI" }))
+    expect(search).toHaveValue("AI")
+    view.rerender(gallery({ initialQuery: "research" }))
+    expect(search).toHaveValue("research")
+  })
+
+  it("cancels an old search when a show is selected and uses that show for edits while navigation is pending", () => {
+    vi.useFakeTimers()
+    const view = renderGallery()
+    const search = screen.getByRole("searchbox", { name: "Search content" })
+    const source = screen.getByRole("combobox", { name: "Browse by show" })
+    fireEvent.change(search, { target: { value: "AI" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.change(source, { target: { value: "latent-space" } })
+    expect(navigation.push).toHaveBeenLastCalledWith("/en/explore?show=latent-space&q=AI", { scroll: false })
+    expect(source).toHaveValue("latent-space")
+    act(() => vi.advanceTimersByTime(300))
+    expect(navigation.replace).not.toHaveBeenCalled()
+
+    fireEvent.change(search, { target: { value: "AI agents" } })
+    act(() => vi.advanceTimersByTime(221))
+    expect(navigation.replace).toHaveBeenLastCalledWith("/en/explore?show=latent-space&q=AI+agents", { scroll: false })
+    view.rerender(gallery({ initialSource: "latent-space", initialQuery: "AI" }))
+    expect(source).toHaveValue("latent-space")
+    expect(search).toHaveValue("AI agents")
+  })
+
+  it("cancels the old route search for topic navigation and continues typing on the chosen topic", () => {
+    vi.useFakeTimers()
+    renderGallery()
+    const search = screen.getByRole("searchbox", { name: "Search content" })
+    fireEvent.change(search, { target: { value: "AI" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.click(screen.getByRole("link", { name: "AI Agents" }))
+    act(() => vi.advanceTimersByTime(300))
+    expect(navigation.replace).not.toHaveBeenCalled()
+    fireEvent.change(search, { target: { value: "AI coding" } })
+    act(() => vi.advanceTimersByTime(221))
+    expect(navigation.replace).toHaveBeenLastCalledWith("/en/topics/agents?q=AI+coding", { scroll: false })
+  })
+
+  it("cancels a pending search when clearing filters before the navigation returns", () => {
+    vi.useFakeTimers()
+    renderGallery({ initialSource: "latent-space", initialQuery: "AI" })
+    const search = screen.getByRole("searchbox", { name: "Search content" })
+    fireEvent.change(search, { target: { value: "new draft" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.click(screen.getByRole("link", { name: "Clear filters" }))
+    act(() => vi.advanceTimersByTime(300))
+    expect(navigation.replace).not.toHaveBeenCalled()
+    expect(search).toHaveValue("")
+    expect(screen.getByRole("combobox", { name: "Browse by show" })).toHaveValue("all")
+  })
+
+  it("does not replace an episode navigation with the pending search", () => {
+    vi.useFakeTimers()
+    renderGallery()
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search content" }), { target: { value: "AI" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.click(screen.getByRole("link", { name: "View digest: Leading example" }))
+    act(() => vi.advanceTimersByTime(300))
+    expect(navigation.replace).not.toHaveBeenCalled()
+  })
+
+  it("syncs browser back and forward even when the URL reuses a previous search", async () => {
+    const view = renderGallery({ initialQuery: "AI" })
+    const search = screen.getByRole("searchbox", { name: "Search content" })
+    fireEvent.change(search, { target: { value: "agents" } })
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/en/explore?q=agents", { scroll: false }))
+    view.rerender(gallery({ initialQuery: "agents" }))
+    fireEvent.change(search, { target: { value: "unfinished draft" } })
+
+    window.history.replaceState({}, "", "/en/explore?q=AI")
+    fireEvent.popState(window)
+    view.rerender(gallery({ initialQuery: "AI" }))
+    expect(search).toHaveValue("AI")
+
+    window.history.replaceState({}, "", "/en/explore?q=agents")
+    fireEvent.popState(window)
+    view.rerender(gallery({ initialQuery: "agents" }))
+    expect(search).toHaveValue("agents")
+  })
+
+  it("preserves topic, filters, loaded page and the episode anchor in a detail return link", () => {
+    navigation.pathname = "/en/topics/agents"
+    renderGallery({ initialSource: "latent-space", initialQuery: "AI", currentPage: 3 })
+    const link = screen.getByRole("link", { name: "View digest: Leading example" })
+    const href = new URL(link.getAttribute("href")!, "https://vibedigest.invalid")
+    expect(href.searchParams.get("from")).toBe("/en/topics/agents?show=latent-space&q=AI&page=3#episode-example-1")
+    expect(screen.getByText("Leading example").closest("article")).toHaveAttribute("id", "episode-example-1")
+    expect(screen.getByRole("link", { name: "AI Agents" })).toHaveAttribute("aria-current", "page")
+    expect(screen.getByRole("link", { name: "All topics" })).toHaveAttribute("href", "/en/explore?q=AI")
+  })
+
   it("opens the exact episode externally and the digest internally", () => {
     renderGallery({ initialSource: "latent-space", initialQuery: "AI" })
 
@@ -177,7 +302,7 @@ describe("CommunityTemplates", () => {
     )
     expect(screen.getByRole("link", { name: "View digest: Leading example" })).toHaveAttribute(
       "href",
-      "/en/tasks/example-1/Leading-example?fromShow=latent-space&fromQuery=AI"
+      "/en/tasks/example-1/Leading-example?from=%2Fen%2Fexplore%3Fshow%3Dlatent-space%26q%3DAI%23episode-example-1"
     )
   })
 
@@ -196,7 +321,7 @@ describe("CommunityTemplates", () => {
     expect(screen.getByText("Digest available in Chinese.")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "View digest: Chinese digest only" })).toHaveAttribute(
       "href",
-      "/zh/tasks/zh-only/Chinese-digest-only"
+      "/zh/tasks/zh-only/Chinese-digest-only?from=%2Fen%2Fexplore%23episode-zh-only"
     )
   })
 
@@ -213,8 +338,21 @@ describe("CommunityTemplates", () => {
     expect(screen.queryByText("Potentially mismatched projected text.")).not.toBeInTheDocument()
     expect(screen.getByRole("link", { name: "View digest: Leading example" })).toHaveAttribute(
       "href",
-      "/en/tasks/unknown-locale/Leading-example"
+      "/en/tasks/unknown-locale/Leading-example?from=%2Fen%2Fexplore%23episode-unknown-locale"
     )
+  })
+
+  it("preserves the original library language and all filters when opening a digest in another language", () => {
+    navigation.pathname = "/en/topics/agents"
+    renderGallery({
+      initialTasks: [{ ...tasks[0], takeawayLocale: "zh" }],
+      initialSource: "latent-space",
+      initialQuery: "AI",
+      currentPage: 3,
+    })
+    const href = new URL(screen.getByRole("link", { name: "View digest: Leading example" }).getAttribute("href")!, "https://vibedigest.invalid")
+    expect(href.pathname).toBe("/zh/tasks/example-1/Leading-example")
+    expect(href.searchParams.get("from")).toBe("/en/topics/agents?show=latent-space&q=AI&page=3#episode-example-1")
   })
 
   it("applies the same language guard to compact library rows", () => {
@@ -236,7 +374,7 @@ describe("CommunityTemplates", () => {
     expect(screen.getByText("Digest available in Chinese.")).toBeInTheDocument()
     expect(screen.getByText("Compact Chinese digest").closest("a")).toHaveAttribute(
       "href",
-      "/zh/tasks/compact-6/Compact-Chinese-digest"
+      "/zh/tasks/compact-6/Compact-Chinese-digest?from=%2Fen%2Fexplore%23episode-compact-6"
     )
   })
 

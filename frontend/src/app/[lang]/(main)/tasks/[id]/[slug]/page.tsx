@@ -25,6 +25,9 @@ import { ArrowDown, ArrowLeft, ChevronDown, ExternalLink, MessageCircleQuestion 
 import { cache } from "react"
 import { TaskFollowUp } from "@/components/tasks/TaskFollowUp"
 import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
+import { TaskDetailRefresh } from "@/components/tasks/TaskDetailRefresh"
+import { parseLibraryReturnHref } from "@/lib/library-navigation"
+import { localizePath } from "@/lib/locale-navigation"
 import {
     buildPublicTaskJsonLd,
     buildPublicTaskMetadata,
@@ -42,6 +45,7 @@ type Props = {
         slug: string
     }>
     searchParams: Promise<{
+        from?: string | string[]
         fromShow?: string | string[]
         fromQuery?: string | string[]
         threadId?: string | string[]
@@ -55,6 +59,8 @@ function getSingleSearchParam(value: string | string[] | undefined) {
 }
 
 function buildLibraryHref(locale: string, returnState: Awaited<Props["searchParams"]>) {
+    const from = parseLibraryReturnHref(returnState.from)
+    if (from) return from
     const params = new URLSearchParams()
     const source = getSingleSearchParam(returnState.fromShow)
     const query = getSingleSearchParam(returnState.fromQuery)
@@ -64,8 +70,10 @@ function buildLibraryHref(locale: string, returnState: Awaited<Props["searchPara
     return `/${locale}/explore${search ? `?${search}` : ""}`
 }
 
-function buildReturnSuffix(returnState: Awaited<Props["searchParams"]>) {
+function buildReturnSuffix(returnState: Awaited<Props["searchParams"]>, locale: "en" | "zh" | "ja", targetLocale = locale) {
     const params = new URLSearchParams()
+    const from = parseLibraryReturnHref(returnState.from)
+    if (from) params.set("from", targetLocale === locale ? from : localizePath(from, targetLocale))
     const source = getSingleSearchParam(returnState.fromShow)
     const query = getSingleSearchParam(returnState.fromQuery)
     const threadId = getSingleSearchParam(returnState.threadId)
@@ -314,7 +322,7 @@ export default async function TaskDetailPage(props: Props) {
     // SLUG ENFORCEMENT
     const correctSlug = buildTaskSlug(task.video_title)
     if (slug !== correctSlug) {
-        redirect(`/${lang}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState)}`);
+        redirect(`/${lang}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState, locale)}`);
     }
 
     const publicSummary = matchPublicSummaryOutput(
@@ -362,7 +370,7 @@ export default async function TaskDetailPage(props: Props) {
     const evidenceLanguageTag = resolveEvidenceLanguageTag(getOptionalString(summaryOutput?.provenance, "transcript_language"))
     const languageSwitchLocale = publicSummary.routeMatches ? null : publicSummary.alternativeLocale
     const languageSwitchHref = languageSwitchLocale
-        ? `/${languageSwitchLocale}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState)}`
+        ? `/${languageSwitchLocale}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState, locale, languageSwitchLocale)}`
         : ""
     const languageSwitchLabel = languageSwitchLocale
         ? getLocaleDisplayName(languageSwitchLocale, locale)
@@ -378,6 +386,7 @@ export default async function TaskDetailPage(props: Props) {
 
     return (
         <div className="relative z-10 min-h-0 w-full flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-12">
+            <TaskDetailRefresh taskId={id} />
             {jsonLd ? (
                 <script
                     type="application/ld+json"

@@ -75,6 +75,27 @@ describe('ChatInput', () => {
       expect(onSubmit).toHaveBeenCalledWith('https://youtu.be/example')
     })
     expect(input.value).toBe('https://youtu.be/example')
+    expect(input).toHaveFocus()
+  })
+
+  it('associates a recoverable error with the input and reports edits', () => {
+    const onInputChange = vi.fn()
+    const { rerender } = render(
+      <ChatInput onSubmit={vi.fn()} error="Use an episode link." onInputChange={onInputChange} />
+    )
+    const input = screen.getByRole('textbox', { name: 'Chat input' })
+    const error = screen.getByRole('alert')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input).toHaveAttribute('aria-describedby', error.id)
+    expect(input).toHaveAccessibleDescription('Use an episode link.')
+
+    fireEvent.change(input, { target: { value: 'https://youtu.be/fixed' } })
+    expect(onInputChange).toHaveBeenCalledWith('https://youtu.be/fixed')
+
+    rerender(<ChatInput onSubmit={vi.fn()} onInputChange={onInputChange} />)
+    expect(input).not.toHaveAttribute('aria-invalid')
+    expect(input).not.toHaveAttribute('aria-describedby')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('does not clear newer text when an earlier submission finishes', async () => {

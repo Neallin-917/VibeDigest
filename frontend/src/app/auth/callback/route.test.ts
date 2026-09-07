@@ -38,6 +38,20 @@ describe("auth callback return target", () => {
     vi.restoreAllMocks()
   })
 
+  it('keeps the locale and return target when authentication must be retried', async () => {
+    auth.exchangeCodeForSession.mockResolvedValue({ error: new Error('Failed') })
+    const response = await getLocalizedCallback(new Request('https://vibedigest.io/zh/auth/callback?code=bad&next=%2Fen%2Fchat%3Ftask%3Dsource-1%23answer'), { params: Promise.resolve({ lang: 'zh' }) })
+    const destination = new URL(response.headers.get('location')!)
+    expect(destination.pathname).toBe('/zh/login')
+    expect(destination.searchParams.get('next')).toBe('/zh/chat?task=source-1#answer')
+    expect(destination.searchParams.get('error')).toBe('auth_callback_failed')
+  })
+
+  it.each(['https://evil.example', '//evil.example', '/\\evil.example'])('ignores unsafe callback target %s', async (next) => {
+    const response = await getRootCallback(new Request(`https://vibedigest.io/auth/callback?code=good&lang=zh&next=${encodeURIComponent(next)}`))
+    expect(response.headers.get('location')).toBe('https://vibedigest.io/zh/chat')
+  })
+
   it.each([
     {
       name: "root callback",

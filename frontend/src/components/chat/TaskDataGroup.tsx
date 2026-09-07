@@ -39,6 +39,7 @@ type TaskSnapshot = {
   thumbnailUrl?: string
   videoUrl?: string
   errorMessage?: string
+  updatedAt?: string
 }
 
 type AudioData = {
@@ -68,13 +69,14 @@ function mapTaskRow(row: Record<string, unknown>, fallbackTaskId: string): TaskS
     thumbnailUrl: asString(row.thumbnail_url),
     videoUrl: asString(row.video_url),
     errorMessage: asString(row.error_message),
+    updatedAt: asString(row.updated_at),
   }
 }
 
 function resolveTaskSnapshot(
   seed: ChatUIDataParts['task-status'] | undefined,
   liveSnapshot: TaskSnapshot | null
-) {
+): TaskSnapshot | null | undefined {
   if (!seed) return liveSnapshot
   if (!liveSnapshot) return seed
   if (liveSnapshot.taskId !== seed.taskId) return seed
@@ -482,7 +484,10 @@ function SummaryContinuation({
 
 function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskDataGroupProps) {
   const { t, locale } = useI18n()
-  const [isRetrying, setIsRetrying] = useState(false)
+  const [retryAttempt, setRetryAttempt] = useState<{
+    taskId: string
+    failedUpdatedAt?: string
+  } | null>(null)
   const trackedTaskViewsRef = useRef<Set<string>>(new Set())
   const isDemo = isLocalUiDemo()
   const liveSnapshot = useLiveTaskSnapshot(taskStatus, live && !isDemo)
@@ -491,6 +496,18 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const { summary: persistedSummary, audioData } = useTaskOutputs(snapshot?.taskId, locale, !isDemo)
   const summary = isDemo ? demoArtifact.summary : persistedSummary
   const normalizedStatus = snapshot ? normalizeTaskStatus(snapshot.status) : null
+
+  const hasNewFailure = normalizedStatus === 'failed'
+    && retryAttempt?.failedUpdatedAt !== undefined
+    && snapshot?.updatedAt !== undefined
+    && Date.parse(snapshot.updatedAt) > Date.parse(retryAttempt.failedUpdatedAt)
+  // A newer failed row also proves a new attempt when intermediate events were missed.
+  if (retryAttempt !== null && (
+    snapshot?.taskId !== retryAttempt.taskId || normalizedStatus !== 'failed' || hasNewFailure
+  )) {
+    setRetryAttempt(null)
+  }
+  const isRetrying = retryAttempt !== null && retryAttempt.taskId === snapshot?.taskId
 
   useEffect(() => {
     if (isDemo || normalizedStatus !== 'completed' || !summary || !snapshot?.taskId) return
@@ -517,7 +534,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const keypoints = summary?.keypoints?.slice(0, visibleKeypointCount) ?? []
   const evidenceItems = summary ? collectEvidence(summary) : []
   const stageLabel = getStageLabel(t, status, snapshot.progress)
-  const safeError = snapshot.errorMessage
+  const safeError = status === 'failed' && snapshot.errorMessage
     ? sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
     : null
   const canRetry = status === 'failed' && Boolean(onRetryTask)
@@ -527,9 +544,14 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
   const handleRetry = async () => {
     if (!onRetryTask || isRetrying) return
-    setIsRetrying(true)
-    const accepted = await onRetryTask(snapshot.taskId)
-    if (!accepted) setIsRetrying(false)
+    const attempt = { taskId: snapshot.taskId, failedUpdatedAt: snapshot.updatedAt }
+    setRetryAttempt(attempt)
+    try {
+      const accepted = await onRetryTask(snapshot.taskId)
+      if (!accepted) setRetryAttempt((current) => current === attempt ? null : current)
+    } catch {
+      setRetryAttempt((current) => current === attempt ? null : current)
+    }
   }
 
   return (

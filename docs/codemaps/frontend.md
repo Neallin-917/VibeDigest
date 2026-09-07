@@ -50,10 +50,10 @@ src/app/
 │   ├── chat/                         # primary chat workspace
 │   ├── explore/                      # public task discovery
 │   ├── login/ and auth/callback/     # authentication
+│   ├── policies/                    # public refund and payment terms
 │   ├── (main)/
 │   │   ├── tasks/[id]/               # task result
-│   │   ├── settings/                 # account and pricing
-│   │   └── policies/                 # authenticated legal routes
+│   │   └── settings/                 # account and pricing
 │   └── about, faq, privacy, terms
 └── api/
     ├── process-video/                # authenticated FastAPI proxy
@@ -79,6 +79,17 @@ src/app/
 | Backend commands | `src/lib/api.ts` | Typed browser-facing API client |
 | Live task events | `src/lib/task-live.ts` | Supabase Realtime only |
 | Supabase clients | `src/lib/supabase*.ts` | Browser/public and server credential boundaries |
+
+Public policy pages render outside `MainShell`. Protected-route redirects and
+all authentication methods preserve the localized return path, query, and anchor
+through `locale-navigation.ts`.
+
+Library navigation keeps filters and pagination in the URL. Detail links retain
+the validated originating library path and episode anchor, including when the
+digest is in another language. `TaskDetailRefresh` refreshes the server projection
+after Realtime task/summary changes and subscription recovery; it never polls.
+The shared inline-task subscription also re-reads on reconnect and ignores older
+row versions so a stale read cannot replace a newer result.
 | Durable chat schema | `src/lib/chat-message-boundary.ts` | Validate request, replay, and persistence boundaries |
 | Follow-up context budget | `src/app/api/chat/context-budget.ts` | Keep recent complete UI messages within message and character limits |
 | Task Agent | `src/lib/agent/` | Shared intent/tools/runner, signed backend client, source index and citations |

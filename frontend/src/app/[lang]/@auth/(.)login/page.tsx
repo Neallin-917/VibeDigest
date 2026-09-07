@@ -12,12 +12,12 @@ export default function LoginModal() {
 
     return (
         <Dialog open={true} onOpenChange={() => router.back()}>
-            <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-md w-full sm:max-w-md">
+            <DialogContent className="w-[calc(100%-2rem)] border-border bg-card p-0 shadow-lg sm:max-w-md [&_[data-slot=dialog-close]]:right-2 [&_[data-slot=dialog-close]]:top-2 [&_[data-slot=dialog-close]]:flex [&_[data-slot=dialog-close]]:size-11 [&_[data-slot=dialog-close]]:items-center [&_[data-slot=dialog-close]]:justify-center">
                 {/* Accessibility: Title is required by DialogContent, use VisuallyHidden if no visible title is desired in the wrapper */}
                 <VisuallyHidden>
                     <DialogTitle>{t("auth.welcomeBack")}</DialogTitle>
                 </VisuallyHidden>
-                <LoginForm isModal className="backdrop-blur-xl bg-white/60 dark:bg-black/60 border border-white/40 dark:border-white/10 shadow-2xl ring-1 ring-white/40 dark:ring-white/5" />
+                <LoginForm isModal />
             </DialogContent>
         </Dialog>
     )

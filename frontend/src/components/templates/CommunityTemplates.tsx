@@ -1,16 +1,18 @@
 "use client"
 
-import { useDeferredValue, useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cva } from "class-variance-authority"
-import { ChevronDown, ExternalLink, Search } from "lucide-react"
+import { ExternalLink, Search } from "lucide-react"
 import { getLocaleDisplayName, type Locale } from "@/lib/i18n"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { findPodcastSource, resolvePodcastSourceId, type PodcastSource } from "@/lib/podcast-sources"
 import { buildTaskSlug } from "@/lib/task-path"
+import { buildLibraryHref, libraryEpisodeAnchor, parseLibraryReturnHref } from "@/lib/library-navigation"
 import { cn } from "@/lib/utils"
+import { TopicHubLinks } from "./TopicHubLinks"
 
 export type TaskOutput = {
     kind: string
@@ -66,9 +68,6 @@ type CommunityCopy = {
 type PodcastCopy = {
     sourceShelf: string
     all: string
-    showAll: string
-    showLess: string
-    curated: string
     recent: string
     read: string
     source: string
@@ -77,7 +76,6 @@ type PodcastCopy = {
     empty: string
     clearFilters: string
     loadMore: string
-    episodeUnit: string
     keyPointUnit: string
     resultCount: string
     languageAvailable: (language: string) => string
@@ -87,9 +85,6 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
     en: {
         sourceShelf: "Browse by show",
         all: "All",
-        showAll: "Browse all shows",
-        showLess: "Show less",
-        curated: "Ready to read",
         recent: "More organized episodes",
         read: "View digest",
         source: "Original episode",
@@ -98,7 +93,6 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         empty: "No finished digests match this filter yet.",
         clearFilters: "Clear filters",
         loadMore: "Load more",
-        episodeUnit: "digests",
         keyPointUnit: "key points",
         resultCount: "digests ready",
         languageAvailable: (language) => `Digest available in ${language}.`,
@@ -106,9 +100,6 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
     zh: {
         sourceShelf: "按节目浏览",
         all: "全部",
-        showAll: "浏览全部节目",
-        showLess: "收起节目",
-        curated: "可以直接阅读",
         recent: "更多整理内容",
         read: "查看整理",
         source: "原节目",
@@ -117,7 +108,6 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         empty: "没有符合当前筛选的整理内容。",
         clearFilters: "清除筛选",
         loadMore: "加载更多",
-        episodeUnit: "期整理",
         keyPointUnit: "个关键观点",
         resultCount: "条已整理内容",
         languageAvailable: (language) => `该整理当前提供${language}版本。`,
@@ -125,9 +115,6 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
     ja: {
         sourceShelf: "番組から探す",
         all: "すべて",
-        showAll: "すべての番組を見る",
-        showLess: "折りたたむ",
-        curated: "すぐに読める整理内容",
         recent: "その他の整理内容",
         read: "整理内容を見る",
         source: "元のエピソード",
@@ -136,7 +123,6 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         empty: "現在の条件に一致する整理内容はありません。",
         clearFilters: "絞り込みを解除",
         loadMore: "さらに読み込む",
-        episodeUnit: "件の整理",
         keyPointUnit: "の要点",
         resultCount: "件の整理済み",
         languageAvailable: (language) => `この整理は現在${language}で読めます。`,
@@ -210,12 +196,11 @@ const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
     },
 })
 
-function taskDetailHref(task: Task, locale: Locale, sourceId = "all", query = "") {
+function taskDetailHref(task: Task, locale: Locale, returnHref?: string) {
     const slug = buildTaskSlug(task.video_title || "podcast")
     const returnState = new URLSearchParams()
-    if (sourceId !== "all") returnState.set("fromShow", sourceId)
-    const trimmedQuery = query.trim()
-    if (trimmedQuery) returnState.set("fromQuery", trimmedQuery.slice(0, 120))
+    const safeReturn = parseLibraryReturnHref(returnHref)
+    if (safeReturn) returnState.set("from", `${safeReturn}#${libraryEpisodeAnchor(task.id)}`)
     const search = returnState.toString()
     return `/${locale}/tasks/${task.id}/${slug}${search ? `?${search}` : ""}`
 }
@@ -257,16 +242,6 @@ function metadataForTask(task: Task, locale: Locale, copy: PodcastCopy) {
     return values.join(" · ")
 }
 
-function buildLibraryHref(pathname: string, sourceId: string, query: string, page: number) {
-    const params = new URLSearchParams()
-    if (sourceId !== "all") params.set("show", sourceId)
-    const trimmedQuery = query.trim()
-    if (trimmedQuery) params.set("q", trimmedQuery.slice(0, 120))
-    if (page > 1) params.set("page", String(page))
-    const search = params.toString()
-    return `${pathname}${search ? `?${search}` : ""}`
-}
-
 function SourceMark({ source, size = "large" }: { source: PodcastSource; size?: "compact" | "small" | "large" }) {
     const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)
     const sizeClass = size === "large"
@@ -306,27 +281,28 @@ function EpisodeFeatureCard({
     task,
     locale,
     copy,
-    sourceId,
-    query,
+    returnHref,
+    onNavigate,
     priority = false,
     role = "standard",
 }: {
     task: Task
     locale: Locale
     copy: PodcastCopy
-    sourceId: string
-    query: string
+    returnHref?: string
+    onNavigate?: () => void
     priority?: boolean
     role?: EpisodeCardRole
 }) {
     const source = sourceForTask(task)
     if (!source) return null
     const title = task.video_title || task.video_url
-    const href = taskDetailHref(task, taskDigestLocale(task, locale), sourceId, query)
+    const href = taskDetailHref(task, taskDigestLocale(task, locale), returnHref)
     const digestNotice = mismatchNotice(task, locale, copy)
 
     return (
         <article
+            id={libraryEpisodeAnchor(task.id)}
             data-card-role={role}
             className={episodeCardVariants({ role })}
         >
@@ -366,6 +342,7 @@ function EpisodeFeatureCard({
                 </div>
                 <Link
                     href={href}
+                    onNavigate={onNavigate}
                     aria-label={`${copy.read}: ${title}`}
                     onClick={() => trackGrowthEvent("library_digest_open", {
                         locale,
@@ -445,24 +422,24 @@ function PodcastFeatureGrid({
     tasks,
     locale,
     copy,
-    sourceId,
-    query,
+    returnHref,
+    onNavigate,
 }: {
     tasks: Task[]
     locale: Locale
     copy: PodcastCopy
-    sourceId: string
-    query: string
+    returnHref?: string
+    onNavigate?: () => void
 }) {
     if (tasks.length < 5) {
         const role: EpisodeCardRole = tasks.length === 1 ? "solo" : "standard"
         return (
-            <div data-feature-layout="balanced" className="grid gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-12">
+            <div data-feature-layout="balanced" className="grid gap-px bg-border lg:grid-cols-12">
                 {tasks.map((task, index) => (
                     <div
                         key={task.id}
                         className={cn(
-                            "bg-[color:var(--background)] dark:bg-[#090b0b]",
+                            "bg-background",
                             balancedFeatureItemClass(tasks.length)
                         )}
                     >
@@ -471,8 +448,8 @@ function PodcastFeatureGrid({
                             locale={locale}
                             copy={copy}
                             priority={index === 0}
-                            sourceId={sourceId}
-                            query={query}
+                            returnHref={returnHref}
+                            onNavigate={onNavigate}
                             role={role}
                         />
                     </div>
@@ -486,30 +463,30 @@ function PodcastFeatureGrid({
     const tailTasks = restTasks.slice(2)
 
     return (
-        <div data-feature-layout="editorial" className="grid gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-12">
-            <div className="bg-[color:var(--background)] dark:bg-[#090b0b] lg:col-span-7">
+        <div data-feature-layout="editorial" className="grid gap-px bg-border lg:grid-cols-12">
+            <div className="bg-background lg:col-span-7">
                 <EpisodeFeatureCard
                     task={heroTask}
                     locale={locale}
                     copy={copy}
                     priority
-                    sourceId={sourceId}
-                    query={query}
+                    returnHref={returnHref}
+                    onNavigate={onNavigate}
                     role="hero"
                 />
             </div>
             <div
                 data-slot="supporting-stack"
-                className="grid gap-px bg-slate-200 dark:bg-white/10 lg:col-span-5 lg:grid-rows-2"
+                className="grid gap-px bg-border lg:col-span-5 lg:grid-rows-2"
             >
                 {supportingTasks.map((task) => (
-                    <div key={task.id} className="bg-[color:var(--background)] dark:bg-[#090b0b]">
+                    <div key={task.id} className="bg-background">
                         <EpisodeFeatureCard
                             task={task}
                             locale={locale}
                             copy={copy}
-                            sourceId={sourceId}
-                            query={query}
+                            returnHref={returnHref}
+                            onNavigate={onNavigate}
                             role="supporting"
                         />
                     </div>
@@ -519,7 +496,7 @@ function PodcastFeatureGrid({
                 <div
                     key={task.id}
                     className={cn(
-                        "bg-[color:var(--background)] dark:bg-[#090b0b]",
+                        "bg-background",
                         tailFeatureItemClass(tailTasks.length)
                     )}
                 >
@@ -527,8 +504,8 @@ function PodcastFeatureGrid({
                         task={task}
                         locale={locale}
                         copy={copy}
-                        sourceId={sourceId}
-                        query={query}
+                        returnHref={returnHref}
+                        onNavigate={onNavigate}
                         role="standard"
                     />
                 </div>
@@ -540,33 +517,34 @@ function PodcastFeatureGrid({
 function CompactEpisodeRow({
     task,
     locale,
-    sourceId,
-    query,
+    returnHref,
+    onNavigate,
 }: {
     task: Task
     locale: Locale
-    sourceId: string
-    query: string
+    returnHref?: string
+    onNavigate?: () => void
 }) {
     const source = sourceForTask(task)
     if (!source) return null
-    const href = taskDetailHref(task, taskDigestLocale(task, locale), sourceId, query)
+    const href = taskDetailHref(task, taskDigestLocale(task, locale), returnHref)
     const title = task.video_title || task.video_url
     const digestNotice = mismatchNotice(task, locale, PODCAST_COPY[locale])
     const localizedTakeaway = task.takeawayLocale === locale ? task.takeaway : null
 
     return (
-        <article className="w-full min-w-0 border border-slate-200 bg-white/65 [content-visibility:auto] dark:border-white/10 dark:bg-white/[0.03]">
+        <article id={libraryEpisodeAnchor(task.id)} className="w-full min-w-0 border border-border bg-card/80 [content-visibility:auto]">
             <Link
                 href={href}
+                onNavigate={onNavigate}
                 onClick={() => trackGrowthEvent("library_digest_open", {
                     locale,
                     source: source.id,
                     area: "compact",
                 })}
-                className="grid min-h-[7.75rem] grid-cols-[7.5rem_minmax(0,1fr)] gap-4 p-3 transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:bg-white/[0.035]"
+                className="grid min-h-[7.75rem] grid-cols-[7.5rem_minmax(0,1fr)] gap-4 p-3 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/[0.035]"
             >
-                <div className="relative overflow-hidden bg-slate-100 dark:bg-zinc-950">
+                <div className="relative overflow-hidden bg-muted">
                     {task.thumbnail_url ? (
                         <Image
                             src={task.thumbnail_url}
@@ -583,14 +561,14 @@ function CompactEpisodeRow({
                     )}
                 </div>
                 <div className="min-w-0">
-                    <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-primary">
                         <SourceMark source={source} size="compact" />
                         <span className="truncate">{source.name}</span>
                     </div>
-                    <h3 className="line-clamp-2 text-sm font-semibold leading-6 text-slate-950 dark:text-white">
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-6 text-foreground">
                         {title}
                     </h3>
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-zinc-500">
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
                         {digestNotice || localizedTakeaway || metadataForTask(task, locale, PODCAST_COPY[locale])}
                     </p>
                 </div>
@@ -632,44 +610,109 @@ export function CommunityTemplates({
 }: CommunityTemplatesProps) {
     const router = useRouter()
     const pathname = usePathname()
-    const [showAllSources, setShowAllSources] = useState(false)
     const normalizedInitialQuery = initialQuery.slice(0, 120)
+    const initialHref = buildLibraryHref(pathname || `/${locale}/explore`, initialSource, normalizedInitialQuery, currentPage)
+    const searchTimer = useRef<number | null>(null)
     const [queryInput, setQueryInput] = useState({
-        base: normalizedInitialQuery,
+        observedHref: initialHref,
+        activePath: pathname || `/${locale}/explore`,
+        activeSource: initialSource,
         draft: normalizedInitialQuery,
+        submittedHrefs: [] as string[],
+        lastSubmitted: null as string | null,
     })
-    const queryDraft = queryInput.base === normalizedInitialQuery
-        ? queryInput.draft
-        : normalizedInitialQuery
-    const deferredQuery = useDeferredValue(queryDraft)
+    // Match the whole request so a delayed response cannot undo a newer query or filter.
+    // Browser history and unrelated URL changes remain authoritative.
+    if (queryInput.observedHref !== initialHref) {
+        const isSearchResponse = queryInput.submittedHrefs.includes(initialHref)
+        setQueryInput({
+            observedHref: initialHref,
+            activePath: isSearchResponse ? queryInput.activePath : pathname || `/${locale}/explore`,
+            activeSource: isSearchResponse ? queryInput.activeSource : initialSource,
+            draft: isSearchResponse ? queryInput.draft : normalizedInitialQuery,
+            submittedHrefs: isSearchResponse
+                ? queryInput.submittedHrefs.filter((submitted) => submitted !== initialHref)
+                : [],
+            lastSubmitted: isSearchResponse ? queryInput.lastSubmitted : null,
+        })
+    }
+    const queryDraft = queryInput.draft
     const podcastCopy = PODCAST_COPY[locale]
-    const selectedSource = initialSource
+    const selectedSource = queryInput.activeSource
     const query = initialQuery.slice(0, 120)
-    const featuredSources = sourceItems.slice(0, 6)
-    const selectedSourceNeedsExpansion = selectedSource !== "all" && !featuredSources.some((item) => item.source.id === selectedSource)
-    const sourcesExpanded = showAllSources || selectedSourceNeedsExpansion
-    const visibleSources = sourcesExpanded ? sourceItems : featuredSources
-    const canToggleAllSources = sourceItems.length > featuredSources.length
+    const returnHref = layout === "gallery" ? initialHref : undefined
     const featuredTasks = initialTasks.slice(0, FEATURED_COUNT)
     const feedTasks = initialTasks.slice(FEATURED_COUNT)
+
+    function cancelPendingSearch() {
+        if (searchTimer.current !== null) window.clearTimeout(searchTimer.current)
+        searchTimer.current = null
+        setQueryInput((current) => ({
+            ...current,
+            lastSubmitted: buildLibraryHref(current.activePath, current.activeSource, current.draft, 1),
+        }))
+    }
+
+    function prepareLibraryNavigation(href: string) {
+        if (searchTimer.current !== null) window.clearTimeout(searchTimer.current)
+        searchTimer.current = null
+        const target = new URL(href, window.location.origin)
+        setQueryInput((current) => ({
+            ...current,
+            activePath: target.pathname,
+            activeSource: target.searchParams.get("show") || "all",
+            draft: target.searchParams.get("q") || "",
+            submittedHrefs: [...current.submittedHrefs.slice(-31), href],
+            lastSubmitted: href,
+        }))
+    }
 
     useEffect(() => {
         if (layout === "gallery") trackGrowthEvent("library_view", { locale })
     }, [layout, locale])
 
     useEffect(() => {
-        const trimmedDeferred = deferredQuery.trim().slice(0, 120)
-        const trimmedInitial = initialQuery.trim().slice(0, 120)
-        if (trimmedDeferred === trimmedInitial || !pathname) return
-        const nextHref = buildLibraryHref(pathname, selectedSource, trimmedDeferred, 1)
+        const syncHistoryQuery = () => {
+            if (searchTimer.current !== null) window.clearTimeout(searchTimer.current)
+            searchTimer.current = null
+            const params = new URLSearchParams(window.location.search)
+            const historyQuery = params.get("q")?.slice(0, 120) || ""
+            const historySource = params.get("show") || "all"
+            const historyHref = buildLibraryHref(window.location.pathname, historySource, historyQuery, Number(params.get("page")) || 1)
+            setQueryInput((current) => ({
+                observedHref: current.observedHref,
+                activePath: window.location.pathname,
+                activeSource: historySource,
+                draft: historyQuery,
+                submittedHrefs: [historyHref],
+                lastSubmitted: historyHref,
+            }))
+        }
+        window.addEventListener("popstate", syncHistoryQuery)
+        return () => window.removeEventListener("popstate", syncHistoryQuery)
+    }, [])
+
+    useEffect(() => {
+        const trimmedDraft = queryDraft.trim().slice(0, 120)
+        const nextHref = buildLibraryHref(queryInput.activePath, selectedSource, trimmedDraft, 1)
+        const isCurrentSearch = trimmedDraft === initialQuery.trim().slice(0, 120)
+            && selectedSource === initialSource && queryInput.activePath === pathname
+        if (isCurrentSearch || nextHref === queryInput.lastSubmitted) return
         const timer = window.setTimeout(() => {
+            searchTimer.current = null
+            setQueryInput((current) => ({
+                ...current,
+                submittedHrefs: [...current.submittedHrefs.slice(-31), nextHref],
+                lastSubmitted: nextHref,
+            }))
             router.replace(nextHref, { scroll: false })
         }, 220)
+        searchTimer.current = timer
         return () => window.clearTimeout(timer)
-    }, [deferredQuery, initialQuery, pathname, router, selectedSource])
+    }, [queryDraft, queryInput.activePath, queryInput.lastSubmitted, initialQuery, initialSource, pathname, router, selectedSource])
 
     if (initialStatus === "unavailable") {
-        return <p className="py-10 text-sm text-slate-500 dark:text-zinc-400" role="status">{copy.unavailable}</p>
+        return <p className="py-10 text-sm text-muted-foreground" role="status">{copy.unavailable}</p>
     }
 
     if (layout === "landingPreview") {
@@ -686,8 +729,6 @@ export function CommunityTemplates({
                             locale={locale}
                             copy={podcastCopy}
                             priority={index === 0}
-                            sourceId={selectedSource}
-                            query={query}
                             role="standard"
                         />
                     </div>
@@ -700,33 +741,29 @@ export function CommunityTemplates({
     const loadMoreHref = pathname ? buildLibraryHref(pathname, selectedSource, query, currentPage + 1) : "#"
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-5 sm:space-y-6">
             {intro ? (
-                <header className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,32rem)] lg:items-end">
+                <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] lg:items-end">
                     <div className="max-w-3xl">
-                        <h1 className="font-display text-4xl font-bold tracking-[-0.04em] text-slate-950 sm:text-5xl dark:text-white">{intro.title}</h1>
+                        <h1 className="max-w-[24ch] text-balance font-display text-[1.875rem] font-bold leading-[1.12] tracking-[-0.04em] text-foreground sm:text-4xl">{intro.title}</h1>
                     </div>
                     <section id="podcast-search" aria-label={podcastCopy.search} className="scroll-mt-24">
                         <div className="relative block w-full">
-                            <span className="mb-2 flex items-center justify-between text-sm font-medium text-slate-700 dark:text-zinc-300">
-                                <label htmlFor="podcast-library-search">{podcastCopy.search}</label>
-                                <span className="text-xs text-slate-500 dark:text-zinc-500">
-                                    {totalCount} {podcastCopy.resultCount}
-                                </span>
-                            </span>
+                            <label htmlFor="podcast-library-search" className="sr-only">{podcastCopy.search}</label>
                             <span className="relative block">
-                                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" aria-hidden="true" />
+                                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                                 <input
                                     id="podcast-library-search"
                                     type="search"
                                     value={queryDraft}
                                     maxLength={120}
-                                    onChange={(event) => setQueryInput({
-                                        base: normalizedInitialQuery,
+                                    onChange={(event) => setQueryInput((current) => ({
+                                        ...current,
                                         draft: event.target.value,
-                                    })}
+                                        lastSubmitted: null,
+                                    }))}
                                     placeholder={podcastCopy.searchPlaceholder}
-                                    className="h-12 w-full rounded-xl border border-slate-300 bg-white/80 pl-11 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/15 dark:bg-white/[0.04] dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                                    className="h-11 w-full rounded-lg border border-border-strong bg-card pl-11 pr-4 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/25 sm:text-sm"
                                 />
                             </span>
                         </div>
@@ -736,72 +773,52 @@ export function CommunityTemplates({
 
             {showHeader ? (
                 <div>
-                    <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">{copy.title}</h2>
+                    <h2 className="font-display text-2xl font-bold text-foreground">{copy.title}</h2>
                 </div>
             ) : null}
 
-            <section id="podcast-sources" aria-labelledby="podcast-source-heading" className="scroll-mt-24 border-b border-slate-200 pb-6 dark:border-white/10">
-                <div className="mb-3 flex items-end justify-between gap-4">
-                    <h2 id="podcast-source-heading" className="text-base font-semibold text-slate-950 dark:text-zinc-100">{podcastCopy.sourceShelf}</h2>
-                </div>
-                <div className={cn("flex items-center gap-x-4 gap-y-4", sourcesExpanded ? "flex-wrap" : "overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible sm:pb-0")}>
-                    <Link
-                        href={pathname ? buildLibraryHref(pathname, "all", query, 1) : "#"}
-                        scroll={false}
-                        onClick={() => trackGrowthEvent("library_filter_source", { locale, source: "all" })}
-                        aria-current={selectedSource === "all" ? "page" : undefined}
-                        className={cn(
-                            "inline-flex min-h-11 shrink-0 items-center rounded-full border px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
-                            selectedSource === "all"
-                                ? "border-emerald-600 text-emerald-700 dark:border-emerald-400 dark:text-white"
-                                : "border-slate-200 text-slate-600 hover:border-emerald-500/50 dark:border-white/10 dark:text-zinc-400"
-                        )}
+            <div className="flex min-w-0 flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-center lg:gap-6">
+                <TopicHubLinks
+                    locale={locale}
+                    title={locale === "zh" ? "主题" : locale === "ja" ? "トピック" : "Topics"}
+                    compact
+                    activePath={pathname ?? undefined}
+                    query={queryDraft}
+                    onNavigate={prepareLibraryNavigation}
+                    className="min-w-0 flex-1"
+                />
+                <div id="podcast-sources" className="shrink-0 lg:max-w-64">
+                    <label htmlFor="podcast-source-select" className="sr-only">{podcastCopy.sourceShelf}</label>
+                    <select
+                        id="podcast-source-select"
+                        value={selectedSource}
+                        onChange={(event) => {
+                            const source = event.target.value
+                            trackGrowthEvent("library_filter_source", { locale, source })
+                            const href = buildLibraryHref(queryInput.activePath, source, queryDraft, 1)
+                            prepareLibraryNavigation(href)
+                            router.push(href, { scroll: false })
+                        }}
+                        className="h-11 w-full rounded-lg border border-border-strong bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                        {podcastCopy.all}
-                    </Link>
-                    {visibleSources.map((item) => (
-                        <Link
-                            key={item.source.id}
-                            href={pathname ? buildLibraryHref(pathname, item.source.id, query, 1) : "#"}
-                            scroll={false}
-                            onClick={() => trackGrowthEvent("library_filter_source", { locale, source: item.source.id })}
-                            aria-current={selectedSource === item.source.id ? "page" : undefined}
-                            className={cn(
-                                "flex min-h-12 shrink-0 items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
-                                selectedSource === item.source.id
-                                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-400/10 dark:text-white"
-                                    : "hover:bg-slate-100 dark:hover:bg-white/[0.04]"
-                            )}
-                        >
-                            <SourceMark source={item.source} size="small" />
-                            <span>
-                                <span className="block text-sm font-semibold text-slate-900 dark:text-zinc-100">{item.source.name}</span>
-                                <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-zinc-500">{item.count} {podcastCopy.episodeUnit}</span>
-                            </span>
-                        </Link>
-                    ))}
-                    {canToggleAllSources && !selectedSourceNeedsExpansion ? (
-                        <button
-                            type="button"
-                            onClick={() => setShowAllSources((value) => !value)}
-                            className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:ml-auto dark:text-emerald-400 dark:hover:text-emerald-300"
-                        >
-                            {sourcesExpanded ? podcastCopy.showLess : podcastCopy.showAll}
-                            <ChevronDown className={cn("size-4 transition-transform", sourcesExpanded && "rotate-180")} aria-hidden="true" />
-                        </button>
-                    ) : null}
+                        <option value="all">{podcastCopy.sourceShelf}: {podcastCopy.all}</option>
+                        {sourceItems.map(({ source, count }) => (
+                            <option key={source.id} value={source.id}>{source.name} ({count})</option>
+                        ))}
+                    </select>
                 </div>
-            </section>
+            </div>
 
             {featuredTasks.length > 0 ? (
                 <section id="podcast-curated" aria-labelledby="podcast-curated-heading" className="scroll-mt-24 space-y-4">
                     <div className="flex items-center justify-between gap-4">
-                        <h2 id="podcast-curated-heading" className="text-lg font-semibold text-slate-950 dark:text-zinc-100">{podcastCopy.curated}</h2>
+                        <h2 id="podcast-curated-heading" className="text-sm font-medium text-muted-foreground">{totalCount} {podcastCopy.resultCount}</h2>
                         {(selectedSource !== "all" || query) ? (
                             <Link
                                 href={clearHref}
+                                onNavigate={() => prepareLibraryNavigation(clearHref)}
                                 scroll={false}
-                                className="text-sm font-medium text-slate-500 transition-colors hover:text-emerald-700 dark:text-zinc-500 dark:hover:text-emerald-400"
+                                className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                             >
                                 {podcastCopy.clearFilters}
                             </Link>
@@ -812,18 +829,19 @@ export function CommunityTemplates({
                         tasks={featuredTasks}
                         locale={locale}
                         copy={podcastCopy}
-                        sourceId={selectedSource}
-                        query={query}
+                        returnHref={returnHref}
+                        onNavigate={cancelPendingSearch}
                     />
                 </section>
             ) : (
-                <section className="border border-dashed border-slate-300 px-5 py-10 text-center dark:border-white/15">
-                    <p className="text-sm text-slate-500 dark:text-zinc-500" role="status">{podcastCopy.empty}</p>
+                <section className="border border-dashed border-border-strong px-5 py-10 text-center">
+                    <p className="text-sm text-muted-foreground" role="status">{podcastCopy.empty}</p>
                     {(selectedSource !== "all" || query) ? (
                         <Link
                             href={clearHref}
+                            onNavigate={() => prepareLibraryNavigation(clearHref)}
                             scroll={false}
-                            className="mt-4 inline-flex min-h-11 items-center rounded-full border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-500 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/15 dark:text-zinc-300 dark:hover:border-emerald-400 dark:hover:text-emerald-400"
+                            className="mt-4 inline-flex min-h-11 items-center rounded-full border border-border-strong px-5 text-sm font-semibold text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                             {podcastCopy.clearFilters}
                         </Link>
@@ -833,11 +851,11 @@ export function CommunityTemplates({
 
             {feedTasks.length > 0 ? (
                 <section id="podcast-feed" aria-labelledby="podcast-feed-heading" className="scroll-mt-24 space-y-4">
-                    <h2 id="podcast-feed-heading" className="text-lg font-semibold text-slate-950 dark:text-zinc-100">{podcastCopy.recent}</h2>
-                    <div className="grid min-w-0 gap-px bg-slate-200 dark:bg-white/10 lg:grid-cols-2">
+                    <h2 id="podcast-feed-heading" className="text-lg font-semibold text-foreground">{podcastCopy.recent}</h2>
+                    <div className="grid min-w-0 gap-px bg-border lg:grid-cols-2">
                         {feedTasks.map((task) => (
-                            <div key={task.id} className="min-w-0 bg-[color:var(--background)] dark:bg-[#090b0b]">
-                                <CompactEpisodeRow task={task} locale={locale} sourceId={selectedSource} query={query} />
+                            <div key={task.id} className="min-w-0 bg-background">
+                                <CompactEpisodeRow task={task} locale={locale} returnHref={returnHref} onNavigate={cancelPendingSearch} />
                             </div>
                         ))}
                     </div>
@@ -845,13 +863,14 @@ export function CommunityTemplates({
                         <div className="flex justify-center pt-2">
                             <Link
                                 href={loadMoreHref}
+                                onNavigate={() => prepareLibraryNavigation(loadMoreHref)}
                                 scroll={false}
                                 onClick={() => trackGrowthEvent("library_load_more", {
                                     locale,
                                     page: currentPage + 1,
                                     source: selectedSource,
                                 })}
-                                className="inline-flex min-h-11 items-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-500/60 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/15 dark:text-zinc-300 dark:hover:border-emerald-400/60 dark:hover:text-emerald-400"
+                                className="inline-flex min-h-11 items-center rounded-full border border-border px-5 text-sm font-semibold text-foreground transition-colors hover:border-primary/60 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             >
                                 {podcastCopy.loadMore}
                             </Link>

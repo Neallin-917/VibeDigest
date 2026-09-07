@@ -62,6 +62,34 @@ describe('MobileMenuDrawer', () => {
     i18nMock.locale = 'en'
   })
 
+  it('preserves visible history and offers retry when refreshing fails', () => {
+    const retry = vi.fn()
+    const props = {
+      isOpen: true, onOpenChange: vi.fn(), onNewChat: vi.fn(), onOpenLibrary: vi.fn(),
+      threads: [{ id: 'saved', title: 'Saved chat', updated_at: '2026-09-07T00:00:00Z', status: 'active' as const }],
+      threadsStatus: 'error' as const,
+      onRetryThreads: retry,
+    }
+    const { rerender } = render(<MobileMenuDrawer {...props} />)
+    expect(screen.getByText('Saved chat')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('chat.errors.historyListLoad')
+    expect(screen.queryByText('chat.noChats')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }))
+    expect(retry).toHaveBeenCalledOnce()
+    rerender(<MobileMenuDrawer {...props} isThreadsFetching />)
+    expect(screen.getByRole('button', { name: 'common.retry' })).toBeDisabled()
+  })
+
+  it('shows empty history only after a successful load', () => {
+    const props = { isOpen: true, onOpenChange: vi.fn(), onNewChat: vi.fn(), onOpenLibrary: vi.fn() }
+    const { rerender } = render(<MobileMenuDrawer {...props} threadsStatus="pending" />)
+    expect(screen.queryByText('chat.noChats')).not.toBeInTheDocument()
+    rerender(<MobileMenuDrawer {...props} threadsStatus="error" />)
+    expect(screen.queryByText('chat.noChats')).not.toBeInTheDocument()
+    rerender(<MobileMenuDrawer {...props} threadsStatus="success" />)
+    expect(screen.getByText('chat.noChats')).toBeInTheDocument()
+  })
+
   it('renders archived threads in a separate section', () => {
     render(
       <MobileMenuDrawer

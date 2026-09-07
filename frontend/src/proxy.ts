@@ -110,6 +110,7 @@ export async function proxy(request: NextRequest) {
     // If no user AND no bypass cookie, block access
     if (!user && !hasBypassCookie) {
       const loginUrl = new URL(`/${locale}/login`, request.url)
+      loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`)
       const redirectResponse = NextResponse.redirect(loginUrl)
       // Copy session cookies from updateSession response
       response.cookies.getAll().forEach(c => redirectResponse.cookies.set(c.name, c.value, c))

@@ -19,8 +19,14 @@ test('legal routes remain public and protected routes retain their return destin
   await page.screenshot({ path: `${outputDir}/refund-public.jpg`, type: 'jpeg' })
   await page.goto('/zh/settings/pricing?plan=pro#topup')
   await expect(page).toHaveURL(/\/zh\/login\?next=/)
-  expect(new URL(page.url()).searchParams.get('next')).toBe('/zh/settings/pricing?plan=pro')
-  expect(new URL(page.url()).hash).toBe('#topup')
+  // HTTP redirects inherit the fragment; client redirects include it in next.
+  // Both must preserve the complete destination used by the login form.
+  const loginUrl = new URL(page.url())
+  const next = loginUrl.searchParams.get('next')!
+  const destination = new URL(next, loginUrl.origin)
+  if (!destination.hash) destination.hash = loginUrl.hash
+  expect(`${destination.pathname}${destination.search}${destination.hash}`)
+    .toBe('/zh/settings/pricing?plan=pro#topup')
 })
 
 test('Chinese hero keeps whole phrases and gives an inline recoverable URL error', async ({ page }) => {

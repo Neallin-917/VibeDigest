@@ -12,6 +12,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from api.routes.system import TASK_SUBMISSION_READINESS_SQL
 from db_client import DBClient
+from services.catalog_backfill_scope import ScopedCatalogSummaryQueue
 from services.task_queue import (
     GuestQuotaExceededError,
     PostgresTaskQueue,
@@ -1004,6 +1005,121 @@ def _enqueue_locale(db: DBClient, task_id: str, locale: str):
         {"id": task_id, "locale": locale},
     )[0]
 
+
+def test_scoped_catalog_read_leaves_unrelated_delivery_and_lease_unchanged(pgmq_db):
+    # Put the unrelated retry first so a read-then-filter implementation fails.
+    unrelated_task = _catalog_for_locale_backfill(pgmq_db)
+    target_task = _catalog_for_locale_backfill(pgmq_db)
+    unrelated = _enqueue_locale(pgmq_db, unrelated_task, "zh")
+    target = _enqueue_locale(pgmq_db, target_task, "zh")
+    assert unrelated["resolution"] == target["resolution"] == "queued"
+    assert unrelated["message_id"] < target["message_id"]
+
+    def deliveries():
+        return {
+            row["msg_id"]: row
+            for row in pgmq_db._execute_query(
+                "SELECT msg_id, vt, read_ct, message FROM pgmq.q_podcast_supply"
+            )
+        }
+
+    before = deliveries()
+    queue = ScopedCatalogSummaryQueue(pgmq_db, task_ids=[target_task])
+    jobs = queue.read(visibility_timeout_seconds=300)
+
+    assert len(jobs) == 1
+    delivery = jobs[0]
+    assert delivery.message_id == target["message_id"]
+    assert delivery.message["kind"] == "retry_output"
+    assert delivery.message["output_id"] == str(target["output_id"])
+    assert queue.validate_delivery(delivery)
+    after_claim = deliveries()
+    assert after_claim[delivery.message_id]["read_ct"] == before[delivery.message_id]["read_ct"] + 1
+    assert after_claim[delivery.message_id]["vt"] > before[delivery.message_id]["vt"]
+    assert after_claim[delivery.message_id]["message"] == before[delivery.message_id]["message"]
+    assert {
+        msg_id: row for msg_id, row in after_claim.items() if msg_id != delivery.message_id
+    } == {
+        msg_id: row for msg_id, row in before.items() if msg_id != delivery.message_id
+    }
+
+    # A second claim cannot bypass the lease or fall back to the unrelated job.
+    assert queue.read(visibility_timeout_seconds=300) == []
+    assert deliveries() == after_claim
+
+    # The original delivery becomes retryable through the normal PGMQ VT API.
+    queue.set_visibility(delivery.message_id, 0)
+    retried = queue.read(visibility_timeout_seconds=300)
+    assert len(retried) == 1
+    assert retried[0].message_id == delivery.message_id
+    assert retried[0].read_count == delivery.read_count + 1
+    assert retried[0].message == delivery.message
+    assert deliveries()[unrelated["message_id"]] == before[unrelated["message_id"]]
+
+
+
+def test_scoped_catalog_read_uses_custom_queue(pgmq_db):
+    queue_name = f"podcast_scope_{uuid4().hex[:10]}"
+    _create_queue(pgmq_db, queue_name)
+    task_id = _catalog_for_locale_backfill(pgmq_db)
+    summary = next(
+        output for output in pgmq_db.get_task_outputs(task_id)
+        if output["kind"] == "summary"
+    )
+    pgmq_db.update_output_status(summary["id"], status="error", progress=100)
+    message_id = PostgresTaskQueue(
+        pgmq_db, catalog_queue_name=queue_name,
+    ).submit_retry_output(
+        output_id=summary["id"], user_id=AUTH_USER_ID, guest_id=None,
+    )
+    default_before = pgmq_db._execute_query(
+        "SELECT msg_id, vt, read_ct, message FROM pgmq.q_podcast_supply ORDER BY msg_id"
+    )
+
+    queue = ScopedCatalogSummaryQueue(pgmq_db, task_ids=[task_id], queue_name=queue_name)
+    jobs = queue.read(visibility_timeout_seconds=300)
+
+    assert len(jobs) == 1
+    assert jobs[0].message_id == message_id
+    assert jobs[0].message["output_id"] == str(summary["id"])
+    assert queue.validate_delivery(jobs[0])
+    assert queue.read(visibility_timeout_seconds=300) == []
+    assert pgmq_db._execute_query(
+        "SELECT msg_id, vt, read_ct, message FROM pgmq.q_podcast_supply ORDER BY msg_id"
+    ) == default_before
+
+
+def test_scoped_catalog_read_skips_locked_candidate_and_claims_next(pgmq_db):
+    first_task = _catalog_for_locale_backfill(pgmq_db)
+    next_task = _catalog_for_locale_backfill(pgmq_db)
+    first = _enqueue_locale(pgmq_db, first_task, "zh")
+    following = _enqueue_locale(pgmq_db, next_task, "zh")
+    queue = ScopedCatalogSummaryQueue(pgmq_db, task_ids=[first_task, next_task])
+    first_before = pgmq_db._execute_query(
+        "SELECT msg_id, vt, read_ct, message FROM pgmq.q_podcast_supply WHERE msg_id = :id",
+        {"id": first["message_id"]},
+    )
+
+    # Hold the oldest candidate on a separate connection while this reader runs.
+    with pgmq_db.engine.begin() as competing_reader:
+        competing_reader.execute(
+            text("SELECT msg_id FROM pgmq.q_podcast_supply WHERE msg_id = :id FOR UPDATE"),
+            {"id": first["message_id"]},
+        )
+        jobs = queue.read(visibility_timeout_seconds=300)
+        assert len(jobs) == 1
+        assert jobs[0].message_id == following["message_id"]
+        assert queue.validate_delivery(jobs[0])
+        assert pgmq_db._execute_query(
+            "SELECT msg_id, vt, read_ct, message FROM pgmq.q_podcast_supply WHERE msg_id = :id",
+            {"id": first["message_id"]},
+        ) == first_before
+
+    # Releasing the competing lock makes the first message claimable as usual.
+    jobs = queue.read(visibility_timeout_seconds=300)
+    assert len(jobs) == 1
+    assert jobs[0].message_id == first["message_id"]
+    assert queue.validate_delivery(jobs[0])
 
 def test_bilingual_backfill_is_idempotent_and_uses_catalog_queue(pgmq_db):
     task_id = _catalog_for_locale_backfill(pgmq_db)

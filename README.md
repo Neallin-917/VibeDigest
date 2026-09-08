@@ -138,6 +138,16 @@ Run `PODCAST_MAX_JOBS=4 make process-podcast-supply` on the trusted machine to
 process a bounded batch. This command requires an existing ChatGPT-managed
 Codex login and refuses API-key Codex authentication.
 
+For a fixed historical target set, pass `--task-ids-file /private/path/ids.json`
+to both `backend/scripts/podcasts/backfill_summary_locales.py` and
+`backend/scripts/tasks/process_catalog_supply.py`. The file must contain a
+nonempty JSON array of task UUIDs. The scoped worker consumes only summary
+retries for those tasks, using PGMQ conditional reads; it does not lease other
+messages or process new catalog videos. It retains the configured catalog queue
+and skips candidates locked by other consumers. This requires PGMQ's four-argument
+`read(queue_name, vt, qty, conditional)` function. Existing lease renewal and
+terminal handoff/archive checks still apply.
+
 `npm run demo:chat` and Playwright smoke do not read production demos or write to Supabase. They render a small fixed set of completed public-case fixtures, so every local visual check has representative cards even when no local database is running.
 
 ## Documentation Map

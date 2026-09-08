@@ -110,19 +110,22 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
         raise NonRetryableJobError("Missing script content; output cannot be retried")
 
     script_text = script_output["content"]
-    try:
-        script_text = await summarizer.optimize_transcript(script_text)
-    except Exception:
-        logger.info(
-            "Transcript optimization failed for retry %s; using original text",
-            output_id,
-            exc_info=True,
-        )
+    task = db_client.get_task(task_id) if kind == "summary" else None
+    workload_kind = (task or {}).get("workload_kind") or WorkloadKind.USER_SUBMISSION
+    # Catalog locales share the persisted transcript/evidence source. Rewriting
+    # it for each missing language adds inference and can change source anchors.
+    if workload_kind != WorkloadKind.CATALOG_SUPPLY:
+        try:
+            script_text = await summarizer.optimize_transcript(script_text)
+        except Exception:
+            logger.info(
+                "Transcript optimization failed for retry %s; using original text",
+                output_id,
+                exc_info=True,
+            )
 
     if kind == "summary":
-        task = db_client.get_task(task_id)
         video_title = (task or {}).get("video_title") or ""
-        workload_kind = (task or {}).get("workload_kind") or WorkloadKind.USER_SUBMISSION
         db_client.update_output_status(
             output_id,
             status="processing",

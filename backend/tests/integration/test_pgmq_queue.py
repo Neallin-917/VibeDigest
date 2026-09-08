@@ -12,6 +12,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from api.routes.system import TASK_SUBMISSION_READINESS_SQL
 from db_client import DBClient
+from services.catalog_backfill_scope import ScopedCatalogSummaryQueue
 from services.task_queue import (
     GuestQuotaExceededError,
     PostgresTaskQueue,
@@ -1003,6 +1004,57 @@ def _enqueue_locale(db: DBClient, task_id: str, locale: str):
         "SELECT * FROM vibedigest_private.enqueue_catalog_summary_locale(CAST(:id AS uuid), :locale)",
         {"id": task_id, "locale": locale},
     )[0]
+
+
+def test_scoped_catalog_read_leaves_unrelated_delivery_and_lease_unchanged(pgmq_db):
+    # Put the unrelated retry first so a read-then-filter implementation fails.
+    unrelated_task = _catalog_for_locale_backfill(pgmq_db)
+    target_task = _catalog_for_locale_backfill(pgmq_db)
+    unrelated = _enqueue_locale(pgmq_db, unrelated_task, "zh")
+    target = _enqueue_locale(pgmq_db, target_task, "zh")
+    assert unrelated["resolution"] == target["resolution"] == "queued"
+    assert unrelated["message_id"] < target["message_id"]
+
+    def deliveries():
+        return {
+            row["msg_id"]: row
+            for row in pgmq_db._execute_query(
+                "SELECT msg_id, vt, read_ct, message FROM pgmq.q_podcast_supply"
+            )
+        }
+
+    before = deliveries()
+    queue = ScopedCatalogSummaryQueue(pgmq_db, task_ids=[target_task])
+    jobs = queue.read(visibility_timeout_seconds=300)
+
+    assert len(jobs) == 1
+    delivery = jobs[0]
+    assert delivery.message_id == target["message_id"]
+    assert delivery.message["kind"] == "retry_output"
+    assert delivery.message["output_id"] == str(target["output_id"])
+    assert queue.validate_delivery(delivery)
+    after_claim = deliveries()
+    assert after_claim[delivery.message_id]["read_ct"] == before[delivery.message_id]["read_ct"] + 1
+    assert after_claim[delivery.message_id]["vt"] > before[delivery.message_id]["vt"]
+    assert after_claim[delivery.message_id]["message"] == before[delivery.message_id]["message"]
+    assert {
+        msg_id: row for msg_id, row in after_claim.items() if msg_id != delivery.message_id
+    } == {
+        msg_id: row for msg_id, row in before.items() if msg_id != delivery.message_id
+    }
+
+    # A second claim cannot bypass the lease or fall back to the unrelated job.
+    assert queue.read(visibility_timeout_seconds=300) == []
+    assert deliveries() == after_claim
+
+    # The original delivery becomes retryable through the normal PGMQ VT API.
+    queue.set_visibility(delivery.message_id, 0)
+    retried = queue.read(visibility_timeout_seconds=300)
+    assert len(retried) == 1
+    assert retried[0].message_id == delivery.message_id
+    assert retried[0].read_count == delivery.read_count + 1
+    assert retried[0].message == delivery.message
+    assert deliveries()[unrelated["message_id"]] == before[unrelated["message_id"]]
 
 
 def test_bilingual_backfill_is_idempotent_and_uses_catalog_queue(pgmq_db):

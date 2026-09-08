@@ -274,3 +274,5 @@ async def test_catalog_retry_validates_target_locale_and_quality(mock_db_client,
             await handle_retry_output("out-bilingual", "u1")
             assert mock_db_client.update_output_status.call_args.kwargs["locale"] == locale
     assert mock_summarizer.summarize_in_language_with_anchors.call_args.kwargs["summary_language"] == locale
+    mock_summarizer.optimize_transcript.assert_not_awaited()
+    assert mock_summarizer.summarize_in_language_with_anchors.call_args.args[0] == "Shared source"

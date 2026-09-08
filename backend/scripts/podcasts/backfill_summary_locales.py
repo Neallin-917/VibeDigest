@@ -19,6 +19,7 @@ load_env()
 
 from db_client import DBClient  # noqa: E402
 from services.execution_policy import CATALOG_SUMMARY_LOCALES  # noqa: E402
+from services.catalog_backfill_scope import read_task_ids, validate_task_ids  # noqa: E402
 
 
 MAX_BACKFILL_TASKS = 100
@@ -39,20 +40,27 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enqueue the selected outputs; defaults to a read-only preview.",
     )
+    parser.add_argument(
+        "--task-ids-file",
+        type=Path,
+        help="Restrict selection to this JSON array of task UUIDs.",
+    )
     return parser.parse_args()
 
 
 def enqueue_missing_summaries(
-    db: DBClient, *, limit: int, apply: bool = False
+    db: DBClient, *, limit: int, apply: bool = False, task_ids: list[str] | None = None
 ) -> dict[str, Any]:
     if not 1 <= limit <= MAX_BACKFILL_TASKS:
         raise ValueError(f"limit must be between 1 and {MAX_BACKFILL_TASKS}")
 
+    scope = validate_task_ids(task_ids) if task_ids is not None else None
     tasks = db._execute_query(
         """
         SELECT t.id::text AS id
           FROM public.tasks t
          WHERE t.workload_kind = 'catalog_supply'
+           AND (CAST(:task_ids AS uuid[]) IS NULL OR t.id = ANY(CAST(:task_ids AS uuid[])))
            AND t.is_demo = true
            AND t.status = 'completed'
            AND NOT EXISTS (
@@ -90,7 +98,7 @@ def enqueue_missing_summaries(
          ORDER BY t.published_at DESC NULLS LAST, t.created_at DESC
          LIMIT :limit
         """,
-        {"locales": list(CATALOG_SUMMARY_LOCALES), "limit": limit},
+        {"locales": list(CATALOG_SUMMARY_LOCALES), "limit": limit, "task_ids": scope},
     )
 
     if not apply:
@@ -136,7 +144,10 @@ def main() -> int:
     args = parse_args()
     try:
         result = enqueue_missing_summaries(
-            DBClient(), limit=args.limit, apply=args.apply
+            DBClient(),
+            limit=args.limit,
+            apply=args.apply,
+            task_ids=read_task_ids(args.task_ids_file) if args.task_ids_file else None,
         )
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0

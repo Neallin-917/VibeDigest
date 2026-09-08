@@ -27,7 +27,7 @@ interface ChatWorkspaceProps {
   onSelectTask: (taskId: string | null) => void
   onSelectExample?: (task: ChatExample) => void
   onThreadCreated?: () => void
-  onChatStarted?: (threadId: string, taskId?: string) => void
+  onChatStarted?: (threadId: string, taskId?: string, messages?: ChatUIMessage[]) => void
   threads?: Thread[]
   threadsStatus?: 'pending' | 'success' | 'error'
   isThreadsFetching?: boolean

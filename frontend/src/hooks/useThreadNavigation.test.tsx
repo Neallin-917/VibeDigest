@@ -3,6 +3,8 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Thread } from '@/types'
 import type { ChatUIMessage } from '@/lib/chat-ui'
+import type { ChatExample } from '@/lib/chat-examples'
+import { LANDING_DEMO } from '@/lib/landing-demo'
 import type { ThreadPayload } from './useThreadPayload'
 import { useThreadNavigation } from './useThreadNavigation'
 
@@ -48,12 +50,12 @@ function StrictWrapper({ children }: { children: ReactNode }) {
   return <StrictMode>{children}</StrictMode>
 }
 
-function mount(options: { search?: string; strict?: boolean; refetch?: () => Promise<Thread[]>; threads?: Thread[] } = {}) {
+function mount(options: { search?: string; strict?: boolean; refetch?: () => Promise<Thread[]>; threads?: Thread[]; publicExample?: ChatExample | null } = {}) {
   navigation.search = options.search ?? ''
   const refetchThreads = options.refetch ?? vi.fn<() => Promise<Thread[]>>().mockResolvedValue([])
   const renders: { threadId: string | null; bootstrapping: boolean }[] = []
   const hook = renderHook(() => {
-    const state = useThreadNavigation({ threads: options.threads ?? [], refetchThreads })
+    const state = useThreadNavigation({ threads: options.threads ?? [], refetchThreads, publicExample: options.publicExample })
     // Capture render-time state, before initialization effects can change it.
     renders.push({ threadId: state.activeThreadId, bootstrapping: state.isBootstrapping })
     return state
@@ -183,6 +185,118 @@ describe('fresh chat identity', () => {
     expect(result.current.activeThreadId).not.toBe(firstId)
     expect(result.current.activeThreadId).not.toBeNull()
     expect(uuid).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('public demo navigation', () => {
+  it('opens the landing example as a completed task without looking up or creating a private thread', async () => {
+    const { result, refetchThreads } = mount({
+      search: 'task=' + LANDING_DEMO.id,
+      publicExample: LANDING_DEMO,
+    })
+
+    await act(async () => {})
+
+    expect(result.current.activeTaskId).toBe(LANDING_DEMO.id)
+    expect(result.current.activeThreadId).toBeNull()
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.initializationError).toBe(false)
+    expect(result.current.initialMessages).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        parts: [expect.objectContaining({
+          type: 'data-task-status',
+          data: expect.objectContaining({
+            taskId: LANDING_DEMO.id,
+            status: 'completed',
+            progress: 100,
+            videoTitle: LANDING_DEMO.video_title,
+            videoUrl: LANDING_DEMO.video_url,
+            thumbnailUrl: LANDING_DEMO.thumbnail_url,
+          }),
+        })],
+      }),
+    ])
+    expect(refetchThreads).not.toHaveBeenCalled()
+    expect(loadPayload).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(uuid).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('restores existing history when the demo link also identifies a thread', async () => {
+    const savedMessages = [message('existing-demo-follow-up')]
+    loadPayload.mockResolvedValue({ taskId: LANDING_DEMO.id, messages: savedMessages })
+    const { result } = mount({
+      search: 'task=' + LANDING_DEMO.id + '&threadId=' + threadA,
+      publicExample: LANDING_DEMO,
+    })
+
+    await waitFor(() => expect(result.current.initialMessages).toEqual(savedMessages))
+
+    expect(result.current.activeTaskId).toBe(LANDING_DEMO.id)
+    expect(result.current.activeThreadId).toBe(threadA)
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(result.current.initializationError).toBe(false)
+    expect(loadPayload).toHaveBeenCalledExactlyOnceWith(threadA, LANDING_DEMO.id)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(uuid).not.toHaveBeenCalled()
+  })
+
+  it('preserves the digest, question, and first answer when the public example gains a persisted thread ID', async () => {
+    const { result, publishSearch } = mount({
+      search: 'task=' + LANDING_DEMO.id,
+      publicExample: LANDING_DEMO,
+    })
+    const digestMessages = result.current.initialMessages
+    const question: ChatUIMessage = {
+      id: 'demo-first-question',
+      role: 'user',
+      parts: [{ type: 'text', text: 'How does the foundation preserve independence?' }],
+    }
+    const answer = message('demo-first-answer')
+    const finishedMessages = [...digestMessages, question, answer]
+
+    act(() => {
+      result.current.handleChatStarted(threadA, LANDING_DEMO.id, finishedMessages)
+    })
+
+    // The workspace can remount as soon as its key changes from new-chat.
+    // Its replacement must receive the finished conversation in that same render.
+    expect(result.current.activeThreadId).toBe(threadA)
+    expect(result.current.initialMessages).toEqual(finishedMessages)
+    expect(result.current.initialMessages).toHaveLength(3)
+    expect(result.current.activeTaskId).toBe(LANDING_DEMO.id)
+    expect(replace).toHaveBeenCalledExactlyOnceWith(
+      '/zh/chat?task=' + LANDING_DEMO.id + '&threadId=' + threadA,
+      { scroll: false },
+    )
+
+    publishSearch('task=' + LANDING_DEMO.id + '&threadId=' + threadA)
+    await act(async () => {})
+
+    expect(result.current.activeThreadId).toBe(threadA)
+    expect(result.current.initialMessages).toEqual(finishedMessages)
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(invalidatePayload).toHaveBeenCalledExactlyOnceWith(threadA)
+    expect(loadPayload).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('continues to accept the existing two-argument callback for a regular chat', async () => {
+    const { result, publishSearch } = mount()
+    const activeThreadId = result.current.activeThreadId!
+
+    act(() => result.current.handleChatStarted(activeThreadId, taskB))
+    publishSearch('threadId=' + activeThreadId + '&task=' + taskB)
+    await act(async () => {})
+
+    expect(result.current.activeThreadId).toBe(activeThreadId)
+    expect(result.current.activeTaskId).toBe(taskB)
+    expect(result.current.initialMessages).toEqual([])
+    expect(result.current.isBootstrapping).toBe(false)
+    expect(invalidatePayload).toHaveBeenCalledExactlyOnceWith(activeThreadId)
+    expect(loadPayload).not.toHaveBeenCalled()
   })
 })
 

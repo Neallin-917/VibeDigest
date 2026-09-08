@@ -1,6 +1,7 @@
 """Explicit task scope for bounded catalog summary maintenance."""
 
 import json
+import re
 from pathlib import Path
 from uuid import UUID
 
@@ -22,8 +23,12 @@ def read_task_ids(path: Path) -> list[str]:
 class ScopedCatalogSummaryQueue(PostgresTaskQueue):
     """Use PGMQ's native conditional read without leasing unrelated messages."""
 
-    def __init__(self, db, *, task_ids: list[str]) -> None:
-        super().__init__(db, queue_name="podcast_supply")
+    def __init__(
+        self, db, *, task_ids: list[str], queue_name: str = "podcast_supply"
+    ) -> None:
+        if not isinstance(queue_name, str) or not re.fullmatch(r"[a-zA-Z0-9_]+", queue_name):
+            raise ValueError("Queue name must contain only letters, numbers and underscores")
+        super().__init__(db, queue_name=queue_name)
         self.task_ids = validate_task_ids(task_ids)
 
     def read(
@@ -37,12 +42,12 @@ class ScopedCatalogSummaryQueue(PostgresTaskQueue):
         if quantity != 1:
             raise ValueError("Scoped catalog reads require quantity=1")
         rows = self.db._execute_query(
-            """
+            f'''
             SELECT delivery.* FROM (
                 SELECT h.job_id
-                  FROM pgmq.q_podcast_supply q
+                  FROM pgmq."q_{self.queue_name}" q
                   JOIN vibedigest_private.task_queue_handoffs h
-                    ON h.message_id = q.msg_id AND h.queue_name = 'podcast_supply'
+                    ON h.message_id = q.msg_id AND h.queue_name = :queue_name
                    AND h.status = 'queued' AND h.kind = 'retry_output'
                    AND q.message->>'job_id' = h.job_id::text
                    AND q.message->>'kind' = h.kind
@@ -54,14 +59,16 @@ class ScopedCatalogSummaryQueue(PostgresTaskQueue):
                    AND t.workload_kind = 'catalog_supply' AND t.is_demo = true
                    AND q.vt <= clock_timestamp()
                  ORDER BY q.msg_id LIMIT 1
+                 FOR UPDATE OF q SKIP LOCKED
             ) candidate
             CROSS JOIN LATERAL pgmq.read(
-                'podcast_supply', :visibility_timeout_seconds, 1,
+                :queue_name, :visibility_timeout_seconds, 1,
                 jsonb_build_object('job_id', candidate.job_id::text,
                                    'kind', 'retry_output')
             ) delivery
-            """,
+            ''',
             {
+                "queue_name": self.queue_name,
                 "task_ids": self.task_ids,
                 "visibility_timeout_seconds": visibility_timeout_seconds,
             },

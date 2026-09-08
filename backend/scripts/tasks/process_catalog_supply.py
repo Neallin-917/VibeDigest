@@ -52,7 +52,9 @@ def parse_args() -> argparse.Namespace:
 async def run(max_jobs: int, task_ids: list[str] | None = None) -> int:
     worker = await build_worker()
     if task_ids is not None:
-        worker.queue = ScopedCatalogSummaryQueue(worker.queue.db, task_ids=task_ids)
+        worker.queue = ScopedCatalogSummaryQueue(
+            worker.queue.db, task_ids=task_ids, queue_name=worker.queue.queue_name
+        )
     processed = await drain_worker(worker, max_jobs=max_jobs)
     print(
         json.dumps(

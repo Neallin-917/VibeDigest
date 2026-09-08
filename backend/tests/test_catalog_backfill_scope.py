@@ -1,7 +1,8 @@
 """Offline contracts for maintenance that must not lease unrelated work."""
 
 import json
-from unittest.mock import MagicMock
+import os
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -11,7 +12,7 @@ from services.catalog_backfill_scope import (
     read_task_ids,
     validate_task_ids,
 )
-from services.task_queue import QueuedJob
+from services.task_queue import PostgresTaskQueue, QueuedJob
 
 
 TASK_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -55,27 +56,33 @@ def test_scoped_queue_rejects_multi_delivery_reads(quantity):
 
 
 @pytest.mark.parametrize("encode_message", [False, True])
-def test_read_scopes_native_claim_and_preserves_delivery_metadata(encode_message):
+@pytest.mark.parametrize("queue_name", ["podcast_supply", "podcast_supply_dev_123"])
+def test_read_scopes_native_claim_and_preserves_delivery_metadata(encode_message, queue_name):
     db = MagicMock()
     message = {"job_id": TASK_B, "kind": "retry_output", "output_id": TASK_A}
     db._execute_query.return_value = [{
         "msg_id": "17", "read_ct": "2",
         "message": json.dumps(message) if encode_message else message,
     }]
-    queue = ScopedCatalogSummaryQueue(db, task_ids=[TASK_A.upper(), TASK_A])
+    queue = ScopedCatalogSummaryQueue(
+        db, task_ids=[TASK_A.upper(), TASK_A], queue_name=queue_name,
+    )
 
     assert queue.read(visibility_timeout_seconds=123) == [QueuedJob(17, 2, message)]
     db._execute_query.assert_called_once()
     query, params = db._execute_query.call_args.args
     sql = " ".join(query.split())
-    assert queue.queue_name == "podcast_supply"
-    assert params == {"task_ids": [TASK_A], "visibility_timeout_seconds": 123}
+    assert queue.queue_name == queue_name
+    assert params == {
+        "queue_name": queue_name, "task_ids": [TASK_A], "visibility_timeout_seconds": 123,
+    }
+    assert f'FROM pgmq."q_{queue_name}" q' in sql
     # Selection must precede the PGMQ claim; no claim-and-return of other jobs.
     assert "o.task_id = ANY(CAST(:task_ids AS uuid[]))" in sql
     assert "o.kind = 'summary' AND o.locale IN ('en', 'zh')" in sql
     assert "t.workload_kind = 'catalog_supply' AND t.is_demo = true" in sql
     assert "q.vt <= clock_timestamp()" in sql
-    assert "h.message_id = q.msg_id AND h.queue_name = 'podcast_supply'" in sql
+    assert "h.message_id = q.msg_id AND h.queue_name = :queue_name" in sql
     assert "h.status = 'queued' AND h.kind = 'retry_output'" in sql
     for predicate in (
         "q.message->>'job_id' = h.job_id::text",
@@ -87,7 +94,8 @@ def test_read_scopes_native_claim_and_preserves_delivery_metadata(encode_message
     assert "jsonb_build_object('job_id', candidate.job_id::text," in sql
     assert "'kind', 'retry_output')" in sql
     assert "read_with_poll" not in sql
-    assert "UPDATE " not in sql.upper()
+    assert "ORDER BY q.msg_id LIMIT 1 FOR UPDATE OF q SKIP LOCKED" in sql
+    assert "pgmq.read( :queue_name," in sql
 
 
 def test_no_eligible_delivery_does_not_fall_back_to_unscoped_read():
@@ -137,3 +145,37 @@ def test_scoped_preview_only_selects_and_never_enqueues():
         "dry_run": True, "tasks_selected": 1, "task_ids": [TASK_A], "outputs_queued": 0,
     }
     db._execute_query.assert_called_once()
+
+
+@pytest.mark.parametrize("queue_name", ["bad-name", "q; DROP TABLE tasks", "q.name", ""])
+def test_queue_rejects_unsafe_queue_name_before_database_access(queue_name):
+    db = MagicMock()
+    with pytest.raises(ValueError):
+        ScopedCatalogSummaryQueue(db, task_ids=[TASK_A], queue_name=queue_name)
+    db._execute_query.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_runner_preserves_configured_queue_when_applying_scope(monkeypatch, capsys):
+    # Importing the command sets its runtime defaults; contain those environment writes.
+    with patch.dict(os.environ):
+        from scripts.tasks import process_catalog_supply
+
+    db = MagicMock()
+    worker = MagicMock()
+    worker.queue = PostgresTaskQueue(db, queue_name="podcast_supply_dev_123")
+    worker.profile.name.value = "trusted_codex"
+    build = AsyncMock(return_value=worker)
+    drain = AsyncMock(return_value=1)
+    monkeypatch.setattr(process_catalog_supply, "build_worker", build)
+    monkeypatch.setattr(process_catalog_supply, "drain_worker", drain)
+
+    assert await process_catalog_supply.run(4, [TASK_A]) == 0
+
+    assert isinstance(worker.queue, ScopedCatalogSummaryQueue)
+    assert worker.queue.db is db
+    assert worker.queue.queue_name == "podcast_supply_dev_123"
+    assert worker.queue.task_ids == [TASK_A]
+    drain.assert_awaited_once_with(worker, max_jobs=4)
+    assert json.loads(capsys.readouterr().out)["queue"] == "podcast_supply_dev_123"
+    db._execute_query.assert_not_called()

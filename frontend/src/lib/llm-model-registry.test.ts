@@ -2,31 +2,31 @@ import { describe, expect, it } from 'vitest';
 import { getProviderModelDefaults, resolveProvider, resolveProviderModel } from './llm-model-registry';
 
 describe('llm-model-registry', () => {
-    it('returns the Luna defaults for OpenRouter', () => {
+    it('returns tiered defaults for OpenRouter', () => {
         expect(getProviderModelDefaults('openrouter')).toEqual({
-            smart: 'openai/gpt-5.6-luna',
+            smart: 'openai/gpt-5.6-terra',
             fast: 'openai/gpt-5.6-luna',
         });
     });
 
-    it('returns the Luna defaults for the OpenAI API provider', () => {
+    it('returns tiered defaults for the OpenAI API provider', () => {
         expect(getProviderModelDefaults('openai')).toEqual({
-            smart: 'gpt-5.6-luna',
+            smart: 'gpt-5.6-terra',
             fast: 'gpt-5.6-luna',
         });
     });
 
-    it('returns the Luna defaults for custom providers', () => {
+    it('returns tiered defaults for custom providers', () => {
         expect(getProviderModelDefaults('custom')).toEqual({
-            smart: 'gpt-5.6-luna',
+            smart: 'gpt-5.6-terra',
             fast: 'gpt-5.6-luna',
         });
     });
 
     it('returns explicit defaults for the local Codex runtime', () => {
         expect(getProviderModelDefaults('codex_local')).toEqual({
-            smart: 'gpt-5.6-luna',
-            fast: 'gpt-5.6-luna',
+            smart: 'gpt-5.6-sol',
+            fast: 'gpt-5.6-terra',
         });
     });
 

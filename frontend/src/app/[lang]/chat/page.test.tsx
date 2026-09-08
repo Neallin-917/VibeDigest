@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { render, screen } from "@testing-library/react"
 import ChatPage, { generateMetadata } from "./page"
 import { LANDING_DEMO } from "@/lib/landing-demo"
 
@@ -27,6 +28,7 @@ describe("ChatPage", () => {
     getChatExamplesMock.mockReturnValue(examplesPromise)
 
     const page = await ChatPage({
+      params: Promise.resolve({ lang: "en" }),
       searchParams: Promise.resolve({ threadId: "ephemeral-thread" }),
     })
 
@@ -36,6 +38,7 @@ describe("ChatPage", () => {
 
   it("skips examples when a task is already selected", async () => {
     const page = await ChatPage({
+      params: Promise.resolve({ lang: "en" }),
       searchParams: Promise.resolve({ task: "task-1", threadId: "thread-1" }),
     })
 
@@ -52,6 +55,7 @@ describe("ChatPage", () => {
     getChatExampleMock.mockResolvedValue(publicExample)
 
     const page = await ChatPage({
+      params: Promise.resolve({ lang: "en" }),
       searchParams: Promise.resolve({ task: "public-task" }),
     })
 
@@ -64,6 +68,7 @@ describe("ChatPage", () => {
     demoState.enabled = true
 
     const page = await ChatPage({
+      params: Promise.resolve({ lang: "en" }),
       searchParams: Promise.resolve({}),
     })
 
@@ -74,7 +79,7 @@ describe("ChatPage", () => {
   it("opens the pinned landing episode in the local visual demo without a remote lookup", async () => {
     demoState.enabled = true
 
-    const page = await ChatPage({ searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
+    const page = await ChatPage({ params: Promise.resolve({ lang: "zh" }), searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
 
     expect(page.props.publicExample).toEqual(LANDING_DEMO)
     expect(getChatExampleMock).not.toHaveBeenCalled()
@@ -84,18 +89,51 @@ describe("ChatPage", () => {
   it("does not substitute the landing episode for another local task", async () => {
     demoState.enabled = true
 
-    const page = await ChatPage({ searchParams: Promise.resolve({ task: "another-task" }) })
+    const page = await ChatPage({ params: Promise.resolve({ lang: "en" }), searchParams: Promise.resolve({ task: "another-task" }) })
 
     expect(page.props.publicExample).toBeNull()
     expect(getChatExampleMock).not.toHaveBeenCalled()
   })
 
-  it("requires the pinned landing task to remain public outside the local demo", async () => {
+  it("offers recovery without mounting private chat when the pinned example is unavailable", async () => {
     getChatExampleMock.mockResolvedValue(null)
 
-    const page = await ChatPage({ searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
+    const page = await ChatPage({ params: Promise.resolve({ lang: "zh" }), searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
 
-    expect(getChatExampleMock).toHaveBeenCalledWith(LANDING_DEMO.id)
+    expect(getChatExampleMock).toHaveBeenCalledWith(LANDING_DEMO.id, "zh")
+    expect(page.type).toBe("main")
+    render(page)
+    expect(screen.getByRole("heading", { name: "这个案例暂时无法打开。" })).toBeVisible()
+    expect(screen.getByRole("link", { name: "新对话" })).toHaveAttribute("href", "/zh/chat")
+    expect(screen.getByRole("link", { name: "重试" })).toHaveAttribute("href", `/zh/chat?task=${LANDING_DEMO.id}`)
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument()
+  })
+
+  it.each([false, true])("shows a language-unavailable state for a Japanese direct link (local demo: %s)", async (localDemo) => {
+    demoState.enabled = localDemo
+    const page = await ChatPage({ params: Promise.resolve({ lang: "ja" }), searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
+
+    expect(getChatExampleMock).not.toHaveBeenCalled()
+    expect(page.type).toBe("main")
+    render(page)
+    expect(screen.getByRole("heading", { name: "このサンプルには選択した言語の要約がありません。" })).toBeVisible()
+    expect(screen.getByRole("link", { name: "新しいチャット" })).toHaveAttribute("href", "/ja/chat")
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument()
+  })
+
+  it.each(["en", "zh"])("checks the actual %s summary before opening the production landing example", async (lang) => {
+    getChatExampleMock.mockResolvedValue(LANDING_DEMO)
+    const page = await ChatPage({ params: Promise.resolve({ lang }), searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
+
+    expect(getChatExampleMock).toHaveBeenCalledWith(LANDING_DEMO.id, lang)
+    expect(page.props.publicExample).toEqual(LANDING_DEMO)
+  })
+
+  it("leaves existing conversation restoration available when the public example is withdrawn", async () => {
+    getChatExampleMock.mockResolvedValue(null)
+    const page = await ChatPage({ params: Promise.resolve({ lang: "en" }), searchParams: Promise.resolve({ task: LANDING_DEMO.id, threadId: "existing-thread" }) })
+
+    expect(getChatExampleMock).not.toHaveBeenCalled()
     expect(page.props.publicExample).toBeNull()
   })
 

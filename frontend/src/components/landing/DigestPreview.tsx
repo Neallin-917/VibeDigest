@@ -12,6 +12,7 @@ import { LANDING_DEMO } from "@/lib/landing-demo"
 export function DigestPreview() {
     const { locale, t } = useI18n()
     const [coverUnavailable, setCoverUnavailable] = useState(false)
+    const hasSummary = LANDING_DEMO.summaryLocales.some((summaryLocale) => summaryLocale === locale)
 
     return (
         <section
@@ -33,11 +34,11 @@ export function DigestPreview() {
                                 <Video className="size-12 text-primary" aria-hidden="true" />
                             ) : (
                                 <Image
-                                    src={LANDING_DEMO.thumbnail_url}
+                                    src="/landing-openclaw.jpg"
                                     alt=""
                                     fill
-                                    // The verified 1280px source cover stays crisp at showcase scale.
-                                    unoptimized
+                                    // Match the 1080px hero cap and the 1.1fr / 1fr desktop grid.
+                                    sizes="(min-width: 1160px) 515px, (min-width: 1024px) calc(52.4vw - 93px), (min-width: 640px) calc(100vw - 114px), calc(100vw - 74px)"
                                     className="object-cover"
                                     onError={() => setCoverUnavailable(true)}
                                 />
@@ -93,12 +94,14 @@ export function DigestPreview() {
                             {t("landing.previewAnswer")}
                         </dd>
                     </dl>
-                    <Button asChild variant="supa" className="h-12 shrink-0 gap-3 px-6 text-sm motion-reduce:transition-none motion-reduce:active:scale-100">
-                        <Link href={`/${locale}/chat?task=${LANDING_DEMO.id}`}>
-                            <span>{t("landing.previewOpen")}</span>
-                            <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
-                        </Link>
-                    </Button>
+                    {hasSummary && (
+                        <Button asChild variant="supa" className="h-12 shrink-0 gap-3 px-6 text-sm motion-reduce:transition-none motion-reduce:active:scale-100">
+                            <Link href={`/${locale}/chat?task=${LANDING_DEMO.id}`}>
+                                <span>{t("landing.previewOpen")}</span>
+                                <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                            </Link>
+                        </Button>
+                    )}
                 </div>
             </div>
         </section>

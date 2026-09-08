@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
 import { isLocalUiDemo } from '@/lib/local-ui-demo'
 import { LANDING_DEMO } from '@/lib/landing-demo'
+import type { Locale } from '@/lib/i18n'
 import landingDemoSummaries from '@/lib/fixtures/landing-demo-summaries.json'
 import {
   type ChatUIDataParts,
@@ -123,8 +124,8 @@ function parseAudioContent(content: string | undefined): AudioData | null {
   }
 }
 
-function useTaskOutputs(taskId: string | undefined, locale: string, enabled = true) {
-  const [summary, setSummary] = useState<CurrentSummary | null>(null)
+function useTaskOutputs(taskId: string | undefined, locale: Locale, enabled = true) {
+  const [summary, setSummary] = useState<{ taskId: string; locale: Locale; value: CurrentSummary | null } | null>(null)
   const [audioData, setAudioData] = useState<AudioData | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
 
@@ -145,7 +146,13 @@ function useTaskOutputs(taskId: string | undefined, locale: string, enabled = tr
 
       const outputs = data as SummaryOutputCandidate[]
       const summaryOutput = pickPreferredSummaryOutput(outputs, locale)
-      setSummary(summaryOutput ? parseCurrentSummary(summaryOutput.content) : null)
+      setSummary({
+        taskId,
+        locale,
+        value: taskId === LANDING_DEMO.id
+          ? matchPublicSummaryOutput(outputs, locale).summary
+          : summaryOutput ? parseCurrentSummary(summaryOutput.content) : null,
+      })
 
       const audioOutput = outputs.find(output => output.kind === 'audio')
       setAudioData(audioOutput ? parseAudioContent(asString(audioOutput.content)) : null)
@@ -173,7 +180,7 @@ function useTaskOutputs(taskId: string | undefined, locale: string, enabled = tr
     }
   }, [locale, supabase, taskId])
 
-  return { summary, audioData }
+  return { summary: summary?.taskId === taskId && summary?.locale === locale ? summary.value : null, audioData }
 }
 
 function createDemoSummary(locale: string): CurrentSummary {

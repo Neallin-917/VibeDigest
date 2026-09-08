@@ -38,7 +38,7 @@ describe("DigestPreview", () => {
         expect(within(preview).queryByText("landing.previewSourceMap")).not.toBeInTheDocument()
     })
 
-    it.each(["en", "zh", "ja"])("opens the current episode in the %s agent conversation", (locale) => {
+    it.each(["en", "zh"])("opens the current episode in the %s agent conversation", (locale) => {
         i18n.locale = locale
         render(<DigestPreview />)
 
@@ -46,6 +46,28 @@ describe("DigestPreview", () => {
         expect(screen.getByRole("link", { name: /landing.previewOpen/ })).toHaveAttribute(
             "href", `/${locale}/chat?task=3a6c1431-239b-49f2-89be-00f3f52f59bc`
         )
+    })
+
+    it("keeps the Japanese preview visible without offering an unavailable summary conversation", () => {
+        i18n.locale = "ja"
+        render(<DigestPreview />)
+
+        const preview = screen.getByRole("region", { name: "landing.previewTitle" })
+        expect(within(preview).queryByRole("link", { name: /landing.previewOpen/ })).not.toBeInTheDocument()
+        expect(within(preview).getByText("landing.previewBrief")).toBeVisible()
+        expect(within(preview).getByText("landing.previewPointOne")).toBeVisible()
+        expect(within(preview).getByText("landing.previewPointTwo")).toBeVisible()
+        expect(within(preview).getByText("landing.previewQuestion")).toBeVisible()
+        expect(within(preview).getByText("landing.previewAnswer")).toBeVisible()
+        expect(within(preview).getByAltText("")).toBeVisible()
+    })
+
+    it("serves responsive optimized cover candidates", () => {
+        render(<DigestPreview />)
+
+        const cover = screen.getByAltText("")
+        expect(cover).toHaveAttribute("sizes", expect.any(String))
+        expect(cover).toHaveAttribute("srcset", expect.stringMatching(/\/_next\/image\?.+ \d+w/))
     })
 
     it("keeps the original episode accessible when its cover cannot load", () => {

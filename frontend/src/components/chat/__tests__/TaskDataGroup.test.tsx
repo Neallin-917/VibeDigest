@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskDataGroup } from '../TaskDataGroup'
 import { LANDING_DEMO } from '@/lib/landing-demo'
 import landingDemoSummaries from '@/lib/fixtures/landing-demo-summaries.json'
+import { matchPublicSummaryOutput } from '@/lib/summary-contract'
 
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
 
@@ -101,6 +102,20 @@ describe('TaskDataGroup', () => {
     demoState.enabled = false
     i18nState.locale = 'en'
     vi.clearAllMocks()
+  })
+
+  it('does not fall back to the English landing digest when the route changes to Japanese', async () => {
+    taskOutputRows = landingDemoSummaries.outputs
+    const { rerender } = render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    const english = matchPublicSummaryOutput(landingDemoSummaries.outputs, 'en').summary!
+    await screen.findByText(english.tl_dr!)
+
+    i18nState.locale = 'ja'
+    rerender(<TaskDataGroup taskStatus={{ ...landingTaskStatus }} />)
+    expect(screen.queryByText(english.tl_dr!)).not.toBeInTheDocument()
+    await waitFor(() => expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('No summary available.')).toBeVisible()
+    expect(screen.queryByText(english.overview)).not.toBeInTheDocument()
   })
 
   it('renders the embedded player as soon as live video metadata arrives', async () => {

@@ -4,4 +4,5 @@ export const LANDING_DEMO = {
   video_url: "https://youtube.com/watch?v=zgNvts_2TUE",
   video_title: "State of the Claw: Peter Steinberger",
   thumbnail_url: "https://i.ytimg.com/vi/zgNvts_2TUE/maxresdefault.jpg",
+  summaryLocales: ["en", "zh"],
 } as const

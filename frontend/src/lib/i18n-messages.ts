@@ -521,6 +521,8 @@ const enMessages = {
       retry: "Retry",
       retryQueued: "Retry queued",
       genericError: "Something went wrong.",
+      exampleUnavailable: "This example is unavailable right now.",
+      exampleLanguageUnavailable: "This example has no summary in your selected language.",
       errors: {
         historyLoad: "Failed to load chat history.",
         historyListLoad: "History unavailable.",
@@ -1194,6 +1196,8 @@ const zhMessages: MessageShape<typeof enMessages> = {
       retry: "重试",
       retryQueued: "已安排重试",
       genericError: "出现错误，请重试。",
+      exampleUnavailable: "这个案例暂时无法打开。",
+      exampleLanguageUnavailable: "这个案例暂无当前语言的摘要。",
       errors: {
         historyLoad: "无法加载对话记录。",
         historyListLoad: "历史加载失败",
@@ -1457,6 +1461,8 @@ const jaMessages: Messages = {
       retry: "再試行",
       retryQueued: "再試行を待機中",
       genericError: "エラーが発生しました。もう一度お試しください。",
+      exampleUnavailable: "現在このサンプルを開けません。",
+      exampleLanguageUnavailable: "このサンプルには選択した言語の要約がありません。",
       errors: {
         historyLoad: "チャット履歴を読み込めませんでした。",
         historyListLoad: "履歴を読み込めません",

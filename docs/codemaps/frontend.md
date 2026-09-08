@@ -87,6 +87,15 @@ through `locale-navigation.ts`.
 The landing digest pins one public example in `src/lib/landing-demo.ts`. Its CTA
 opens `/[lang]/chat?task=...`; the existing chat page verifies public availability
 before showing the task, and retains that task through the sign-in handoff.
+The CTA is offered only for the pinned episode's supported summary languages.
+Its original episode cover is bundled as `public/landing-openclaw.jpg` and served
+through Next's responsive image optimizer, avoiding an external image fetch at
+page render time.
+Direct entry freshly validates a completed summary in the route language. A
+missing, withdrawn, or unreachable example shows a retry/new-chat recovery state
+instead of entering private thread initialization; existing conversations retain
+their authenticated restoration path. The inline pinned digest never substitutes
+another summary language, including while changing locales.
 The local visual demo uses the complete published English/Chinese summary snapshot
 in `src/lib/fixtures/landing-demo-summaries.json` for this episode; production still
 reads persisted task outputs. Inline digests render the overview, every key point,

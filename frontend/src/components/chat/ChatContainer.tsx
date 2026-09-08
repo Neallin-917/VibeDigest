@@ -30,7 +30,7 @@ interface ChatContainerProps {
   isAuthenticated?: boolean | null
   isInteractionLocked?: boolean
   onSelectExample?: (task: ChatExample) => void
-  onChatStarted?: (threadId: string, taskId?: string) => void
+  onChatStarted?: (threadId: string, taskId?: string, messages?: ChatUIMessage[]) => void
   initialExamples?: Promise<ChatExample[]> | null
   variant?: 'workspace' | 'embedded'
   scope?: 'workspace' | 'source'
@@ -207,7 +207,7 @@ export function ChatContainer({
       }
       const taskId = confirmedTaskId ?? previousTaskId ?? undefined
       if (taskId) activeTaskIdRef.current = taskId
-      onChatStarted?.(effectiveThreadId, taskId)
+      onChatStarted?.(effectiveThreadId, taskId, finishedMessages)
     }
   })
 

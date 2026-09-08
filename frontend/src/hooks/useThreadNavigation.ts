@@ -31,7 +31,7 @@ export interface ThreadNavigationState {
     handleSelectThread: (threadId: string) => Promise<void>
     handleSelectTask: (taskId: string | null) => Promise<void>
     handleSelectExample: (task: ChatExample) => Promise<void>
-    handleChatStarted: (threadId: string, taskId?: string) => void
+    handleChatStarted: (threadId: string, taskId?: string, messages?: ChatUIMessage[]) => void
     prefetchThread: (threadId: string) => void
 }
 
@@ -525,10 +525,17 @@ export function useThreadNavigation({
     }, [openPublicExample])
 
     // Handle Chat Started (first message sent, optionally with a newly created task)
-    const handleChatStarted = useCallback((threadId: string, taskId?: string) => {
+    const handleChatStarted = useCallback((threadId: string, taskId?: string, messages?: ChatUIMessage[]) => {
         isUserNavigatingRef.current = true
         newThreadIdsRef.current.delete(threadId)
         invalidateThreadPayload(threadId)
+
+        // The first public-example follow-up changes the workspace's thread key.
+        // Carry its completed conversation into that remount, not just the digest.
+        if (messages) {
+            setInitialMessages(messages)
+            setActiveThreadId(threadId)
+        }
 
         const params = getCurrentParams()
         if (params.get("threadId") !== threadId) {

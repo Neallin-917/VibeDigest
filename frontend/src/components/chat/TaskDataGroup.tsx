@@ -10,6 +10,9 @@ import { KnowledgeUiBlocks } from './KnowledgeUiBlocks'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
 import { isLocalUiDemo } from '@/lib/local-ui-demo'
+import { LANDING_DEMO } from '@/lib/landing-demo'
+import type { Locale } from '@/lib/i18n'
+import landingDemoSummaries from '@/lib/fixtures/landing-demo-summaries.json'
 import {
   type ChatUIDataParts,
   type TaskLifecycleStatus,
@@ -20,6 +23,7 @@ import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title
 import { trackGrowthEvent } from '@/lib/growth-events'
 import {
   parseCurrentSummary,
+  matchPublicSummaryOutput,
   pickPreferredSummaryOutput,
   type CurrentSummary,
   type SummaryOutputCandidate,
@@ -120,8 +124,8 @@ function parseAudioContent(content: string | undefined): AudioData | null {
   }
 }
 
-function useTaskOutputs(taskId: string | undefined, locale: string, enabled = true) {
-  const [summary, setSummary] = useState<CurrentSummary | null>(null)
+function useTaskOutputs(taskId: string | undefined, locale: Locale, enabled = true) {
+  const [summary, setSummary] = useState<{ taskId: string; locale: Locale; value: CurrentSummary | null } | null>(null)
   const [audioData, setAudioData] = useState<AudioData | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
 
@@ -142,7 +146,13 @@ function useTaskOutputs(taskId: string | undefined, locale: string, enabled = tr
 
       const outputs = data as SummaryOutputCandidate[]
       const summaryOutput = pickPreferredSummaryOutput(outputs, locale)
-      setSummary(summaryOutput ? parseCurrentSummary(summaryOutput.content) : null)
+      setSummary({
+        taskId,
+        locale,
+        value: taskId === LANDING_DEMO.id
+          ? matchPublicSummaryOutput(outputs, locale).summary
+          : summaryOutput ? parseCurrentSummary(summaryOutput.content) : null,
+      })
 
       const audioOutput = outputs.find(output => output.kind === 'audio')
       setAudioData(audioOutput ? parseAudioContent(asString(audioOutput.content)) : null)
@@ -170,7 +180,7 @@ function useTaskOutputs(taskId: string | undefined, locale: string, enabled = tr
     }
   }, [locale, supabase, taskId])
 
-  return { summary, audioData }
+  return { summary: summary?.taskId === taskId && summary?.locale === locale ? summary.value : null, audioData }
 }
 
 function createDemoSummary(locale: string): CurrentSummary {
@@ -413,72 +423,35 @@ function EvidenceDisclosure({ title, items }: { title: string; items: EvidenceIt
   )
 }
 
-function SummaryContinuation({
+function SummarySections({
   summary,
-  visibleKeypointCount,
   title,
-  sectionsTitle,
 }: {
   summary: CurrentSummary
-  visibleKeypointCount: number
   title: string
-  sectionsTitle: string
 }) {
-  const remainingKeypoints = summary.keypoints.slice(visibleKeypointCount)
-  const hasMoreContent = remainingKeypoints.length > 0 || summary.sections.length > 0
-
-  if (!hasMoreContent) return null
+  if (summary.sections.length === 0) return null
 
   return (
-    <details className="rounded-2xl border border-border/80 bg-surface-raised/80 px-5 py-4">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2">
-        <span>{title}</span>
-        <span aria-hidden="true" className="text-base font-normal text-muted-foreground">+</span>
-      </summary>
-      <div className="mt-4 space-y-6 border-t border-border/70 pt-4">
-        {remainingKeypoints.length > 0 ? (
-          <ol>
-            {remainingKeypoints.map((keypoint, index) => (
-              <li
-                key={`${keypoint.title}-${index}`}
-                className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 border-t border-border/70 py-3 first:border-t-0 first:pt-0 last:pb-0"
-              >
-                <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
-                  {String(visibleKeypointCount + index + 1).padStart(2, '0')}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold leading-5 text-foreground">{keypoint.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : null}
-
-        {summary.sections.length > 0 ? (
-          <div className="space-y-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-              {sectionsTitle}
-            </p>
-            {summary.sections.map((section, index) => (
-              <section key={`${section.section_type}-${section.title ?? index}`} className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0">
-                {section.title ? <h4 className="text-sm font-semibold text-foreground">{section.title}</h4> : null}
-                {section.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{section.description}</p> : null}
-                {section.items.length > 0 ? (
-                  <ul className="mt-3 space-y-2">
-                    {section.items.map((item, itemIndex) => (
-                      <li key={`${item.content}-${itemIndex}`} className="text-sm leading-6 text-muted-foreground">
-                        {item.content}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
-            ))}
-          </div>
-        ) : null}
+    <KnowledgeCard title={title}>
+      <div className="space-y-5">
+        {summary.sections.map((section, index) => (
+          <section key={`${section.section_type}-${section.title ?? index}`} className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0">
+            {section.title ? <h4 className="text-sm font-semibold text-foreground">{section.title}</h4> : null}
+            {section.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{section.description}</p> : null}
+            {section.items.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {section.items.map((item, itemIndex) => (
+                  <li key={`${item.content}-${itemIndex}`} className="text-sm leading-6 text-muted-foreground">
+                    {item.content}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ))}
       </div>
-    </details>
+    </KnowledgeCard>
   )
 }
 
@@ -490,11 +463,18 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   } | null>(null)
   const trackedTaskViewsRef = useRef<Set<string>>(new Set())
   const isDemo = isLocalUiDemo()
+  const isLandingDemo = isDemo && taskStatus?.taskId === LANDING_DEMO.id
   const liveSnapshot = useLiveTaskSnapshot(taskStatus, live && !isDemo)
-  const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo)
+  const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo && !isLandingDemo)
   const snapshot = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
   const { summary: persistedSummary, audioData } = useTaskOutputs(snapshot?.taskId, locale, !isDemo)
-  const summary = isDemo ? demoArtifact.summary : persistedSummary
+  // Local review uses the complete published output snapshot. Production
+  // always reads its persisted summary through the existing task output query.
+  const summary = useMemo<CurrentSummary | null>(() => isLandingDemo
+    ? matchPublicSummaryOutput(landingDemoSummaries.outputs, locale).summary
+    : isDemo ? demoArtifact.summary : persistedSummary, [
+    demoArtifact.summary, isDemo, isLandingDemo, locale, persistedSummary,
+  ])
   const normalizedStatus = snapshot ? normalizeTaskStatus(snapshot.status) : null
 
   const hasNewFailure = normalizedStatus === 'failed'
@@ -530,8 +510,8 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const canRenderMedia = canRenderVideo || Boolean(audioData?.audioUrl)
   const showPlayer = canRenderMedia && (hasSourceMetadata || status === 'completed')
   const conclusion = summary?.tl_dr || summary?.overview
-  const visibleKeypointCount = 3
-  const keypoints = summary?.keypoints?.slice(0, visibleKeypointCount) ?? []
+  const overview = summary?.overview !== conclusion ? summary?.overview : null
+  const keypoints = summary?.keypoints ?? []
   const evidenceItems = summary ? collectEvidence(summary) : []
   const stageLabel = getStageLabel(t, status, snapshot.progress)
   const safeError = status === 'failed' && snapshot.errorMessage
@@ -603,6 +583,12 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
         </KnowledgeCard>
       ) : null}
 
+      {overview ? (
+        <KnowledgeCard title={t('tasks.summaryStructured.overviewTitle')}>
+          <p className="whitespace-pre-line text-sm leading-7 text-muted-foreground">{overview}</p>
+        </KnowledgeCard>
+      ) : null}
+
       {keypoints.length > 0 ? (
         <KnowledgeCard
           title={t('tasks.summaryStructured.keypointsTitle')}
@@ -620,6 +606,9 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
                 <div>
                   <p className="text-sm font-semibold leading-5 text-foreground">{keypoint.title}</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                  {keypoint.why_it_matters ? (
+                    <p className="mt-2 text-sm leading-6 text-foreground">{keypoint.why_it_matters}</p>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -630,11 +619,9 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
       {summary?.uiBlocks?.length ? <KnowledgeUiBlocks blocks={summary.uiBlocks} /> : null}
 
       {summary ? (
-        <SummaryContinuation
+        <SummarySections
           summary={summary}
-          visibleKeypointCount={visibleKeypointCount}
-          title={t('tasks.summaryStructured.continueReading')}
-          sectionsTitle={t('tasks.summaryStructured.sectionsTitle')}
+          title={t('tasks.summaryStructured.sectionsTitle')}
         />
       ) : null}
 

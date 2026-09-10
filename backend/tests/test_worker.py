@@ -384,7 +384,10 @@ async def test_trusted_codex_worker_processes_catalog_task():
 
 
 @pytest.mark.asyncio
-async def test_codex_subscription_preflight_requires_chatgpt_account():
+async def test_codex_subscription_preflight_requires_chatgpt_account(monkeypatch):
+    monkeypatch.setattr("worker.settings.LLM_RUNTIME", "codex_local")
+    monkeypatch.setattr("worker.settings.MODEL_ALIAS_SMART", None)
+    monkeypatch.setattr("worker.settings.MODEL_ALIAS_FAST", None)
     codex = AsyncMock()
     codex.account.return_value = SimpleNamespace(
         account=SimpleNamespace(root=SimpleNamespace(type="apiKey"))
@@ -397,7 +400,11 @@ async def test_codex_subscription_preflight_requires_chatgpt_account():
 
 
 @pytest.mark.asyncio
-async def test_codex_subscription_preflight_returns_plan_without_email():
+async def test_codex_subscription_preflight_returns_plan_without_email(monkeypatch):
+    from worker import settings
+    monkeypatch.setattr(settings, "LLM_RUNTIME", "codex_local")
+    monkeypatch.setattr(settings, "MODEL_ALIAS_SMART", None)
+    monkeypatch.setattr(settings, "MODEL_ALIAS_FAST", None)
     account = SimpleNamespace(type="chatgpt", plan_type="plus", email="secret@example.com")
     codex = AsyncMock()
     codex.account.return_value = SimpleNamespace(
@@ -405,12 +412,68 @@ async def test_codex_subscription_preflight_returns_plan_without_email():
     )
     context = AsyncMock()
     context.__aenter__.return_value = codex
+    codex.models.return_value = SimpleNamespace(data=[
+        SimpleNamespace(model=settings.MODEL_SMART),
+        SimpleNamespace(model=settings.MODEL_FAST),
+    ])
 
     plan = await verify_codex_subscription(
         codex_factory=MagicMock(return_value=context)
     )
 
     assert plan == "plus"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tier", ["SMART", "FAST"])
+async def test_catalog_preflight_rejects_model_override_before_startup(monkeypatch, tier):
+    from worker import settings
+    monkeypatch.setattr(settings, "LLM_RUNTIME", "codex_local")
+    monkeypatch.setattr(settings, "MODEL_ALIAS_SMART", None)
+    monkeypatch.setattr(settings, "MODEL_ALIAS_FAST", None)
+    monkeypatch.setattr(settings, f"MODEL_ALIAS_{tier}", "unsupported-old-model")
+    factory = MagicMock()
+    with pytest.raises(RuntimeError, match=f"MODEL_ALIAS_{tier}"):
+        await verify_codex_subscription(codex_factory=factory)
+    factory.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("missing_tier", ["smart", "fast"])
+async def test_catalog_preflight_rejects_unavailable_model(monkeypatch, missing_tier):
+    from worker import settings
+    monkeypatch.setattr(settings, "LLM_RUNTIME", "codex_local")
+    monkeypatch.setattr(settings, "MODEL_ALIAS_SMART", None)
+    monkeypatch.setattr(settings, "MODEL_ALIAS_FAST", None)
+    defaults = settings._PROVIDER_DEFAULTS["codex_local"]
+    codex = AsyncMock()
+    codex.account.return_value = SimpleNamespace(account=SimpleNamespace(type="chatgpt"))
+    codex.models.return_value = SimpleNamespace(data=[
+        SimpleNamespace(model=model) for tier, model in defaults.items()
+        if tier != missing_tier
+    ])
+    context = AsyncMock()
+    context.__aenter__.return_value = codex
+    with pytest.raises(RuntimeError, match="did not confirm"):
+        await verify_codex_subscription(codex_factory=MagicMock(return_value=context))
+
+
+@pytest.mark.asyncio
+async def test_catalog_model_failure_prevents_database_and_queue_access(monkeypatch):
+    import worker as worker_module
+    monkeypatch.setenv("WORKER_PROFILE", "trusted_codex")
+    monkeypatch.delenv("RAILWAY_PROJECT_ID", raising=False)
+    monkeypatch.setattr(worker_module.settings, "LLM_RUNTIME", "codex_local")
+    preflight = AsyncMock(side_effect=RuntimeError("model unavailable"))
+    database = MagicMock()
+    queue = MagicMock()
+    monkeypatch.setattr(worker_module, "verify_codex_subscription", preflight)
+    monkeypatch.setattr(worker_module, "get_db_client", database)
+    monkeypatch.setattr(worker_module, "PostgresTaskQueue", queue)
+    with pytest.raises(RuntimeError, match="model unavailable"):
+        await worker_module.build_worker()
+    database.assert_not_called()
+    queue.assert_not_called()
 
 
 @pytest.mark.asyncio

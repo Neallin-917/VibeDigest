@@ -27,13 +27,18 @@ os.environ.setdefault("TASK_QUEUE_MAX_POLL_SECONDS", "1")
 # Keep the larger bound scoped to this trusted batch entry point.
 os.environ.setdefault("CODEX_LOCAL_TIMEOUT_SECONDS", "600")
 
-from worker import build_worker, drain_worker  # noqa: E402
 from services.catalog_backfill_scope import ScopedCatalogSummaryQueue, read_task_ids  # noqa: E402
+from worker import build_worker, drain_worker, verify_codex_subscription  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Process a bounded batch from the podcast_supply queue."
+    )
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Verify subscription models without accessing the database or queue.",
     )
     parser.add_argument(
         "--max-jobs",
@@ -49,7 +54,26 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def run(max_jobs: int, task_ids: list[str] | None = None) -> int:
+async def run(
+    max_jobs: int, task_ids: list[str] | None = None, *, preflight_only: bool = False
+) -> int:
+    if preflight_only:
+        from config import settings
+        from services.execution_policy import (
+            resolve_worker_profile,
+            validate_worker_runtime,
+        )
+
+        profile = resolve_worker_profile()
+        validate_worker_runtime(
+            profile,
+            llm_runtime=settings.LLM_RUNTIME,
+            llm_provider=settings.LLM_PROVIDER,
+            is_railway=bool(os.getenv("RAILWAY_PROJECT_ID")),
+        )
+        await verify_codex_subscription()
+        print(json.dumps({"preflight": "passed"}))
+        return 0
     worker = await build_worker()
     if task_ids is not None:
         worker.queue = ScopedCatalogSummaryQueue(
@@ -73,7 +97,9 @@ def main() -> int:
     args = parse_args()
     try:
         task_ids = read_task_ids(args.task_ids_file) if args.task_ids_file else None
-        return asyncio.run(run(args.max_jobs, task_ids))
+        return asyncio.run(
+            run(args.max_jobs, task_ids, preflight_only=args.preflight_only)
+        )
     except Exception as exc:
         print(json.dumps({"error": str(exc)}, sort_keys=True), file=sys.stderr)
         return 1

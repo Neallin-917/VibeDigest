@@ -34,6 +34,14 @@ function getLocale(request: NextRequest): string {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  const pathParts = pathname.split('/')
+  if (RETIRED_LOCALES.has(pathParts[1])) {
+    const target = request.nextUrl.clone()
+    const suffix = pathParts.slice(2).join('/')
+    target.pathname = `/${DEFAULT_LOCALE}${suffix ? `/${suffix}` : ''}`
+    return NextResponse.redirect(target, 308)
+  }
+
   // Static assets: skip entirely (no auth needed)
   if (
     pathname.startsWith('/_next') ||
@@ -58,14 +66,6 @@ export async function proxy(request: NextRequest) {
 
     const { response } = await updateSession(request)
     return response
-  }
-
-  const pathParts = pathname.split('/')
-  if (RETIRED_LOCALES.has(pathParts[1])) {
-    const target = request.nextUrl.clone()
-    const suffix = pathParts.slice(2).join('/')
-    target.pathname = `/${DEFAULT_LOCALE}${suffix ? `/${suffix}` : ''}`
-    return NextResponse.redirect(target, 308)
   }
 
   const pathLocale = SUPPORTED_LOCALES.find(l => pathParts[1] === l)

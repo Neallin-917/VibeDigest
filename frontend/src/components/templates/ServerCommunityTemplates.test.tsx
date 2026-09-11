@@ -371,10 +371,7 @@ describe("ServerCommunityTemplates", () => {
       "ready:Chinese first for zh users,English first in fallback order"
     )
     expect(screen.getByTestId("total-count")).toHaveTextContent("2")
-    expect(queryState.inCalls).toContainEqual([
-      "public_quality_flags->>language",
-      ["en", "zh"],
-    ])
+    expect(queryState.inCalls.some(([column]) => column === "public_quality_flags->>language")).toBe(false)
   })
 
   it("falls back to the general library when locale-priority lookup fails", async () => {

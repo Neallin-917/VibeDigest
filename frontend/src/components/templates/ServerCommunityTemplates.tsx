@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n"
+import { type Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { resolveSummaryLocale } from "@/lib/summary-contract"
 import { getTopicSourceIds } from "@/lib/topic-hubs"
@@ -25,7 +25,6 @@ const PODCAST_TOPICS = new Set<PodcastTopic>([
   "research",
 ])
 
-const PUBLIC_LANGUAGE_FIELD = "public_quality_flags->>language"
 const PAGE_SIZE = 18
 const MAX_PAGE = 20
 const DEFAULT_PREVIEW_LIMIT = 4
@@ -319,7 +318,6 @@ export async function ServerCommunityTemplates({
       .eq("is_demo", true)
       .eq("status", "completed")
       .eq("publication_status", "published")
-      .in(PUBLIC_LANGUAGE_FIELD, [...SUPPORTED_LOCALES])
       .order("library_source_published_at", { ascending: false, nullsFirst: false })
       .order("public_quality_score", { ascending: false, nullsFirst: false })
       .order("published_at", { ascending: false })
@@ -373,7 +371,6 @@ export async function ServerCommunityTemplates({
     .eq("is_demo", true)
     .eq("status", "completed")
     .eq("publication_status", "published")
-    .in(PUBLIC_LANGUAGE_FIELD, [...SUPPORTED_LOCALES])
 
   totalQuery = applySearchLike(totalQuery, normalizedQuery)
   if (topicSourceIds.length > 0) totalQuery = totalQuery.in("podcast_source_slug", topicSourceIds)

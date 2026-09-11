@@ -158,11 +158,11 @@ describe('proxy', () => {
     })
 
     describe('i18n routing — non-locale paths redirect', () => {
-        it('permanently redirects retired Japanese routes to English while preserving path and query', async () => {
-            const response = await proxy(makeRequest('/ja/privacy?ref=legacy'))
+        it.each(['/ja/privacy?ref=legacy', '/ja/tasks/id/Dr.-Example?ref=legacy'])('redirects retired route %s including dotted slugs', async (path) => {
+            const response = await proxy(makeRequest(path))
 
             expect(response.status).toBe(308)
-            expect(response.headers.get('location')).toBe('http://localhost:3000/en/privacy?ref=legacy')
+            expect(response.headers.get('location')).toBe('http://localhost:3000' + path.replace('/ja/', '/en/'))
             expect(mockUpdateSession).not.toHaveBeenCalled()
         })
 

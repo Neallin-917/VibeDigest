@@ -11,7 +11,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import DBAPIError
 
 from db_client import DBClient
@@ -90,6 +90,12 @@ class SubmitCommand(TurnCommand):
 class TaskCommand(TurnCommand):
     taskId: UUID
     locale: Literal["zh", "en"] = "en"
+
+    @field_validator("locale", mode="before")
+    @classmethod
+    def normalize_retired_read_locale(cls, value):
+        # Old persisted turns can still read/watch; new accept/submit stay strict.
+        return "en" if value == "ja" else value
 
 
 class ReadCommand(TaskCommand):

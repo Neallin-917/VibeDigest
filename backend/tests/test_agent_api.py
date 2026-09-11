@@ -210,16 +210,6 @@ def test_accept_rejects_japanese_product_locale(setup):
             },
             "submit_video",
         ),
-        (
-            "watch",
-            {
-                "userId": str(uuid4()),
-                "token": str(uuid4()),
-                "taskId": str(uuid4()),
-                "locale": "ja",
-            },
-            "watch",
-        ),
     ],
 )
 def test_task_commands_reject_japanese_product_locale(
@@ -374,3 +364,21 @@ def test_unrecognized_database_errors_stay_generic(setup, error):
     response = _post(client, "/api/internal/agent/turns", _accept())
     assert response.status_code == 503
     assert "PRIVATE" not in response.text
+
+
+@pytest.mark.parametrize("route", ["read", "watch"])
+def test_legacy_japanese_turn_can_read_and_watch_in_english(setup, route):
+    client, db, service = setup
+    user, token, task = str(uuid4()), str(uuid4()), str(uuid4())
+    service.get.return_value = {"user_id": user, "execution_token": token, "status": "running"}
+    service.watch.return_value = {"status": "running"}
+    db.get_task.return_value = {"id": task, "user_id": user}
+    db._execute_query.return_value = []
+    response = _post(client, f"/api/internal/agent/turns/{uuid4()}/{route}", {
+        "userId": user, "token": token, "taskId": task, "locale": "ja",
+    })
+    assert response.status_code == 200
+    if route == "read":
+        assert db._execute_query.call_args.args[1]["locale"] == "en"
+    else:
+        assert service.watch.call_args.kwargs["locale"] == "en"

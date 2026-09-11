@@ -310,10 +310,10 @@ class Settings:
         process_role = (
             os.getenv("VIBEDIGEST_PROCESS_ROLE") or "application"
         ).strip().lower()
-        if process_role not in {"application", "podcast_discovery"}:
+        if process_role not in {"application", "podcast_discovery", "podcast_preflight"}:
             raise RuntimeError(
                 "VIBEDIGEST_PROCESS_ROLE must be 'application' or "
-                f"'podcast_discovery'. Received: {process_role!r}"
+                f"'podcast_discovery' or 'podcast_preflight'. Received: {process_role!r}"
             )
         dev_bypass = parse_bool_env("DEV_AUTH_BYPASS", False)
         mock_mode = parse_bool_env("MOCK_MODE", self.MOCK_MODE)
@@ -362,6 +362,23 @@ class Settings:
             raise RuntimeError(
                 "DEV_AUTH_BYPASS and MOCK_MODE must be disabled in production"
             )
+
+        if process_role == "podcast_preflight":
+            from services.execution_policy import (
+                resolve_worker_profile,
+                validate_worker_runtime,
+            )
+
+            profile = resolve_worker_profile()
+            if not profile.requires_chatgpt_auth:
+                raise RuntimeError("Podcast preflight requires WORKER_PROFILE=trusted_codex")
+            validate_worker_runtime(
+                profile,
+                llm_runtime=self.LLM_RUNTIME,
+                llm_provider=self.LLM_PROVIDER,
+                is_railway=bool(os.getenv("RAILWAY_PROJECT_ID")),
+            )
+            return
 
         if mock_mode:
             return

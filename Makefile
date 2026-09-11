@@ -1,7 +1,7 @@
 .PHONY: all install start test lint lint-backend clean help
 .PHONY: install-backend install-frontend
 .PHONY: dev dev-stop start-backend start-worker start-frontend start-dev
-.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts backfill-podcasts backfill-podcast-languages process-podcast-supply
+.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts backfill-podcasts backfill-podcast-languages process-podcast-supply preflight-podcast-supply
 .PHONY: stop restart-dev rebuild-dev
 .PHONY: perf perf-frontend perf-check perf-update-baseline
 .PHONY: ops-audit ops-daily-report
@@ -41,6 +41,7 @@ help:
 	@echo "  make backfill-podcasts - Advance bounded historical podcast backfill"
 	@echo "  make backfill-podcast-languages - Preview missing en/zh summaries (set PODCAST_LANGUAGE_BACKFILL_APPLY=1 to enqueue)"
 	@echo "  make process-podcast-supply - Process a bounded catalog batch with Codex subscription"
+	@echo "  make preflight-podcast-supply - Check Codex profile, ChatGPT login and models (no database/queue)"
 	@echo "  make lint          - Run formatters and linters"
 	@echo "  make clean         - Clean up temporary files"
 
@@ -195,6 +196,9 @@ backfill-podcast-languages:
 	uv run python backend/scripts/podcasts/backfill_summary_locales.py \
 		$(if $(filter 1,$(PODCAST_LANGUAGE_BACKFILL_APPLY)),--apply,) \
 		$(if $(PODCAST_LANGUAGE_BACKFILL_LIMIT),--limit "$(PODCAST_LANGUAGE_BACKFILL_LIMIT)",)
+
+preflight-podcast-supply:
+	uv run python backend/scripts/tasks/preflight_catalog_supply.py
 
 process-podcast-supply:
 	uv run python backend/scripts/tasks/process_catalog_supply.py \

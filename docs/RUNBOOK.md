@@ -56,9 +56,26 @@ developer-scoped continuation queue, never the hosted video or catalog queues.
 6. Deploy the podcast cron with `DATABASE_URL`, `PODCAST_TASK_QUEUE_NAME`, and
    `VIBEDIGEST_DEMO_USER_ID`. It does not need an LLM API key. Run it once
    manually before enabling the schedule.
-7. On the trusted runner, confirm `codex login status` reports ChatGPT login,
+7. On the trusted runner, run `make preflight-podcast-supply`,
    then run `PODCAST_MAX_JOBS=1 make process-podcast-supply`. Startup must fail
    for API-key Codex authentication or a queue/profile mismatch.
+
+   The preflight pins `WORKER_PROFILE=trusted_codex` and `LLM_RUNTIME=codex_local`
+   exactly as the batch entry point does. It checks the resolved runtime/provider,
+   rejects Railway execution, requires an existing ChatGPT login, and verifies
+   `MODEL_SMART` / `MODEL_FAST` against the Codex model catalog (including hidden
+   models). `MODEL_ALIAS_SMART` / `MODEL_ALIAS_FAST` overrides are respected;
+   defaults come from `config/llm-provider-defaults.json`. Run `codex login` on
+   the trusted runner if ChatGPT authentication is missing.
+
+   It needs no database or Supabase credentials, never imports the worker,
+   connects to a database, or reads/consumes a queue, and makes no inference
+   request or paid-provider fallback. It reads account/model metadata through
+   the local Codex SDK; catalog membership does not prove inference success or
+   remaining quota. Success prints JSON with profile, provider, plan and both
+   models; any failed check exits nonzero. `CODEX_LOCAL_TIMEOUT_SECONDS` bounds
+   the check (default 120 seconds). Database/queue readiness is checked only
+   when the separate batch command is run.
 8. Deploy the Vercel frontend.
 9. Submit one controlled user video and one controlled catalog video and confirm:
    task/output transaction, PGMQ claim, heartbeat, progress writes, Realtime

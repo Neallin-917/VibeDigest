@@ -150,6 +150,11 @@ idempotent. Do not delete episode rows to force retries.
 The cron never runs ASR or LLM work. Schedule
 `PODCAST_MAX_JOBS=4 make process-podcast-supply` separately on the trusted
 machine. Each invocation verifies the existing ChatGPT-managed Codex session,
+rejects model aliases that differ from `config/llm-provider-defaults.json`, and
+checks both resolved models against that session's model catalog before queue access.
+Run `uv run python backend/scripts/tasks/process_catalog_supply.py --preflight-only`
+to check these prerequisites without accessing the database or consuming messages.
+The batch
 drains at most the configured number of `podcast_supply` jobs, then exits. Do
 not copy `auth.json` into Railway. If the trusted machine is offline, leave the
 durable queue intact; do not redirect catalog work to `video_processing`.

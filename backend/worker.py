@@ -516,20 +516,37 @@ async def verify_codex_subscription(
     *,
     codex_factory: Callable[..., Any] | None = None,
 ) -> str:
-    """Fail startup unless the local Codex session is ChatGPT-managed."""
+    """Validate catalog models and subscription before touching the queue."""
     from openai_codex import AsyncCodex, CodexConfig
+
+    defaults = settings._PROVIDER_DEFAULTS["codex_local"]
+    models = {"smart": settings.MODEL_SMART, "fast": settings.MODEL_FAST}
+    for tier, model in models.items():
+        if model != defaults[tier]:
+            raise RuntimeError(
+                f"MODEL_ALIAS_{tier.upper()} resolves to {model}; "
+                f"trusted_codex requires repository default {defaults[tier]}"
+            )
+    logger.info("Catalog models: smart=%s fast=%s", models["smart"], models["fast"])
 
     factory = codex_factory or AsyncCodex
     config = CodexConfig(codex_bin=settings.CODEX_LOCAL_BINARY)
     async with factory(config) as codex:
         response = await codex.account(refresh_token=False)
-
-    account_container = getattr(response, "account", None)
-    account = getattr(account_container, "root", account_container)
-    if account is None or getattr(account, "type", None) != "chatgpt":
-        raise RuntimeError(
-            "trusted_codex worker requires an existing ChatGPT subscription login"
-        )
+        account_container = getattr(response, "account", None)
+        account = getattr(account_container, "root", account_container)
+        if account is None or getattr(account, "type", None) != "chatgpt":
+            raise RuntimeError(
+                "trusted_codex worker requires an existing ChatGPT subscription login"
+            )
+        catalog = await codex.models()
+        available = {entry.model for entry in catalog.data}
+        missing = set(models.values()) - available
+        if missing:
+            raise RuntimeError(
+                "ChatGPT subscription model catalog did not confirm: "
+                + ", ".join(sorted(missing))
+            )
 
     plan = getattr(account, "plan_type", "unknown")
     return str(getattr(plan, "value", plan))

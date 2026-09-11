@@ -597,7 +597,7 @@ export function ChatContainer({
       {(messages.length > 0 || isEmbedded) && (
         <div className={cn(isEmbedded && messages.length > 0 ? 'mt-5' : '')}>
           <ChatInput
-            variant={isEmbedded ? 'inline' : 'floating'}
+            variant={isEmbedded ? 'embedded' : 'floating'}
             hideDisclaimer={isEmbedded}
             onSubmit={handleSubmit}
             isLoading={isLoading}

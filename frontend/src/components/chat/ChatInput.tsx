@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
+import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 
@@ -25,11 +26,22 @@ interface ChatInputProps {
    * Layout variant:
    * - "floating": Absolute positioned at bottom (default, for chat mode)
    * - "inline": Normal block element (for welcome screen)
+   * - "embedded": Full reading-column width (for source follow-up)
    */
-  variant?: "floating" | "inline"
+  variant?: "floating" | "inline" | "embedded"
   /** Hide disclaimer text */
   hideDisclaimer?: boolean
 }
+
+const inputWidthVariants = cva("w-full", {
+  variants: {
+    variant: {
+      floating: "max-w-3xl",
+      inline: "max-w-2xl",
+      embedded: "max-w-none",
+    },
+  },
+})
 
 export function ChatInput({ 
   onSubmit, 
@@ -87,11 +99,12 @@ export function ChatInput({
         ? "absolute bottom-3 md:bottom-6 left-3 md:left-6 right-3 md:right-6 z-20" 
         : "w-full"
     )}>
-      <div className={cn("w-full", isFloating ? "max-w-3xl" : "max-w-2xl")}>
+      <div className={inputWidthVariants({ variant })}>
         <form
           onSubmit={handleSubmit}
           className={cn(
-            "relative rounded-[2rem] p-2 pl-6 flex items-center gap-3 ring-1 transition-all duration-300",
+            "relative p-2 pl-6 flex items-center gap-3 ring-1 motion-safe:transition-all motion-safe:duration-300",
+            variant === "embedded" ? "rounded-2xl" : "rounded-[2rem]",
             "bg-card/80 ring-border shadow-[var(--shadow-soft)]",
             
             // Focus State - Soft Glow

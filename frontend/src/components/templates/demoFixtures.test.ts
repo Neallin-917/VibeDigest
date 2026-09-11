@@ -15,6 +15,22 @@ describe("demoFixtures", () => {
         expect(parseCurrentSummary(summaryOutput?.content)?.keypoints).toHaveLength(2)
     })
 
+    it("keeps the captured long-form case English-only without inventing visual blocks", () => {
+        const task = getDemoFixtureTask("local-demo-casey", "zh")
+        const summary = parseCurrentSummary(task?.task_outputs?.[0].content)
+        expect(summary?.language).toBe("en")
+        expect(summary?.keypoints).toHaveLength(3)
+        expect(summary?.uiBlocks ?? []).toHaveLength(0)
+        expect(task?.thumbnail_url).toContain("8xBJPa_480Q")
+    })
+
+    it.each(["en", "zh"] as const)("provides validated localized visual blocks for the %s demo", (locale) => {
+        const task = getDemoFixtureTask("local-demo-latent-space", locale)
+        const summary = parseCurrentSummary(task?.task_outputs?.[0].content)
+        expect(summary?.uiBlocks?.[0].kind).toBe("steps")
+        expect(summary?.language).toBe(locale)
+    })
+
     it("does not invent a fixture for an unknown task id", () => {
         expect(getDemoFixtureTask("missing", "en")).toBeNull()
     })

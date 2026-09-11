@@ -105,6 +105,13 @@ conversation scrolling.
 When its first follow-up receives a thread ID, the finished messages seed the
 workspace remount so the digest and new answer remain visible.
 
+Public task details pair the real source cover with the title and locale-matched
+summary, then show three expandable key-point previews beside validated summary
+`uiBlocks` when available. No illustration is inferred from episode titles; absent
+blocks collapse the layout to one reading column. The existing source-scoped
+follow-up appears before the full-digest disclosure. Long lead summaries remain
+fully available through a native disclosure, and missing covers retain the source link.
+
 Library navigation keeps filters and pagination in the URL. Detail links retain
 the validated originating library path and episode anchor, including when the
 digest is in another language. `TaskDetailRefresh` refreshes the server projection

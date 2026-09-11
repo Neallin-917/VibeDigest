@@ -1,3 +1,4 @@
+import caseySnapshot from "@/lib/fixtures/task-detail-casey.json"
 import type { Task } from "./CommunityTemplates"
 import type { Locale } from "@/lib/i18n"
 import { findPodcastSource } from "@/lib/podcast-sources"
@@ -189,6 +190,22 @@ const LANGUAGE_MISMATCH_DEMO_TASK = createDemoTask({
     publicLocale: "zh",
 })
 
+// Public-page snapshot captured 2026-09-11 for long-title/summary visual review.
+// Available only through the existing development-only fixture gate.
+const CASEY_DETAIL_FIXTURE: Task = {
+    ...createDemoTask({
+        id: "local-demo-casey",
+        video_url: "https://www.youtube.com/watch?v=8xBJPa_480Q",
+        video_title: caseySnapshot.title,
+        author: "youtube.com",
+        durationLabel: "1 hr 54 min",
+        keyPointCount: 3,
+        created_at: "2026-09-11T00:00:00.000Z",
+        publicLocale: "en",
+    }),
+    thumbnail_url: caseySnapshot.thumbnail,
+}
+
 export function getDemoFixtureTasks(limit: number) {
     return DEMO_FIXTURE_TASKS.slice(0, limit)
 }
@@ -214,6 +231,14 @@ function createDemoSummary(task: Task, locale: Locale) {
                     why_it_matters: "把浏览、理解和后续探索放在同一条短路径里。",
                 },
             ],
+            ui_blocks: [{
+                kind: "steps", id: "demo-reading-flow", title: "阅读路径（本地演示）",
+                steps: [
+                    { title: "读结论", detail: "先了解核心观点。", evidence: "本地演示数据" },
+                    { title: "查看证据", detail: "展开观点，核对来源。", evidence: "本地演示数据" },
+                    { title: "继续追问", detail: "围绕本期内容深入理解。", evidence: "本地演示数据" },
+                ],
+            }],
             sections: [],
         }
     }
@@ -237,6 +262,14 @@ function createDemoSummary(task: Task, locale: Locale) {
                 why_it_matters: "Browsing, understanding, and exploration stay in one short path.",
             },
         ],
+        ui_blocks: [{
+            kind: "steps", id: "demo-reading-flow", title: "Reading flow (local demo)",
+            steps: [
+                { title: "Read", detail: "Start with the main ideas.", evidence: "Local demo data" },
+                { title: "Verify", detail: "Expand an idea and check the source.", evidence: "Local demo data" },
+                { title: "Ask", detail: "Continue exploring this episode.", evidence: "Local demo data" },
+            ],
+        }],
         sections: [],
     }
 }
@@ -244,10 +277,18 @@ function createDemoSummary(task: Task, locale: Locale) {
 export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
     const task = DEMO_FIXTURE_TASKS.find((candidate) => candidate.id === id)
         ?? (LANGUAGE_MISMATCH_DEMO_TASK.id === id ? LANGUAGE_MISMATCH_DEMO_TASK : null)
+        ?? (CASEY_DETAIL_FIXTURE.id === id ? CASEY_DETAIL_FIXTURE : null)
     if (!task) return null
 
     const summaryLocale = task.takeawayLocale ?? locale
-    const summary = createDemoSummary(task, summaryLocale)
+    const summary = task.id === CASEY_DETAIL_FIXTURE.id ? {
+        version: 4,
+        language: "en",
+        tl_dr: caseySnapshot.summary,
+        overview: caseySnapshot.summary,
+        keypoints: caseySnapshot.keypoints,
+        sections: [],
+    } : createDemoSummary(task, summaryLocale)
     return {
         ...task,
         takeaway: summary.tl_dr,

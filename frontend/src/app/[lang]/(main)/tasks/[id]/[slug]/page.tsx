@@ -13,7 +13,6 @@ import {
     type SummaryOutputCandidate,
 } from "@/lib/summary-contract"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
 import { Heading, Text } from "@/components/ui/typography"
 import { cn } from "@/lib/utils"
 import { normalizeTaskStatus } from "@/lib/safe-error"
@@ -21,7 +20,9 @@ import { getLocaleDisplayName, isLocale, type Locale } from "@/lib/i18n"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import { resolvePodcastSourceId } from "@/lib/podcast-sources"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
-import { ArrowDown, ArrowLeft, ChevronDown, ExternalLink, MessageCircleQuestion } from "lucide-react"
+import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react"
+import { KnowledgeUiBlocks } from "@/components/chat/KnowledgeUiBlocks"
+import { TaskSourceCover } from "@/components/tasks/TaskSourceCover"
 import { cache } from "react"
 import { TaskFollowUp } from "@/components/tasks/TaskFollowUp"
 import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
@@ -175,6 +176,7 @@ type TaskOutput = {
 const DETAIL_COPY = {
     en: {
         back: "Back to podcast library", source: "Source",
+        more: "Read more", less: "Show less",
         summary: "Summary", keyIdeas: "Key ideas", fullSummary: "Read the full digest", original: "Open Original Video",
         share: "Copy share link", copied: "Copied", copyFailed: "Copy failed",
         whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at",
@@ -185,8 +187,6 @@ const DETAIL_COPY = {
         processedVideo: "Processed Video",
         followUp: {
             title: "Ask about this source",
-            discovery: "Continue with a question",
-            example: "For example: Which evidence supports this conclusion?",
             restoring: "Restoring your latest conversation...",
             restoreFailed: "The previous conversation could not be restored. Start a new one below.",
         },
@@ -194,6 +194,7 @@ const DETAIL_COPY = {
     },
     zh: {
         back: "返回播客库", source: "来源",
+        more: "展开摘要", less: "收起摘要",
         summary: "内容摘要", keyIdeas: "关键观点", fullSummary: "完整整理", original: "打开原视频",
         share: "复制分享链接", copied: "已复制", copyFailed: "复制失败",
         whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点",
@@ -204,8 +205,6 @@ const DETAIL_COPY = {
         processedVideo: "已处理视频",
         followUp: {
             title: "基于本期内容继续追问",
-            discovery: "读完后继续追问",
-            example: "例如：哪些证据支持这个结论？",
             restoring: "正在恢复最近的对话...",
             restoreFailed: "未能恢复之前的对话，可以在下方开始新对话。",
         },
@@ -319,6 +318,8 @@ export default async function TaskDetailPage(props: Props) {
     const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200, locale) : ""
     const leadSummary = structuredSummary?.tl_dr || structuredSummary?.overview || summaryExcerpt
     const leadKeypoints = structuredSummary?.keypoints.slice(0, 3) ?? []
+    const visualBlocks = structuredSummary?.uiBlocks ?? []
+    const expandableSummary = leadSummary.length > (locale === "zh" ? 90 : 180)
     const title = task.video_title || copy.processedVideo
     const displayTitle = title.replaceAll("—", "-")
     const status = normalizeTaskStatus(task.status)
@@ -364,7 +365,7 @@ export default async function TaskDetailPage(props: Props) {
     const statusVariant = statusVariantMap[status] || "processing"
 
     return (
-        <div className="relative z-10 min-h-0 w-full flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-12">
+        <div className="relative z-10 min-h-0 w-full flex-1 px-4 pb-24 pt-1 sm:px-6 sm:pt-5 md:pb-12">
             <TaskDetailRefresh taskId={id} />
             {jsonLd ? (
                 <script
@@ -373,7 +374,7 @@ export default async function TaskDetailPage(props: Props) {
                 />
             ) : null}
             <div className="mx-auto max-w-6xl">
-                <header className="border-b border-border/70 pb-6">
+                <header>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Link
                             href={buildLibraryHref(locale, returnState)}
@@ -400,177 +401,161 @@ export default async function TaskDetailPage(props: Props) {
                             <Badge variant={statusVariant}>{statusLabel}</Badge>
                         </div>
                     )}
-                    <Heading
-                        as="h1"
-                        variant="display"
-                        className="mt-3 max-w-[64rem] text-3xl leading-[1.1] tracking-[-0.03em] sm:text-4xl lg:text-[2.75rem]"
-                    >
-                        {displayTitle}
-                    </Heading>
-                    {(sourceLabel || sourceDuration || sourceDateLabel) && (
-                        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                            {sourceLabel && <span className="font-medium text-foreground/80">{sourceLabel}</span>}
-                            {sourceDuration && <span className="border-l border-border pl-3">{sourceDuration}</span>}
-                            {sourceDateLabel && (
-                                <time className="border-l border-border pl-3" dateTime={sourceUploadDate}>
-                                    {sourceDateLabel}
-                                </time>
+                    <div className={cn("mt-4 grid min-w-0 gap-x-5 gap-y-5 lg:gap-x-10 lg:gap-y-5 lg:grid-rows-[auto_1fr]", task.thumbnail_url ? "grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]" : "grid-cols-1")}>
+                        <div className="col-span-full min-w-0 lg:col-span-1 lg:col-start-1 lg:row-start-1">
+                            <Heading
+                                as="h1"
+                                variant="display"
+                                className="text-2xl leading-[1.18] tracking-[-0.025em] sm:text-3xl lg:text-[2rem]"
+                            >
+                                {displayTitle}
+                            </Heading>
+                            {(sourceLabel || sourceDuration || sourceDateLabel) && (
+                                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                    {sourceLabel && (sourceAuthorUrl ? (
+                                        <a href={sourceAuthorUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{sourceLabel}</a>
+                                    ) : <span className="font-medium text-foreground/80">{sourceLabel}</span>)}
+                                    {sourceDuration && <span className="border-l border-border pl-3">{sourceDuration}</span>}
+                                    {sourceDateLabel && (
+                                        <time className="border-l border-border pl-3" dateTime={sourceUploadDate}>
+                                            {sourceDateLabel}
+                                        </time>
+                                    )}
+                                </div>
                             )}
                         </div>
-                    )}
-                    {(hasSummary || languageSwitchHref) && (
-                        <a
-                            href="#task-follow-up"
-                            data-slot="follow-up-discovery-anchor"
-                            className="mt-5 inline-flex min-h-11 max-w-xl items-center gap-3 border-l-2 border-emerald-600/45 pl-3 text-left motion-safe:transition-colors hover:border-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-emerald-400/45 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
-                        >
-                            <MessageCircleQuestion className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
-                            <span className="min-w-0">
-                                <span className="block text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                                    {copy.followUp.discovery}
-                                </span>
-                                <span className="mt-0.5 block text-sm leading-5 text-foreground/80">
-                                    {copy.followUp.example}
-                                </span>
-                            </span>
-                            <ArrowDown className="ml-auto size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        </a>
-                    )}
-                </header>
-
-                <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-14 lg:gap-y-12">
-                    <article className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
-                        <section className="space-y-3" aria-labelledby="task-summary-title">
-                            <Heading as="h2" variant="h2" id="task-summary-title" className="scroll-mt-28">
-                                {copy.summary}
-                            </Heading>
-                            {hasSummary ? (
-                                <p lang={summaryLanguageTag} className="max-w-[46rem] text-base font-medium leading-7 text-foreground md:text-lg md:leading-8">
-                                    {leadSummary}
-                                </p>
-                            ) : languageSwitchHref ? (
-                                <div className="max-w-[46rem] space-y-3">
+                        <div className={cn("min-w-0", task.thumbnail_url ? "col-start-2 row-start-2 lg:col-start-1" : "col-start-1 row-start-2")}>
+                            <section className="min-w-0 space-y-2" aria-labelledby="task-summary-title">
+                                <Heading as="h2" variant="h2" id="task-summary-title" className="scroll-mt-28 text-xs font-medium text-muted-foreground sm:text-sm">
+                                    {copy.summary}
+                                </Heading>
+                                {hasSummary ? (
+                                    expandableSummary ? (
+                                        <details className="group/lead">
+                                            <summary className="cursor-pointer list-none rounded-sm marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+                                                <span lang={summaryLanguageTag} className="line-clamp-4 text-base font-semibold leading-snug tracking-tight group-open/lead:line-clamp-none sm:text-lg lg:text-xl">
+                                                    {leadSummary}
+                                                </span>
+                                                <span className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-medium text-primary">
+                                                    <span className="group-open/lead:hidden">{copy.more}</span>
+                                                    <span className="hidden group-open/lead:inline">{copy.less}</span>
+                                                    <ChevronDown className="size-3.5 motion-safe:transition-transform group-open/lead:rotate-180" aria-hidden="true" />
+                                                </span>
+                                            </summary>
+                                        </details>
+                                    ) : (
+                                        <p lang={summaryLanguageTag} className="text-base font-semibold leading-snug tracking-tight sm:text-lg lg:text-xl">{leadSummary}</p>
+                                    )
+                                ) : languageSwitchHref ? (
+                                    <div className="max-w-[46rem] space-y-3">
+                                        <Text tone="muted">
+                                            {copy.summaryAvailableIn(languageSwitchLabel)}
+                                        </Text>
+                                        <Link
+                                            href={languageSwitchHref}
+                                            className="inline-flex min-h-10 items-center rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
+                                        >
+                                            {copy.switchToLanguage(languageSwitchLabel)}
+                                        </Link>
+                                    </div>
+                                ) : (
                                     <Text tone="muted">
-                                        {copy.summaryAvailableIn(languageSwitchLabel)}
+                                        {status === "failed"
+                                            ? copy.failed
+                                            : copy.pending}
                                     </Text>
-                                    <Link
-                                        href={languageSwitchHref}
-                                        className="inline-flex min-h-10 items-center rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
-                                    >
-                                        {copy.switchToLanguage(languageSwitchLabel)}
-                                    </Link>
-                                </div>
-                            ) : (
-                                <Text tone="muted">
-                                    {status === "failed"
-                                        ? copy.failed
-                                        : copy.pending}
-                                </Text>
+                                )}
+                            </section>
+                        </div>
+                        <aside data-slot="task-source-media" className={cn("min-w-0", task.thumbnail_url ? "col-start-1 row-start-2 lg:col-start-2 lg:row-span-2 lg:row-start-1" : "col-start-1 row-start-3")} aria-labelledby="task-source-title">
+                            <h2 id="task-source-title" className="sr-only">{copy.source}</h2>
+                            <TaskSourceCover thumbnailUrl={task.thumbnail_url} videoUrl={task.video_url} title={displayTitle} />
+                            {task.video_url && (
+                                <a href={task.video_url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-sm">
+                                    <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
+                                    {copy.original}
+                                </a>
                             )}
-                        </section>
-
+                        </aside>
+                    </div>
+                </header>
+                <div className="mt-5 space-y-5">
+                    <article className={cn("grid min-w-0 items-start gap-6 border-t border-border/70 pt-5", visualBlocks.length > 0 && "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-10")}>
                         {hasSummary && leadKeypoints.length > 0 && (
-                            <section className="space-y-5 border-t border-border/70 pt-8" aria-labelledby="task-key-ideas-title">
+                            <section className="min-w-0 space-y-3" aria-labelledby="task-key-ideas-title">
                                 <Heading as="h2" variant="h2" id="task-key-ideas-title" className="scroll-mt-28">
                                     {copy.keyIdeas}
                                 </Heading>
-                                <ol className="space-y-7">
+                                <ol className="divide-y divide-border/70">
                                     {leadKeypoints.map((keypoint, index) => (
                                         <li
                                             key={`${keypoint.title}-${index}`}
-                                            className="grid max-w-[46rem] grid-cols-[1.75rem_minmax(0,1fr)] gap-3 md:gap-4"
+                                            className="min-w-0"
                                         >
-                                            <span className="pt-0.5 text-xs font-medium tabular-nums text-emerald-600 dark:text-emerald-400" aria-hidden="true">
-                                                {String(index + 1).padStart(2, "0")}
-                                            </span>
-                                            <div className="min-w-0">
-                                                <p lang={summaryLanguageTag} className="text-sm font-semibold leading-6 text-foreground md:text-base">{keypoint.title}</p>
-                                                <p lang={summaryLanguageTag} className="mt-1 text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
-                                                {keypoint.why_it_matters && (
-                                                    <p className="mt-3 text-sm leading-6 text-foreground/80">
-                                                        <span className="font-semibold">{copy.whyItMatters}: </span>
-                                                        <span lang={summaryLanguageTag}>{keypoint.why_it_matters}</span>
-                                                    </p>
-                                                )}
-                                                <details className="group/evidence mt-3 border-l-2 border-emerald-500/45 pl-3">
-                                                    <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 text-xs font-semibold text-emerald-700 marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400">
-                                                        <span>{copy.evidence}</span>
-                                                        {typeof keypoint.startSeconds === "number" && task.video_url && (
-                                                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-mono font-medium tabular-nums">
-                                                                {formatTimestamp(keypoint.startSeconds)}
-                                                            </span>
-                                                        )}
-                                                        <ChevronDown className="ml-auto size-3.5 transition-transform group-open/evidence:rotate-180" aria-hidden="true" />
-                                                    </summary>
-                                                    <p lang={evidenceLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
-                                                    {typeof keypoint.startSeconds === "number" && task.video_url && (
-                                                        <a
-                                                            href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400"
-                                                        >
-                                                            {copy.openAt} {formatTimestamp(keypoint.startSeconds)}
-                                                            <ExternalLink className="ml-1.5 size-3" aria-hidden="true" />
-                                                        </a>
+                                            <details data-slot="task-keypoint" className="group/point py-3">
+                                                <summary className="grid cursor-pointer list-none grid-cols-[1.75rem_minmax(0,1fr)_1rem] items-start gap-3 rounded-sm marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+                                                    <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-medium tabular-nums text-primary" aria-hidden="true">
+                                                        {String(index + 1).padStart(2, "0")}
+                                                    </span>
+                                                    <span className="min-w-0">
+                                                        <span lang={summaryLanguageTag} className="block text-sm font-semibold leading-6 text-foreground sm:text-base">{keypoint.title}</span>
+                                                        <span lang={summaryLanguageTag} className="mt-1 line-clamp-1 text-sm leading-5 text-muted-foreground group-open/point:hidden">{keypoint.detail}</span>
+                                                    </span>
+                                                    <ChevronDown className="mt-1.5 size-4 text-muted-foreground motion-safe:transition-transform group-open/point:rotate-180" aria-hidden="true" />
+                                                </summary>
+                                                <div className="ml-10 mt-2">
+                                                    <p lang={summaryLanguageTag} className="text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                                                    {keypoint.why_it_matters && (
+                                                        <p className="mt-3 text-sm leading-6 text-foreground/80">
+                                                            <span className="font-semibold">{copy.whyItMatters}: </span>
+                                                            <span lang={summaryLanguageTag}>{keypoint.why_it_matters}</span>
+                                                        </p>
                                                     )}
-                                                </details>
-                                            </div>
+                                                    <div className="mt-3 border-l-2 border-primary/30 pl-3">
+                                                        <p className="text-xs font-semibold text-primary">{copy.evidence}</p>
+                                                        <p lang={evidenceLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
+                                                        {typeof keypoint.startSeconds === "number" && task.video_url && (
+                                                            <a
+                                                                href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400"
+                                                            >
+                                                                {copy.openAt} {formatTimestamp(keypoint.startSeconds)}
+                                                                <ExternalLink className="ml-1.5 size-3" aria-hidden="true" />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </details>
                                         </li>
                                     ))}
                                 </ol>
                             </section>
                         )}
+                        {visualBlocks.length > 0 && (
+                            <div data-slot="task-visuals" lang={summaryLanguageTag} className="min-w-0">
+                                <KnowledgeUiBlocks blocks={visualBlocks} />
+                            </div>
+                        )}
                     </article>
-
-                    <aside className="space-y-4 border-t border-border/70 pt-8 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1 lg:border-t-0 lg:pt-0" aria-labelledby="task-source-title">
-                        <Heading as="h2" variant="h3" id="task-source-title" className="scroll-mt-28">
-                            {copy.source}
-                        </Heading>
-                        {task.thumbnail_url && (
-                            <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface-raised/40">
-                                {/* eslint-disable-next-line @next/next/no-img-element -- external dynamic thumbnail URL is rendered directly without Next image optimization */}
-                                <img
-                                    src={task.thumbnail_url}
-                                    alt={displayTitle}
-                                    className="aspect-video w-full object-cover"
-                                />
-                            </div>
-                        )}
-                        {sourceLabel && (
-                            <div className="space-y-1 px-1">
-                                {sourceAuthorUrl ? (
-                                    <a href={sourceAuthorUrl} target="_blank" rel="noopener noreferrer" className="break-words text-sm font-medium text-foreground hover:text-emerald-700 dark:hover:text-emerald-400">
-                                        {sourceLabel}
-                                    </a>
-                                ) : (
-                                    <p className="break-words text-sm font-medium text-foreground">{sourceLabel}</p>
-                                )}
-                                {(sourceDuration || sourceDateLabel) && (
-                                    <p className="text-xs leading-5 text-muted-foreground">
-                                        {[sourceDuration, sourceDateLabel].filter(Boolean).join(" · ")}
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                        {task.video_url && (
-                            <a
-                                href={task.video_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={cn(buttonVariants({ variant: "outline" }), "w-full gap-2")}
-                            >
-                                {copy.original}
-                                <ExternalLink className="size-3.5" aria-hidden="true" />
-                            </a>
-                        )}
-                    </aside>
-
+                    <div id="task-follow-up" className="min-w-0 scroll-mt-24">
+                        <TaskFollowUp
+                            taskId={id}
+                            taskStatus={status}
+                            videoTitle={title}
+                            videoUrl={task.video_url}
+                            thumbnailUrl={task.thumbnail_url}
+                            initialThreadId={THREAD_ID_PATTERN.test(initialThreadId) ? initialThreadId : null}
+                            sourceId={sourceId}
+                            copy={copy.followUp}
+                        />
+                    </div>
                     {hasSummary && detailedSummaryMarkdown && (
-                        <details className="group min-w-0 border-y border-border/70 lg:col-start-1">
+                        <details className="group min-w-0 border-y border-border/70">
                             <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                                 <span>{copy.fullSummary}</span>
-                                <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                                <ChevronDown className="size-4 motion-safe:transition-transform group-open:rotate-180" aria-hidden="true" />
                             </summary>
                             <div className="border-t border-border/70 py-7">
                                 <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
@@ -598,18 +583,6 @@ export default async function TaskDetailPage(props: Props) {
                         </details>
                     )}
 
-                    <div id="task-follow-up" className="min-w-0 scroll-mt-24 lg:col-start-1">
-                        <TaskFollowUp
-                            taskId={id}
-                            taskStatus={status}
-                            videoTitle={title}
-                            videoUrl={task.video_url}
-                            thumbnailUrl={task.thumbnail_url}
-                            initialThreadId={THREAD_ID_PATTERN.test(initialThreadId) ? initialThreadId : null}
-                            sourceId={sourceId}
-                            copy={copy.followUp}
-                        />
-                    </div>
                 </div>
             </div>
         </div>

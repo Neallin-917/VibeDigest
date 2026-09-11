@@ -154,11 +154,11 @@ describe('ChatContainer', () => {
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
   })
 
-  it('renders an inline follow-up composer without the welcome surface in embedded mode', () => {
+  it('renders a full-width follow-up composer without the welcome surface in embedded mode', () => {
     render(<ChatContainer activeTaskId="selected-task" variant="embedded" />)
 
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument()
-    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-variant', 'inline')
+    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-variant', 'embedded')
     expect(screen.getByTestId('chat-input')).toHaveAttribute('data-hide-disclaimer', 'true')
   })
 

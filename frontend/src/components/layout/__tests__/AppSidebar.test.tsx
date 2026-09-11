@@ -69,6 +69,33 @@ describe('AppSidebar', () => {
     i18nMock.locale = 'en'
   })
 
+  it('preserves visible history and offers retry when refreshing fails', () => {
+    const retry = vi.fn()
+    const props = {
+      threads: [{ id: 'saved', title: 'Saved chat', updated_at: '2026-09-07T00:00:00Z', status: 'active' as const }],
+      threadsStatus: 'error' as const,
+      onRetryThreads: retry,
+    }
+    const { rerender } = render(<AppSidebar {...props} />)
+    expect(screen.getByText('Saved chat')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('chat.errors.historyListLoad')
+    expect(screen.queryByText('chat.noChats')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }))
+    expect(retry).toHaveBeenCalledOnce()
+    rerender(<AppSidebar {...props} isThreadsFetching />)
+    expect(screen.getByRole('button', { name: 'common.retry' })).toBeDisabled()
+    expect(screen.getByText('Saved chat')).toBeInTheDocument()
+  })
+
+  it('shows empty history only after a successful load', () => {
+    const { rerender } = render(<AppSidebar threadsStatus="pending" />)
+    expect(screen.queryByText('chat.noChats')).not.toBeInTheDocument()
+    rerender(<AppSidebar threadsStatus="error" />)
+    expect(screen.queryByText('chat.noChats')).not.toBeInTheDocument()
+    rerender(<AppSidebar threadsStatus="success" />)
+    expect(screen.getByText('chat.noChats')).toBeInTheDocument()
+  })
+
   it('navigates directly to a fresh chat thread when no onNewChat handler is provided', () => {
     render(<AppSidebar />)
 

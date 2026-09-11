@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
+from uuid import UUID
 import os
 from db_client import DBClient
 
@@ -27,6 +28,42 @@ def db_client_instance(mock_engine, mock_session):
         # Ensure session factory returns our mock session
         client.Session = MagicMock(return_value=mock_session)
         return client
+
+
+def test_get_output_normalizes_driver_uuid_ids_without_mutating_row(db_client_instance):
+    raw_output = {
+        "id": UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+        "task_id": UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+        "user_id": UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+        "kind": "summary", "locale": "zh", "status": "pending",
+        "content": None, "progress": 0,
+    }
+    original = dict(raw_output)
+    output_id = str(raw_output["id"])
+    with patch.object(db_client_instance, "_execute_query", return_value=[raw_output]) as query:
+        result = db_client_instance.get_output(output_id)
+
+    assert result == {
+        **original,
+        **{key: str(original[key]) for key in ("id", "task_id", "user_id")},
+    }
+    assert result is not raw_output
+    assert raw_output == original
+    assert all(isinstance(raw_output[key], UUID) for key in ("id", "task_id", "user_id"))
+    query.assert_called_once_with(
+        "SELECT * FROM task_outputs WHERE id = :output_id", {"output_id": output_id},
+    )
+
+
+def test_get_output_preserves_null_and_absent_ids(db_client_instance):
+    row = {"id": "output-id", "task_id": None, "content": "existing summary"}
+    with patch.object(db_client_instance, "_execute_query", return_value=[row]):
+        assert db_client_instance.get_output("output-id") == row
+
+
+def test_get_output_returns_none_when_output_does_not_exist(db_client_instance):
+    with patch.object(db_client_instance, "_execute_query", return_value=[]):
+        assert db_client_instance.get_output("missing-output") is None
 
 def test_create_task(db_client_instance, mock_session):
     mock_result = MagicMock()

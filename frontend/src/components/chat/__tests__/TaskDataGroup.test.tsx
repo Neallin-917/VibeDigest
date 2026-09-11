@@ -2,15 +2,20 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TaskDataGroup } from '../TaskDataGroup'
+import { LANDING_DEMO } from '@/lib/landing-demo'
+import landingDemoSummaries from '@/lib/fixtures/landing-demo-summaries.json'
+import { matchPublicSummaryOutput } from '@/lib/summary-contract'
 
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
 
-const { mockSubscribeToTask, mockRemoveChannel } = vi.hoisted(() => ({
+const { mockSubscribeToTask, mockRemoveChannel, mockReadTaskOutputs } = vi.hoisted(() => ({
   mockSubscribeToTask: vi.fn(),
   mockRemoveChannel: vi.fn(),
+  mockReadTaskOutputs: vi.fn(),
 }))
 
 const demoState = vi.hoisted(() => ({ enabled: false }))
+const i18nState = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' | 'ja' }))
 
 let taskOutputRows: Array<Record<string, unknown>> = []
 
@@ -37,7 +42,7 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       }
       return labels[key] ?? key
     },
-    locale: 'en',
+    locale: i18nState.locale,
   }),
 }))
 
@@ -57,7 +62,10 @@ vi.mock('@/lib/supabase', () => ({
       select: () => ({
         eq: () => ({
           in: () => ({
-            order: async () => ({ data: taskOutputRows }),
+            order: async () => {
+              mockReadTaskOutputs()
+              return { data: taskOutputRows }
+            },
           }),
         }),
       }),
@@ -71,11 +79,43 @@ vi.mock('@/lib/supabase', () => ({
   }),
 }))
 
+const landingTaskStatus = {
+  taskId: LANDING_DEMO.id,
+  status: 'completed' as const,
+  progress: 100,
+  videoTitle: LANDING_DEMO.video_title,
+  videoUrl: LANDING_DEMO.video_url,
+  thumbnailUrl: LANDING_DEMO.thumbnail_url,
+}
+
+function expectDigestTextVisible(text: string) {
+  const content = screen.getAllByText(text, { exact: false }).find(
+    element => !element.closest('details:not([open])')
+  )
+  expect(content).toBeDefined()
+  expect(content).toBeVisible()
+}
+
 describe('TaskDataGroup', () => {
   beforeEach(() => {
     taskOutputRows = []
     demoState.enabled = false
+    i18nState.locale = 'en'
     vi.clearAllMocks()
+  })
+
+  it('does not fall back to the English landing digest when the route changes to Japanese', async () => {
+    taskOutputRows = landingDemoSummaries.outputs
+    const { rerender } = render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    const english = matchPublicSummaryOutput(landingDemoSummaries.outputs, 'en').summary!
+    await screen.findByText(english.tl_dr!)
+
+    i18nState.locale = 'ja'
+    rerender(<TaskDataGroup taskStatus={{ ...landingTaskStatus }} />)
+    expect(screen.queryByText(english.tl_dr!)).not.toBeInTheDocument()
+    await waitFor(() => expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('No summary available.')).toBeVisible()
+    expect(screen.queryByText(english.overview)).not.toBeInTheDocument()
   })
 
   it('renders the embedded player as soon as live video metadata arrives', async () => {
@@ -117,7 +157,7 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Getting video details')).toBeInTheDocument()
   })
 
-  it('adds concise knowledge cards when the persisted summary becomes available', async () => {
+  it('shows the complete persisted digest without hiding its overview, insights, or sections', async () => {
     taskOutputRows = [
       {
         kind: 'summary',
@@ -129,9 +169,12 @@ describe('TaskDataGroup', () => {
           tl_dr: 'The video argues for deliberate practice.',
           overview: 'An overview.',
           keypoints: [
-            { title: 'Practice feedback loops', detail: 'Review work often.', evidence: '00:32' },
+            { title: 'Practice feedback loops', detail: 'Review work often.', evidence: '00:32', why_it_matters: 'Feedback makes practice measurable.' },
             { title: 'Protect focus', detail: 'Use uninterrupted sessions.', evidence: '01:10' },
             { title: 'Read the full result', detail: 'Keep the details close to the first screen.', evidence: '02:03' },
+            { title: 'Track meaningful progress', detail: 'Record what improved after each attempt.', evidence: '03:04' },
+            { title: 'Adjust the difficulty', detail: 'Choose a task just beyond current ability.', evidence: '04:05' },
+            { title: 'Review the whole practice cycle', detail: 'Use the final review to plan the next session.', evidence: '05:06', why_it_matters: 'A complete cycle carries learning into future work.' },
           ],
           ui_blocks: [
             {
@@ -151,6 +194,18 @@ describe('TaskDataGroup', () => {
               title: 'A practical next step',
               description: 'Apply the feedback loop to one important task this week.',
               items: [{ content: 'Choose a repeatable practice and review it after every attempt.' }],
+            },
+            {
+              section_type: 'lessons',
+              title: 'A repeatable lesson',
+              description: 'Keep feedback specific.',
+              items: [{ content: 'Write down one change before the next attempt.' }],
+            },
+            {
+              section_type: 'insights',
+              title: 'A final observation',
+              description: 'Consistency needs recovery.',
+              items: [{ content: 'Leave time to recover between focused sessions.' }],
             },
           ],
         }),
@@ -179,8 +234,24 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Compare practice modes')).toBeInTheDocument()
     expect(screen.getByText('Immediate')).toBeInTheDocument()
     expect(screen.getByText('Read the full result')).toBeInTheDocument()
-    expect(screen.getByText('A practical next step')).toBeInTheDocument()
-    expect(screen.getByText('Continue reading').closest('details')).not.toHaveAttribute('open')
+    for (const text of [
+      'An overview.',
+      'Feedback makes practice measurable.',
+      'Track meaningful progress',
+      'Record what improved after each attempt.',
+      'Adjust the difficulty',
+      'Choose a task just beyond current ability.',
+      'Review the whole practice cycle',
+      'Use the final review to plan the next session.',
+      'A complete cycle carries learning into future work.',
+      'A practical next step',
+      'Choose a repeatable practice and review it after every attempt.',
+      'A repeatable lesson',
+      'Write down one change before the next attempt.',
+      'A final observation',
+      'Leave time to recover between focused sessions.',
+    ]) expectDigestTextVisible(text)
+    expect(screen.queryByText('Continue reading')).not.toBeInTheDocument()
     expect(screen.getByText('Evidence')).toBeInTheDocument()
     expect(screen.queryByText('00:32')).not.toBeInTheDocument()
     expect(screen.getByText('A source quote.')).toBeInTheDocument()
@@ -289,6 +360,97 @@ describe('TaskDataGroup', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
   })
 
+  it('allows another retry after an accepted retry processes and fails again', async () => {
+    let publishTask: ((row: Record<string, unknown>) => void) | undefined
+    mockSubscribeToTask.mockImplementation((_taskId, listener) => {
+      publishTask = listener
+      return vi.fn()
+    })
+    const onRetryTask = vi.fn().mockResolvedValue(true)
+    render(
+      <TaskDataGroup
+        live
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-retry', status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-retry',
+          errorMessage: 'Previous failure',
+        }}
+      />
+    )
+
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+
+    act(() => { publishTask?.({ id: 'task-retry', status: 'processing', progress: 35 }) })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText('Transcribing')).toBeInTheDocument()
+
+    act(() => { publishTask?.({ id: 'task-retry', status: 'failed' }) })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(onRetryTask).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['rejected', 'thrown'])('unlocks retry when the request is %s', async (outcome) => {
+    const onRetryTask = outcome === 'rejected'
+      ? vi.fn().mockResolvedValue(false)
+      : vi.fn().mockRejectedValue(new Error('Network unavailable'))
+    render(
+      <TaskDataGroup
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-retry', status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-retry',
+        }}
+      />
+    )
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
+  })
+
+  it('unlocks for a newer failed row even when the intermediate retry events were missed', async () => {
+    let publishTask: ((row: Record<string, unknown>) => void) | undefined
+    const originalFailure = {
+      id: 'task-retry', status: 'failed', updated_at: '2026-09-07T04:00:00.000Z',
+    }
+    mockSubscribeToTask.mockImplementation((_taskId, listener) => {
+      publishTask = listener
+      listener(originalFailure)
+      return vi.fn()
+    })
+    const onRetryTask = vi.fn().mockResolvedValue(true)
+    render(
+      <TaskDataGroup
+        live
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-retry', status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-retry',
+        }}
+      />
+    )
+
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+
+    // Reconnects may replay the original or an older failed record.
+    act(() => { publishTask?.(originalFailure) })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+    act(() => { publishTask?.({ ...originalFailure, updated_at: '2026-09-07T03:59:59.000Z' }) })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+    expect(onRetryTask).toHaveBeenCalledTimes(1)
+
+    act(() => { publishTask?.({ ...originalFailure, updated_at: '2026-09-07T04:01:00.000Z' }) })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(onRetryTask).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+
+    act(() => { publishTask?.({ ...originalFailure, updated_at: '2026-09-07T04:01:00.000Z' }) })
+    expect(screen.getByRole('button', { name: 'Retry queued' })).toBeDisabled()
+  })
+
   it('replays the local visual demo without querying Supabase', async () => {
     demoState.enabled = true
     vi.useFakeTimers()
@@ -326,6 +488,121 @@ describe('TaskDataGroup', () => {
       expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_result_view', expect.anything())
     } finally {
       vi.useRealTimers()
+    }
+  })
+
+  it.each(['en', 'zh'] as const)('opens the complete %s landing digest and keeps it after the generic demo timers finish', async (locale) => {
+    demoState.enabled = true
+    i18nState.locale = locale
+    vi.useFakeTimers()
+
+    try {
+      const sourceSummary = landingDemoSummaries.outputs.find(
+        output => output.content.language === locale
+      )!.content
+      expect(landingDemoSummaries.taskId).toBe(LANDING_DEMO.id)
+      expect(sourceSummary.keypoints).toHaveLength(6)
+      expect(sourceSummary.sections).toHaveLength(3)
+
+      render(<TaskDataGroup live taskStatus={landingTaskStatus} />)
+
+      expect(screen.getByTitle(LANDING_DEMO.video_title)).toHaveAttribute(
+        'src', expect.stringContaining('/embed/zgNvts_2TUE')
+      )
+      expectDigestTextVisible(sourceSummary.tl_dr)
+      expectDigestTextVisible(sourceSummary.overview)
+      for (const point of sourceSummary.keypoints) {
+        expectDigestTextVisible(point.title)
+        expectDigestTextVisible(point.detail)
+        expectDigestTextVisible(point.why_it_matters)
+      }
+      for (const section of sourceSummary.sections) {
+        expectDigestTextVisible(section.title)
+        expectDigestTextVisible(section.description)
+        for (const item of section.items) expectDigestTextVisible(item.content)
+      }
+      expect(screen.queryByText('Continue reading')).not.toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_800)
+      })
+
+      expect(screen.getByTitle(LANDING_DEMO.video_title)).toBeInTheDocument()
+      expectDigestTextVisible(sourceSummary.overview)
+      expectDigestTextVisible(sourceSummary.keypoints[5].detail)
+      expectDigestTextVisible(sourceSummary.sections[2].items[2].content)
+      expect(screen.queryByTitle('Local demo: shortening the feedback loop with AI')).not.toBeInTheDocument()
+      expect(screen.queryByText('AI becomes useful when feedback, judgment, and action form a shorter loop.')).not.toBeInTheDocument()
+      expect(mockSubscribeToTask).not.toHaveBeenCalled()
+      expect(mockReadTaskOutputs).not.toHaveBeenCalled()
+      expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_result_view', expect.anything())
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not substitute another language when the local landing digest has no Japanese summary', () => {
+    demoState.enabled = true
+    i18nState.locale = 'ja'
+
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+
+    expect(screen.getByTitle(LANDING_DEMO.video_title)).toBeInTheDocument()
+    expect(screen.getByText('No summary available.')).toBeInTheDocument()
+    for (const output of landingDemoSummaries.outputs) {
+      expect(screen.queryByText(output.content.tl_dr)).not.toBeInTheDocument()
+      expect(screen.queryByText(output.content.overview)).not.toBeInTheDocument()
+    }
+    expect(mockReadTaskOutputs).not.toHaveBeenCalled()
+  })
+
+  it('does not repeat the overview when it is identical to the conclusion', async () => {
+    taskOutputRows = [{
+      kind: 'summary',
+      status: 'completed',
+      locale: 'en',
+      content: {
+        version: 4,
+        language: 'en',
+        tl_dr: 'A single concise conclusion.',
+        overview: 'A single concise conclusion.',
+        keypoints: [{ title: 'One insight', detail: 'Its detail.', evidence: '00:32' }],
+        sections: [],
+      },
+    }]
+
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+
+    expect(await screen.findByText('A single concise conclusion.')).toBeInTheDocument()
+    expect(screen.getAllByText('A single concise conclusion.')).toHaveLength(1)
+  })
+
+  it('reads the landing case persisted output outside the local demo instead of substituting the captured snapshot', async () => {
+    taskOutputRows = [{
+      kind: 'summary',
+      status: 'completed',
+      locale: 'en',
+      content: JSON.stringify({
+        version: 4,
+        language: 'en',
+        tl_dr: 'The persisted source summary remains authoritative.',
+        overview: 'A new overview saved after the local snapshot was captured.',
+        keypoints: [{ title: 'Persisted insight', detail: 'A detail from the saved output.', evidence: '00:32', why_it_matters: 'The latest persisted output takes precedence.' }],
+        sections: [],
+      }),
+    }]
+
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+
+    expect(await screen.findByText('The persisted source summary remains authoritative.')).toBeInTheDocument()
+    expect(screen.getByText('Persisted insight')).toBeInTheDocument()
+    expectDigestTextVisible('A new overview saved after the local snapshot was captured.')
+    expectDigestTextVisible('The latest persisted output takes precedence.')
+    expect(screen.getByTitle(LANDING_DEMO.video_title)).toBeInTheDocument()
+    expect(mockReadTaskOutputs).toHaveBeenCalledOnce()
+    for (const output of landingDemoSummaries.outputs) {
+      expect(screen.queryByText(output.content.tl_dr)).not.toBeInTheDocument()
+      expect(screen.queryByText(output.content.overview)).not.toBeInTheDocument()
     }
   })
 })

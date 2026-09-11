@@ -9,7 +9,11 @@ from services.execution_policy import (
 )
 from services.formatting import format_markdown_from_raw_segments
 from services.output_intent import resolve_output_intent
-from services.summarizer.validation import parse_summary_payload_v4
+from services.summarizer.validation import (
+    parse_summary_payload_v4,
+    validate_catalog_summary_payload,
+)
+from utils.language_utils import normalize_lang_code
 from workflow import VideoProcessingState
 from workflow import app as workflow_app
 
@@ -106,19 +110,22 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
         raise NonRetryableJobError("Missing script content; output cannot be retried")
 
     script_text = script_output["content"]
-    try:
-        script_text = await summarizer.optimize_transcript(script_text)
-    except Exception:
-        logger.info(
-            "Transcript optimization failed for retry %s; using original text",
-            output_id,
-            exc_info=True,
-        )
+    task = db_client.get_task(task_id) if kind == "summary" else None
+    workload_kind = (task or {}).get("workload_kind") or WorkloadKind.USER_SUBMISSION
+    # Catalog locales share the persisted transcript/evidence source. Rewriting
+    # it for each missing language adds inference and can change source anchors.
+    if workload_kind != WorkloadKind.CATALOG_SUPPLY:
+        try:
+            script_text = await summarizer.optimize_transcript(script_text)
+        except Exception:
+            logger.info(
+                "Transcript optimization failed for retry %s; using original text",
+                output_id,
+                exc_info=True,
+            )
 
     if kind == "summary":
-        task = db_client.get_task(task_id)
         video_title = (task or {}).get("video_title") or ""
-        workload_kind = (task or {}).get("workload_kind") or WorkloadKind.USER_SUBMISSION
         db_client.update_output_status(
             output_id,
             status="processing",
@@ -138,7 +145,10 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
                 output_id,
             )
 
-        resolved_intent = resolve_output_intent(out.get("intent"), transcript_language)
+        persisted_intent = dict(out.get("intent") or {})
+        if out.get("locale"):
+            persisted_intent["target_locale"] = out["locale"]
+        resolved_intent = resolve_output_intent(persisted_intent, transcript_language)
         target_language = resolved_intent["target_locale"]
         summary_json = await summarizer.summarize_in_language_with_anchors(
             script_text,
@@ -146,8 +156,13 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
             video_title=video_title,
             script_raw_json=script_raw_json,
         )
+        payload = parse_summary_payload_v4(summary_json)
+        if normalize_lang_code(payload.get("language")) != target_language:
+            raise ValueError(f"Summary language does not match requested locale {target_language}")
+        if workload_kind == WorkloadKind.CATALOG_SUPPLY and target_language in {"en", "zh"}:
+            validate_catalog_summary_payload(payload, target_language)
         validated_summary = json.dumps(
-            parse_summary_payload_v4(summary_json),
+            payload,
             ensure_ascii=False,
         )
 

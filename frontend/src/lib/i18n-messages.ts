@@ -135,7 +135,7 @@ const enMessages = {
       titleEmphasis: "watch the whole podcast.",
       previewKicker: "Inside a finished digest",
       previewTitle: "State of the Claw: Peter Steinberger",
-      previewBrief: "A fast-growing open-source project is learning how to preserve independence while operating at unprecedented scale.",
+      previewBrief: "OpenClaw’s next challenge is staying independent at scale.",
       previewPointOne: "The project’s pace creates a new kind of coordination and security challenge.",
       previewPointTwo: "A neutral foundation protects the ecosystem while contributors and companies grow around it.",
       previewQuestion: "What changes for open source?",
@@ -143,7 +143,7 @@ const enMessages = {
       previewSourceLabel: "Source",
       previewSourceName: "State of the Claw",
       previewSourceType: "Podcast episode",
-      previewOpen: "Explore ready-made digests",
+      previewOpen: "Ask about this episode",
       subtitle:
         "Transform long content into structured insights. Absorb information efficiently with AI summaries, keypoints, and translations.",
       greeting: "Drop a podcast or video. We’ll handle the rest.",
@@ -280,6 +280,7 @@ const enMessages = {
       comingSoon: "Settings features coming soon...",
     },
     pricing: {
+      billingPeriod: "Billing period",
       title: "Plan",
       subtitle: "Review your current usage, plan, and available top-up options.",
       free: {
@@ -293,7 +294,8 @@ const enMessages = {
         desc: "Billed {price} annually for a 12-month subscription",
         button: "Upgrade",
         manage: "Manage Subscription",
-        annual: "ANNUAL"
+        annual: "Annual",
+        monthly: "Monthly"
       },
       topup: {
         title: "Top Up",
@@ -393,7 +395,7 @@ const enMessages = {
       },
       urlHelp: {
         title: "Unsupported URL",
-        description: "Use a YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou link.",
+        description: "Paste a video or episode link from YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou.",
         supportedPlatforms: "Supported platforms:",
         xiaoyuzhou: "Xiaoyuzhou",
         gotIt: "Close"
@@ -518,8 +520,11 @@ const enMessages = {
       retry: "Retry",
       retryQueued: "Retry queued",
       genericError: "Something went wrong.",
+      exampleUnavailable: "This example is unavailable right now.",
+      exampleLanguageUnavailable: "This example has no summary in your selected language.",
       errors: {
         historyLoad: "Failed to load chat history.",
+        historyListLoad: "History unavailable.",
         archive: "Failed to archive chat.",
         restore: "Failed to restore chat.",
       },
@@ -806,7 +811,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       titleEmphasis: "看完播客。",
       previewKicker: "一份整理结果里",
       previewTitle: "State of the Claw: Peter Steinberger",
-      previewBrief: "一个高速增长的开源项目，正在学习如何在空前规模下保持独立性。",
+      previewBrief: "OpenClaw 的下一道挑战：规模增长，独立性不退让。",
       previewPointOne: "项目的增长速度带来了全新的协作与安全挑战。",
       previewPointTwo: "中立基金会让生态保持开放，也让贡献者与公司能够共同成长。",
       previewQuestion: "这会如何改变开源？",
@@ -814,7 +819,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       previewSourceLabel: "来源",
       previewSourceName: "State of the Claw",
       previewSourceType: "播客单集",
-      previewOpen: "浏览已经整理好的内容",
+      previewOpen: "追问这期内容",
       subtitle: "将长视频转化为结构化知识，助您高效获取核心信息。",
       greeting: "投递播客或视频，剩下的交给我们。",
       getStarted: "开始",
@@ -949,6 +954,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       comingSoon: "更多设置即将推出...",
     },
     pricing: {
+      billingPeriod: "计费周期",
       title: "方案",
       subtitle: "查看当前用量、方案与可用充值包。",
       free: {
@@ -962,7 +968,8 @@ const zhMessages: MessageShape<typeof enMessages> = {
         desc: "按年收取 {price}，订阅期为 12 个月",
         button: "升级",
         manage: "管理订阅",
-        annual: "年付"
+        annual: "年付",
+        monthly: "月付"
       },
       topup: {
         title: "充值包",
@@ -1062,7 +1069,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       },
       urlHelp: {
         title: "不支持的链接",
-        description: "请使用 YouTube、Apple Podcasts、Bilibili 或小宇宙链接。",
+        description: "请粘贴 YouTube、Apple Podcasts、Bilibili 或小宇宙的具体视频或单期播客链接。",
         supportedPlatforms: "支持的平台：",
         xiaoyuzhou: "小宇宙",
         gotIt: "关闭"
@@ -1187,8 +1194,11 @@ const zhMessages: MessageShape<typeof enMessages> = {
       retry: "重试",
       retryQueued: "已安排重试",
       genericError: "出现错误，请重试。",
+      exampleUnavailable: "这个案例暂时无法打开。",
+      exampleLanguageUnavailable: "这个案例暂无当前语言的摘要。",
       errors: {
         historyLoad: "无法加载对话记录。",
+        historyListLoad: "历史加载失败",
         archive: "无法归档对话。",
         restore: "无法恢复对话。",
       },

@@ -419,7 +419,15 @@ class DBClient:
         """Fetch a task_output by ID."""
         query = "SELECT * FROM task_outputs WHERE id = :output_id"
         rows = self._execute_query(query, {"output_id": output_id})
-        return rows[0] if rows else None
+        if not rows:
+            return None
+        # pg8000 returns UUID objects. Output retry consumers use string IDs
+        # for ownership checks, queue dispatch and JSON provenance.
+        output = dict(rows[0])
+        for key in ("id", "task_id", "user_id"):
+            if output.get(key) is not None:
+                output[key] = str(output[key])
+        return output
 
     def get_task_outputs(self, task_id: str, include_content: bool = True) -> List[Dict[str, Any]]:
         """

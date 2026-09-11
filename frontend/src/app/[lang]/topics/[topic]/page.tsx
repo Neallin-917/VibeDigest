@@ -2,7 +2,6 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { LandingNav } from "@/components/landing/LandingNav"
 import { ServerCommunityTemplates } from "@/components/templates/ServerCommunityTemplates"
-import { TopicHubLinks } from "@/components/templates/TopicHubLinks"
 import { buildAlternateLanguages, buildLocalizedPath } from "@/lib/seo"
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, isLocale } from "@/lib/i18n"
 import { TOPIC_ROUTE_ORDER, getTopicHubCopy, isPodcastTopic } from "@/lib/topic-hubs"
@@ -89,12 +88,6 @@ export default async function TopicHubPage({ params, searchParams }: Props) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
-        />
-        <TopicHubLinks
-          locale={locale}
-          title={locale === "zh" ? "继续浏览其他主题" : "Browse more topics"}
-          tone="strong"
-          className="mb-8"
         />
         <ServerCommunityTemplates
           showHeader={false}

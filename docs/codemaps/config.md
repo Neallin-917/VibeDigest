@@ -23,9 +23,14 @@
 | `AGENT_CONTINUATION_RUNTIME` | API + hosted worker | Must match chat: `api` hosted, `codex_local` trusted-local |
 | `AGENT_CONTINUATION_QUEUE` | API + hosted worker | `agent_answers` hosted; `agent_answers_local_<id>` for local testing |
 
-`LLM_RUNTIME=api` is the product runtime. Every provider's smart and fast
-defaults resolve to GPT-5.6 Luna; the OpenRouter route uses its canonical
-`openai/gpt-5.6-luna` model ID. Set `LLM_PROVIDER=openai` to use the official
+`LLM_RUNTIME=api` is the product runtime. API providers use a balanced smart
+tier for synthesis and follow-up, and a lighter fast tier for helper work.
+The trusted subscription runtime uses a flagship smart tier for long-form
+podcast understanding and synthesis, and a balanced fast tier for translation
+and transcript processing. These are initial workload-based choices, not a
+measured podcast-quality comparison. Exact model IDs are owned by
+`config/llm-provider-defaults.json`, shared by backend and frontend.
+Set `LLM_PROVIDER=openai` to use the official
 OpenAI API; `OPENAI_BASE_URL` is only used by `custom`. Leaving `LLM_PROVIDER`
 unset keeps the legacy inference (`custom` when `OPENAI_BASE_URL` is set,
 otherwise `openrouter`).

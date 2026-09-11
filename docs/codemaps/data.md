@@ -19,7 +19,8 @@ guest_usage is keyed by X-Guest-Id.
   `workload_kind`, metadata, status, progress, terminal error, publication, and
   lightweight public-library quality/search projection.
 - `task_outputs`: script/raw transcript/summary/classification/audio/
-  comprehension artifacts.
+  comprehension artifacts. Catalog tasks persist separate `summary` rows for
+  `en` and `zh` under the existing `(task_id, kind, locale)` identity.
 - `chat_threads` / `chat_messages`: Cloud chat persistence; message content
   follows the current AI SDK parts schema defined by its migrations.
 - `guest_usage`: guest trial quota.
@@ -69,6 +70,12 @@ validates current database state by entity ID.
    always routes to `podcast_supply`, including task and output retries.
 7. Worker profiles reload `workload_kind` and reject tasks outside their
    capability before calling the pipeline.
+8. New `catalog_supply` submissions create English and Chinese summary
+   placeholders in the task submission transaction. Existing tasks use the
+   bounded `enqueue_catalog_summary_locale` backfill function so placeholder
+   state and the ID-only retry message stay atomic. It reuses
+   `submit_output_retry`, rejects non-catalog tasks, and cannot override the
+   `podcast_supply` queue. Active task jobs and queued output retries are skipped.
 
 ## Public library publication
 
@@ -78,7 +85,15 @@ when the task is `published`. Task/output triggers permit that state only after
 the quality projection confirms a valid V4+ summary, takeaway, at least three
 sourced key points, transcript, title, and thumbnail. The same projection owns
 card takeaway, key-point count, quality score, source slug, source date, and
-search text, so the library does not download full summary JSON for every card.
+search text. Bilingual catalog projections include both localized takeaways in
+search, so the library does not download full summary JSON for every card.
+New catalog tasks require both `en` and `zh` outputs to pass the content and
+language gates before publication; legacy rows are not assigned that requirement
+retroactively. `public_quality_flags.available_languages` and `takeaways` own
+per-language availability for Explore, public detail metadata/body, and sitemap.
+Existing Japanese summaries remain supported; new catalog generation targets
+English and Chinese. Missing route-language output never falls back to another
+language's summary.
 Discovery can request automatic publication, but cannot bypass this gate.
 
 The private schema is revoked from `PUBLIC`; browser roles never receive direct

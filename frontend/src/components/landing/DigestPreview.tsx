@@ -1,66 +1,82 @@
 "use client"
 
+import { useState } from "react"
+import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, ArrowUpRight, Video } from "lucide-react"
 import { useI18n } from "@/components/i18n/I18nProvider"
+import { Button } from "@/components/ui/button"
+import { LANDING_DEMO } from "@/lib/landing-demo"
 
-/** A compact, faithful excerpt of the task-detail reading experience. */
+/** One featured episode pairs the original source with its prepared digest. */
 export function DigestPreview() {
     const { locale, t } = useI18n()
+    const [coverUnavailable, setCoverUnavailable] = useState(false)
+    const hasSummary = LANDING_DEMO.summaryLocales.some((summaryLocale) => summaryLocale === locale)
 
     return (
         <section
-            aria-labelledby="digest-preview-title"
-            className="w-full overflow-hidden rounded-[18px] border border-border bg-surface-raised text-foreground shadow-[0_28px_80px_-58px_rgba(45,67,51,0.28)]"
+            id="digest-preview-title"
+            aria-labelledby="digest-preview-heading"
+            className="w-full scroll-mt-28 overflow-hidden rounded-3xl border border-primary/15 bg-surface-subtle text-foreground shadow-[0_24px_64px_-36px_rgba(45,67,51,0.25)]"
         >
-            <header className="border-b border-border/70 px-5 py-6 sm:px-8 sm:py-8">
-                <h2
-                    id="digest-preview-title"
-                    className="max-w-3xl text-[clamp(1.5rem,3.1vw,2.25rem)] font-semibold leading-[1.12] tracking-[-0.035em] text-foreground"
-                >
-                    {t("landing.previewTitle")}
-                </h2>
-            </header>
+            <div className="grid gap-6 p-5 sm:gap-8 sm:p-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-x-8 lg:p-8">
+                <aside className="min-w-0 lg:pt-2" aria-label={t("landing.previewSourceLabel")}>
+                    <a
+                        href={LANDING_DEMO.video_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${t("landing.previewSourceLabel")}: ${t("landing.previewTitle")}`}
+                        className="group/source block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-surface-subtle"
+                    >
+                        <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl bg-surface-tint shadow-[0_16px_32px_-16px_rgba(27,33,28,0.45)]">
+                            {coverUnavailable ? (
+                                <Video className="size-12 text-primary" aria-hidden="true" />
+                            ) : (
+                                <Image
+                                    src="/landing-openclaw.jpg"
+                                    alt=""
+                                    fill
+                                    // Match the 1080px hero cap and the 1.1fr / 1fr desktop grid.
+                                    sizes="(min-width: 1160px) 515px, (min-width: 1024px) calc(52.4vw - 93px), (min-width: 640px) calc(100vw - 114px), calc(100vw - 74px)"
+                                    className="object-cover"
+                                    onError={() => setCoverUnavailable(true)}
+                                />
+                            )}
+                        </div>
+                        <div className="mt-5 flex items-start justify-between gap-4">
+                            <h2
+                                id="digest-preview-heading"
+                                className="min-w-0 text-balance text-xl font-semibold leading-7 tracking-[-0.025em] group-hover/source:text-primary sm:text-2xl sm:leading-8"
+                            >
+                                {t("landing.previewTitle")}
+                            </h2>
+                            <ArrowUpRight className="mt-1.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                        </div>
+                    </a>
+                </aside>
 
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_17rem]">
-                <div className="min-w-0 space-y-7 px-5 py-7 sm:px-8 sm:py-8 lg:border-r lg:border-border/70">
-                    <section className="space-y-3" aria-labelledby="digest-preview-summary-title">
-                        <h3 id="digest-preview-summary-title" className="text-base font-semibold text-foreground">
+                <div className="min-w-0 rounded-2xl bg-surface-raised p-5 shadow-[0_10px_30px_-20px_rgba(27,33,28,0.25)] sm:p-7 lg:p-8">
+                    <section aria-labelledby="digest-preview-summary-title">
+                        <h3 id="digest-preview-summary-title" className="text-xs font-semibold text-primary">
                             {t("landing.outputSummary")}
                         </h3>
-                        <p className="max-w-[46rem] text-[15px] font-medium leading-7 text-foreground-soft sm:text-base">
+                        <p className="mt-4 text-balance text-[26px] font-semibold leading-[1.4] tracking-[-0.035em] text-primary-strong sm:text-[32px] lg:text-[34px]">
                             {t("landing.previewBrief")}
                         </p>
                     </section>
 
-                    <section
-                        className="rounded-[14px] border border-border/80 bg-background p-4 sm:p-5"
-                        aria-labelledby="digest-preview-follow-up-title"
-                    >
-                        <h3 id="digest-preview-follow-up-title" className="text-sm font-semibold text-foreground">
-                            {t("landing.outputFollowUp")}
-                        </h3>
-                        <dl className="mt-4 space-y-2">
-                            <dt className="text-sm font-medium leading-6 text-foreground">
-                                {t("landing.previewQuestion")}
-                            </dt>
-                            <dd className="text-sm leading-6 text-muted-foreground">
-                                {t("landing.previewAnswer")}
-                            </dd>
-                        </dl>
-                    </section>
-
-                    <section className="border-t border-border/70 pt-6" aria-labelledby="digest-preview-ideas-title">
-                        <h3 id="digest-preview-ideas-title" className="text-base font-semibold text-foreground">
+                    <section className="mt-7 border-t border-border/80 pt-5 sm:mt-8" aria-labelledby="digest-preview-ideas-title">
+                        <h3 id="digest-preview-ideas-title" className="text-xs font-semibold text-muted-foreground">
                             {t("landing.outputKeyIdeas")}
                         </h3>
-                        <ol className="mt-5 space-y-5">
+                        <ol className="mt-4 space-y-5">
                             {["previewPointOne", "previewPointTwo"].map((key, index) => (
-                                <li key={key} className="grid max-w-[46rem] grid-cols-[1.75rem_minmax(0,1fr)] gap-3">
-                                    <span className="pt-0.5 text-xs font-medium tabular-nums text-primary" aria-hidden="true">
+                                <li key={key} className="grid grid-cols-[1.5rem_minmax(0,1fr)] items-start gap-3">
+                                    <span className="pt-0.5 text-sm font-medium tabular-nums text-primary" aria-hidden="true">
                                         {String(index + 1).padStart(2, "0")}
                                     </span>
-                                    <p className="text-sm leading-6 text-foreground-soft">
+                                    <p className="text-sm leading-6 text-foreground-soft sm:text-[15px] sm:leading-7">
                                         {t(`landing.${key}`)}
                                     </p>
                                 </li>
@@ -69,26 +85,25 @@ export function DigestPreview() {
                     </section>
                 </div>
 
-                <aside
-                    className="border-t border-border/70 px-5 py-6 sm:px-8 lg:border-t-0 lg:px-6 lg:py-8"
-                    aria-label={t("landing.previewSourceLabel")}
-                >
-                    <p className="text-xs text-muted-foreground">
-                        {t("landing.previewSourceLabel")}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-foreground">
-                        {t("landing.previewSourceName")}
-                    </p>
-                </aside>
+                <div className="flex min-w-0 flex-col items-start gap-5 border-t border-primary/15 pt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8 lg:col-span-2">
+                    <dl className="max-w-[44rem]">
+                        <dt className="text-base font-semibold leading-7 text-foreground">
+                            {t("landing.previewQuestion")}
+                        </dt>
+                        <dd className="mt-1.5 text-sm leading-6 text-foreground-soft sm:text-[15px] sm:leading-7">
+                            {t("landing.previewAnswer")}
+                        </dd>
+                    </dl>
+                    {hasSummary && (
+                        <Button asChild variant="supa" className="h-12 shrink-0 gap-3 px-6 text-sm motion-reduce:transition-none motion-reduce:active:scale-100">
+                            <Link href={`/${locale}/chat?task=${LANDING_DEMO.id}`}>
+                                <span>{t("landing.previewOpen")}</span>
+                                <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                            </Link>
+                        </Button>
+                    )}
+                </div>
             </div>
-
-            <Link
-                href={`/${locale}/explore`}
-                className="group flex min-h-12 items-center justify-between border-t border-border/70 px-5 text-[12px] font-semibold text-primary transition-colors hover:bg-background hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-8"
-            >
-                <span>{t("landing.previewOpen")}</span>
-                <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
-            </Link>
         </section>
     )
 }

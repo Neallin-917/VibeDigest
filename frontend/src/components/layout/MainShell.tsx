@@ -10,6 +10,7 @@ import { LandingNav } from "@/components/landing/LandingNav"
 import { TaskNotificationListener } from "@/components/tasks/TaskNotificationListener"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import { TopHeader } from "@/components/chat/TopHeader"
 
 export function MainShell({ children }: { children: React.ReactNode }) {
   const { locale } = useI18n()
@@ -30,9 +31,10 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isPublicPath && !isLoading && !user) {
-      router.replace(`/${locale}/login`)
+      const next = `${pathname || `/${locale}/chat`}${window.location.search}${window.location.hash}`
+      router.replace(`/${locale}/login?${new URLSearchParams({ next })}`)
     }
-  }, [isLoading, isPublicPath, locale, router, user])
+  }, [isLoading, isPublicPath, locale, pathname, router, user])
 
   // Show loading spinner while checking auth (but allow public paths through)
   if (isLoading && !isPublicPath) {
@@ -86,6 +88,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <MobileHeader />
+          <TopHeader className="hidden md:flex" />
 
           <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
             {children}

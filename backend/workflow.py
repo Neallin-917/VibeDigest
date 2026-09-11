@@ -17,9 +17,10 @@ from dependencies import (
     get_summarizer,
     get_supadata_client,
 )
-from services.summarizer.validation import parse_summary_payload_v4
+from services.summarizer.validation import parse_summary_payload_v4, validate_catalog_summary_payload
 from services.output_intent import resolve_output_intent
 from services.execution_policy import (
+    CATALOG_SUMMARY_LOCALES,
     WorkloadKind,
     current_execution_provenance,
 )
@@ -135,6 +136,12 @@ async def check_cache(state: VideoProcessingState) -> Dict:
         if existing_task:
             logger.info(f"Cache hit (Script Found): using task {existing_task['id']}")
             updates["cache_hit"] = True
+            current_task = _get_db_client().get_task(state["task_id"])
+            is_catalog_task = (
+                isinstance(current_task, dict)
+                and current_task.get("workload_kind") == WorkloadKind.CATALOG_SUPPLY
+            )
+            cached_summary_locales: set[str] = set()
             updates["video_title"] = existing_task.get("video_title") or "Unknown"
             updates["thumbnail_url"] = existing_task.get("thumbnail_url")
 
@@ -180,7 +187,8 @@ async def check_cache(state: VideoProcessingState) -> Dict:
                     except Exception as e:
                         logger.warning(f"Failed to copy output {k}: {e}")
 
-                # Copy summary if it matches source language
+                # User summaries remain source-language compatible; catalog
+                # summaries reuse each supported localized artifact.
                 if k == OutputKind.SUMMARY:
                     summary_lang = None
                     try:
@@ -194,11 +202,27 @@ async def check_cache(state: VideoProcessingState) -> Dict:
                     summary_lang_norm = normalize_lang_code(summary_lang)
                     transcript_lang_norm = normalize_lang_code(transcript_lang)
 
-                    if transcript_lang_norm == "unknown" or summary_lang_norm == transcript_lang_norm:
+                    if is_catalog_task:
+                        if summary_lang_norm not in CATALOG_SUMMARY_LOCALES:
+                            continue
+                        try:
+                            payload = parse_summary_payload_v4(val)
+                            validate_catalog_summary_payload(payload, summary_lang_norm)
+                        except ValueError:
+                            continue
+                        _get_db_client().upsert_completed_task_output(
+                            state["task_id"], state["user_id"], str(k), str(val), locale=summary_lang_norm
+                        )
+                        cached_summary_locales.add(summary_lang_norm)
+                        updates["final_summary_json"] = val
+                    elif transcript_lang_norm == "unknown" or summary_lang_norm == transcript_lang_norm:
                         _get_db_client().upsert_completed_task_output(
                             state["task_id"], state["user_id"], str(k), str(val), locale=loc
                         )
                         updates["final_summary_json"] = val
+
+            if is_catalog_task and not set(CATALOG_SUMMARY_LOCALES).issubset(cached_summary_locales):
+                updates["final_summary_json"] = None
 
             # Validate Integrity: If script is missing, treat as miss
             if not updates.get("transcript_text"):
@@ -483,7 +507,7 @@ async def _run_summarize(
     transcript_language: Optional[str],
     transcript_source: Optional[str],
 ):
-    summary_output: Optional[Dict[str, Any]] = None
+    active_output: Optional[Dict[str, Any]] = None
     try:
         logger.info("Cognition: Starting summarization...")
         _advance_task_progress(task_id, 85)
@@ -505,60 +529,119 @@ async def _run_summarize(
             else WorkloadKind.USER_SUBMISSION
         )
         resolved_intent = resolve_output_intent(task_intent, source_language)
-        target_language = resolved_intent["target_locale"]
-
-        summary_output = next(
-            (
-                output
-                for output in _get_db_client().get_task_outputs(task_id)
-                if output.get("kind") == OutputKind.SUMMARY.value
-                and output.get("locale") in {target_language, None}
-            ),
-            None,
+        primary_language = resolved_intent["target_locale"]
+        if primary_language == "unknown":
+            primary_language = "en"
+            resolved_intent = {
+                **resolved_intent,
+                "target_locale": primary_language,
+                "locale_source": "default_locale",
+            }
+        target_languages = (
+            CATALOG_SUMMARY_LOCALES
+            if workload_kind == WorkloadKind.CATALOG_SUPPLY
+            else (primary_language,)
         )
-        if not summary_output:
-            summary_output = _get_db_client().create_task_output(
-                task_id,
-                user_id,
-                OutputKind.SUMMARY.value,
-                locale=target_language,
+        outputs = _get_db_client().get_task_outputs(task_id)
+        summary_payloads: Dict[str, Dict[str, Any]] = {}
+
+        for target_language in target_languages:
+            language_intent = {
+                **resolved_intent,
+                "target_locale": target_language,
+                "locale_source": (
+                    "catalog_bilingual"
+                    if workload_kind == WorkloadKind.CATALOG_SUPPLY
+                    else resolved_intent.get("locale_source")
+                ),
+            }
+            active_output = next(
+                (
+                    output
+                    for output in outputs
+                    if output.get("kind") == OutputKind.SUMMARY.value
+                    and output.get("locale") == target_language
+                ),
+                None,
             )
-        if not summary_output:
-            raise RuntimeError("Summary output placeholder is missing")
+            if not active_output and workload_kind != WorkloadKind.CATALOG_SUPPLY:
+                active_output = next(
+                    (
+                        output
+                        for output in outputs
+                        if output.get("kind") == OutputKind.SUMMARY.value
+                        and output.get("locale") is None
+                    ),
+                    None,
+                )
+            if not active_output:
+                active_output = _get_db_client().create_task_output(
+                    task_id,
+                    user_id,
+                    OutputKind.SUMMARY.value,
+                    locale=target_language,
+                )
+                if active_output:
+                    outputs.append(active_output)
+            if not active_output:
+                raise RuntimeError(
+                    f"Summary output placeholder is missing for locale {target_language}"
+                )
 
-        summary = await _get_summarizer().summarize(
-            transcript_text,
-            target_language=target_language,
-            trace_metadata=trace_meta,
-        )
+            existing_content = active_output.get("content")
+            if active_output.get("status") == TaskStatus.COMPLETED and existing_content:
+                try:
+                    existing_payload = parse_summary_payload_v4(existing_content)
+                    if normalize_lang_code(existing_payload.get("language")) != target_language:
+                        raise ValueError("persisted summary language mismatch")
+                    if workload_kind == WorkloadKind.CATALOG_SUPPLY:
+                        validate_catalog_summary_payload(existing_payload, target_language)
+                except ValueError:
+                    logger.info(
+                        "Regenerating invalid persisted summary for task %s locale %s",
+                        task_id,
+                        target_language,
+                    )
+                else:
+                    summary_payloads[target_language] = existing_payload
+                    continue
 
-        payload = parse_summary_payload_v4(summary)
-        summary_content = json.dumps(payload, ensure_ascii=False)
-        summary_payload = payload
+            summary = await _get_summarizer().summarize(
+                transcript_text,
+                target_language=target_language,
+                trace_metadata=trace_meta,
+            )
+            payload = parse_summary_payload_v4(summary)
+            if normalize_lang_code(payload.get("language")) != target_language:
+                raise ValueError(
+                    f"Summary language does not match requested locale {target_language}"
+                )
+            if workload_kind == WorkloadKind.CATALOG_SUPPLY:
+                validate_catalog_summary_payload(payload, target_language)
 
-        _get_db_client().update_output_status(
-            str(summary_output["id"]),
-            content=summary_content,
-            status=TaskStatus.COMPLETED,
-            progress=100,
-            locale=target_language,
-            intent=resolved_intent,
-            provenance={
-                "source_task_id": task_id,
-                "source_kind": OutputKind.SCRIPT.value,
-                "transcript_language": source_language,
-                **current_execution_provenance(workload_kind),
-            },
-        )
+            _get_db_client().update_output_status(
+                str(active_output["id"]),
+                content=json.dumps(payload, ensure_ascii=False),
+                status=TaskStatus.COMPLETED,
+                progress=100,
+                locale=target_language,
+                intent=language_intent,
+                provenance={
+                    "source_task_id": task_id,
+                    "source_kind": OutputKind.SCRIPT.value,
+                    "transcript_language": source_language,
+                    **current_execution_provenance(workload_kind),
+                },
+            )
+            summary_payloads[target_language] = payload
 
         _advance_task_progress(task_id, 92)
-
-        return summary_payload
+        return summary_payloads.get(primary_language) or summary_payloads[target_languages[0]]
     except Exception as e:
         logger.error(f"Cognition: Summarization failed: {e}")
-        if summary_output:
+        if active_output:
             _get_db_client().update_output_status(
-                str(summary_output["id"]),
+                str(active_output["id"]),
                 status=TaskStatus.ERROR,
                 progress=100,
                 content="",

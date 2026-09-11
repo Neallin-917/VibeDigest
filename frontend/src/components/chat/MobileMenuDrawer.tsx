@@ -24,6 +24,9 @@ interface MobileMenuDrawerProps {
   onNewChat: () => void
   onOpenLibrary: () => void
   threads?: Thread[]
+  threadsStatus?: 'pending' | 'success' | 'error'
+  isThreadsFetching?: boolean
+  onRetryThreads?: () => void
   activeThreadId?: string | null
   selectedThreadId?: string | null
   onSelectThread?: (threadId: string) => void
@@ -37,6 +40,9 @@ function MobileMenuDrawerComponent({
   onNewChat, 
   onOpenLibrary,
   threads = [],
+  threadsStatus = 'success',
+  isThreadsFetching = false,
+  onRetryThreads,
   activeThreadId,
   selectedThreadId,
   onSelectThread,
@@ -148,7 +154,20 @@ function MobileMenuDrawerComponent({
             
             {isChatsOpen && (
               <div className="space-y-0.5 mt-1">
-                {activeThreads.length === 0 ? (
+                {threadsStatus === 'error' ? (
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs" role="alert">
+                    <span className="min-w-0 flex-1 text-destructive">{t('chat.errors.historyListLoad')}</span>
+                    <button
+                      type="button"
+                      onClick={onRetryThreads}
+                      disabled={isThreadsFetching}
+                      className="shrink-0 rounded-md px-1 py-1 font-medium text-sidebar-foreground underline underline-offset-4 hover:text-sidebar-primary disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {t('common.retry')}
+                    </button>
+                  </div>
+                ) : null}
+                {activeThreads.length === 0 && threadsStatus === 'success' ? (
                    <div className="px-3 py-2 text-xs text-foreground-subtle">
                     {archivedThreads.length === 0 ? t('chat.noChats') : t('chat.noActiveChats')}
                   </div>

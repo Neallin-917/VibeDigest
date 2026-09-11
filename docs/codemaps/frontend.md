@@ -50,10 +50,10 @@ src/app/
 │   ├── chat/                         # primary chat workspace
 │   ├── explore/                      # public task discovery
 │   ├── login/ and auth/callback/     # authentication
+│   ├── policies/                    # public refund and payment terms
 │   ├── (main)/
 │   │   ├── tasks/[id]/               # task result
-│   │   ├── settings/                 # account and pricing
-│   │   └── policies/                 # authenticated legal routes
+│   │   └── settings/                 # account and pricing
 │   └── about, faq, privacy, terms
 └── api/
     ├── process-video/                # authenticated FastAPI proxy
@@ -79,6 +79,38 @@ src/app/
 | Backend commands | `src/lib/api.ts` | Typed browser-facing API client |
 | Live task events | `src/lib/task-live.ts` | Supabase Realtime only |
 | Supabase clients | `src/lib/supabase*.ts` | Browser/public and server credential boundaries |
+
+Public policy pages render outside `MainShell`. Protected-route redirects and
+all authentication methods preserve the localized return path, query, and anchor
+through `locale-navigation.ts`.
+
+The landing digest pins one public example in `src/lib/landing-demo.ts`. Its CTA
+opens `/[lang]/chat?task=...`; the existing chat page verifies public availability
+before showing the task, and retains that task through the sign-in handoff.
+The CTA is offered only for the pinned episode's supported summary languages.
+Its original episode cover is bundled as `public/landing-openclaw.jpg` and served
+through Next's responsive image optimizer, avoiding an external image fetch at
+page render time.
+Direct entry freshly validates a completed summary in the route language. A
+missing, withdrawn, or unreachable example shows a retry/new-chat recovery state
+instead of entering private thread initialization; existing conversations retain
+their authenticated restoration path. The inline pinned digest never substitutes
+another summary language, including while changing locales.
+The local visual demo uses the complete published English/Chinese summary snapshot
+in `src/lib/fixtures/landing-demo-summaries.json` for this episode; production still
+reads persisted task outputs. Inline digests render the overview, every key point,
+its significance, and all sections, with source evidence available in a disclosure.
+A standalone completed digest opens at the beginning; sending a follow-up resumes
+conversation scrolling.
+When its first follow-up receives a thread ID, the finished messages seed the
+workspace remount so the digest and new answer remain visible.
+
+Library navigation keeps filters and pagination in the URL. Detail links retain
+the validated originating library path and episode anchor, including when the
+digest is in another language. `TaskDetailRefresh` refreshes the server projection
+after Realtime task/summary changes and subscription recovery; it never polls.
+The shared inline-task subscription also re-reads on reconnect and ignores older
+row versions so a stale read cannot replace a newer result.
 | Durable chat schema | `src/lib/chat-message-boundary.ts` | Validate request, replay, and persistence boundaries |
 | Follow-up context budget | `src/app/api/chat/context-budget.ts` | Keep recent complete UI messages within message and character limits |
 | Task Agent | `src/lib/agent/` | Shared intent/tools/runner, signed backend client, source index and citations |

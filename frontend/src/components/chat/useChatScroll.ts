@@ -15,6 +15,10 @@ export function useChatScroll(deps: {
   const isUserNearBottomRef = useRef(true)
   const isInitializedRef = useRef(false)
   const rafIdRef = useRef<number | null>(null)
+  const digestTaskRef = useRef<string | null>(null)
+  const isDigestOnly = Boolean(activeTaskId) && messages.length === 1
+    && messages[0].role === 'assistant' && messages[0].parts.length > 0
+    && messages[0].parts.every(part => part.type === 'data-task-status' && part.data.status === 'completed')
 
   const handleScroll = () => {
     if (!scrollRef.current) return
@@ -27,9 +31,25 @@ export function useChatScroll(deps: {
   useLayoutEffect(() => {
     // Skip auto-scroll if showing Welcome Screen (no messages and no active task context)
     if (messages.length === 0 && !activeTaskId) return
-    if (!scrollRef.current || !isUserNearBottomRef.current) return
+    if (!scrollRef.current) return
 
     const el = scrollRef.current
+    if (isDigestOnly) {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+      // An existing digest opens as a document, before the first follow-up.
+      if (digestTaskRef.current !== activeTaskId) el.scrollTop = 0
+      digestTaskRef.current = activeTaskId ?? null
+      return
+    }
+    if (digestTaskRef.current !== null) {
+      digestTaskRef.current = null
+      isUserNearBottomRef.current = true
+    }
+    if (!isUserNearBottomRef.current) return
+
     const isFirstScroll = !isInitializedRef.current
     if (isFirstScroll) isInitializedRef.current = true
 
@@ -49,7 +69,7 @@ export function useChatScroll(deps: {
       }
       rafIdRef.current = null
     })
-  }, [messages, status, activeTaskId])
+  }, [messages, status, activeTaskId, isDigestOnly])
 
   useEffect(() => {
     return () => {

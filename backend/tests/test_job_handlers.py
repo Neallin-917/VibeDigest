@@ -148,10 +148,12 @@ async def test_handle_retry_output_retires_unsupported_persisted_locale(
     mock_summarizer.summarize_in_language_with_anchors.return_value = json.dumps({
         "version": 4,
         "language": "en",
-        "tl_dr": "Summary",
-        "overview": "Overview",
+        "tl_dr": "A retired output locale is regenerated in English.",
+        "overview": "The source transcript remains unchanged while the summary is regenerated using the supported English output locale.",
         "keypoints": [
-            {"title": "Point", "detail": "Detail", "evidence": "Evidence"}
+            {"title": "Language", "detail": "Use English output.", "evidence": "English transcript"},
+            {"title": "Source", "detail": "Preserve the source transcript.", "evidence": "English transcript"},
+            {"title": "Retry", "detail": "Update the persisted locale.", "evidence": "English transcript"},
         ],
     })
 
@@ -244,3 +246,46 @@ async def test_handle_retry_output_missing_raw(mock_db_client):
         with pytest.raises(NonRetryableJobError, match="No raw transcript segments"):
             await handle_retry_output("out_1", "u1")
         mock_db_client.update_output_status.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("locale", ["en", "zh"])
+@pytest.mark.parametrize("failure", [None, "wrong_language", "short_overview", "short_takeaway", "few_keypoints"])
+async def test_catalog_retry_validates_target_locale_and_quality(mock_db_client, mock_summarizer, locale, failure):
+    other_locale = "zh" if locale == "en" else "en"
+    mock_db_client.get_output.return_value = {
+        "id": "out-bilingual", "task_id": "task_1", "user_id": "u1", "kind": "summary",
+        "locale": locale, "intent": {"target_locale": other_locale},
+    }
+    mock_db_client.get_task.return_value = {"workload_kind": "catalog_supply"}
+    mock_db_client.get_task_outputs.return_value = [{"kind": "script", "content": "Shared source"}]
+    mock_summarizer.optimize_transcript.return_value = "Shared source"
+    payload = {
+        "version": 5, "language": locale,
+        "overview": "A complete overview providing the full source context and enough information for public readers.",
+        "tl_dr": "A clear public takeaway with enough context for a useful summary.",
+        "keypoints": [{"title": "Title", "detail": "Detail", "evidence": "Evidence"}] * 3,
+    }
+    if failure == "wrong_language":
+        payload["language"] = other_locale
+    elif failure == "short_overview":
+        payload["overview"] = "Short"
+    elif failure == "short_takeaway":
+        payload["tl_dr"] = "Short"
+    elif failure == "few_keypoints":
+        payload["keypoints"] = payload["keypoints"][:1]
+    mock_summarizer.summarize_in_language_with_anchors.return_value = json.dumps(payload)
+    with (
+        patch("services.job_handlers.get_db_client", return_value=mock_db_client),
+        patch("services.job_handlers.get_summarizer", return_value=mock_summarizer),
+    ):
+        if failure:
+            with pytest.raises(ValueError):
+                await handle_retry_output("out-bilingual", "u1")
+            assert not any(c.kwargs.get("status") == "completed" for c in mock_db_client.update_output_status.call_args_list)
+        else:
+            await handle_retry_output("out-bilingual", "u1")
+            assert mock_db_client.update_output_status.call_args.kwargs["locale"] == locale
+    assert mock_summarizer.summarize_in_language_with_anchors.call_args.kwargs["summary_language"] == locale
+    mock_summarizer.optimize_transcript.assert_not_awaited()
+    assert mock_summarizer.summarize_in_language_with_anchors.call_args.args[0] == "Shared source"

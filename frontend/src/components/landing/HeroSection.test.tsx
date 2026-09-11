@@ -1,4 +1,5 @@
-import { act, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import type { ComponentProps } from "react"
 import { beforeEach, vi, describe, it, expect } from "vitest"
 import { HeroSection } from "./HeroSection"
 
@@ -10,7 +11,7 @@ const mocks = vi.hoisted(() => ({
         isPending: false,
     },
     locale: "en" as "en" | "zh",
-    submit: undefined as ((text: string) => Promise<void | boolean>) | undefined,
+    submit: undefined as ((text: string) => void | boolean | Promise<void | boolean>) | undefined,
     trackGrowthEvent: vi.fn(),
 }))
 
@@ -45,22 +46,19 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
     })
 }))
 
-// Mock ChatInput
-vi.mock("@/components/chat/ChatInput", () => ({
-    ChatInput: ({ variant, placeholder, inputLabel, onSubmit }: any) => {
-        mocks.submit = onSubmit
-        return (
-            <div
-                data-testid="chat-input"
-                data-variant={variant}
-                data-placeholder={placeholder}
-                data-input-label={inputLabel}
-            >
-                ChatInput
-            </div>
-        )
-    },
-}))
+vi.mock("@/components/chat/ChatInput", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@/components/chat/ChatInput")>()
+    return {
+        ChatInput: (props: ComponentProps<typeof actual.ChatInput>) => {
+            mocks.submit = props.onSubmit
+            return (
+                <div data-testid="hero-chat-input" data-variant={props.variant}>
+                    <actual.ChatInput {...props} />
+                </div>
+            )
+        },
+    }
+})
 
 describe("HeroSection", () => {
     beforeEach(() => {
@@ -87,11 +85,10 @@ describe("HeroSection", () => {
 
     it("renders ChatInput in inline mode", () => {
         render(<HeroSection />)
-        const input = screen.getByTestId("chat-input")
+        const input = screen.getByRole("textbox", { name: "taskForm.urlInputLabel" })
         expect(input).toBeInTheDocument()
-        expect(input).toHaveAttribute("data-variant", "inline")
-        expect(input).toHaveAttribute("data-placeholder", "taskForm.urlPlaceholder")
-        expect(input).toHaveAttribute("data-input-label", "taskForm.urlInputLabel")
+        expect(screen.getByTestId("hero-chat-input")).toHaveAttribute("data-variant", "inline")
+        expect(input).toHaveAttribute("placeholder", "taskForm.urlPlaceholder")
     })
 
     it("keeps supporting copy out of the hero so the task input stays the only CTA", () => {
@@ -158,16 +155,23 @@ describe("HeroSection", () => {
 
     it("keeps unsupported input in place and does not report activation", async () => {
         render(<HeroSection />)
+        const input = screen.getByRole("textbox", { name: "taskForm.urlInputLabel" })
+        fireEvent.change(input, { target: { value: "https://youtube.com" } })
+        fireEvent.click(screen.getByRole("button", { name: "chat.sendMessage" }))
 
-        let accepted: void | boolean | undefined
-        await act(async () => {
-            accepted = await mocks.submit?.("https://youtube.com")
-        })
-
-        expect(accepted).toBe(false)
-        expect(screen.getByText("taskForm.urlHelp.title")).toBeInTheDocument()
+        expect(await screen.findByRole("alert")).toHaveTextContent("taskForm.urlHelp.description")
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+        expect(input).toHaveValue("https://youtube.com")
+        expect(input).toHaveAccessibleDescription("taskForm.urlHelp.description")
+        await waitFor(() => expect(input).toHaveFocus())
         expect(localStorage.getItem("vibedigest_pending_message")).toBeNull()
         expect(mocks.trackGrowthEvent).not.toHaveBeenCalled()
         expect(mocks.push).not.toHaveBeenCalled()
+
+        fireEvent.change(input, { target: { value: "https://youtu.be/test123" } })
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+        expect(input).not.toHaveAttribute("aria-invalid")
+        fireEvent.click(screen.getByRole("button", { name: "chat.sendMessage" }))
+        await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/en/login?next=%2Fen%2Fchat"))
     })
 })

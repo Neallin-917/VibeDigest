@@ -95,11 +95,17 @@ test.describe('Landing Page Acquisition Flow', () => {
         const generateBtn = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).first()
         await generateBtn.click()
 
-        // Should show URL help dialog or error
-        // The dialog usually has a role="dialog"
-        const dialog = page.getByRole('dialog').first()
-        await expect(dialog).toBeVisible({ timeout: 5000 })
-        await expect(dialog).toContainText('Unsupported URL')
-        await expect(dialog).toContainText('Use a YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou link.')
+        const error = page.locator('#hero').getByRole('alert')
+        await expect(error).toBeVisible()
+        await expect(error).toHaveText('Paste a video or episode link from YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou.')
+        await expect(urlInput).toHaveAttribute('aria-invalid', 'true')
+        await expect(urlInput).toHaveAttribute('aria-describedby', await error.getAttribute('id') as string)
+        await expect(urlInput).toBeFocused()
+        await expect(urlInput).toHaveValue('not-a-valid-url')
+        await expect(page.getByRole('dialog')).toHaveCount(0)
+
+        await urlInput.fill('https://www.youtube.com/watch?v=testVideo123')
+        await expect(error).toHaveCount(0)
+        await expect(urlInput).not.toHaveAttribute('aria-invalid', 'true')
     })
 })

@@ -12,6 +12,21 @@ npx playwright test
 npx playwright test e2e/workflow-complete.spec.ts
 ```
 
+### UI/UX regression checks with local fixtures
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=local-demo \
+BACKEND_API_URL=http://127.0.0.1:16081 \
+npx playwright test e2e/uiux-regressions.spec.ts --project=chromium-guest --workers=1
+```
+
+These checks use demo digests and mocked browser authentication/profile responses;
+they do not submit video jobs, send sign-in emails, or open checkout. They cover
+public policies, auth return paths, library density and return position, keyboard
+language selection, and pricing controls. Screenshots are written to the ignored
+`output/playwright/` directory at the repository root.
+
 ### Run with UI Mode (Debugging)
 ```bash
 npx playwright test --ui

@@ -79,6 +79,34 @@ def _valid_summary_payload(overview: str, *, title: str = "Point A", detail: str
     }
 
 
+def _valid_catalog_summary_payload(locale: str) -> dict:
+    is_chinese = locale == "zh"
+    overview = (
+        "这是一段满足公开播客内容质量门槛的完整中文概览，包含足够的信息用于验证双语摘要生成与持久化流程。" * 2
+        if is_chinese
+        else "This complete catalog overview is deliberately long enough to pass the public content quality threshold."
+    )
+    takeaway = (
+        "这是一条长度足够、可以用于公开播客卡片展示的中文核心结论。"
+        if is_chinese
+        else "This is a sufficiently complete takeaway for the public catalog card."
+    )
+    return {
+        "version": 5,
+        "language": locale,
+        "tl_dr": takeaway,
+        "overview": overview,
+        "keypoints": [
+            {
+                "title": f"Point {index}",
+                "detail": f"Important detail {index}.",
+                "evidence": f"Quoted support {index}.",
+            }
+            for index in range(1, 4)
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -247,6 +275,44 @@ class TestCheckCache:
         assert result["cache_hit"] is True
         assert result["transcript_text"] == "Some transcript"
         assert result.get("final_summary_json") is None
+
+    @pytest.mark.asyncio
+    async def test_catalog_cache_hit_with_one_locale_continues_to_cognition(self, mock_db):
+        mock_db.find_latest_task_with_valid_script_for_owner.return_value = {
+            "id": str(uuid4()),
+            "video_title": "Cached catalog episode",
+            "thumbnail_url": "https://example.com/cover.jpg",
+        }
+        mock_db.get_task.return_value = {
+            "progress": 0,
+            "workload_kind": "catalog_supply",
+        }
+        mock_db.get_task_outputs.return_value = [
+            {
+                "kind": OutputKind.SCRIPT,
+                "status": TaskStatus.COMPLETED,
+                "content": "English transcript text",
+                "locale": None,
+            },
+            {
+                "kind": OutputKind.SCRIPT_RAW,
+                "status": TaskStatus.COMPLETED,
+                "content": json.dumps({"language": "en"}),
+                "locale": None,
+            },
+            {
+                "kind": OutputKind.SUMMARY,
+                "status": TaskStatus.COMPLETED,
+                "content": json.dumps(_valid_summary_payload("Cached English overview")),
+                "locale": "en",
+            },
+        ]
+
+        result = await check_cache(_make_state())
+
+        assert result["cache_hit"] is True
+        assert result.get("final_summary_json") is None
+        assert route_after_cache(result) == "cognition"
 
     @pytest.mark.asyncio
     async def test_cache_hit_script_missing_treated_as_miss(self, mock_db):
@@ -609,7 +675,10 @@ class TestCognition:
         mock_db.get_task_outputs.return_value = [
             {"id": "summary-zh", "kind": "summary", "locale": "zh"},
         ]
-        mock_summarizer.summarize.return_value = MockModel(_valid_summary_payload("中文摘要"))
+        mock_summarizer.summarize.return_value = MockModel({
+            **_valid_summary_payload("中文摘要"),
+            "language": "zh",
+        })
 
         result = await cognition(_make_state(transcript_text=transcript, transcript_lang="en"))
 
@@ -617,6 +686,79 @@ class TestCognition:
         assert mock_summarizer.summarize.call_args.kwargs["target_language"] == "zh"
         assert mock_db.update_output_status.call_args.args[0] == "summary-zh"
         assert mock_db.update_output_status.call_args.kwargs["locale"] == "zh"
+
+    @pytest.mark.asyncio
+    async def test_catalog_summary_generates_english_and_chinese_outputs(
+        self, mock_db, mock_summarizer
+    ):
+        transcript = "Long enough English transcript for analysis to proceed. " * 10
+        mock_db.get_task.return_value = {
+            "progress": 0,
+            "workload_kind": "catalog_supply",
+            "output_intent": {"target_locale": "en"},
+        }
+        mock_db.get_task_outputs.return_value = [
+            {"id": "summary-en", "kind": "summary", "locale": "en", "status": "pending"},
+            {"id": "summary-zh", "kind": "summary", "locale": "zh", "status": "pending"},
+        ]
+        mock_summarizer.summarize.side_effect = [
+            MockModel(_valid_catalog_summary_payload("en")),
+            MockModel(_valid_catalog_summary_payload("zh")),
+        ]
+
+        result = await cognition(
+            _make_state(transcript_text=transcript, transcript_lang="en")
+        )
+
+        assert result["final_summary_json"]["language"] == "en"
+        assert [
+            call.kwargs["target_language"]
+            for call in mock_summarizer.summarize.await_args_list
+        ] == ["en", "zh"]
+        completed_calls = [
+            call
+            for call in mock_db.update_output_status.call_args_list
+            if call.kwargs.get("status") == TaskStatus.COMPLETED
+        ]
+        assert [call.args[0] for call in completed_calls] == ["summary-en", "summary-zh"]
+        assert [call.kwargs["locale"] for call in completed_calls] == ["en", "zh"]
+        assert all(
+            call.kwargs["intent"]["locale_source"] == "catalog_bilingual"
+            for call in completed_calls
+        )
+
+    @pytest.mark.asyncio
+    async def test_catalog_summary_reuses_completed_locale_and_generates_missing_locale(
+        self, mock_db, mock_summarizer
+    ):
+        transcript = "Long enough English transcript for analysis to proceed. " * 10
+        mock_db.get_task.return_value = {
+            "progress": 0,
+            "workload_kind": "catalog_supply",
+            "output_intent": {"target_locale": "en"},
+        }
+        mock_db.get_task_outputs.return_value = [
+            {
+                "id": "summary-en",
+                "kind": "summary",
+                "locale": "en",
+                "status": "completed",
+                "content": json.dumps(_valid_catalog_summary_payload("en")),
+            },
+            {"id": "summary-zh", "kind": "summary", "locale": "zh", "status": "pending"},
+        ]
+        mock_summarizer.summarize.return_value = MockModel(
+            _valid_catalog_summary_payload("zh")
+        )
+
+        result = await cognition(
+            _make_state(transcript_text=transcript, transcript_lang="en")
+        )
+
+        assert result["final_summary_json"]["language"] == "en"
+        mock_summarizer.summarize.assert_awaited_once()
+        assert mock_summarizer.summarize.call_args.kwargs["target_language"] == "zh"
+        assert mock_db.update_output_status.call_args.args[0] == "summary-zh"
 
     @pytest.mark.asyncio
     async def test_summary_failure_marks_summary_output_error(self, mock_db, mock_summarizer):
@@ -721,3 +863,40 @@ class TestRouteAfterCache:
         state = _make_state(cache_hit=True, final_summary_json="")
         # Empty string is falsy → routes to cognition
         assert route_after_cache(state) == "cognition"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_locale", [None, "zh", "en"])
+async def test_catalog_cache_only_skips_generation_for_two_valid_summaries(mock_db, invalid_locale):
+    mock_db.find_latest_task_with_valid_script_for_owner.return_value = {"id": "cached", "video_title": "Cached"}
+    mock_db.get_task.return_value = {"workload_kind": "catalog_supply", "progress": 0}
+    outputs = [{"kind": "script", "status": "completed", "content": "Shared source", "locale": None}]
+    for locale in ("en", "zh"):
+        payload = _valid_catalog_summary_payload(locale)
+        if locale == invalid_locale:
+            payload["keypoints"] = []
+        outputs.append({"kind": "summary", "status": "completed", "locale": locale, "content": json.dumps(payload)})
+    mock_db.get_task_outputs.return_value = outputs
+    result = await check_cache(_make_state())
+    assert route_after_cache(result) == ("cognition" if invalid_locale else "cleanup")
+    copied_locales = [c.kwargs["locale"] for c in mock_db.upsert_completed_task_output.call_args_list if c.args[2] == "summary"]
+    assert copied_locales == [locale for locale in ("en", "zh") if locale != invalid_locale]
+
+
+@pytest.mark.asyncio
+async def test_catalog_second_language_failure_preserves_completed_english(mock_db, mock_summarizer):
+    mock_db.get_task.return_value = {"workload_kind": "catalog_supply", "output_intent": {"target_locale": "en"}, "progress": 0}
+    mock_db.get_task_outputs.return_value = [
+        {"id": f"summary-{locale}", "kind": "summary", "locale": locale, "status": "pending"}
+        for locale in ("en", "zh")
+    ]
+    mock_summarizer.summarize.side_effect = [
+        MockModel(_valid_catalog_summary_payload("en")),
+        MockModel(_valid_catalog_summary_payload("en")),
+    ]
+    result = await cognition(_make_state(transcript_text="Shared transcript with enough context. " * 20, transcript_lang="en"))
+    assert result.get("errors")
+    status_calls = [(c.args[0], c.kwargs.get("status")) for c in mock_db.update_output_status.call_args_list]
+    assert ("summary-en", TaskStatus.COMPLETED) in status_calls
+    assert ("summary-zh", TaskStatus.ERROR) in status_calls
+    assert ("summary-en", TaskStatus.ERROR) not in status_calls

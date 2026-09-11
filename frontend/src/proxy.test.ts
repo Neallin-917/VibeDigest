@@ -198,9 +198,11 @@ describe('proxy', () => {
                 user: null,
                 supabase: {}
             })
-            const response = await proxy(makeRequest('/en/history'))
+            const response = await proxy(makeRequest('/en/settings/pricing?plan=pro'))
             expect(response.status).toBe(307)
-            expect(response.headers.get('location')).toContain('/en/login')
+            const login = new URL(response.headers.get('location')!)
+            expect(login.pathname).toBe('/en/login')
+            expect(login.searchParams.get('next')).toBe('/en/settings/pricing?plan=pro')
         })
 
         it('should allow access if user is present', async () => {

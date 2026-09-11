@@ -109,16 +109,13 @@ describe("ChatPage", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument()
   })
 
-  it.each([false, true])("shows a language-unavailable state for a Japanese direct link (local demo: %s)", async (localDemo) => {
+  it.each([false, true])("falls back to English for a retired locale (local demo: %s)", async (localDemo) => {
     demoState.enabled = localDemo
+    getChatExampleMock.mockResolvedValue(LANDING_DEMO)
     const page = await ChatPage({ params: Promise.resolve({ lang: "ja" }), searchParams: Promise.resolve({ task: LANDING_DEMO.id }) })
 
-    expect(getChatExampleMock).not.toHaveBeenCalled()
-    expect(page.type).toBe("main")
-    render(page)
-    expect(screen.getByRole("heading", { name: "このサンプルには選択した言語の要約がありません。" })).toBeVisible()
-    expect(screen.getByRole("link", { name: "新しいチャット" })).toHaveAttribute("href", "/ja/chat")
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument()
+    if (!localDemo) expect(getChatExampleMock).toHaveBeenCalledWith(LANDING_DEMO.id, "en")
+    expect(page.props.publicExample).toEqual(LANDING_DEMO)
   })
 
   it.each(["en", "zh"])("checks the actual %s summary before opening the production landing example", async (lang) => {
@@ -140,7 +137,6 @@ describe("ChatPage", () => {
   it.each([
     ["en", "Chat", "Ask VibeDigest to process a source or answer questions grounded in it."],
     ["zh", "对话", "让 VibeDigest 整理来源内容，或回答基于来源的问题。"],
-    ["ja", "チャット", "VibeDigest にソース整理や、ソースに基づく質問への回答を依頼できます。"],
   ])("generates %s metadata", async (locale, title, description) => {
     const metadata = await generateMetadata({ params: Promise.resolve({ lang: locale }) })
 
@@ -150,7 +146,7 @@ describe("ChatPage", () => {
   })
 
   it("uses English metadata for an unsupported locale", async () => {
-    const metadata = await generateMetadata({ params: Promise.resolve({ lang: "fr" }) })
+    const metadata = await generateMetadata({ params: Promise.resolve({ lang: "ja" }) })
 
     expect(metadata.title).toBe("Chat")
     expect(metadata.description).toBe("Ask VibeDigest to process a source or answer questions grounded in it.")

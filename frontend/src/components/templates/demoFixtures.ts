@@ -218,30 +218,6 @@ function createDemoSummary(task: Task, locale: Locale) {
         }
     }
 
-    if (locale === "ja") {
-        return {
-            version: 4,
-            language: "ja",
-            tl_dr: `これは「${task.video_title}」のローカルデモ整理で、番組を開いた直後に読める情報構造を示します。`,
-            overview: "本番環境では、番組の原文に基づく要約、重要ポイント、根拠を表示します。ローカルデモは実際の番組内容を装いません。",
-            keypoints: [
-                {
-                    title: "最初に結論を確認する",
-                    detail: "短い要約と重要ポイントを先に示し、音声全体を聞く前に読む価値を判断できます。",
-                    evidence: "ローカルデモデータ",
-                    why_it_matters: "長いコンテンツを開いた直後の判断負担を減らします。",
-                },
-                {
-                    title: "元の番組と追加質問を残す",
-                    detail: "元の番組へ戻ることも、VibeDigest Agent に整理内容について質問することもできます。",
-                    evidence: "ローカルデモデータ",
-                    why_it_matters: "閲覧、理解、深掘りを短い導線にまとめます。",
-                },
-            ],
-            sections: [],
-        }
-    }
-
     return {
         version: 4,
         language: "en",

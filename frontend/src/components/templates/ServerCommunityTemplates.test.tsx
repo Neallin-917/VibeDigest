@@ -345,17 +345,8 @@ describe("ServerCommunityTemplates", () => {
           public_takeaway: "Chinese takeaway",
           public_quality_flags: { language: "zh" },
         },
-        {
-          id: "task-ja-1",
-          video_url: "https://example.com/ja-1",
-          video_title: "Japanese still discoverable",
-          status: "completed",
-          created_at: "2026-08-25T08:00:00Z",
-          public_takeaway: "Japanese takeaway",
-          public_quality_flags: { language: "ja" },
-        },
       ],
-      count: 3,
+      count: 2,
       error: null,
     }
     queryState.preferredTasks = {
@@ -377,9 +368,10 @@ describe("ServerCommunityTemplates", () => {
     render(await ServerCommunityTemplates({ showHeader: false, locale: "zh" }))
 
     expect(screen.getByTestId("community-status")).toHaveTextContent(
-      "ready:Chinese first for zh users,English first in fallback order,Japanese still discoverable"
+      "ready:Chinese first for zh users,English first in fallback order"
     )
-    expect(screen.getByTestId("total-count")).toHaveTextContent("3")
+    expect(screen.getByTestId("total-count")).toHaveTextContent("2")
+    expect(queryState.inCalls.some(([column]) => column === "public_quality_flags->>language")).toBe(false)
   })
 
   it("falls back to the general library when locale-priority lookup fails", async () => {

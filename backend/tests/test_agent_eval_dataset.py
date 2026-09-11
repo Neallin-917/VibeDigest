@@ -162,7 +162,7 @@ def test_agent_eval_case_has_valid_contract_and_consistent_effects(case: dict) -
         "facts",
     }
     assert context["scope"] in {"workspace", "source"}
-    assert context["locale"] in {"en", "zh", "ja"}
+    assert context["locale"] in {"en", "zh"}
     assert context["turn_state"] in {
         "none",
         "running",

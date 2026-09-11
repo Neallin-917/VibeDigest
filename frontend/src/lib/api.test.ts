@@ -167,7 +167,7 @@ describe('ApiClient', () => {
                 json: async () => ({}),
             } as Response)
 
-            await ApiClient.createCryptoCharge('price-123', mockToken, 'ja')
+            await ApiClient.createCryptoCharge('price-123', mockToken, 'zh')
 
             expect(fetchSpy).toHaveBeenCalledWith(
                 expect.stringContaining('/api/create-crypto-charge'),
@@ -178,7 +178,7 @@ describe('ApiClient', () => {
             )
             const options = fetchSpy.mock.calls[0]?.[1] as RequestInit
             expect((options.body as FormData).get('plan_key')).toBe('price-123')
-            expect((options.body as FormData).get('locale')).toBe('ja')
+            expect((options.body as FormData).get('locale')).toBe('zh')
         })
     })
 })

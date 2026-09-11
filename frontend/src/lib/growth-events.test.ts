@@ -25,12 +25,12 @@ describe("growth event vocabulary", () => {
 
   it("forwards the quota pricing intent with only locale and bounded surface", () => {
     trackGrowthEvent("quota_pricing_open", {
-      locale: "ja",
+      locale: "zh",
       surface: "source_followup",
     })
 
     expect(analytics.track).toHaveBeenCalledWith("quota_pricing_open", {
-      locale: "ja",
+      locale: "zh",
       surface: "source_followup",
     })
   })
@@ -62,7 +62,7 @@ describe("growth event vocabulary", () => {
       locale: "zh",
     })
     trackGrowthEvent("pricing_plan_open", {
-      locale: "ja",
+      locale: "zh",
       plan: "topup",
       destination: "pricing",
     })
@@ -97,7 +97,7 @@ describe("growth event vocabulary", () => {
       locale: "zh",
     })
     expect(analytics.track).toHaveBeenNthCalledWith(4, "pricing_plan_open", {
-      locale: "ja",
+      locale: "zh",
       plan: "topup",
       destination: "pricing",
     })

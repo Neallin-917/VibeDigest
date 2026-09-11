@@ -206,7 +206,7 @@ class VercelWebAnalyticsClient:
 
 def classify_path(path: str) -> str:
     parts = [part for part in path.split("?")[0].split("/") if part]
-    if len(parts) == 1 and parts[0] in {"en", "zh", "ja"}:
+    if len(parts) == 1 and parts[0] in {"en", "zh"}:
         return "landing"
     if len(parts) < 2:
         return "other"

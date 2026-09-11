@@ -14,19 +14,11 @@ describe("i18n messages", () => {
   it("localizes language names for cross-locale navigation", () => {
     expect(getLocaleDisplayName("zh", "en")).toBe("Chinese")
     expect(getLocaleDisplayName("en", "zh")).toBe("英文")
-    expect(getLocaleDisplayName("ja", "ja")).toBe("日本語")
   })
 
   it("keeps English and Chinese catalogs structurally identical before fallback", () => {
     expect(leafKeys(getRawMessages("zh")).sort()).toEqual(leafKeys(getRawMessages("en")).sort())
     expect(getCompleteMessages("zh")).toBe(getRawMessages("zh"))
-  })
-
-  it("keeps Japanese complete through the explicit English fallback", () => {
-    const japaneseKeys = new Set(leafKeys(getCompleteMessages("ja")))
-    const missingKeys = leafKeys(getRawMessages("en")).filter((key) => !japaneseKeys.has(key))
-
-    expect(missingKeys).toEqual([])
   })
 
   it("translates and interpolates from one selected locale", () => {

@@ -31,29 +31,9 @@ _EXPLICIT_LANGUAGE_PATTERNS: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...]
             re.compile(r"english\s+(?:summary|output|brief)", re.I),
         ),
     ),
-    (
-        "ja",
-        (
-            re.compile(r"(?:用|以|翻译成|总结成|输出为|生成).{0,12}(?:日文|日语|日本語)"),
-            re.compile(r"(?:in|into)\s+(?:japanese|日本語)", re.I),
-            re.compile(r"japanese\s+(?:summary|output|brief)", re.I),
-        ),
-    ),
-    (
-        "ko",
-        (
-            re.compile(r"(?:用|以|翻译成|总结成|输出为|生成).{0,12}(?:韩文|韩语|한국어)"),
-            re.compile(r"(?:in|into)\s+(?:korean|한국어)", re.I),
-        ),
-    ),
-    (
-        "es",
-        (
-            re.compile(r"(?:用|以|翻译成|总结成|输出为|生成).{0,12}(?:西班牙语|西语)"),
-            re.compile(r"(?:in|into)\s+spanish", re.I),
-        ),
-    ),
 )
+
+_SUPPORTED_OUTPUT_LOCALES = {"en", "zh"}
 
 
 def _explicit_locale(request_text: str) -> str | None:
@@ -77,12 +57,15 @@ def build_output_intent(
     explicit_locale = _explicit_locale(text)
     normalized_ui_locale = normalize_lang_code(ui_locale)
 
-    if explicit_locale:
+    if explicit_locale in _SUPPORTED_OUTPUT_LOCALES:
         target_locale = explicit_locale
         locale_source = "explicit_instruction"
-    elif normalized_ui_locale != "unknown":
+    elif normalized_ui_locale in _SUPPORTED_OUTPUT_LOCALES:
         target_locale = normalized_ui_locale
         locale_source = "ui_locale"
+    elif ui_locale:
+        target_locale = "en"
+        locale_source = "default_locale"
     else:
         target_locale = None
         locale_source = "source_language"
@@ -116,8 +99,16 @@ def resolve_output_intent(
     resolved = dict(intent or {})
     target_locale = normalize_lang_code(resolved.get("target_locale"))
     if target_locale == "unknown":
-        target_locale = normalize_lang_code(source_language)
-        resolved["locale_source"] = "source_language"
+        source_locale = normalize_lang_code(source_language)
+        if source_locale in _SUPPORTED_OUTPUT_LOCALES:
+            target_locale = source_locale
+            resolved["locale_source"] = "source_language"
+        else:
+            target_locale = "en"
+            resolved["locale_source"] = "default_locale"
+    elif target_locale not in _SUPPORTED_OUTPUT_LOCALES:
+        target_locale = "en"
+        resolved["locale_source"] = "default_locale"
     resolved["target_locale"] = target_locale
     resolved.setdefault("version", 1)
     resolved.setdefault("request_text", "")

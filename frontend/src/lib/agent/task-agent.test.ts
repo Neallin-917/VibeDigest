@@ -91,7 +91,7 @@ describe('runtime configuration', () => {
   })
 
   it('uses explicit smart-tier registry routing rather than message length', () => {
-    expect(resolveAgentRuntime('ja')).toEqual({ runtime: 'api', provider: 'openrouter', model: 'fixture-smart', modelTier: 'smart', reasoningEffort: 'provider-default', locale: 'ja' })
+    expect(resolveAgentRuntime('zh')).toEqual({ runtime: 'api', provider: 'openrouter', model: 'fixture-smart', modelTier: 'smart', reasoningEffort: 'provider-default', locale: 'zh' })
     expect(resolveProviderMock).toHaveBeenCalledWith(undefined, 'openrouter')
     expect(resolveModelMock).toHaveBeenCalledWith('openrouter', 'smart', { smart: 'fixture-smart', fast: 'fixture-fast' })
   })

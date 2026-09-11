@@ -28,7 +28,7 @@ describe('LanguageDropdown', () => {
     expect(screen.getByRole('listbox', { name: '语言' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '英文' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '中文' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('option', { name: '日文' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '日文' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'English' })).not.toBeInTheDocument()
   })
 

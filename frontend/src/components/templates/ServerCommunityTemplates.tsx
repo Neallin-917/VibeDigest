@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
-import type { Locale } from "@/lib/i18n"
+import { type Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { resolveSummaryLocale } from "@/lib/summary-contract"
 import { getTopicSourceIds } from "@/lib/topic-hubs"

@@ -8,7 +8,7 @@
 - [x] **多语言/多地区架构 (Hreflang)**
     - 配置 `<link rel="alternate" hreflang="x" href="x" />` 标签，告诉 Google 不同语言/地区对应的页面版本。
     - 确保包含 `x-default` 指向默认版本（通常是英语）。
-    - ✅ **已完成**: `layout.tsx` 中配置了 `alternates.languages`（包含 en/zh/es/fr/de/ja 和 x-default），`sitemap.ts` 也包含多语言 alternates。
+    - ✅ **已完成**: `layout.tsx` 中配置了 `alternates.languages`（包含 en、zh 和 x-default），`sitemap.ts` 也包含相同的语言版本。
 - [x] **URL 结构优化**
     - 使用清晰的层级结构，推荐：`domain.com/en/`, `domain.com/es/` (子目录适合刚起步，权重集中)。
     - URL 需包含英文关键词，避免使用 ID 或乱码 (e.g., `/blog/seo-tips` vs `/blog?id=123`)。

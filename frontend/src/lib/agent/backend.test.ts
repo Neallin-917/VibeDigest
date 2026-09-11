@@ -21,7 +21,7 @@ const turn: AgentTurn = {
   input_message_id: 'user-1', task_id: null, status: 'running', execution_token: 'private-execution-token',
   runtime_config: {
     runtime: 'api', provider: 'openrouter', model: 'fixture-smart', modelTier: 'smart',
-    reasoningEffort: 'provider-default', locale: 'ja',
+    reasoningEffort: 'provider-default', locale: 'zh',
   },
 }
 
@@ -137,10 +137,10 @@ describe('turn-scoped client', () => {
       expect(call.path).toContain('/turns/' + turn.id + '/')
       expect(call.payload).toMatchObject({ userId: turn.user_id, token: turn.execution_token })
     }
-    expect(calls[0].payload).toMatchObject({ includeSource: false, locale: 'ja' })
-    expect(calls[1].payload).toMatchObject({ includeSource: true, locale: 'ja' })
+    expect(calls[0].payload).toMatchObject({ includeSource: false, locale: 'zh' })
+    expect(calls[1].payload).toMatchObject({ includeSource: true, locale: 'zh' })
     expect(calls[3].payload).toMatchObject({ videoUrl: 'https://youtu.be/example', locale: 'en' })
-    expect(calls[4].payload).toMatchObject({ taskId: 'task-1', locale: 'ja' })
+    expect(calls[4].payload).toMatchObject({ taskId: 'task-1', locale: 'zh' })
     expect(calls[5].payload).toMatchObject({ parts: [{ type: 'text', text: 'Answer' }], errorCode: 'cancelled' })
   })
 

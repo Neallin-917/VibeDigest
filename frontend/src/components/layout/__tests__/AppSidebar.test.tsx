@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { AppSidebar } from '../AppSidebar'
 
 const pushMock = vi.fn()
-const i18nMock = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' | 'ja' }))
+const i18nMock = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({

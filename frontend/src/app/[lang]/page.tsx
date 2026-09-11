@@ -29,23 +29,16 @@ const HOW_TO_STEPS: Record<string, { name: string; text: string }[]> = {
     { name: "让 Agent 整理", text: "VibeDigest 转写原内容，并整理摘要和关键观点。" },
     { name: "阅读并继续追问", text: "阅读整理结果，并基于原内容继续提问。" },
   ],
-  ja: [
-    { name: "ポッドキャストや動画のリンクを貼る", text: "対応するポッドキャストや動画のURLをVibeDigestに貼り付けます。" },
-    { name: "Agentに整理を任せる", text: "VibeDigestが文字起こしを行い、要約と重要ポイントを整理します。" },
-    { name: "読んで続けて質問する", text: "整理結果を読み、元の内容に基づいて続けて質問できます。" },
-  ],
 }
 
 const HOW_TO_NAME: Record<string, string> = {
   en: "How to use the VibeDigest agent for podcasts and videos",
   zh: "如何使用 VibeDigest Agent 看播客和视频",
-  ja: "VibeDigest Agentでポッドキャストや動画を見る方法",
 }
 
 const HOW_TO_DESC: Record<string, string> = {
   en: "Turn a podcast or video into a digest you can read and question in 3 steps",
   zh: "3 步获得可以阅读和继续追问的整理结果",
-  ja: "3ステップで読んで質問できる整理結果を得る",
 }
 
 const SEO_COPY: Record<string, { title: string; description: string }> = {
@@ -58,11 +51,6 @@ const SEO_COPY: Record<string, { title: string; description: string }> = {
     title: "VibeDigest - 帮你看播客的 AI Agent",
     description:
       "让 AI Agent 把播客和长视频整理成摘要、关键观点和证据，并基于原内容继续回答问题。",
-  },
-  ja: {
-    title: "VibeDigest - ポッドキャストと長尺動画のAI Agent",
-    description:
-      "AI Agentがポッドキャストや長尺動画を要約、重要ポイント、根拠に整理し、元の内容に基づいて質問に答えます。",
   },
 }
 
@@ -138,7 +126,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
                 </h2>
                 <TopicHubLinks
                   locale={locale}
-                  title={locale === "zh" ? "主题" : locale === "ja" ? "トピック" : "Topics"}
+                  title={locale === "zh" ? "主题" : "Topics"}
                   className="mt-6"
                 />
               </div>
@@ -178,10 +166,10 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
       <footer className="border-t border-border bg-background py-8 text-center text-xs text-foreground-subtle">
         <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
           <div className="mt-1 flex flex-wrap justify-center gap-x-5">
-            <Link href={`/${locale}/about`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '关于我们' : locale === 'ja' ? '私たちについて' : 'About'}</Link>
-            <Link href={`/${locale}/faq`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '常见问题' : locale === 'ja' ? 'よくある質問' : 'FAQ'}</Link>
-            <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '隐私政策' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</Link>
-            <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '服务条款' : locale === 'ja' ? '利用規約' : 'Terms of Service'}</Link>
+            <Link href={`/${locale}/about`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '关于我们' : 'About'}</Link>
+            <Link href={`/${locale}/faq`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '常见问题' : 'FAQ'}</Link>
+            <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '隐私政策' : 'Privacy Policy'}</Link>
+            <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '服务条款' : 'Terms of Service'}</Link>
           </div>
       </footer>
 

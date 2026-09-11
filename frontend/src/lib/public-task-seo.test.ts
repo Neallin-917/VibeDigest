@@ -49,7 +49,6 @@ describe("public task SEO", () => {
   it.each([
     ["en", "Agent Systems in Production: Summary & Key Takeaways"],
     ["zh", "《Agent Systems in Production》摘要与关键观点"],
-    ["ja", "「Agent Systems in Production」の要約と重要ポイント"],
   ] as const)("builds complete %s search and share metadata", (locale, expectedTitle) => {
     const metadata = buildPublicTaskMetadata({
       task: publicTask,
@@ -66,7 +65,6 @@ describe("public task SEO", () => {
     expect(metadata.alternates?.languages).toMatchObject({
       en: "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",
       zh: "https://vibedigest.io/zh/tasks/task-123/Agent-Systems-in-Production",
-      ja: "https://vibedigest.io/ja/tasks/task-123/Agent-Systems-in-Production",
       "x-default": "https://vibedigest.io/en/tasks/task-123/Agent-Systems-in-Production",
     })
     expect(metadata.openGraph).toMatchObject({
@@ -124,10 +122,12 @@ describe("public task SEO", () => {
     expect(normalizeSummaryLanguageTag("ko")).toBe("ko")
     expect(normalizeSummaryLanguageTag("es_MX")).toBe("es-MX")
     expect(normalizeSummaryLanguageTag("Korean")).toBe("ko")
+    expect(normalizeSummaryLanguageTag("Japanese")).toBe("ja")
     expect(normalizeSummaryLanguageTag("unknown")).toBeNull()
     expect(resolveSummaryLanguageTag("ko", "en")).toBe("ko")
+    expect(resolveSummaryLanguageTag("Japanese", "en")).toBe("ja")
     expect(resolveSummaryLanguageTag("unknown", "zh")).toBe("zh-CN")
-    expect(resolveSummaryLanguageTag("not a language", "ja")).toBe("ja-JP")
+    expect(resolveSummaryLanguageTag("not a language", "en")).toBe("en-US")
   })
 
   it("marks evidence with its source language and leaves missing provenance undetermined", () => {

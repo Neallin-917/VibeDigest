@@ -115,7 +115,7 @@ row versions so a stale read cannot replace a newer result.
 | Follow-up context budget | `src/app/api/chat/context-budget.ts` | Keep recent complete UI messages within message and character limits |
 | Task Agent | `src/lib/agent/` | Shared intent/tools/runner, signed backend client, source index and citations |
 | Chat updates | `src/components/chat/useChatRealtime.ts` | INSERT/UPDATE subscription, reconnect snapshot, buffered merge during streaming; no HTTP polling |
-| Locale content | `src/lib/i18n.ts` | `en`, `zh`, and `ja` |
+| Locale content | `src/lib/i18n.ts` | `en` and `zh` |
 
 Transient loading UI must not be persisted as an empty assistant message. Chat
 messages cross the single `chat-message-boundary.ts` validation boundary.

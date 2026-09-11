@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Creem API Config
 CREEM_API_BASE = settings.CREEM_API_BASE
 CREEM_API_KEY = settings.CREEM_API_KEY
-PaymentLocale = Literal["en", "zh", "ja"]
+PaymentLocale = Literal["en", "zh"]
 CheckoutReturn = Literal["success", "canceled"]
 
 

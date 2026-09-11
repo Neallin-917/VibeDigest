@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MobileMenuDrawer } from '../MobileMenuDrawer'
 
-const i18nMock = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' | 'ja' }))
+const i18nMock = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' }))
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/en/chat',

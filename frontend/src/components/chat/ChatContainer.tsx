@@ -66,15 +66,6 @@ const CONTINUATION_COPY = {
     cancelFailed: '未能取消回答，请重试。',
     retryFailed: '未能重试回答，请稍后再试。',
   },
-  ja: {
-    waiting_task: '動画の処理が完了すると、回答を続けます。',
-    finalizing: '回答をまとめています。',
-    failed: '回答を完了できませんでした。',
-    cancelled: '続きの回答をキャンセルしました。動画の処理は継続します。',
-    cancel: '回答をキャンセル', retry: '回答を再試行',
-    cancelFailed: 'キャンセルできませんでした。もう一度お試しください。',
-    retryFailed: '再試行できませんでした。しばらくしてからお試しください。',
-  },
 }
 
 type AnswerActionResult = {

@@ -13,9 +13,9 @@ def test_explicit_instruction_overrides_ui_locale():
 
 
 def test_ui_locale_is_used_when_request_has_no_explicit_language():
-    intent = build_output_intent("https://www.youtube.com/watch?v=abc", "ja-JP")
+    intent = build_output_intent("https://www.youtube.com/watch?v=abc", "zh-CN")
 
-    assert intent["target_locale"] == "ja"
+    assert intent["target_locale"] == "zh"
     assert intent["locale_source"] == "ui_locale"
 
 
@@ -38,3 +38,27 @@ def test_intent_captures_depth_and_audience_without_affecting_locale():
     assert intent["target_locale"] == "zh"
     assert intent["depth"] == "detailed"
     assert intent["audience"] == "investment_analyst"
+
+
+def test_unsupported_requested_or_source_language_falls_back_to_supported_output():
+    explicit = build_output_intent("Summarize this in Japanese.", "en")
+    assert explicit["target_locale"] == "en"
+    assert explicit["locale_source"] == "ui_locale"
+
+    resolved = resolve_output_intent({"target_locale": None}, "ja-JP")
+    assert resolved["target_locale"] == "en"
+    assert resolved["locale_source"] == "default_locale"
+
+    unsupported_ui = build_output_intent("https://example.com/video", "ja-JP")
+    assert unsupported_ui["target_locale"] == "en"
+    assert unsupported_ui["locale_source"] == "default_locale"
+
+
+def test_historical_japanese_output_intent_falls_back_to_default_locale():
+    resolved = resolve_output_intent(
+        {"target_locale": "ja", "locale_source": "explicit_instruction"},
+        "ja-JP",
+    )
+
+    assert resolved["target_locale"] == "en"
+    assert resolved["locale_source"] == "default_locale"

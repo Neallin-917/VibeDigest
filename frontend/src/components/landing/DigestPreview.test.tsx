@@ -48,20 +48,6 @@ describe("DigestPreview", () => {
         )
     })
 
-    it("keeps the Japanese preview visible without offering an unavailable summary conversation", () => {
-        i18n.locale = "ja"
-        render(<DigestPreview />)
-
-        const preview = screen.getByRole("region", { name: "landing.previewTitle" })
-        expect(within(preview).queryByRole("link", { name: /landing.previewOpen/ })).not.toBeInTheDocument()
-        expect(within(preview).getByText("landing.previewBrief")).toBeVisible()
-        expect(within(preview).getByText("landing.previewPointOne")).toBeVisible()
-        expect(within(preview).getByText("landing.previewPointTwo")).toBeVisible()
-        expect(within(preview).getByText("landing.previewQuestion")).toBeVisible()
-        expect(within(preview).getByText("landing.previewAnswer")).toBeVisible()
-        expect(within(preview).getByAltText("")).toBeVisible()
-    })
-
     it("serves responsive optimized cover candidates", () => {
         render(<DigestPreview />)
 

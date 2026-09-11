@@ -141,7 +141,7 @@ test.describe('Landing Page', () => {
 
                 // Should still be on the landing page
 
-                await expect(page).toHaveURL(/\/(en|zh|es|fr|ja|ko|ru|pt|ar|hi)\/?$/);
+                await expect(page).toHaveURL(/\/(en|zh)\/?$/);
 
             }
 
@@ -172,7 +172,7 @@ test.describe('Navigation', () => {
         await page.goto('/');
 
         // URL should contain a locale like /en or /zh
-        await expect(page).toHaveURL(/\/(en|zh|es|fr|ja|ko|ru|pt|ar|hi)\/?/);
+        await expect(page).toHaveURL(/\/(en|zh)\/?/);
     });
 
     test('explore page is accessible', async ({ page }) => {

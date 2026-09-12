@@ -91,6 +91,11 @@ The CTA is offered only for the pinned episode's supported summary languages.
 Its original episode cover is bundled as `public/landing-openclaw.jpg` and served
 through Next's responsive image optimizer, avoiding an external image fetch at
 page render time.
+Optimized images use the cache minimum in `frontend/next.config.ts` to avoid
+frequently reprocessing stable covers. Replacing an image at the same URL can
+leave its old optimized version cached; use a new versioned source URL when an
+update must appear immediately. Card `sizes` must match their layout's displayed
+width, including the landing preview's four-column grid and fixed compact rows.
 Direct entry freshly validates a completed summary in the route language. A
 missing, withdrawn, or unreachable example shows a retry/new-chat recovery state
 instead of entering private thread initialization; existing conversations retain

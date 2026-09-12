@@ -270,6 +270,7 @@ function EpisodeFeatureCard({
     onNavigate,
     priority = false,
     role = "standard",
+    sizes,
 }: {
     task: Task
     locale: Locale
@@ -278,6 +279,7 @@ function EpisodeFeatureCard({
     onNavigate?: () => void
     priority?: boolean
     role?: EpisodeCardRole
+    sizes?: string
 }) {
     const source = sourceForTask(task)
     if (!source) return null
@@ -302,13 +304,13 @@ function EpisodeFeatureCard({
                         fill
                         referrerPolicy="no-referrer"
                         className="object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.02]"
-                        sizes={role === "hero"
+                        sizes={sizes ?? (role === "hero"
                             ? "(max-width: 1024px) 100vw, 58vw"
                             : role === "solo"
                                 ? "(max-width: 1024px) 100vw, 62vw"
                                 : role === "supporting"
                                     ? "(max-width: 1024px) 100vw, 42vw"
-                                : "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 34vw"}
+                                : "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 34vw")}
                         loading={priority ? "eager" : "lazy"}
                         fetchPriority={priority ? "high" : "auto"}
                     />
@@ -537,7 +539,7 @@ function CompactEpisodeRow({
                             fill
                             referrerPolicy="no-referrer"
                             className="object-cover"
-                            sizes="(max-width: 768px) 38vw, 9rem"
+                            sizes="7.5rem"
                         />
                     ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -715,6 +717,8 @@ export function CommunityTemplates({
                             copy={podcastCopy}
                             priority={index === 0}
                             role="standard"
+                            // Match the landing's 1080px cap, section padding, border and 1px grid gaps.
+                            sizes="(min-width: 1160px) 268.75px, (min-width: 1024px) calc(25vw - 21.25px), (min-width: 640px) calc(50vw - 25.5px), calc(100vw - 34px)"
                         />
                     </div>
                 ))}

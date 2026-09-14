@@ -8,6 +8,7 @@ import { SupportCTA } from "@/components/landing/SupportCTA"
 import { ServerCommunityTemplates } from "@/components/templates/ServerCommunityTemplates"
 import { TopicHubLinks } from "@/components/templates/TopicHubLinks"
 import { TemplatesSkeleton } from "@/components/templates/TemplatesSkeleton"
+import { LANDING_PREVIEW_LIMIT } from "@/components/templates/landingPreviewLayout"
 import { Suspense } from "react"
 import Link from "next/link"
 import type { Metadata } from "next"
@@ -140,8 +141,8 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
             </div>
 
             <div className="mt-10 overflow-hidden border border-border-strong bg-border-strong [&_.animate-pulse]:!bg-card/55">
-              <Suspense fallback={<TemplatesSkeleton count={4} layout="landingPreview" />}>
-                <ServerCommunityTemplates limit={4} layout="landingPreview" showHeader={false} locale={locale} />
+              <Suspense fallback={<TemplatesSkeleton count={LANDING_PREVIEW_LIMIT} layout="landingPreview" />}>
+                <ServerCommunityTemplates limit={LANDING_PREVIEW_LIMIT} layout="landingPreview" showHeader={false} locale={locale} />
               </Suspense>
             </div>
 

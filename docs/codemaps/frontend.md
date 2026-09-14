@@ -138,6 +138,10 @@ definitions, but no action tools. Durable metadata drives answer retry/cancel UI
 
 ## Rendering rules
 
+- Landing library previews show at most two rows: 2 items on phones, 4 from
+  640px, 6 from 1024px, and 8 from 1280px. The server selects from bounded recent
+  candidates, prioritizing the route language and then distinct shows before
+  repeated shows. This selection does not change full-library ordering.
 - The chat shell owns the dynamic viewport height. Its workspace and sidebar
   inherit that height; messages scroll in the remaining flex space above the
   composer. Do not reserve a fixed message padding block for the composer.

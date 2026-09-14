@@ -148,8 +148,8 @@ describe("CommunityTemplates", () => {
     expect(screen.getByRole("status")).toHaveTextContent(copy.unavailable)
   })
 
-  it("keeps the landing preview dense and symmetrical", () => {
-    const previewTasks = Array.from({ length: 4 }, (_, index) => ({
+  it("renders all eight landing examples instead of applying the six-card gallery limit", () => {
+    const previewTasks = Array.from({ length: 8 }, (_, index) => ({
       ...tasks[index % tasks.length],
       id: `preview-${index}`,
       video_title: `Preview ${index + 1}`,
@@ -160,7 +160,10 @@ describe("CommunityTemplates", () => {
       intro: undefined,
     })
 
-    expect(screen.getByText("Preview 4")).toBeInTheDocument()
+    expect(screen.getAllByRole("link", { name: /^View digest: Preview / })).toHaveLength(8)
+    expect(screen.getByRole("link", { name: "View digest: Preview 8" })).toHaveAttribute(
+      "href", expect.stringContaining("/en/tasks/preview-7/Preview-8")
+    )
     expect(container.querySelector(".grid")).toHaveClass("sm:grid-cols-2", "xl:grid-cols-4")
   })
 

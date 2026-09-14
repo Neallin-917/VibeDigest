@@ -24,7 +24,7 @@ interface ChatInputProps {
   inputLabel?: string
   /** 
    * Layout variant:
-   * - "floating": Absolute positioned at bottom (default, for chat mode)
+   * - "floating": Bottom composer in the chat flex layout (default)
    * - "inline": Normal block element (for welcome screen)
    * - "embedded": Full reading-column width (for source follow-up)
    */
@@ -96,7 +96,7 @@ export function ChatInput({
     <div className={cn(
       "flex justify-center",
       isFloating 
-        ? "absolute bottom-3 md:bottom-6 left-3 md:left-6 right-3 md:right-6 z-20" 
+        ? "relative px-3 pb-3 md:px-6 md:pb-6 z-20"
         : "w-full"
     )}>
       <div className={inputWidthVariants({ variant })}>

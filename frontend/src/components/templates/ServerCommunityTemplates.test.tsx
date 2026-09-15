@@ -105,6 +105,26 @@ vi.mock("./CommunityTemplates", () => ({
 
 import { ServerCommunityTemplates } from "./ServerCommunityTemplates"
 
+function previewRow(id: string, source: string, language: "en" | "zh" = "en") {
+  return {
+    id,
+    video_url: `https://example.com/${id}`,
+    video_title: id,
+    status: "completed",
+    created_at: "2026-08-25T10:00:00Z",
+    public_takeaway: `${id} takeaway`,
+    public_quality_flags: { language },
+    podcast_episodes: {
+      source: {
+        slug: source,
+        name: source,
+        source_url: `https://example.com/shows/${source}`,
+        topics: [],
+      },
+    },
+  }
+}
+
 describe("ServerCommunityTemplates", () => {
   afterEach(() => {
     fixtureMode.enabled = false
@@ -129,6 +149,52 @@ describe("ServerCommunityTemplates", () => {
     expect(screen.getByTestId("community-status")).toHaveTextContent(
       "ready:From Prediction to Simulation: Teaching AI to Shape the Future,84 minutes of enterprise sales alpha | Jen Abel"
     )
+  })
+
+  it.each(["en", "zh"] as const)("selects eight %s preview examples from bounded candidates before repeating shows", async (locale) => {
+    const preferred = [
+      ...Array.from({ length: 8 }, (_, index) => previewRow(`repeat-${index + 1}`, "show-a", locale)),
+      ...["b", "c", "d", "e", "f", "g", "h"].map((source) => previewRow(`unique-${source}`, `show-${source}`, locale)),
+    ]
+    queryState.preferredTasks = { data: preferred, error: null }
+    queryState.tasks = {
+      data: [previewRow("other-language", "show-i", locale === "en" ? "zh" : "en"), ...preferred],
+      error: null,
+    }
+
+    render(await ServerCommunityTemplates({ layout: "landingPreview", limit: 8, locale }))
+
+    expect(queryState.limits).toEqual([24, 24])
+    expect(screen.getByTestId("community-status").textContent).toBe(
+      "ready:repeat-1,unique-b,unique-c,unique-d,unique-e,unique-f,unique-g,unique-h"
+    )
+  })
+
+  it("fills locale-matching duplicates before other languages and deduplicates merged candidates", async () => {
+    const preferred = [previewRow("a-1", "show-a"), previewRow("a-2", "show-a"), previewRow("b-1", "show-b")]
+    queryState.preferredTasks = { data: preferred, error: null }
+    queryState.tasks = {
+      data: [
+        previewRow("c-1", "show-c", "zh"), previewRow("c-2", "show-c", "zh"),
+        ...preferred, previewRow("d-1", "show-d", "zh"),
+      ],
+      error: null,
+    }
+
+    render(await ServerCommunityTemplates({ layout: "landingPreview", limit: 8, locale: "en" }))
+
+    expect(screen.getByTestId("community-status").textContent).toBe("ready:a-1,b-1,a-2,c-1,d-1,c-2")
+  })
+
+  it("keeps gallery order and page size instead of applying preview show diversity", async () => {
+    const preferred = [previewRow("a-1", "show-a"), previewRow("a-2", "show-a"), previewRow("b-1", "show-b")]
+    queryState.preferredTasks = { data: preferred, error: null }
+    queryState.tasks = { data: preferred, count: 3, error: null }
+
+    render(await ServerCommunityTemplates({ layout: "gallery", locale: "en" }))
+
+    expect(screen.getByTestId("community-status").textContent).toBe("ready:a-1,a-2,b-1")
+    expect(queryState.limits.filter((limit) => limit !== 200)).toEqual([18, 18])
   })
 
   it("builds a source shelf from local fixtures instead of collapsing to all only", async () => {

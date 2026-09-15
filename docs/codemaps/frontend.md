@@ -138,6 +138,16 @@ definitions, but no action tools. Durable metadata drives answer retry/cancel UI
 
 ## Rendering rules
 
+- Landing library previews show at most two rows: 2 items on phones, 4 from
+  640px, 6 from 1024px, and 8 from 1280px. The server selects from bounded recent
+  candidates, prioritizing the route language and then distinct shows before
+  repeated shows. This selection does not change full-library ordering.
+- The chat shell owns the dynamic viewport height. Its workspace and sidebar
+  inherit that height; messages scroll in the remaining flex space above the
+  composer. Do not reserve a fixed message padding block for the composer.
+- Welcome examples use their content container width: two columns below 36rem,
+  three from 36rem, and four from 48rem. Sidebar expansion must affect the grid
+  through available space, without a separate viewport-based column rule.
 - Prefer Server Components for static or server-owned reads.
 - Keep localized document language in the `[lang]` root layout from route
   params. Request headers may localize the global 404, but must not make the

@@ -52,7 +52,9 @@ export function QuickTemplateCard({
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             referrerPolicy="no-referrer"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            // Lazy images use their rendered width; eager loading uses the
+            // largest card width allowed by the grid's 36rem/48rem breakpoints.
+            sizes="auto, 18rem"
             loading={highPriorityThumbnail ? 'eager' : 'lazy'}
             fetchPriority={highPriorityThumbnail ? 'high' : 'auto'}
           />

@@ -13,6 +13,7 @@ import { buildTaskSlug } from "@/lib/task-path"
 import { buildLibraryHref, libraryEpisodeAnchor, parseLibraryReturnHref } from "@/lib/library-navigation"
 import { cn } from "@/lib/utils"
 import { TopicHubLinks } from "./TopicHubLinks"
+import { LANDING_PREVIEW_LIMIT, landingPreviewGrid, landingPreviewVisibility } from "./landingPreviewLayout"
 
 export type TaskOutput = {
     kind: string
@@ -705,11 +706,11 @@ export function CommunityTemplates({
     if (layout === "landingPreview") {
         if (featuredTasks.length === 0) return null
         return (
-            <div className="grid gap-px bg-border-strong sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card">
-                {featuredTasks.slice(0, 4).map((task, index) => (
+            <div className={cn(landingPreviewGrid, "bg-border-strong [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card")}>
+                {initialTasks.slice(0, LANDING_PREVIEW_LIMIT).map((task, index) => (
                     <div
                         key={task.id}
-                        className={cn("bg-card", index >= 2 && "hidden sm:block")}
+                        className={cn("bg-card", landingPreviewVisibility(index))}
                     >
                         <EpisodeFeatureCard
                             task={task}
@@ -718,7 +719,7 @@ export function CommunityTemplates({
                             priority={index === 0}
                             role="standard"
                             // Match the landing's 1080px cap, section padding, border and 1px grid gaps.
-                            sizes="(min-width: 1160px) 268.75px, (min-width: 1024px) calc(25vw - 21.25px), (min-width: 640px) calc(50vw - 25.5px), calc(100vw - 34px)"
+                            sizes="(min-width: 1280px) 268.75px, (min-width: 1160px) 358.67px, (min-width: 1024px) calc((100vw - 84px) / 3), (min-width: 640px) calc(50vw - 25.5px), calc(100vw - 34px)"
                         />
                     </div>
                 ))}

@@ -9,7 +9,7 @@ import { ExternalLink, Search } from "lucide-react"
 import { getLocaleDisplayName, type Locale } from "@/lib/i18n"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { findPodcastSource, resolvePodcastSourceId, type PodcastSource } from "@/lib/podcast-sources"
-import { buildTaskSlug } from "@/lib/task-path"
+import { buildTaskPath } from "@/lib/task-path"
 import { buildLibraryHref, libraryEpisodeAnchor, parseLibraryReturnHref } from "@/lib/library-navigation"
 import { cn } from "@/lib/utils"
 import { TopicHubLinks } from "./TopicHubLinks"
@@ -183,12 +183,11 @@ const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
 })
 
 function taskDetailHref(task: Task, locale: Locale, returnHref?: string) {
-    const slug = buildTaskSlug(task.video_title || "podcast")
     const returnState = new URLSearchParams()
     const safeReturn = parseLibraryReturnHref(returnHref)
     if (safeReturn) returnState.set("from", `${safeReturn}#${libraryEpisodeAnchor(task.id)}`)
     const search = returnState.toString()
-    return `/${locale}/tasks/${task.id}/${slug}${search ? `?${search}` : ""}`
+    return `/${locale}${buildTaskPath(task)}${search ? `?${search}` : ""}`
 }
 
 function taskDigestLocale(task: Task, routeLocale: Locale) {

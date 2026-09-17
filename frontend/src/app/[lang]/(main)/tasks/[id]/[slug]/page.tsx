@@ -1,7 +1,7 @@
 
 import { createClient } from "@/lib/supabase-server"
 import type { Metadata } from "next"
-import { redirect, notFound } from "next/navigation"
+import { redirect, permanentRedirect, notFound } from "next/navigation"
 import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -28,7 +28,7 @@ import { TaskFollowUp } from "@/components/tasks/TaskFollowUp"
 import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
 import { TaskDetailRefresh } from "@/components/tasks/TaskDetailRefresh"
 import { parseLibraryReturnHref } from "@/lib/library-navigation"
-import { localizePath } from "@/lib/locale-navigation"
+import { buildTaskReturnSuffix, getSingleSearchParam, THREAD_ID_PATTERN } from "@/lib/task-navigation"
 import {
     buildPublicTaskJsonLd,
     buildPublicTaskMetadata,
@@ -53,12 +53,6 @@ type Props = {
     }>
 }
 
-const THREAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-function getSingleSearchParam(value: string | string[] | undefined) {
-    return typeof value === "string" ? value : ""
-}
-
 function buildLibraryHref(locale: string, returnState: Awaited<Props["searchParams"]>) {
     const from = parseLibraryReturnHref(returnState.from)
     if (from) return from
@@ -71,19 +65,6 @@ function buildLibraryHref(locale: string, returnState: Awaited<Props["searchPara
     return `/${locale}/explore${search ? `?${search}` : ""}`
 }
 
-function buildReturnSuffix(returnState: Awaited<Props["searchParams"]>, locale: "en" | "zh", targetLocale = locale) {
-    const params = new URLSearchParams()
-    const from = parseLibraryReturnHref(returnState.from)
-    if (from) params.set("from", targetLocale === locale ? from : localizePath(from, targetLocale))
-    const source = getSingleSearchParam(returnState.fromShow)
-    const query = getSingleSearchParam(returnState.fromQuery)
-    const threadId = getSingleSearchParam(returnState.threadId)
-    if (/^[a-z0-9-]{1,64}$/.test(source)) params.set("fromShow", source)
-    if (query) params.set("fromQuery", query.slice(0, 120))
-    if (THREAD_ID_PATTERN.test(threadId)) params.set("threadId", threadId)
-    const search = params.toString()
-    return search ? `?${search}` : ""
-}
 
 function getSourceLabel(videoUrl: string, author?: string | null) {
     if (author?.trim()) return author.trim()
@@ -299,16 +280,20 @@ export default async function TaskDetailPage(props: Props) {
 
     // SLUG ENFORCEMENT
     const correctSlug = buildTaskSlug(task.video_title)
-    if (slug !== correctSlug) {
-        redirect(`/${lang}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState, locale)}`);
-    }
-
     const publicSummary = matchPublicSummaryOutput(
         outputs as SummaryOutputCandidate[],
         locale,
         getOptionalString(task, "public_quality_flags.language"),
         getOptionalValue(task, "public_quality_flags.available_languages")
     )
+    if (slug !== correctSlug) {
+        const href = `/${lang}/tasks/${id}/${correctSlug}${buildTaskReturnSuffix(returnState, locale)}`
+        // Only publicly published, locale-matched digests are permanent aliases.
+        // Streaming responses use Next's immediate meta refresh instead of an HTTP 308.
+        if (isPublishedPublicTask(task, publicSummary.routeMatches)) permanentRedirect(href)
+        redirect(href)
+    }
+
     const summaryOutput = publicSummary.output
     const detailedSummaryMarkdown = summaryOutput
         ? buildDetailedSummaryMarkdownFromContent(summaryOutput.content, locale)
@@ -350,7 +335,7 @@ export default async function TaskDetailPage(props: Props) {
     const evidenceLanguageTag = resolveEvidenceLanguageTag(getOptionalString(summaryOutput?.provenance, "transcript_language"))
     const languageSwitchLocale = publicSummary.routeMatches ? null : publicSummary.alternativeLocale
     const languageSwitchHref = languageSwitchLocale
-        ? `/${languageSwitchLocale}/tasks/${id}/${correctSlug}${buildReturnSuffix(returnState, locale, languageSwitchLocale)}`
+        ? `/${languageSwitchLocale}/tasks/${id}/${correctSlug}${buildTaskReturnSuffix(returnState, locale, languageSwitchLocale)}`
         : ""
     const languageSwitchLabel = languageSwitchLocale
         ? getLocaleDisplayName(languageSwitchLocale, locale)

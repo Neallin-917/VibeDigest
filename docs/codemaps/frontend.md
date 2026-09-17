@@ -117,6 +117,14 @@ blocks collapse the layout to one reading column. The existing source-scoped
 follow-up appears before the full-digest disclosure. Long lead summaries remain
 fully available through a native disclosure, and missing covers retain the source link.
 
+Task URL paths are owned by `src/lib/task-path.ts`; metadata, social URLs,
+sitemap and discovery cards share that builder, including its title punctuation.
+Published, locale-matched digest slug aliases use permanent redirects (HTTP 308
+before streaming; an immediate meta refresh after streaming starts). Private or
+language-unavailable aliases retain temporary redirects. Canonical URLs omit
+navigation query state; both ID-only and slug aliases retain validated return and
+conversation parameters through `src/lib/task-navigation.ts`.
+
 Library navigation keeps filters and pagination in the URL. Detail links retain
 the validated originating library path and episode anchor, including when the
 digest is in another language. `TaskDetailRefresh` refreshes the server projection

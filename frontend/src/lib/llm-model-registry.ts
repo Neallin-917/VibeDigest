@@ -1,5 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import providerModelDefaults from '@/generated/llm-provider-defaults.json';
 
 export type SupportedProvider = 'openai' | 'openrouter' | 'custom';
 export type ModelDefaultsProvider = SupportedProvider | 'codex_local';
@@ -12,16 +11,8 @@ const MODEL_DEFAULT_PROVIDERS: readonly ModelDefaultsProvider[] = [
     'codex_local',
 ];
 
-const providerModelDefaultsPath = path.join(
-    /* turbopackIgnore: true */ process.cwd(),
-    '..',
-    'config',
-    'llm-provider-defaults.json'
-);
-
-const PROVIDER_MODEL_DEFAULTS = JSON.parse(
-    fs.readFileSync(providerModelDefaultsPath, 'utf-8')
-) as ProviderModelDefaults;
+// Generated from config/llm-provider-defaults.json; bundled with the function.
+const PROVIDER_MODEL_DEFAULTS: ProviderModelDefaults = providerModelDefaults;
 
 export function resolveProvider(
     openaiBaseUrl?: string,

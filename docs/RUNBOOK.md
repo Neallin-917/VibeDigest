@@ -114,6 +114,15 @@ CI additionally runs the real PGMQ lifecycle test against
 `ghcr.io/pgmq/pg16-pgmq:v1.5.1`. Local Docker validation is optional, but a
 release must not proceed unless that CI job passes.
 
+For frontend releases, run `cd frontend && npm run test:artifact` after the
+production build. After deployment, POST empty JSON (`{}`) without credentials
+to `/api/chat` and `/api/internal/agent/continue`; expect 400 and 401 respectively.
+These probes must not create tasks or invoke a model. A 500 blocks acceptance:
+inspect function initialization and runtime logs even if the deployment is Ready.
+For changes to Agent behavior, also verify one authenticated source follow-up
+against an existing completed task and inspect its answer and timestamp link;
+report this separately from the credential-free route checks.
+
 ## Database TLS
 
 Production Supabase must keep database SSL enforcement enabled. Application

@@ -13,6 +13,7 @@ This file owns testing strategy, prerequisites, and coverage policy.
 | Live provider contract | Pytest | Manual opt-in only |
 | Model quality eval | Pytest/eval dataset | Scheduled or release opt-in only |
 | Frontend unit | Vitest | Default local + CI |
+| Frontend deployment artifact | Isolated Next.js traced route handlers | Default CI, after production build |
 | Frontend E2E | Playwright + API mocks | Default CI, no real LLM |
 
 ## Coverage Policy
@@ -51,7 +52,19 @@ Notes:
 make test-frontend
 cd frontend && npm run test:cov
 cd frontend && npx playwright test
+cd frontend && npm run build && npm run test:artifact
 ```
+
+The artifact check copies only the two Agent routes and their Next.js
+`.nft.json` dependencies into a temporary directory, without checkout or
+`node_modules` symlinks. It loads the actual packaged handlers and verifies
+that `POST /api/chat` with `{}` returns `400`, and an unsigned
+`POST /api/internal/agent/continue` returns `401`. This catches missing runtime
+files that source-level mocks cannot detect. It strips inherited credentials,
+blocks network I/O, times out after 15 seconds, and cleans up the temporary
+directory. It verifies cold-start packaging and early validation, not real
+model responses or the deployed platform; deployment smoke checks remain
+required.
 
 The default Playwright suite uses deterministic API mocks. Visual comparison is
 an explicit local review because its PNG baselines are platform-specific and

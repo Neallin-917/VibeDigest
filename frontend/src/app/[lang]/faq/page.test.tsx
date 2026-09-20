@@ -33,6 +33,10 @@ describe("FAQPage", () => {
       expect(screen.getByRole("heading", { level: 1, name: expected.title })).toBeInTheDocument()
       expect(screen.getByText((text) => text.startsWith(expected.price))).toBeInTheDocument()
 
+      expect(screen.getByText((text) => text.startsWith(expected.price))).toHaveTextContent(
+        locale === "en" ? "first day of each month at 00:00 UTC" : "每月 1 日 UTC 00:00",
+      )
+
       const schemas = Array.from(
         container.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'),
       ).map((script) => JSON.parse(script.innerHTML))

@@ -237,3 +237,96 @@ async def test_creem_webhook_invalid_json(api_client):
         )
         assert response.status_code == 400
         assert "Invalid JSON" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("event_type", ["subscription.canceled", "subscription.scheduled_cancel"])
+async def test_creem_cancellation_sets_explicit_cancel_flag(api_client, mock_db_client, event_type):
+    payload = json.dumps({
+        "eventType": event_type,
+        "object": {"customer": {"id": "cust_cancel"},
+                   "current_period_end_date": "2027-09-07T00:00:00Z"},
+    }).encode()
+    signature = hmac.new(b"secret", payload, hashlib.sha256).hexdigest()
+    with patch("api.routes.webhooks.CREEM_WEBHOOK_SECRET", "secret"):
+        response = await api_client.post(
+            "/api/webhook/creem", content=payload, headers={"creem-signature": signature}
+        )
+    assert response.status_code == 200
+    mock_db_client.update_subscription.assert_called_once_with(
+        "cust_cancel", "pro", "2027-09-07T00:00:00+00:00", canceled=True
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("event_type", ["checkout.completed", "subscription.paid"])
+@pytest.mark.parametrize("interval,plan_key", [("monthly", "pro_monthly"), ("annual", "pro_annual")])
+async def test_creem_subscription_records_configured_billing_interval(
+    api_client, mock_db_client, event_type, interval, plan_key
+):
+    from types import SimpleNamespace
+
+    period = "2027-09-07T00:00:00Z"
+    obj = {"customer": {"id": "cust_interval"},
+           "product": {"id": "configured_product", "billing_type": "recurring"},
+           "metadata": {"user_id": "user_interval"},
+           "current_period_end_date": period,
+           "subscription": {"current_period_end_date": period}}
+    payload = json.dumps({"eventType": event_type, "object": obj}).encode()
+    signature = hmac.new(b"secret", payload, hashlib.sha256).hexdigest()
+    with patch("api.routes.webhooks.CREEM_WEBHOOK_SECRET", "secret"), patch(
+        "api.routes.webhooks.settings.get_price_by_plan_key",
+        side_effect=lambda key: SimpleNamespace(id="configured_product" if key == plan_key else "other"),
+    ):
+        response = await api_client.post(
+            "/api/webhook/creem", content=payload, headers={"creem-signature": signature}
+        )
+    assert response.status_code == 200
+    update = (mock_db_client.update_subscription_by_user if event_type == "checkout.completed"
+              else mock_db_client.update_subscription)
+    assert update.call_args.kwargs["billing_interval"] == interval
+
+
+@pytest.mark.asyncio
+async def test_creem_subscription_write_failure_keeps_checkout_retryable(api_client, mock_db_client):
+    from httpx import ASGITransport, AsyncClient
+    from main import app
+
+    order = {"id": "order_retry", "status": "pending"}
+    mock_db_client.get_payment_order_by_provider_id.return_value = order
+    mock_db_client.update_subscription_by_user.side_effect = [RuntimeError("database unavailable"), None]
+
+    def record_receipt(order_id, *, status, metadata):
+        assert order_id == order["id"]
+        order["status"] = status
+
+    mock_db_client.update_payment_order.side_effect = record_receipt
+    payload = json.dumps({
+        "eventType": "checkout.completed",
+        "object": {
+            "id": "checkout_retry",
+            "customer": {"id": "customer_retry"},
+            "metadata": {"user_id": "user_retry"},
+            "product": {"id": "product_retry", "billing_type": "recurring"},
+            "subscription": {"current_period_end_date": "2027-09-07T00:00:00Z"},
+        },
+    }).encode()
+    signature = hmac.new(b"secret", payload, hashlib.sha256).hexdigest()
+    with patch("api.routes.webhooks.CREEM_WEBHOOK_SECRET", "secret"):
+        # Keep api_client's mocked dependencies, but expose the actual HTTP 500.
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            failed = await client.post(
+                "/api/webhook/creem", content=payload, headers={"creem-signature": signature}
+            )
+            assert failed.status_code == 500
+            assert order["status"] == "pending"
+            mock_db_client.update_payment_order.assert_not_called()
+            retried = await client.post(
+                "/api/webhook/creem", content=payload, headers={"creem-signature": signature}
+            )
+    assert retried.status_code == 200
+    assert mock_db_client.update_subscription_by_user.call_count == 2
+    assert order["status"] == "completed"
+    mock_db_client.update_payment_order.assert_called_once()

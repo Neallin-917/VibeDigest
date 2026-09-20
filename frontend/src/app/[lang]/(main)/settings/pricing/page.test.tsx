@@ -49,7 +49,6 @@ vi.mock("@/lib/api", () => ({
     ApiClient: {
         createCustomerPortal: vi.fn(),
         createCheckoutSession: vi.fn(),
-        createCryptoCharge: vi.fn(),
     },
 }))
 
@@ -99,7 +98,7 @@ describe("PricingPage", () => {
         expect(screen.queryByText("$8.33")).not.toBeInTheDocument()
         expect(mockSelect).toHaveBeenCalledTimes(1)
         expect(mockSelect).toHaveBeenCalledWith(
-            "tier, usage_count, usage_limit, extra_credits",
+            "tier, usage_count, usage_limit, extra_credits, billing_interval, cancel_at_period_end, period_end, usage_reset_at",
         )
         expect(document.querySelector("#pro")).toBeInTheDocument()
         expect(document.querySelector("#topup")).toBeInTheDocument()
@@ -151,7 +150,10 @@ describe("PricingPage", () => {
         })
         renderPricingPage()
 
-        fireEvent.click(await screen.findByText("pricing.pro.button"))
+        await screen.findByText("pricing.pro.button")
+        expect(screen.queryByText("free")).not.toBeInTheDocument()
+        expect(screen.getByText("pricing.free.title")).toBeInTheDocument()
+        fireEvent.click(screen.getByText("pricing.pro.button"))
 
         await waitFor(() => {
             expect(ApiClient.createCheckoutSession).toHaveBeenCalledWith(

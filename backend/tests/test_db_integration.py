@@ -8,6 +8,7 @@ Skipped if SKIP_DB_TESTS=1 is set.
 """
 
 import json
+from datetime import datetime, timedelta, timezone
 import os
 import pytest
 from uuid import UUID, uuid4
@@ -49,6 +50,10 @@ pytestmark = [
 TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 
+def _future_period():
+    return (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+
+
 @pytest.fixture(scope="module")
 def db_client(test_db):
     """Create a real DBClient pointing at the test database."""
@@ -82,7 +87,10 @@ def _clean_tasks(db_client):
         # Reset profile to defaults
         session.execute(text(
             "UPDATE profiles SET tier = 'free', usage_limit = 100, usage_count = 0, "
-            "extra_credits = 0, creem_customer_id = NULL, period_end = NULL "
+            "extra_credits = 0, creem_customer_id = NULL, period_end = NULL, "
+            "billing_interval = NULL, cancel_at_period_end = NULL, "
+            "usage_reset_at = (date_trunc('month', now() at time zone 'utc') "
+            "+ interval '1 month') at time zone 'utc' "
             "WHERE id = :uid"
         ), {"uid": TEST_USER_ID})
         session.commit()
@@ -355,7 +363,7 @@ class TestUpdateSubscription:
 
     def test_upgrade_to_pro(self, db_client):
         db_client.update_subscription_by_user(
-            TEST_USER_ID, tier="pro", period_end="2026-05-01T00:00:00Z"
+            TEST_USER_ID, tier="pro", period_end=_future_period()
         )
 
         # Verify profile updated
@@ -368,22 +376,20 @@ class TestUpdateSubscription:
         assert rows[0]["usage_limit"] == 100
         assert rows[0]["usage_count"] == 0
 
-    def test_downgrade_to_free(self, db_client):
-        # First upgrade
-        db_client.update_subscription_by_user(
-            TEST_USER_ID, tier="pro", period_end="2026-05-01T00:00:00Z"
+    def test_cancellation_by_user_retains_paid_access(self, db_client):
+        period_end = _future_period()
+        db_client.update_subscription_by_user(TEST_USER_ID, "pro", period_end)
+        db_client._execute_query(
+            "UPDATE profiles SET usage_count = 8 WHERE id = :uid", {"uid": TEST_USER_ID}
         )
-        # Then downgrade
-        db_client.update_subscription_by_user(
-            TEST_USER_ID, tier="free", period_end="2026-05-01T00:00:00Z"
-        )
-
+        db_client.update_subscription_by_user(TEST_USER_ID, "pro", period_end, canceled=True)
         rows = db_client._execute_query(
-            "SELECT tier, usage_limit FROM profiles WHERE id = :uid",
+            "SELECT tier, usage_limit, usage_count, cancel_at_period_end FROM profiles WHERE id = :uid",
             {"uid": TEST_USER_ID},
         )
-        assert rows[0]["tier"] == "free"
-        assert rows[0]["usage_limit"] == 3
+        assert rows[0] == {
+            "tier": "pro", "usage_limit": 100, "usage_count": 8, "cancel_at_period_end": True
+        }
 
 
 # ===================================================================
@@ -476,13 +482,13 @@ class TestPaymentChain:
         )
         order_id = str(order["id"])
 
-        # 2. Mark order completed
-        db_client.update_payment_order(order_id, status="completed")
-
-        # 3. Activate Pro subscription (what webhook handler does)
+        # 2. Activate entitlement before completing the checkout receipt.
         db_client.update_subscription_by_user(
-            TEST_USER_ID, tier="pro", period_end="2026-05-01T00:00:00Z"
+            TEST_USER_ID, tier="pro", period_end=_future_period()
         )
+
+        # 3. Record completion only after the entitlement write succeeds.
+        db_client.update_payment_order(order_id, status="completed")
 
         # 4. Verify user is actually Pro
         rows = db_client._execute_query(
@@ -494,25 +500,23 @@ class TestPaymentChain:
         assert rows[0]["usage_count"] == 0
 
     def test_subscription_cancel_full_chain(self, db_client):
-        """Simulate: Pro → subscription.canceled → Free downgrade."""
-        # Start as Pro
-        db_client.update_subscription_by_user(
-            TEST_USER_ID, tier="pro", period_end="2026-05-01T00:00:00Z"
-        )
-
-        # Link a creem customer ID
+        """Cancellation preserves the paid entitlement and consumed monthly usage."""
+        period_end = _future_period()
+        db_client.update_subscription_by_user(TEST_USER_ID, "pro", period_end)
         db_client.link_creem_customer(TEST_USER_ID, "cust_test_123")
-
-        # Cancel subscription (by customer ID, as webhook does)
-        db_client.update_subscription("cust_test_123", "free", "2026-04-01T00:00:00Z")
-
-        # Verify downgrade
-        rows = db_client._execute_query(
-            "SELECT tier, usage_limit FROM profiles WHERE id = :uid",
-            {"uid": TEST_USER_ID},
+        db_client._execute_query(
+            "UPDATE profiles SET usage_count = 12 WHERE id = :uid", {"uid": TEST_USER_ID}
         )
-        assert rows[0]["tier"] == "free"
-        assert rows[0]["usage_limit"] == 3
+        db_client.update_subscription("cust_test_123", "pro", period_end, canceled=True)
+        rows = db_client._execute_query(
+            "SELECT tier, usage_limit, usage_count, period_end, cancel_at_period_end "
+            "FROM profiles WHERE id = :uid", {"uid": TEST_USER_ID},
+        )
+        assert rows[0]["tier"] == "pro"
+        assert rows[0]["usage_limit"] == 100
+        assert rows[0]["usage_count"] == 12
+        assert rows[0]["period_end"] == datetime.fromisoformat(period_end)
+        assert rows[0]["cancel_at_period_end"] is True
 
     def test_idempotent_order_completion(self, db_client):
         """Completing the same order twice should not double-credit."""

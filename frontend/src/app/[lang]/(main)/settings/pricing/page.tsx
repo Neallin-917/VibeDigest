@@ -28,7 +28,6 @@ export default function PricingPage() {
     const { t, locale } = useI18n()
     const searchParams = useSearchParams()
     const [isAnnual, setIsAnnual] = useState(true)
-    const [paymentMethod] = useState<'card' | 'crypto'>('card')  // Default to Creem (card)
     const [loadingAction, setLoadingAction] = useState<BillingAction | null>(null)
     const [actionError, setActionError] = useState<string | null>(null)
     const [supabase] = useState(() => createClient())
@@ -60,14 +59,7 @@ export default function PricingPage() {
                 return
             }
 
-            let url = ""
-            if (paymentMethod === 'crypto') {
-                const res = await ApiClient.createCryptoCharge(planKey, session.access_token, locale)
-                url = res.url
-            } else {
-                const res = await ApiClient.createCheckoutSession(planKey, session.access_token, locale)
-                url = res.url
-            }
+            const { url } = await ApiClient.createCheckoutSession(planKey, session.access_token, locale)
 
             if (!url) throw new Error("Checkout URL is missing")
             trackGrowthEvent("pricing_checkout_redirect", {

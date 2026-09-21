@@ -86,8 +86,8 @@ describe("PricingSection", () => {
         expect(screen.getByRole("button", { name: "View plan" })).toBeInTheDocument()
         expect(screen.queryByRole("button", { name: "Upgrade" })).not.toBeInTheDocument()
         expect(screen.getByText("$8.25")).toBeInTheDocument()
-        expect(screen.getByText("$5.00")).toBeInTheDocument()
-        expect(screen.queryByText("$4.99")).not.toBeInTheDocument()
+        expect(screen.getByText("$4.99")).toBeInTheDocument()
+        expect(screen.queryByText("$5.00")).not.toBeInTheDocument()
     })
 
     it("reuses the landing account lookup across plan actions", async () => {

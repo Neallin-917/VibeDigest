@@ -25,22 +25,6 @@ export default function RefundPolicy() {
 
                 <section className="space-y-4">
                     <Heading as="h2" variant="h2" className="font-semibold">
-                        {t("policies.refund.crypto.title")}
-                    </Heading>
-                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-amber-900">
-                        <p className="font-semibold">{t("policies.refund.crypto.noticeTitle")}</p>
-                        <p className="text-sm mt-1">{t("policies.refund.crypto.noticeContent")}</p>
-                    </div>
-                    <ul className="list-disc pl-5 space-y-2">
-                        <li dangerouslySetInnerHTML={{ __html: t("policies.refund.crypto.list.noRefunds") }} />
-                        <li dangerouslySetInnerHTML={{ __html: t("policies.refund.crypto.list.networkErrors") }} />
-                        <li dangerouslySetInnerHTML={{ __html: t("policies.refund.crypto.list.underpayments") }} />
-                        <li dangerouslySetInnerHTML={{ __html: t("policies.refund.crypto.list.gas") }} />
-                    </ul>
-                </section>
-
-                <section className="space-y-4">
-                    <Heading as="h2" variant="h2" className="font-semibold">
                         {t("policies.common.contactTitle")}
                     </Heading>
                     <p>

@@ -229,7 +229,7 @@ const enMessages = {
       faqSignInQuestion: "When do I need to sign in?",
       faqSignInAnswer: "Paste a supported link first. We keep it for the handoff, then ask you to sign in before processing starts.",
       faqBillingQuestion: "How is Pro billed?",
-      faqBillingAnswer: "{proPlan} is {annualPrice} per year with a 12-month commitment. That works out to {annualMonthlyPrice} per month.",
+      faqBillingAnswer: "{proPlan} costs {monthlyPrice} monthly or {annualPrice} yearly. {basicPlan} and {proPlan} quotas reset on the first day of each month at 00:00 UTC.",
       faqLink: "View all",
       skipToContent: "Skip to main content",
       language: "Language",
@@ -329,10 +329,11 @@ const enMessages = {
       checkoutCanceled: "Checkout canceled. No changes were made.",
       portalError: "We couldn’t open subscription management. Please try again or contact support.",
       portalUnavailable: "This plan has no online subscription to manage. Contact support if you need to change it.",
+      endsOn: "Cancels on {date} (UTC)",
+      renewsOn: "Renews on {date} (UTC)",
+      validUntil: "Valid until {date} (UTC)",
       paymentMethod: "Payment Method",
       card: "Credit Card",
-      crypto: "USDC",
-      cryptoWarning: "USDC Only. Please ensure you use the correct network. Transfers are non-refundable.",
       policies: {
         refund: "Refund Policy",
         terms: "Terms of Service"
@@ -358,7 +359,7 @@ const enMessages = {
         },
         billing: {
           question: "How are plans and top-ups billed?",
-          answer: "{proPlan} costs {monthlyPrice} monthly or {annualPrice} for 12 months. A one-time {topUpCredits}-video top-up costs {topUpPrice} and does not expire."
+          answer: "{proPlan} costs {monthlyPrice} monthly or {annualPrice} for 12 months. {basicPlan} and {proPlan} quotas reset on the first day of each month at 00:00 UTC. A one-time {topUpCredits}-video top-up costs {topUpPrice} and does not expire."
         },
         platforms: {
           question: "Which platforms do you support?",
@@ -642,17 +643,6 @@ const enMessages = {
           title: "1. General Policy",
           content: "VibeDigest strives to provide high-quality services. If you are not satisfied with our service due to technical failures, you may request a refund within <strong>7 days</strong> of purchase."
         },
-        crypto: {
-          title: "2. Crypto Payments (USDC)",
-          noticeTitle: "Important Notice for Cryptocurrency Transactions",
-          noticeContent: "Due to the irreversible nature of blockchain transactions, we have strict policies for crypto payments:",
-          list: {
-            noRefunds: "<strong>No Automatic Refunds:</strong> Crypto transactions cannot be reversed. Any refund must be processed manually.",
-            networkErrors: "<strong>Network Errors:</strong> VibeDigest is not responsible for funds lost due to sending assets on the wrong network (e.g., sending ERC-20 USDC to a Polygon address when not supported). <strong>Please ensure you select the correct network.</strong>",
-            underpayments: "<strong>Underpayments:</strong> If you send less than the required amount, your order may not be automatically fulfilled. Please contact support.",
-            gas: "<strong>Gas Fees:</strong> Transaction fees (Gas) are non-refundable."
-          }
-        }
       },
       terms: {
         title: "Terms of Service",
@@ -904,7 +894,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       faqSignInQuestion: "什么时候需要登录？",
       faqSignInAnswer: "请先粘贴受支持的链接。我们会保留该链接用于后续跳转，并在处理开始前要求你登录。",
       faqBillingQuestion: "Pro 如何计费？",
-      faqBillingAnswer: "{proPlan} 年付 {annualPrice}，订阅期为 12 个月，折合每月 {annualMonthlyPrice}。",
+      faqBillingAnswer: "{proPlan} 月付 {monthlyPrice}，或年付 {annualPrice}。{basicPlan} 和 {proPlan} 额度均在每月 1 日 UTC 00:00 刷新。",
       faqLink: "查看全部",
       skipToContent: "跳到主要内容",
       language: "语言",
@@ -1003,10 +993,11 @@ const zhMessages: MessageShape<typeof enMessages> = {
       checkoutCanceled: "已取消结算，账户未发生变更。",
       portalError: "暂时无法打开订阅管理，请稍后重试或联系支持。",
       portalUnavailable: "当前方案没有可在线管理的订阅，如需调整请联系支持。",
+      endsOn: "将于 {date} 到期取消（UTC）",
+      renewsOn: "将于 {date} 续费（UTC）",
+      validUntil: "有效期至 {date}（UTC）",
       paymentMethod: "支付方式",
       card: "信用卡",
-      crypto: "USDC",
-      cryptoWarning: "仅支持 USDC。请确保使用正确的网络。转账不可退款。",
       policies: {
         refund: "退款政策",
         terms: "服务条款"
@@ -1032,7 +1023,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
         },
         billing: {
           question: "方案和充值包如何计费？",
-          answer: "{proPlan} 月付 {monthlyPrice}，或按 12 个月收取 {annualPrice}。一次性 {topUpCredits} 个视频充值包为 {topUpPrice}，永久有效。"
+          answer: "{proPlan} 月付 {monthlyPrice}，或按 12 个月收取 {annualPrice}。{basicPlan} 和 {proPlan} 额度均在每月 1 日 UTC 00:00 刷新。一次性 {topUpCredits} 个视频充值包为 {topUpPrice}，永久有效。"
         },
         platforms: {
           question: "支持哪些平台？",
@@ -1316,17 +1307,6 @@ const zhMessages: MessageShape<typeof enMessages> = {
           title: "1. 一般政策",
           content: "VibeDigest 致力于提供高质量的服务。如果您因技术故障对我们的服务不满意，可以在购买后 <strong>7天</strong> 内申请退款。"
         },
-        crypto: {
-          title: "2. 加密货币支付 (USDC)",
-          noticeTitle: "加密货币交易重要须知",
-          noticeContent: "由于区块链交易的不可逆转性，我们对加密货币支付制定了严格的政策：",
-          list: {
-            noRefunds: "<strong>不可自动退款：</strong> 加密货币交易无法撤销。任何退款必须人工处理。",
-            networkErrors: "<strong>网络错误：</strong> 因网络选择错误导致的资金丢失（例如将 ERC-20 USDC 发送到不支持的 Polygon 地址），VibeDigest 概不负责。<strong>请务必确保选择正确的网络。</strong>",
-            underpayments: "<strong>支付金额不足：</strong> 如果您发送的金额少于所需金额，订单可能无法自动完成。请联系支持人员。",
-            gas: "<strong>Gas 费：</strong> 交易手续费 (Gas) 不可退还。"
-          }
-        }
       },
       terms: {
         title: "服务条款",

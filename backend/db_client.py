@@ -749,14 +749,28 @@ class DBClient:
                 UPDATE profiles SET cancel_at_period_end = true, updated_at = now()
                 WHERE {column} = :identifier AND tier = 'pro'
                   AND period_end = cast(:period_end as timestamptz)
+                RETURNING id
             """
-            self._execute_query(query, {"identifier": identifier, "period_end": period_end})
+            params = {"identifier": identifier, "period_end": period_end}
+            if self._execute_query(query, params):
+                return
+            # Ignore an obsolete cancellation, but let the provider retry a
+            # future period whose activation/customer link has not arrived yet.
+            obsolete = self._execute_query(f"""
+                SELECT cast(:period_end as timestamptz) <= now() OR EXISTS (
+                    SELECT 1 FROM profiles WHERE {column} = :identifier
+                      AND period_end > cast(:period_end as timestamptz)
+                ) AS obsolete
+            """, params)
+            if not obsolete[0]["obsolete"]:
+                raise RuntimeError("Subscription activation pending; retry cancellation")
             return
         query = f"""
             UPDATE profiles
             SET tier = :tier, usage_limit = :limit,
-                usage_count = CASE WHEN tier <> :tier THEN 0 ELSE usage_count END,
-                usage_reset_at = CASE WHEN tier <> :tier THEN
+                usage_count = CASE WHEN tier <> :tier OR period_end <= now()
+                    THEN 0 ELSE usage_count END,
+                usage_reset_at = CASE WHEN tier <> :tier OR period_end <= now() THEN
                     (date_trunc('month', now() at time zone 'utc') + interval '1 month')
                         at time zone 'utc'
                     ELSE usage_reset_at END,

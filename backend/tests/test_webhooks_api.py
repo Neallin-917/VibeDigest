@@ -288,6 +288,43 @@ async def test_creem_subscription_records_configured_billing_interval(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("event_type", ["subscription.canceled", "subscription.scheduled_cancel"])
+async def test_creem_cancellation_before_paid_returns_retryable_failure(
+    api_client, mock_db_client, event_type
+):
+    from httpx import ASGITransport, AsyncClient
+    from main import app
+
+    mock_db_client.update_subscription.side_effect = [
+        RuntimeError("Subscription payment has not been recorded"), None
+    ]
+    payload = json.dumps({
+        "eventType": event_type,
+        "object": {
+            "customer": "customer_early_cancel",
+            "current_period_end_date": "2027-09-07T00:00:00Z",
+        },
+    }).encode()
+    signature = hmac.new(b"secret", payload, hashlib.sha256).hexdigest()
+    with patch("api.routes.webhooks.CREEM_WEBHOOK_SECRET", "secret"):
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            failed = await client.post(
+                "/api/webhook/creem", content=payload, headers={"creem-signature": signature}
+            )
+            assert failed.status_code == 500
+            retried = await client.post(
+                "/api/webhook/creem", content=payload, headers={"creem-signature": signature}
+            )
+    assert retried.status_code == 200
+    assert mock_db_client.update_subscription.call_count == 2
+    mock_db_client.update_subscription.assert_called_with(
+        "customer_early_cancel", "pro", "2027-09-07T00:00:00+00:00", canceled=True
+    )
+
+
+@pytest.mark.asyncio
 async def test_creem_subscription_write_failure_keeps_checkout_retryable(api_client, mock_db_client):
     from httpx import ASGITransport, AsyncClient
     from main import app

@@ -110,10 +110,12 @@ inside the canonical submission transaction, before any top-up credit is consume
 Annual payment does not defer monthly allowance refresh. Unused allowance does not
 accumulate; top-up balances are untouched by resets and expiry.
 
-Paid subscription delivery resets usage only on a Basic-to-Pro transition. Same-period
+Paid subscription delivery resets usage on a Basic-to-Pro transition or reactivation
+after the previous paid period expired, even before lazy downgrade has run. Same-period
 checkout/payment redelivery and cancellation preserve usage; older paid periods cannot
 shorten access. Cancellation only marks the matching paid period, and a newer paid
-period clears that flag. Expired paid events cannot reactivate access. Write failures
+period clears that flag. A future cancellation received before activation/customer
+linking fails retryably; already obsolete cancellation periods are ignored. Expired paid events cannot reactivate access. Write failures
 propagate to the webhook so delivery can retry before a subscription receipt completes.
 
 `billing_interval` is nullable and derived from configured provider product IDs;

@@ -113,6 +113,76 @@ def test_checkout_paid_retries_and_cancellation_preserve_usage(pgmq_db):
     assert after["tier"] == "pro"
 
 
+@pytest.mark.parametrize("paid_via", ["customer", "checkout"])
+def test_same_month_reactivation_of_expired_pro_resets_usage_once(pgmq_db, paid_via):
+    user, customer = _account(pgmq_db)
+    pgmq_db.update_subscription_by_user(user, "pro", _future(30))
+    pgmq_db._execute_query(
+        """UPDATE profiles SET usage_count = usage_limit,
+           period_end = now() - interval '1 second',
+           usage_reset_at = (date_trunc('month', now() AT TIME ZONE 'utc')
+               + interval '1 month') AT TIME ZONE 'utc'
+           WHERE id = CAST(:id AS uuid)""",
+        {"id": user},
+    )
+    before = _profile(pgmq_db, user)
+    assert before["tier"] == "pro"
+    assert before["usage_count"] == before["usage_limit"] == 100
+    period_end = _future(30)
+    if paid_via == "customer":
+        pgmq_db.update_subscription(customer, "pro", period_end)
+    else:
+        pgmq_db.update_subscription_by_user(user, "pro", period_end)
+    reactivated = _profile(pgmq_db, user)
+    assert reactivated["usage_count"] == 0
+    assert reactivated["extra_credits"] == 7
+    assert reactivated["usage_reset_at"] == before["usage_reset_at"]
+    assert reactivated["period_end"] == datetime.fromisoformat(period_end)
+
+    _submit(pgmq_db, user)
+    pgmq_db.update_subscription(customer, "pro", period_end)
+    pgmq_db.update_subscription_by_user(user, "pro", period_end)
+    retried = _profile(pgmq_db, user)
+    assert retried["usage_count"] == 1
+    assert retried["extra_credits"] == 7
+    assert retried["usage_reset_at"] == reactivated["usage_reset_at"]
+
+
+@pytest.mark.parametrize("prior_state", ["unknown_customer", "free", "unknown_period", "older_period"])
+def test_cancellation_before_paid_is_retryable_and_applied_after_payment(pgmq_db, prior_state):
+    user, customer = _account(pgmq_db)
+    if prior_state == "unknown_customer":
+        pgmq_db._execute_query(
+            "UPDATE profiles SET creem_customer_id = NULL WHERE id = CAST(:id AS uuid)",
+            {"id": user},
+        )
+    elif prior_state in ("unknown_period", "older_period"):
+        pgmq_db.update_subscription_by_user(user, "pro", _future(30))
+        if prior_state == "unknown_period":
+            pgmq_db._execute_query(
+                "UPDATE profiles SET period_end = NULL WHERE id = CAST(:id AS uuid)",
+                {"id": user},
+            )
+    before = _profile(pgmq_db, user)
+    period_end = _future(60)
+    with pytest.raises(RuntimeError):
+        pgmq_db.update_subscription(customer, "pro", period_end, canceled=True)
+    assert _profile(pgmq_db, user) == before
+
+    if prior_state == "unknown_customer":
+        pgmq_db._execute_query(
+            "UPDATE profiles SET creem_customer_id = :customer WHERE id = CAST(:id AS uuid)",
+            {"id": user, "customer": customer},
+        )
+    pgmq_db.update_subscription(customer, "pro", period_end)
+    paid = _profile(pgmq_db, user)
+    pgmq_db.update_subscription(customer, "pro", period_end, canceled=True)
+    canceled = _profile(pgmq_db, user)
+    assert canceled["cancel_at_period_end"] is True
+    for key in ("tier", "period_end", "usage_count", "usage_reset_at", "extra_credits"):
+        assert canceled[key] == paid[key]
+
+
 def test_renewal_preserves_month_usage_and_ignores_old_paid_or_cancel_event(pgmq_db):
     user, customer = _account(pgmq_db)
     old_period, new_period = _future(30), _future(60)

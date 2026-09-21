@@ -59,9 +59,9 @@ class TestCustomerPlanCatalog:
         assert catalog.plans["basic"].included_videos_per_month == 3
         assert catalog.plans["pro"].included_videos_per_month == 100
         assert catalog.top_ups["videoCredits"].credits == 50
-        assert catalog.top_ups["videoCredits"].price == 5
-        assert Settings.PRICES["CREDIT_PACK"].amount == 5
-        assert Settings.PRICES["PRO_MONTHLY"].amount == 9.9
+        assert catalog.top_ups["videoCredits"].price == 4.99
+        assert Settings.PRICES["CREDIT_PACK"].amount == 4.99
+        assert Settings.PRICES["PRO_MONTHLY"].amount == 9.99
         assert Settings.PRICES["PRO_ANNUAL"].amount == 99
 
     def test_provider_product_ids_are_not_part_of_customer_catalog(self):

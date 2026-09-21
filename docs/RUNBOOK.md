@@ -262,3 +262,19 @@ Never delete the queue as an automatic rollback step.
 Deployment and CI secrets are managed outside Git. Verify migrations and
 deployments by names, counts, permissions, and redacted mappings only. Never
 print or paste secret values into reports or logs.
+
+### Billing consistency release (Issue #133)
+
+Apply `20260919171942_fix_subscription_quota_lifecycle.sql` before deploying the API
+and frontend; both now reference its nullable profile columns. Run the billing lifecycle
+suite through `make test-queue-integration` against an isolated database first. No live
+subscription backfill or historical allowance reset is part of this migration.
+
+After deployment verify the retired charge endpoint returns 410 for an authenticated
+request, profile reads include the new columns, and an existing account displays the
+correct plan. Audit Creem product amounts/currency/intervals against the customer plan
+catalog without charging a card. Historical rows remain unknown for billing interval
+and renewal status until a matching provider event arrives; do not guess or bulk-fill.
+Keep Coinbase webhook verification configured while historical orders need reconciliation.
+The existing refund eligibility rule is unchanged; any broader refund policy requires
+an explicit business decision. Search engine indexing remains a separate acceptance step.

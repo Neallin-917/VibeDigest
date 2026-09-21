@@ -45,6 +45,15 @@ def _provider_period_end(subscription: object) -> str | None:
         value = value.replace(tzinfo=datetime.timezone.utc)
     return value.astimezone(datetime.timezone.utc).isoformat()
 
+def _billing_interval(product: object) -> str | None:
+    product_id = _provider_id(product)
+    for interval, key in (("monthly", "pro_monthly"), ("annual", "pro_annual")):
+        price = settings.get_price_by_plan_key(key)
+        if price and product_id == price.id:
+            return interval
+    return None
+
+
 @router.post("/creem")
 async def creem_webhook(
     request: Request,
@@ -94,6 +103,16 @@ async def creem_webhook(
         if user_id and customer_id:
             db.link_creem_customer(user_id, customer_id)
 
+        billing_type = product.get("billing_type", "one_time") if isinstance(product, dict) else "one_time"
+        existing_order = None
+
+        def complete_order():
+            if existing_order:
+                db.update_payment_order(
+                    existing_order["id"], status="completed",
+                    metadata={"creem_customer": customer_id, "checkout_id": checkout_id},
+                )
+
         # Update payment order if exists
         if checkout_id:
             existing_order = db.get_payment_order_by_provider_id(checkout_id)
@@ -104,28 +123,18 @@ async def creem_webhook(
                     )
                     return {"status": "success", "message": "Already processed"}
 
-                db.update_payment_order(
-                    existing_order["id"],
-                    status="completed",
-                    metadata={
-                        "creem_customer": customer_id,
-                        "checkout_id": checkout_id,
-                    },
-                )
+        # Preserve the legacy top-up receipt path. Subscription delivery is
+        # idempotent, so record its receipt only after the entitlement write.
+        if billing_type != "recurring":
+            complete_order()
 
-        # Determine product type
-        billing_type = (
-            product.get("billing_type", "one_time")
-            if isinstance(product, dict)
-            else "one_time"
-        )
         product_id = product.get("id") if isinstance(product, dict) else product
 
         if billing_type == "recurring":
             period_end = _provider_period_end(subscription)
             if user_id and period_end:
                 db.update_subscription_by_user(
-                    user_id, "pro", period_end
+                    user_id, "pro", period_end, billing_interval=_billing_interval(product)
                 )
                 logger.info(f"Activated Pro subscription for user {user_id}")
             elif user_id:
@@ -141,13 +150,19 @@ async def creem_webhook(
                 db.add_credits(user_id, price.credits)
                 logger.info(f"Added {price.credits} credits to user {user_id}")
 
+        if billing_type == "recurring":
+            complete_order()
+
     elif event_type == "subscription.paid":
         # Recurring payment success - renew subscription
         customer_id = _provider_id(obj.get("customer"))
         period_end = _provider_period_end(obj)
 
         if customer_id and period_end:
-            db.update_subscription(customer_id, "pro", period_end)
+            db.update_subscription(
+                customer_id, "pro", period_end,
+                billing_interval=_billing_interval(obj.get("product")),
+            )
             logger.info(f"Renewed Pro subscription for customer {customer_id}")
         elif customer_id:
             logger.warning(
@@ -161,7 +176,7 @@ async def creem_webhook(
         customer_id = _provider_id(obj.get("customer"))
         period_end = _provider_period_end(obj)
         if customer_id and period_end:
-            db.update_subscription(customer_id, "pro", period_end)
+            db.update_subscription(customer_id, "pro", period_end, canceled=True)
             logger.info("Recorded subscription cancellation for customer %s", customer_id)
         elif customer_id:
             logger.warning(

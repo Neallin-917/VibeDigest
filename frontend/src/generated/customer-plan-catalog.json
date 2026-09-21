@@ -21,7 +21,7 @@
       "billingOptions": {
         "monthly": {
           "planKey": "pro_monthly",
-          "price": 9.9,
+          "price": 9.99,
           "billingPeriodMonths": 1
         },
         "annual": {
@@ -37,7 +37,7 @@
       "key": "video_credits",
       "name": "Video credit top-up",
       "planKey": "credit_pack",
-      "price": 5,
+      "price": 4.99,
       "credits": 50,
       "expires": false,
       "compatiblePlanKeys": [

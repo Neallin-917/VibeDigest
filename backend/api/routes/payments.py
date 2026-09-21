@@ -4,10 +4,9 @@ from typing import Literal
 
 import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException
-from coinbase_commerce.client import Client as CoinbaseClient
 
 from config import settings
-from dependencies import get_current_user, get_db_client, get_coinbase_client
+from dependencies import get_current_user, get_db_client
 from db_client import DBClient
 
 router = APIRouter()
@@ -35,56 +34,10 @@ def _pricing_return_url(locale: PaymentLocale, result: CheckoutReturn) -> str:
 
 
 @router.post("/create-crypto-charge")
-async def create_crypto_charge(
-    plan_key: str | None = Form(None),
-    price_id: str | None = Form(None),
-    locale: PaymentLocale = Form("en"),
-    user_id: str = Depends(get_current_user),
-    db: DBClient = Depends(get_db_client),
-    coinbase_client: CoinbaseClient = Depends(get_coinbase_client)
-):
-    """Create Coinbase Commerce Charge (USDC Only)."""
+async def create_crypto_charge(user_id: str = Depends(get_current_user)):
+    """Retired endpoint: never initialize a provider or create a new order."""
+    raise HTTPException(status_code=410, detail="Crypto payments are no longer available")
 
-    price = _resolve_price(plan_key, price_id)
-    if not price:
-        raise HTTPException(status_code=400, detail="Invalid Price ID")
-
-    amount = price.amount
-    name = price.name
-
-    try:
-        # 2. Create Unified Order (Pending)
-        order = db.create_payment_order(user_id, "coinbase", amount, "USD")
-        if not order:
-            raise HTTPException(status_code=500, detail="Failed to create order record")
-
-        # 3. Create Coinbase Charge
-        charge_data = {
-            "name": name,
-            "description": "VibeDigest Credits",
-            "local_price": {"amount": str(amount), "currency": "USD"},
-            "pricing_type": "fixed_price",
-            "metadata": {
-                "user_id": user_id,
-                "order_id": order["id"],  # Link back to our DB
-                "price_id": price.id,
-            },
-            "redirect_url": _pricing_return_url(locale, "success"),
-            "cancel_url": _pricing_return_url(locale, "canceled"),
-        }
-
-        charge = coinbase_client.charge.create(**charge_data)
-        hosted_url = charge.hosted_url
-        code = charge.code
-
-        # 4. Update Order with Charge Code
-        db.update_payment_order(order["id"], provider_payment_id=code)
-
-        return {"url": hosted_url}
-
-    except Exception as e:
-        logger.error(f"Coinbase creation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(

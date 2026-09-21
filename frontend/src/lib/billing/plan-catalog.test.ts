@@ -14,7 +14,7 @@ import {
 } from "@/lib/billing/structured-data"
 
 const locales: Locale[] = ["en", "zh"]
-const stalePromise = /\$4\.99|15.?min|15\s*分钟|15分|unlimited|无限|無制限|notion|pdf/i
+const stalePromise = /\$9\.90|\$5\.00|15.?min|15\s*分钟|15分|unlimited|无限|無制限|notion|pdf/i
 
 describe("customer plan catalog", () => {
   it("keeps the implemented price, quota, and top-up facts in one catalog", () => {
@@ -25,7 +25,7 @@ describe("customer plan catalog", () => {
         pro: {
           includedVideosPerMonth: 100,
           billingOptions: {
-            monthly: { planKey: "pro_monthly", price: 9.9 },
+            monthly: { planKey: "pro_monthly", price: 9.99 },
             annual: { planKey: "pro_annual", price: 99 },
           },
         },
@@ -33,7 +33,7 @@ describe("customer plan catalog", () => {
       topUps: {
         videoCredits: {
           planKey: "credit_pack",
-          price: 5,
+          price: 4.99,
           credits: 50,
           expires: false,
         },
@@ -53,10 +53,10 @@ describe("customer plan catalog", () => {
     ].join(" ")
 
     expect(display.basic.priceLabel).toBe("$0")
-    expect(display.pro.monthlyPriceLabel).toBe("$9.90")
+    expect(display.pro.monthlyPriceLabel).toBe("$9.99")
     expect(display.pro.annualPriceLabel).toBe("$99")
     expect(display.pro.annualEffectiveMonthlyLabel).toBe("$8.25")
-    expect(display.topUp.priceLabel).toBe("$5.00")
+    expect(display.topUp.priceLabel).toBe("$4.99")
     expect(copy).not.toMatch(stalePromise)
     expect(copy).not.toMatch(/pricing\.|faq\.|landing\./)
   })
@@ -69,9 +69,9 @@ describe("customer plan catalog", () => {
 
     expect(offers.map((offer) => offer.price)).toEqual([
       "0.00",
-      "9.90",
+      "9.99",
       "99.00",
-      "5.00",
+      "4.99",
     ])
     expect(offers.every((offer) => offer.priceCurrency === "USD")).toBe(true)
     expect(faqSchema.mainEntity.map((entry) => entry.name)).toEqual(

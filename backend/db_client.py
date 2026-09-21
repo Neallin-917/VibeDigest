@@ -736,47 +736,69 @@ class DBClient:
         except Exception as e:
             logger.error(f"Failed to add credits: {e}")
 
-    def update_subscription(self, creem_customer_id: str, tier: str, period_end: str):
-        """Update subscription status from Creem Webhook (by customer id)."""
-        limit = self._subscription_usage_limit(tier)
-        query = """
-            UPDATE profiles 
-            SET tier = :tier, usage_limit = :limit, usage_count = 0, period_end = :period_end
-            WHERE creem_customer_id = :cid
+    def _update_subscription(
+        self, identifier: str, tier: str, period_end: str, *,
+        by_user: bool = False, billing_interval: str | None = None,
+        canceled: bool = False,
+    ):
+        """Apply paid entitlement monotonically; delivery retries never refill usage."""
+        column = "id" if by_user else "creem_customer_id"
+        if canceled:
+            # Cancellation cannot activate access or overwrite a newer paid period.
+            query = f"""
+                UPDATE profiles SET cancel_at_period_end = true, updated_at = now()
+                WHERE {column} = :identifier AND tier = 'pro'
+                  AND period_end = cast(:period_end as timestamptz)
+                RETURNING id
+            """
+            params = {"identifier": identifier, "period_end": period_end}
+            if self._execute_query(query, params):
+                return
+            # Ignore an obsolete cancellation, but let the provider retry a
+            # future period whose activation/customer link has not arrived yet.
+            obsolete = self._execute_query(f"""
+                SELECT cast(:period_end as timestamptz) <= now() OR EXISTS (
+                    SELECT 1 FROM profiles WHERE {column} = :identifier
+                      AND period_end > cast(:period_end as timestamptz)
+                ) AS obsolete
+            """, params)
+            if not obsolete[0]["obsolete"]:
+                raise RuntimeError("Subscription activation pending; retry cancellation")
+            return
+        query = f"""
+            UPDATE profiles
+            SET tier = :tier, usage_limit = :limit,
+                usage_count = CASE WHEN tier <> :tier OR period_end <= now()
+                    THEN 0 ELSE usage_count END,
+                usage_reset_at = CASE WHEN tier <> :tier OR period_end <= now() THEN
+                    (date_trunc('month', now() at time zone 'utc') + interval '1 month')
+                        at time zone 'utc'
+                    ELSE usage_reset_at END,
+                billing_interval = coalesce(:billing_interval, billing_interval),
+                cancel_at_period_end = CASE
+                    WHEN period_end IS NULL OR period_end < cast(:period_end as timestamptz)
+                    THEN false ELSE cancel_at_period_end END,
+                period_end = cast(:period_end as timestamptz), updated_at = now()
+            WHERE {column} = :identifier
+              AND cast(:period_end as timestamptz) > now()
+              AND (period_end IS NULL OR period_end <= cast(:period_end as timestamptz))
         """
-        try:
-            self._execute_query(
-                query,
-                {
-                    "tier": tier,
-                    "limit": limit,
-                    "period_end": period_end,
-                    "cid": creem_customer_id,
-                },
-            )
-        except Exception as e:
-            logger.error(f"Failed to update subscription: {e}")
+        # Let failures reach the webhook so the provider retries delivery.
+        self._execute_query(query, {
+            "identifier": identifier, "tier": tier,
+            "limit": self._subscription_usage_limit(tier),
+            "period_end": period_end, "billing_interval": billing_interval,
+        })
 
-    def update_subscription_by_user(self, user_id: str, tier: str, period_end: str):
-        """Update subscription status by user_id (for first-time subscriptions)."""
-        limit = self._subscription_usage_limit(tier)
-        query = """
-            UPDATE profiles 
-            SET tier = :tier, usage_limit = :limit, usage_count = 0, period_end = :period_end
-            WHERE id = :uid
-        """
-        try:
-            self._execute_query(
-                query,
-                {
-                    "tier": tier,
-                    "limit": limit,
-                    "period_end": period_end,
-                    "uid": user_id,
-                },
-            )
-        except Exception as e:
-            logger.error(f"Failed to update subscription by user: {e}")
+    def update_subscription(
+        self, creem_customer_id: str, tier: str, period_end: str, **kwargs,
+    ):
+        self._update_subscription(creem_customer_id, tier, period_end, **kwargs)
+
+    def update_subscription_by_user(
+        self, user_id: str, tier: str, period_end: str, **kwargs,
+    ):
+        self._update_subscription(user_id, tier, period_end, by_user=True, **kwargs)
 
     def link_creem_customer(self, user_id: str, creem_customer_id: str):
         """Link a Creem Customer ID to a user."""

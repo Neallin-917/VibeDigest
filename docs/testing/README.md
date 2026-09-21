@@ -160,10 +160,13 @@ Unified Agent gates:
   finish semantics. No model traffic.
 - `backend/tests/test_agent_api.py` and `test_agent_worker.py`: signed service
   requests, ownership, callback/lease/ack behavior and retry budgets.
-- `make test-queue-integration`: real isolated Postgres/PGMQ, atomic create,
+- `make test-queue-integration`: real isolated Postgres/PGMQ, billing allowance
+  refresh, payment redelivery, entitlement write permissions, atomic create,
   rollback, concurrent dedupe, cancellation, output wake-up, retry generations
   and stale-write fencing, plus chat-message Realtime publication/readiness.
-  Use a dedicated test database; fixtures apply schema.
+  Use a dedicated test database; fixtures apply schema. Do not reuse it for
+  `make test-backend` smoke or `make test-integration`: those fixtures rebuild a
+  reduced schema and must run against a separate clean database.
 - Existing chat E2E specs exercise the single `/api/chat` SSE contract. Realtime
   hook tests cover reconnect snapshots, streaming buffers and late updates.
 - Optional trusted-local smoke: `cd frontend && RUN_LOCAL_AGENT_SMOKE=1 npx

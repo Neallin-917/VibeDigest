@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { useCurrentUserQuery, useProfileQuery } from "./useAccountQueries"
+import { projectAccountProfile, useCurrentUserQuery, useProfileQuery } from "./useAccountQueries"
 
 const mockGetUser = vi.fn()
 const mockSingle = vi.fn()
@@ -102,5 +102,29 @@ describe("account queries", () => {
 
         expect(second.result.current.data?.tier).toBe("pro")
         expect(mockSelect).toHaveBeenCalledTimes(1)
+    })
+})
+
+
+describe("account display projection", () => {
+    const now = Date.parse("2026-09-20T00:00:00Z")
+    const profile = { tier: "pro", usage_count: 80, usage_limit: 100, extra_credits: 7 }
+
+    it("expires Pro at the paid boundary and preserves top-ups without mutating input", () => {
+        const expired = { ...profile, period_end: "2026-09-20T00:00:00Z" }
+        expect(projectAccountProfile(expired, now)).toMatchObject({ tier: "free", usage_limit: 3, usage_count: 0, extra_credits: 7 })
+        expect(expired.tier).toBe("pro")
+        expect(expired.usage_count).toBe(80)
+    })
+    it("resets monthly usage while retaining paid entitlement and top-ups", () => {
+        expect(projectAccountProfile({ ...profile, usage_reset_at: "2026-09-01T00:00:00Z", period_end: "2027-01-01T00:00:00Z" }, now))
+            .toMatchObject({ tier: "pro", usage_limit: 100, usage_count: 0, extra_credits: 7 })
+    })
+    it("keeps current usage before the reset boundary", () => {
+        expect(projectAccountProfile({ ...profile, usage_reset_at: "2026-10-01T00:00:00Z" }, now).usage_count).toBe(80)
+    })
+    it("does not guess expiry when legacy dates are unknown or invalid", () => {
+        expect(projectAccountProfile(profile, now)).toEqual(profile)
+        expect(projectAccountProfile({ ...profile, period_end: "invalid" }, now).tier).toBe("pro")
     })
 })

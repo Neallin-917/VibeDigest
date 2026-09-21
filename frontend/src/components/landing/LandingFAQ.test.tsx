@@ -10,7 +10,7 @@ const copy: Record<string, string> = {
     "landing.faqSignInQuestion": "When do I need to sign in?",
     "landing.faqSignInAnswer": "Paste a supported link first.",
     "landing.faqBillingQuestion": "How is Pro billed?",
-    "landing.faqBillingAnswer": "{proPlan} is {annualPrice} per year with a 12-month commitment.",
+    "landing.faqBillingAnswer": "{proPlan} costs {monthlyPrice} monthly or {annualPrice} yearly.",
     "landing.faqLink": "Read the full FAQ",
     "pricing.free.title": "Basic",
     "pricing.pro.title": "Pro",
@@ -31,7 +31,7 @@ describe("LandingFAQ", () => {
         expect(screen.getByText("Can I try VibeDigest for free?")).toBeInTheDocument()
         expect(screen.getByText("When do I need to sign in?")).toBeInTheDocument()
         expect(screen.getByText("How is Pro billed?")).toBeInTheDocument()
-        expect(screen.getByText("Pro is $99 per year with a 12-month commitment.")).toBeInTheDocument()
+        expect(screen.getByText("Pro costs $9.99 monthly or $99 yearly.")).toBeInTheDocument()
         expect(screen.getByRole("link", { name: "Read the full FAQ" })).toHaveAttribute("href", "/en/faq")
     })
 })

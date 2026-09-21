@@ -10,9 +10,29 @@ from worker import (
     LeaseLostError,
     TaskWorker,
     WorkerConfig,
+    build_worker,
     drain_worker,
     verify_codex_subscription,
 )
+
+
+@pytest.fixture
+def trusted_codex_settings(monkeypatch):
+    from services import codex_preflight
+    import worker
+
+    settings = SimpleNamespace(
+        LLM_RUNTIME="codex_local",
+        LLM_PROVIDER="codex_local",
+        CODEX_LOCAL_BINARY=None,
+        MODEL_SMART="test-smart",
+        MODEL_FAST="test-fast",
+    )
+    monkeypatch.setattr(codex_preflight, "settings", settings)
+    monkeypatch.setattr(worker, "settings", settings)
+    monkeypatch.setenv("WORKER_PROFILE", "trusted_codex")
+    monkeypatch.delenv("RAILWAY_PROJECT_ID", raising=False)
+    return settings
 
 
 def worker_config(
@@ -384,7 +404,7 @@ async def test_trusted_codex_worker_processes_catalog_task():
 
 
 @pytest.mark.asyncio
-async def test_codex_subscription_preflight_requires_chatgpt_account():
+async def test_codex_subscription_preflight_requires_chatgpt_account(trusted_codex_settings):
     codex = AsyncMock()
     codex.account.return_value = SimpleNamespace(
         account=SimpleNamespace(root=SimpleNamespace(type="apiKey"))
@@ -394,15 +414,20 @@ async def test_codex_subscription_preflight_requires_chatgpt_account():
 
     with pytest.raises(RuntimeError, match="ChatGPT subscription"):
         await verify_codex_subscription(codex_factory=MagicMock(return_value=context))
+    codex.models.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_codex_subscription_preflight_returns_plan_without_email():
+async def test_codex_subscription_preflight_returns_plan_without_email(trusted_codex_settings):
     account = SimpleNamespace(type="chatgpt", plan_type="plus", email="secret@example.com")
     codex = AsyncMock()
     codex.account.return_value = SimpleNamespace(
         account=SimpleNamespace(root=account)
     )
+    codex.models.return_value = SimpleNamespace(data=[
+        SimpleNamespace(model="test-smart"),
+        SimpleNamespace(model="test-fast"),
+    ])
     context = AsyncMock()
     context.__aenter__.return_value = codex
 
@@ -411,6 +436,36 @@ async def test_codex_subscription_preflight_returns_plan_without_email():
     )
 
     assert plan == "plus"
+    codex.models.assert_awaited_once_with(include_hidden=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("missing", ["smart", "fast"])
+async def test_build_worker_rejects_missing_model_before_database_or_queue(
+    trusted_codex_settings, missing,
+):
+    codex = AsyncMock()
+    codex.account.return_value = SimpleNamespace(
+        account=SimpleNamespace(root=SimpleNamespace(type="chatgpt", plan_type="plus"))
+    )
+    codex.models.return_value = SimpleNamespace(data=[
+        SimpleNamespace(model="test-fast" if missing == "smart" else "test-smart"),
+    ])
+    context = AsyncMock()
+    context.__aenter__.return_value = codex
+
+    with (
+        patch("openai_codex.AsyncCodex", return_value=context),
+        patch("worker.get_db_client") as get_db,
+        patch("worker.PostgresTaskQueue") as queue,
+    ):
+        with pytest.raises(RuntimeError, match=f"{missing}=test-{missing}"):
+            await build_worker()
+
+    codex.account.assert_awaited_once_with(refresh_token=False)
+    codex.models.assert_awaited_once_with(include_hidden=True)
+    get_db.assert_not_called()
+    queue.assert_not_called()
 
 
 @pytest.mark.asyncio

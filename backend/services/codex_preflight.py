@@ -15,15 +15,9 @@ async def verify_codex_subscription(
     *,
     codex_factory: Callable[..., Any] | None = None,
 ) -> str:
-    """Fail startup unless the local Codex session is ChatGPT-managed."""
-    from openai_codex import AsyncCodex, CodexConfig
-
-    factory = codex_factory or AsyncCodex
-    config = CodexConfig(codex_bin=settings.CODEX_LOCAL_BINARY)
-    async with factory(config) as codex:
-        response = await codex.account(refresh_token=False)
-
-    return _chatgpt_plan(response)
+    """Validate subscription and configured models before worker queue access."""
+    result = await preflight_podcast_supply(codex_factory=codex_factory)
+    return result["plan"]
 
 
 def _chatgpt_plan(response: Any) -> str:

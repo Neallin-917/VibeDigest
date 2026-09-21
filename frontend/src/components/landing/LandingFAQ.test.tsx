@@ -31,7 +31,7 @@ describe("LandingFAQ", () => {
         expect(screen.getByText("Can I try VibeDigest for free?")).toBeInTheDocument()
         expect(screen.getByText("When do I need to sign in?")).toBeInTheDocument()
         expect(screen.getByText("How is Pro billed?")).toBeInTheDocument()
-        expect(screen.getByText("Pro costs $9.90 monthly or $99 yearly.")).toBeInTheDocument()
+        expect(screen.getByText("Pro costs $9.99 monthly or $99 yearly.")).toBeInTheDocument()
         expect(screen.getByRole("link", { name: "Read the full FAQ" })).toHaveAttribute("href", "/en/faq")
     })
 })

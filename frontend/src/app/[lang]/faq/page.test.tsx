@@ -14,8 +14,8 @@ vi.mock("@/lib/seo", () => ({
 }))
 
 const expectations: Record<Locale, { title: string; price: string }> = {
-  en: { title: "Frequently Asked Questions", price: "Pro costs $9.90 monthly or $99 for 12 months." },
-  zh: { title: "常见问题", price: "专业版 月付 $9.90，或按 12 个月收取 $99。" },
+  en: { title: "Frequently Asked Questions", price: "Pro costs $9.99 monthly or $99 for 12 months." },
+  zh: { title: "常见问题", price: "专业版 月付 $9.99，或按 12 个月收取 $99。" },
 }
 const localeCases = Object.entries(expectations) as [
   Locale,

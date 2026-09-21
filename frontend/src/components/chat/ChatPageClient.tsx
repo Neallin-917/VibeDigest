@@ -45,7 +45,7 @@ function ChatPageContent({
 
     return (
         <AppSidebarProvider defaultCollapsed={true}>
-            <div className="h-screen w-full flex text-foreground overflow-hidden">
+            <div className="h-dvh w-full flex text-foreground overflow-hidden">
                 <AppSidebar
                     threads={threads}
                     threadsStatus={threadsStatus}
@@ -96,7 +96,7 @@ export function ChatPageClient({
     publicExample?: ChatExample | null
 }) {
     return (
-        <Suspense fallback={<div className="h-screen w-full bg-background" />}>
+        <Suspense fallback={<div className="h-dvh w-full bg-background" />}>
             <ChatPageContent initialExamples={initialExamples} publicExample={publicExample} />
         </Suspense>
     )

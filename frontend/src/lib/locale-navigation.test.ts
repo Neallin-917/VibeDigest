@@ -10,7 +10,7 @@ describe('localized return navigation', () => {
     expect(url.hash).toBe('#form')
   })
 
-  it.each(['en', 'zh', 'ja'] as const)('defaults every %s callback to local chat', (locale) => {
+  it.each(['en', 'zh'] as const)('defaults every %s callback to local chat', (locale) => {
     const callback = new URL(authCallbackUrl('https://vibedigest.io', locale))
     expect(callback.pathname).toBe(`/${locale}/auth/callback`)
     expect(callback.searchParams.get('next')).toBe(`/${locale}/chat`)

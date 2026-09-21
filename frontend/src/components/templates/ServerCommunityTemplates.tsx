@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
-import type { Locale } from "@/lib/i18n"
+import { type Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { resolveSummaryLocale } from "@/lib/summary-contract"
 import { getTopicSourceIds } from "@/lib/topic-hubs"
@@ -12,6 +12,7 @@ import {
   Task,
 } from "./CommunityTemplates"
 import { getDemoFixtureTasks } from "./demoFixtures"
+import { LANDING_PREVIEW_LIMIT } from "./landingPreviewLayout"
 import type { PodcastSource, PodcastTopic } from "@/lib/podcast-sources"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -175,6 +176,27 @@ function mergeLocalePreferredTasks(
   return merged
 }
 
+function selectPreviewTasks(tasks: Task[], limit: number, locale: Locale) {
+  const selected: Task[] = []
+  const seenSources = new Set<string>()
+  // Locale remains more important than diversity. Preserve query order within
+  // each pass, and use repeated shows only after offering other available shows.
+  for (const localized of [true, false]) {
+    const repeated: Task[] = []
+    for (const task of tasks) {
+      if ((task.takeawayLocale === locale) !== localized) continue
+      const source = task.source?.id || task.author?.trim().toLowerCase() || task.id
+      if (seenSources.has(source)) repeated.push(task)
+      else {
+        seenSources.add(source)
+        selected.push(task)
+      }
+    }
+    selected.push(...repeated)
+  }
+  return selected.slice(0, limit)
+}
+
 async function fetchSourceShelf(
   supabase: Awaited<ReturnType<typeof createClient>>,
   topic?: PodcastTopic,
@@ -247,14 +269,18 @@ export async function ServerCommunityTemplates({
   const normalizedSource = normalizeSource(initialSource)
   const normalizedPage = normalizePage(page)
   const pageLimit = normalizedPage * PAGE_SIZE
-  const previewLimit = Math.max(1, Math.min(limit ?? DEFAULT_PREVIEW_LIMIT, 8))
+  const previewLimit = Math.max(1, Math.min(limit ?? DEFAULT_PREVIEW_LIMIT, LANDING_PREVIEW_LIMIT))
+  const previewCandidateLimit = previewLimit * 3
   const topicSourceIds = topic ? getTopicSourceIds(topic) : []
 
   if (shouldUseDemoFixtures()) {
-    const fixtureLimit = layout === "landingPreview" ? previewLimit : Math.max(pageLimit, 8)
-    const fixtureTasks = getDemoFixtureTasks(fixtureLimit).filter(
+    const fixtureLimit = layout === "landingPreview" ? previewCandidateLimit : Math.max(pageLimit, 8)
+    const candidates = getDemoFixtureTasks(fixtureLimit).filter(
       (task) => !topic || Boolean(task.source && topicSourceIds.includes(task.source.id)),
     )
+    const fixtureTasks = layout === "landingPreview"
+      ? selectPreviewTasks(candidates, previewLimit, locale)
+      : candidates
     return (
       <CommunityTemplates
         showHeader={showHeader}
@@ -335,8 +361,8 @@ export async function ServerCommunityTemplates({
 
   if (layout === "landingPreview") {
     const [{ data: preferredData, error: preferredError }, { data, error }] = await Promise.all([
-      createTasksQuery(previewLimit, locale),
-      createTasksQuery(previewLimit),
+      createTasksQuery(previewCandidateLimit, locale),
+      createTasksQuery(previewCandidateLimit),
     ])
 
     if (preferredError) {
@@ -347,7 +373,8 @@ export async function ServerCommunityTemplates({
       })
     }
 
-    const initialTasks = mergeLocalePreferredTasks(preferredData || [], data || [], previewLimit, locale)
+    const candidates = mergeLocalePreferredTasks(preferredData || [], data || [], previewCandidateLimit * 2, locale)
+    const initialTasks = selectPreviewTasks(candidates, previewLimit, locale)
 
     return (
       <CommunityTemplates

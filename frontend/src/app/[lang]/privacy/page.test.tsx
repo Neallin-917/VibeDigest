@@ -31,12 +31,6 @@ const expectations: Record<Locale, {
         updatedAt: "最后更新于：2024年12月",
         metadataDescription: "了解 VibeDigest 如何收集、使用和保护您的个人信息。",
     },
-    ja: {
-        title: "プライバシーポリシー",
-        collection: "1. 収集する情報",
-        updatedAt: "最終更新日：2024年12月",
-        metadataDescription: "VibeDigestによる個人情報の収集、利用、保護についてご案内します。",
-    },
 }
 
 const localeCases = Object.entries(expectations) as [

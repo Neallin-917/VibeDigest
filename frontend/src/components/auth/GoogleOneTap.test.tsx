@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   signInWithIdToken: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
-  locale: 'zh' as 'en' | 'zh' | 'ja',
+  locale: 'zh' as 'en' | 'zh',
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -37,7 +37,6 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
         return {
           en: 'An error occurred',
           zh: '发生错误',
-          ja: 'エラーが発生しました',
         }[mocks.locale]
       }
       if (key === 'auth.signInSuccess') return 'Signed in'

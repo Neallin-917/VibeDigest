@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CommunityTemplates, type SourceShelfItem, type Task } from "./CommunityTemplates"
+import { buildTaskPath } from "@/lib/task-path"
 
 const navigation = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn(), pathname: "/en/explore" }))
 
@@ -148,8 +149,8 @@ describe("CommunityTemplates", () => {
     expect(screen.getByRole("status")).toHaveTextContent(copy.unavailable)
   })
 
-  it("keeps the landing preview dense and symmetrical", () => {
-    const previewTasks = Array.from({ length: 4 }, (_, index) => ({
+  it("renders all eight landing examples instead of applying the six-card gallery limit", () => {
+    const previewTasks = Array.from({ length: 8 }, (_, index) => ({
       ...tasks[index % tasks.length],
       id: `preview-${index}`,
       video_title: `Preview ${index + 1}`,
@@ -160,7 +161,10 @@ describe("CommunityTemplates", () => {
       intro: undefined,
     })
 
-    expect(screen.getByText("Preview 4")).toBeInTheDocument()
+    expect(screen.getAllByRole("link", { name: /^View digest: Preview / })).toHaveLength(8)
+    expect(screen.getByRole("link", { name: "View digest: Preview 8" })).toHaveAttribute(
+      "href", expect.stringContaining("/en/tasks/preview-7/Preview-8")
+    )
     expect(container.querySelector(".grid")).toHaveClass("sm:grid-cols-2", "xl:grid-cols-4")
   })
 
@@ -292,6 +296,19 @@ describe("CommunityTemplates", () => {
     expect(screen.getByRole("link", { name: "AI Agents" })).toHaveAttribute("aria-current", "page")
     expect(screen.getByRole("link", { name: "All topics" })).toHaveAttribute("href", "/en/explore?q=AI")
   })
+
+  it.each([undefined, "", "   ", "A finished sentence.", "编码 / 100% & questions?"])(
+    "uses the shared task path for title %j while preserving library return state",
+    (video_title) => {
+      const task = { ...tasks[0], video_title }
+      renderGallery({ initialTasks: [task], totalCount: 1, initialSource: "latent-space", initialQuery: "AI", currentPage: 3 })
+
+      const link = screen.getByRole("link", { name: /^View digest:/ })
+      const href = new URL(link.getAttribute("href")!, "https://vibedigest.invalid")
+      expect(href.pathname).toBe(`/en${buildTaskPath(task)}`)
+      expect(href.searchParams.get("from")).toBe("/en/explore?show=latent-space&q=AI&page=3#episode-example-1")
+    },
+  )
 
   it("opens the exact episode externally and the digest internally", () => {
     renderGallery({ initialSource: "latent-space", initialQuery: "AI" })

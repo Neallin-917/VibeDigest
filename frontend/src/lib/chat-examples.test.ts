@@ -107,7 +107,7 @@ describe("getChatExamples", () => {
   })
 
   it.each([
-    { name: "missing language", locale: "ja" as const, outputs: landingSummaries.outputs },
+    { name: "missing language", locale: "zh" as const, outputs: landingSummaries.outputs.filter(output => output.locale === "en") },
     { name: "missing outputs", locale: "zh" as const, outputs: [] },
     { name: "invalid summary", locale: "zh" as const, outputs: [{ kind: "summary", status: "completed", locale: "zh", content: {} }] },
     { name: "failed summary", locale: "zh" as const, outputs: landingSummaries.outputs.map(output => ({ ...output, status: "failed" })) },

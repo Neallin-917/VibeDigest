@@ -22,7 +22,6 @@ describe("global localized not found page", () => {
   it.each([
     { locale: "en", title: "Page not found", description: "The page you requested does not exist." },
     { locale: "zh", title: "页面不存在", description: "你访问的页面不存在。" },
-    { locale: "ja", title: "ページが見つかりません", description: "アクセスしたページは存在しないか、移動されました。" },
   ])("renders a complete $locale document", async ({ locale, title, description }) => {
     requestState.locale = locale
 
@@ -38,7 +37,7 @@ describe("global localized not found page", () => {
   })
 
   it("falls back to English when the internal locale is invalid", async () => {
-    requestState.locale = "fr"
+    requestState.locale = "ja"
 
     const document = await GlobalNotFound()
 

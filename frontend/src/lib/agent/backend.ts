@@ -11,7 +11,7 @@ export type AgentRuntimeConfig = {
   model: string
   modelTier: 'smart'
   reasoningEffort: 'high' | 'none' | 'provider-default'
-  locale: 'zh' | 'en' | 'ja'
+  locale: 'zh' | 'en'
   scope?: 'workspace' | 'source'
 }
 

@@ -9,10 +9,11 @@ import { ExternalLink, Search } from "lucide-react"
 import { getLocaleDisplayName, type Locale } from "@/lib/i18n"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { findPodcastSource, resolvePodcastSourceId, type PodcastSource } from "@/lib/podcast-sources"
-import { buildTaskSlug } from "@/lib/task-path"
+import { buildTaskPath } from "@/lib/task-path"
 import { buildLibraryHref, libraryEpisodeAnchor, parseLibraryReturnHref } from "@/lib/library-navigation"
 import { cn } from "@/lib/utils"
 import { TopicHubLinks } from "./TopicHubLinks"
+import { LANDING_PREVIEW_LIMIT, landingPreviewGrid, landingPreviewVisibility } from "./landingPreviewLayout"
 
 export type TaskOutput = {
     kind: string
@@ -112,24 +113,9 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         resultCount: "条已整理内容",
         languageAvailable: (language) => `该整理当前提供${language}版本。`,
     },
-    ja: {
-        sourceShelf: "番組から探す",
-        all: "すべて",
-        recent: "その他の整理内容",
-        read: "整理内容を見る",
-        source: "元のエピソード",
-        search: "内容を検索",
-        searchPlaceholder: "エピソード、番組、ゲスト、トピックを検索",
-        empty: "現在の条件に一致する整理内容はありません。",
-        clearFilters: "絞り込みを解除",
-        loadMore: "さらに読み込む",
-        keyPointUnit: "の要点",
-        resultCount: "件の整理済み",
-        languageAvailable: (language) => `この整理は現在${language}で読めます。`,
-    },
 }
 
-const localeDateTag: Record<Locale, string> = { en: "en-US", zh: "zh-CN", ja: "ja-JP" }
+const localeDateTag: Record<Locale, string> = { en: "en-US", zh: "zh-CN" }
 const FEATURED_COUNT = 6
 
 type EpisodeCardRole = "hero" | "supporting" | "solo" | "standard"
@@ -197,12 +183,11 @@ const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
 })
 
 function taskDetailHref(task: Task, locale: Locale, returnHref?: string) {
-    const slug = buildTaskSlug(task.video_title || "podcast")
     const returnState = new URLSearchParams()
     const safeReturn = parseLibraryReturnHref(returnHref)
     if (safeReturn) returnState.set("from", `${safeReturn}#${libraryEpisodeAnchor(task.id)}`)
     const search = returnState.toString()
-    return `/${locale}/tasks/${task.id}/${slug}${search ? `?${search}` : ""}`
+    return `/${locale}${buildTaskPath(task)}${search ? `?${search}` : ""}`
 }
 
 function taskDigestLocale(task: Task, routeLocale: Locale) {
@@ -285,6 +270,7 @@ function EpisodeFeatureCard({
     onNavigate,
     priority = false,
     role = "standard",
+    sizes,
 }: {
     task: Task
     locale: Locale
@@ -293,6 +279,7 @@ function EpisodeFeatureCard({
     onNavigate?: () => void
     priority?: boolean
     role?: EpisodeCardRole
+    sizes?: string
 }) {
     const source = sourceForTask(task)
     if (!source) return null
@@ -317,13 +304,13 @@ function EpisodeFeatureCard({
                         fill
                         referrerPolicy="no-referrer"
                         className="object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.02]"
-                        sizes={role === "hero"
+                        sizes={sizes ?? (role === "hero"
                             ? "(max-width: 1024px) 100vw, 58vw"
                             : role === "solo"
                                 ? "(max-width: 1024px) 100vw, 62vw"
                                 : role === "supporting"
                                     ? "(max-width: 1024px) 100vw, 42vw"
-                                : "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 34vw"}
+                                : "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 34vw")}
                         loading={priority ? "eager" : "lazy"}
                         fetchPriority={priority ? "high" : "auto"}
                     />
@@ -552,7 +539,7 @@ function CompactEpisodeRow({
                             fill
                             referrerPolicy="no-referrer"
                             className="object-cover"
-                            sizes="(max-width: 768px) 38vw, 9rem"
+                            sizes="7.5rem"
                         />
                     ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -718,11 +705,11 @@ export function CommunityTemplates({
     if (layout === "landingPreview") {
         if (featuredTasks.length === 0) return null
         return (
-            <div className="grid gap-px bg-border-strong sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card">
-                {featuredTasks.slice(0, 4).map((task, index) => (
+            <div className={cn(landingPreviewGrid, "bg-border-strong [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card")}>
+                {initialTasks.slice(0, LANDING_PREVIEW_LIMIT).map((task, index) => (
                     <div
                         key={task.id}
-                        className={cn("bg-card", index >= 2 && "hidden sm:block")}
+                        className={cn("bg-card", landingPreviewVisibility(index))}
                     >
                         <EpisodeFeatureCard
                             task={task}
@@ -730,6 +717,8 @@ export function CommunityTemplates({
                             copy={podcastCopy}
                             priority={index === 0}
                             role="standard"
+                            // Match the landing's 1080px cap, section padding, border and 1px grid gaps.
+                            sizes="(min-width: 1280px) 268.75px, (min-width: 1160px) 358.67px, (min-width: 1024px) calc((100vw - 84px) / 3), (min-width: 640px) calc(50vw - 25.5px), calc(100vw - 34px)"
                         />
                     </div>
                 ))}
@@ -780,7 +769,7 @@ export function CommunityTemplates({
             <div className="flex min-w-0 flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-center lg:gap-6">
                 <TopicHubLinks
                     locale={locale}
-                    title={locale === "zh" ? "主题" : locale === "ja" ? "トピック" : "Topics"}
+                    title={locale === "zh" ? "主题" : "Topics"}
                     compact
                     activePath={pathname ?? undefined}
                     query={queryDraft}

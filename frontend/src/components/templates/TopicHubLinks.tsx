@@ -54,7 +54,7 @@ export function TopicHubLinks({
             aria-current={activePath === `/${locale}/explore` ? "page" : undefined}
             className={cn(linkVariants({ tone }), activePath === `/${locale}/explore` && "border-primary bg-surface-tint text-primary-strong")}
           >
-            {locale === "zh" ? "全部主题" : locale === "ja" ? "すべてのトピック" : "All topics"}
+            {locale === "zh" ? "全部主题" : "All topics"}
           </Link>
         ) : null}
         {TOPIC_ROUTE_ORDER.map((topic) => {

@@ -98,3 +98,31 @@ Discovery can request automatic publication, but cannot bypass this gate.
 
 The private schema is revoked from `PUBLIC`; browser roles never receive direct
 queue access.
+
+## Subscription allowances
+
+Browser roles can only read their own profile. Paid entitlement/profile writes remain
+server-owned, including on Supabase installations with default table write grants.
+
+`profiles.period_end` is the provider-recorded paid entitlement expiry, independent
+of `usage_reset_at`. Basic and Pro allowances reset on UTC calendar-month boundaries
+inside the canonical submission transaction, before any top-up credit is consumed.
+Annual payment does not defer monthly allowance refresh. Unused allowance does not
+accumulate; top-up balances are untouched by resets and expiry.
+
+Paid subscription delivery resets usage on a Basic-to-Pro transition or reactivation
+after the previous paid period expired, even before lazy downgrade has run. Same-period
+checkout/payment redelivery and cancellation preserve usage; older paid periods cannot
+shorten access. Cancellation only marks the matching paid period, and a newer paid
+period clears that flag. A future cancellation received before activation/customer
+linking fails retryably; already obsolete cancellation periods are ignored. Expired paid events cannot reactivate access. Write failures
+propagate to the webhook so delivery can retry before a subscription receipt completes.
+
+`billing_interval` is nullable and derived from configured provider product IDs;
+`cancel_at_period_end` is nullable for historical accounts whose renewal status is
+unknown. Clients project lazy expiry/month resets for display only. Neither a provider
+return URL nor a client projection grants entitlement.
+
+New Coinbase charges are retired. Existing orders and signed Coinbase callbacks are
+retained for historical reconciliation; this change neither deletes old accounting
+records nor rewrites historical crypto subscription entitlements.

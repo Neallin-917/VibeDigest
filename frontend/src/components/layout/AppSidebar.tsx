@@ -99,7 +99,7 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "h-screen flex-none flex flex-col py-4 hidden md:flex transition-all duration-300 ease-in-out relative z-30",
+        "h-full min-h-0 flex-none flex flex-col py-4 hidden md:flex transition-all duration-300 ease-in-out relative z-30",
         "border-r backdrop-blur-xl",
         "border-sidebar-border/80 bg-sidebar/90",
         isCollapsed ? "w-[72px] px-3" : "w-[280px] px-4",

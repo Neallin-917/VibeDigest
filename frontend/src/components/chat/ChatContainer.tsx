@@ -66,15 +66,6 @@ const CONTINUATION_COPY = {
     cancelFailed: '未能取消回答，请重试。',
     retryFailed: '未能重试回答，请稍后再试。',
   },
-  ja: {
-    waiting_task: '動画の処理が完了すると、回答を続けます。',
-    finalizing: '回答をまとめています。',
-    failed: '回答を完了できませんでした。',
-    cancelled: '続きの回答をキャンセルしました。動画の処理は継続します。',
-    cancel: '回答をキャンセル', retry: '回答を再試行',
-    cancelFailed: 'キャンセルできませんでした。もう一度お試しください。',
-    retryFailed: '再試行できませんでした。しばらくしてからお試しください。',
-  },
 }
 
 type AnswerActionResult = {
@@ -469,7 +460,6 @@ export function ChatContainer({
             ? 'max-h-[34rem] px-0 py-1'
             : 'flex-1 px-4 py-6 md:px-8',
           status === 'streaming' ? 'scroll-auto' : 'scroll-smooth',
-          messages.length > 0 && !isEmbedded ? 'pb-44 md:pb-56' : '',
         )}
       >
         {messages.length === 0 ? (
@@ -560,7 +550,7 @@ export function ChatContainer({
       </div>
 
       {displayErrorMessage && (
-        <div className={cn('pb-4', isEmbedded ? 'pt-3' : 'px-4 md:px-8')}>
+        <div className={cn('shrink-0 pb-4', isEmbedded ? 'pt-3' : 'px-4 md:px-8')}>
           <div className="max-w-3xl mx-auto">
             <div className="flex w-full">
               <div
@@ -604,9 +594,9 @@ export function ChatContainer({
       )}
 
       {(messages.length > 0 || isEmbedded) && (
-        <div className={cn(isEmbedded && messages.length > 0 ? 'mt-5' : '')}>
+        <div className={cn('shrink-0', isEmbedded && messages.length > 0 ? 'mt-5' : '')}>
           <ChatInput
-            variant={isEmbedded ? 'inline' : 'floating'}
+            variant={isEmbedded ? 'embedded' : 'floating'}
             hideDisclaimer={isEmbedded}
             onSubmit={handleSubmit}
             isLoading={isLoading}

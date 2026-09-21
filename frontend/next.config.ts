@@ -28,7 +28,8 @@ const nextConfig: NextConfig = {
   },
   /* config options here */
   images: {
-    minimumCacheTTL: 60 * 60 * 24, // Cache images for 24 hours
+    // Covers are stable; use a new source URL when replacing an image.
+    minimumCacheTTL: 60 * 60 * 24 * 31,
     remotePatterns: [
       { protocol: "https", hostname: "img.youtube.com" },
       { protocol: "https", hostname: "i.ytimg.com" },

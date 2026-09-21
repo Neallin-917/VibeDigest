@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
 
+const notFound = vi.hoisted(() => vi.fn(() => {
+  throw new Error("NEXT_NOT_FOUND")
+}))
+
 vi.mock("next/font/google", () => ({
   Syne: () => ({ className: "syne", variable: "--font-syne" }),
   Manrope: () => ({ className: "manrope", variable: "--font-manrope" }),
@@ -9,7 +13,7 @@ vi.mock("next/font/google", () => ({
 vi.mock("@/lib/seo", () => ({
   SITE_URL: "https://vibedigest.io",
   buildLocalizedPath: (locale: string, path: string) => `https://vibedigest.io/${locale}${path}`,
-  getOpenGraphLocale: (locale: string) => ({ en: "en_US", zh: "zh_CN", ja: "ja_JP" })[locale] ?? "en_US",
+  getOpenGraphLocale: (locale: string) => ({ en: "en_US", zh: "zh_CN" })[locale] ?? "en_US",
 }))
 
 vi.mock("@/env", () => ({
@@ -19,6 +23,8 @@ vi.mock("@/env", () => ({
   },
 }))
 
+vi.mock("next/navigation", () => ({ notFound }))
+
 import RootLayout, { generateMetadata, generateStaticParams } from "./layout"
 
 describe("localized layout metadata", () => {
@@ -26,11 +32,10 @@ describe("localized layout metadata", () => {
     expect(generateStaticParams()).toEqual([
       { lang: "en" },
       { lang: "zh" },
-      { lang: "ja" },
     ])
   })
 
-  it.each(["en", "zh", "ja"])("renders %s into the server document", async (locale) => {
+  it.each(["en", "zh"])("renders %s into the server document", async (locale) => {
     const layout = await RootLayout({
       children: "content",
       auth: "auth",
@@ -60,27 +65,9 @@ describe("localized layout metadata", () => {
     })
   })
 
-  it("keeps Japanese metadata available", async () => {
-    const metadata = await generateMetadata({ params: Promise.resolve({ lang: "ja" }) })
-
-    expect(metadata.title).toMatchObject({
-      default: "VibeDigest - ポッドキャストと長尺動画のAIエージェント",
-    })
-    expect(metadata.openGraph).toMatchObject({
-      locale: "ja_JP",
-      url: "https://vibedigest.io/ja",
-    })
-  })
-
-  it("normalizes unsupported locales to English metadata and canonical URL", async () => {
-    const metadata = await generateMetadata({ params: Promise.resolve({ lang: "fr" }) })
-
-    expect(metadata.title).toMatchObject({
-      default: "VibeDigest - AI Agent for Podcasts and Long Videos",
-    })
-    expect(metadata.openGraph).toMatchObject({
-      locale: "en_US",
-      url: "https://vibedigest.io/en",
-    })
+  it("rejects unsupported locales", async () => {
+    await expect(generateMetadata({ params: Promise.resolve({ lang: "ja" }) }))
+      .rejects.toThrow("NEXT_NOT_FOUND")
+    expect(notFound).toHaveBeenCalled()
   })
 })

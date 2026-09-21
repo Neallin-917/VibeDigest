@@ -125,66 +125,27 @@ async def test_handle_retry_output_summary_success(mock_db_client, mock_summariz
 
 
 @pytest.mark.asyncio
-async def test_handle_retry_output_uses_the_persisted_locale_instead_of_source_language(
-    mock_db_client, mock_summarizer
+@pytest.mark.parametrize("existing_english", [False, True])
+async def test_handle_retry_output_retires_unsupported_persisted_locale(
+    mock_db_client, mock_summarizer, existing_english
 ):
     mock_db_client.get_output.return_value = {
-        "id": "out-ja",
-        "task_id": "task_1",
-        "user_id": "u1",
-        "kind": "summary",
-        "locale": "ja",
-        "intent": {"target_locale": "ja", "locale_source": "explicit_instruction"},
+        "id": "out-ja", "task_id": "task_1", "user_id": "u1",
+        "kind": "summary", "locale": "ja",
+        "intent": {"target_locale": "ja"},
     }
-    mock_db_client.get_task.return_value = {
-        "video_title": "Video Title",
-        "workload_kind": "catalog_supply",
-    }
-    mock_db_client.get_task_outputs.return_value = [
-        {"kind": "script", "content": "English transcript"},
-        {"kind": "script_raw", "content": json.dumps({"language": "en"})},
-    ]
-    mock_summarizer.optimize_transcript.return_value = "English transcript"
-    mock_summarizer.summarize_in_language_with_anchors.return_value = json.dumps({
-        "version": 4,
-        "language": "ja",
-        "tl_dr": "要約",
-        "overview": "概要",
-        "keypoints": [{"title": "点", "detail": "詳細", "evidence": "引用"}],
-    })
-
+    mock_db_client.get_task_outputs.return_value = (
+        [{"id": "out-en", "kind": "summary", "locale": "en", "status": "completed"}]
+        if existing_english else []
+    )
     with (
         patch("services.job_handlers.get_db_client", return_value=mock_db_client),
         patch("services.job_handlers.get_summarizer", return_value=mock_summarizer),
-        patch(
-            "services.job_handlers.current_execution_provenance",
-            return_value={
-                "workload_kind": "catalog_supply",
-                "execution_profile": "trusted_codex",
-                "llm_runtime": "codex_local",
-                "llm_provider": "codex_local",
-                "model": "gpt-test",
-                "auth_mode": "chatgpt_subscription",
-            },
-        ),
+        pytest.raises(NonRetryableJobError, match="language is retired"),
     ):
         await handle_retry_output("out-ja", "u1")
-
-    assert mock_summarizer.summarize_in_language_with_anchors.call_args.kwargs[
-        "summary_language"
-    ] == "ja"
-    assert mock_db_client.update_output_status.call_args.kwargs["locale"] == "ja"
-    assert mock_db_client.update_output_status.call_args.kwargs["provenance"] == {
-        "source_task_id": "task_1",
-        "source_kind": "script",
-        "transcript_language": "en",
-        "workload_kind": "catalog_supply",
-        "execution_profile": "trusted_codex",
-        "llm_runtime": "codex_local",
-        "llm_provider": "codex_local",
-        "model": "gpt-test",
-        "auth_mode": "chatgpt_subscription",
-    }
+    mock_db_client.update_output_status.assert_not_called()
+    mock_summarizer.summarize_in_language_with_anchors.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_handle_retry_output_summary_rejects_invalid_payload(mock_db_client, mock_summarizer):

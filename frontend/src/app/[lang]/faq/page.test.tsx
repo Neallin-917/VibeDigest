@@ -14,9 +14,8 @@ vi.mock("@/lib/seo", () => ({
 }))
 
 const expectations: Record<Locale, { title: string; price: string }> = {
-  en: { title: "Frequently Asked Questions", price: "Pro costs $9.90 monthly or $99 for 12 months." },
-  zh: { title: "常见问题", price: "专业版 月付 $9.90，或按 12 个月收取 $99。" },
-  ja: { title: "よくある質問", price: "プロは月額 $9.90、または12か月で $99 です。" },
+  en: { title: "Frequently Asked Questions", price: "Pro costs $9.99 monthly or $99 for 12 months." },
+  zh: { title: "常见问题", price: "专业版 月付 $9.99，或按 12 个月收取 $99。" },
 }
 const localeCases = Object.entries(expectations) as [
   Locale,
@@ -33,6 +32,10 @@ describe("FAQPage", () => {
 
       expect(screen.getByRole("heading", { level: 1, name: expected.title })).toBeInTheDocument()
       expect(screen.getByText((text) => text.startsWith(expected.price))).toBeInTheDocument()
+
+      expect(screen.getByText((text) => text.startsWith(expected.price))).toHaveTextContent(
+        locale === "en" ? "first day of each month at 00:00 UTC" : "每月 1 日 UTC 00:00",
+      )
 
       const schemas = Array.from(
         container.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'),

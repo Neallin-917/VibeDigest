@@ -17,10 +17,6 @@ const expectations: Record<Locale, { title: string; description: string }> = {
     title: "登录",
     description: "登录以继续使用 VibeDigest。",
   },
-  ja: {
-    title: "ログイン",
-    description: "VibeDigest を続けるにはログインしてください。",
-  },
 }
 
 const localeCases = Object.entries(expectations) as [
@@ -39,7 +35,7 @@ describe("login metadata", () => {
   })
 
   it("normalizes an unsupported locale to the English canonical URL", async () => {
-    const metadata = await generateMetadata({ params: Promise.resolve({ lang: "fr" }) })
+    const metadata = await generateMetadata({ params: Promise.resolve({ lang: "ja" }) })
 
     expect(metadata.title).toBe("Sign in")
     expect(metadata.alternates?.canonical).toBe("https://vibedigest.io/en/login")

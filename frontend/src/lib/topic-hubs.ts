@@ -102,48 +102,6 @@ export const TOPIC_HUBS: Record<Locale, Record<PodcastTopic, TopicHubCopy>> = {
         "浏览技术与科学长内容的研究向整理，包含摘要、证据和可追溯观点。",
     },
   },
-  ja: {
-    agents: {
-      slug: "agents",
-      shortLabel: "AI Agents",
-      eyebrow: "トピックハブ",
-      title: "AI Agentの整理済みポッドキャスト",
-      description:
-        "AI Agent、Agent workflow、実運用のトレードオフに関する整理済みダイジェストをまとめて読めます。",
-    },
-    "ai-coding": {
-      slug: "ai-coding",
-      shortLabel: "AI Coding",
-      eyebrow: "トピックハブ",
-      title: "AIコーディングの整理済みポッドキャスト",
-      description:
-        "AIコーディング、開発ツール、コード生成、実務的な開発フローのダイジェストをまとめて閲覧できます。",
-    },
-    product: {
-      slug: "product",
-      shortLabel: "Product",
-      eyebrow: "トピックハブ",
-      title: "プロダクトの整理済みポッドキャスト",
-      description:
-        "プロダクト戦略、ユーザーリサーチ、成長、意思決定に関する長尺会話のダイジェストを集約しています。",
-    },
-    startups: {
-      slug: "startups",
-      shortLabel: "Startups",
-      eyebrow: "トピックハブ",
-      title: "スタートアップの整理済みポッドキャスト",
-      description:
-        "創業者、GTM、会社づくり、オペレーターの学びに関するポッドキャストダイジェストを読めます。",
-    },
-    research: {
-      slug: "research",
-      shortLabel: "Research",
-      eyebrow: "トピックハブ",
-      title: "研究の整理済みポッドキャスト",
-      description:
-        "技術・科学系の長尺ソースから、要約、根拠、追跡可能な示唆をまとめたダイジェストです。",
-    },
-  },
 }
 
 export function isPodcastTopic(value: string): value is PodcastTopic {

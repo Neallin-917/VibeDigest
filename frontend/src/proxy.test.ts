@@ -158,6 +158,14 @@ describe('proxy', () => {
     })
 
     describe('i18n routing — non-locale paths redirect', () => {
+        it.each(['/ja/privacy?ref=legacy', '/ja/tasks/id/Dr.-Example?ref=legacy'])('redirects retired route %s including dotted slugs', async (path) => {
+            const response = await proxy(makeRequest(path))
+
+            expect(response.status).toBe(308)
+            expect(response.headers.get('location')).toBe('http://localhost:3000' + path.replace('/ja/', '/en/'))
+            expect(mockUpdateSession).not.toHaveBeenCalled()
+        })
+
         it('should redirect non-locale paths to detected locale', async () => {
             const response = await proxy(makeRequest('/history'))
             expect(response.status).toBe(307)

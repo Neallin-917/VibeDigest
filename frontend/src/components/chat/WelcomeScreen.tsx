@@ -55,7 +55,7 @@ function WelcomeExamples({
         <div className="h-px flex-1 bg-border/70" />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 @xl:grid-cols-3 @3xl:grid-cols-4 gap-3 @xl:gap-4">
         {examples.map((task, index) => (
           <div key={task.id}>
             <QuickTemplateCard

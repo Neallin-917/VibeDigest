@@ -72,6 +72,12 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
     if not task_id or not kind:
         raise NonRetryableJobError("Output record is missing task_id or kind")
 
+    persisted_locale = out.get("locale") or (out.get("intent") or {}).get("target_locale")
+    if kind == "summary" and persisted_locale and normalize_lang_code(persisted_locale) not in {"en", "zh"}:
+        raise NonRetryableJobError(
+            "This summary language is retired; request an English or Chinese summary instead"
+        )
+
     outputs = db_client.get_task_outputs(task_id)
     script_output = next((o for o in outputs if o.get("kind") == "script"), None)
     script_raw_output = next(

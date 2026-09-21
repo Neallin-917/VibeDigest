@@ -303,8 +303,9 @@ describe('summary-contract', () => {
     expect(markdown).toBe('')
   })
 
-  it('normalizes summary language aliases for supported public locales', () => {
+  it('normalizes source languages while restricting public locales to English and Chinese', () => {
     expect(normalizeSummaryLanguageTag('Japanese')).toBe('ja')
+    expect(resolveSummaryLocale('Japanese')).toBeNull()
     expect(resolveSummaryLocale('zh-CN')).toBe('zh')
     expect(resolveSummaryLocale('English')).toBe('en')
     expect(resolveSummaryLocale('ko')).toBeNull()

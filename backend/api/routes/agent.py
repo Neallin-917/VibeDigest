@@ -11,7 +11,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import DBAPIError
 
 from db_client import DBClient
@@ -59,7 +59,7 @@ class RuntimeConfig(Command):
     model: str = Field(min_length=1, max_length=200)
     modelTier: Literal["smart"] = "smart"
     reasoningEffort: str = Field(default="high", max_length=20)
-    locale: Literal["zh", "en", "ja"] = "en"
+    locale: Literal["zh", "en"] = "en"
     scope: Literal["workspace", "source"] = "workspace"
 
 
@@ -84,12 +84,18 @@ class CancelCommand(Command):
 
 class SubmitCommand(TurnCommand):
     videoUrl: str = Field(min_length=1, max_length=4000)
-    locale: Literal["zh", "en", "ja"]
+    locale: Literal["zh", "en"]
 
 
 class TaskCommand(TurnCommand):
     taskId: UUID
-    locale: Literal["zh", "en", "ja"] = "en"
+    locale: Literal["zh", "en"] = "en"
+
+    @field_validator("locale", mode="before")
+    @classmethod
+    def normalize_retired_read_locale(cls, value):
+        # Old persisted turns can still read/watch; new accept/submit stay strict.
+        return "en" if value == "ja" else value
 
 
 class ReadCommand(TaskCommand):

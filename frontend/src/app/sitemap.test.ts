@@ -26,6 +26,7 @@ vi.mock("@/lib/supabase-public", () => ({
 
 import sitemap, { buildSitemapEntries, STATIC_SITEMAP_PATHS, TOPIC_SITEMAP_PATHS } from "./sitemap"
 import robots from "./robots"
+import { SUPPORTED_LOCALES } from "@/lib/i18n"
 
 describe("public discovery metadata", () => {
   beforeEach(() => {
@@ -77,7 +78,9 @@ describe("public discovery metadata", () => {
       ],
     }])
 
-    expect(entries).toHaveLength((STATIC_SITEMAP_PATHS.length + TOPIC_SITEMAP_PATHS.length) * 3 + 1)
+    expect(entries).toHaveLength(
+      (STATIC_SITEMAP_PATHS.length + TOPIC_SITEMAP_PATHS.length) * SUPPORTED_LOCALES.length + 1,
+    )
     expect(entries.some((entry) => entry.url === "https://vibedigest.io/en/topics/agents")).toBe(true)
     expect(entries.some((entry) => entry.url === "https://vibedigest.io/zh/topics/agents")).toBe(true)
     const englishTask = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))

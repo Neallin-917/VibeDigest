@@ -133,7 +133,7 @@ test-db-integration-smoke:
 
 test-queue-integration:
 	@echo "Running real PGMQ integration tests..."
-	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/integration/test_pgmq_queue.py backend/tests/integration/test_agent_turns.py --no-cov -v
+	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/integration/test_pgmq_queue.py backend/tests/integration/test_agent_turns.py backend/tests/integration/test_billing_lifecycle.py --no-cov -v
 
 test-provider-smoke:
 	@echo "Running provider smoke (real LLM API call)..."

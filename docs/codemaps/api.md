@@ -64,7 +64,8 @@ Updates `video_title` after owner validation.
 
 ## Other surfaces
 
-- `/api/create-checkout-session`, `/api/create-crypto-charge`: payment commands.
+- `/api/create-checkout-session`: Creem payment command.
+- `/api/create-crypto-charge`: retired; authenticated requests return HTTP 410 without creating an order or contacting Coinbase.
 - `/api/webhook/creem`, `/api/webhook/coinbase`: signed payment webhooks.
 - `/health`: Railway health probe.
 

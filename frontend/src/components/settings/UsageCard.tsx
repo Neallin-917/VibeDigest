@@ -6,12 +6,9 @@ import { useI18n } from "@/components/i18n/I18nProvider"
 import { Zap, Database, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type UsageProfile = {
-    tier: 'free' | 'pro' | string
-    usage_count: number
-    usage_limit: number
-    extra_credits: number
-}
+import type { AccountProfile } from "@/hooks/useAccountQueries"
+
+export type UsageProfile = AccountProfile
 
 export function UsageCard({
     profile,
@@ -22,12 +19,23 @@ export function UsageCard({
     loading?: boolean
     className?: string
 }) {
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
 
     if (loading || !profile) return null
 
     const usagePercent = Math.min((profile.usage_count / profile.usage_limit) * 100, 100)
     const isPro = profile.tier === 'pro'
+    const periodEnd = profile.period_end ? new Date(profile.period_end) : null
+    const periodLabel = isPro && periodEnd && Number.isFinite(periodEnd.getTime())
+        ? t(profile.cancel_at_period_end === true
+            ? "pricing.endsOn"
+            : profile.cancel_at_period_end === false ? "pricing.renewsOn" : "pricing.validUntil", {
+            date: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(periodEnd),
+        })
+        : null
+    const billingLabel = isPro && (profile.billing_interval === "monthly" || profile.billing_interval === "annual")
+        ? t(`pricing.pro.${profile.billing_interval}`)
+        : null
 
     return (
         <Card className={cn("border-border bg-surface-raised shadow-sm", className)}>
@@ -54,8 +62,10 @@ export function UsageCard({
                                 {t("dashboard.usage.plan") || "Plan"}
                             </div>
                             <div className={`font-semibold capitalize text-sm ${isPro ? 'text-success' : 'text-foreground'}`}>
-                                {profile.tier}
+                                {isPro ? t("pricing.pro.title") : t("pricing.free.title")}
                             </div>
+                            {billingLabel && <p className="text-xs text-muted-foreground">{billingLabel}</p>}
+                            {periodLabel && <p className="text-xs text-muted-foreground">{periodLabel}</p>}
                         </div>
                         <div className="p-3 rounded-lg border border-border bg-surface-subtle space-y-1">
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">

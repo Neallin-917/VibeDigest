@@ -19,7 +19,8 @@ guest_usage is keyed by X-Guest-Id.
   `workload_kind`, metadata, status, progress, terminal error, publication, and
   lightweight public-library quality/search projection.
 - `task_outputs`: script/raw transcript/summary/classification/audio/
-  comprehension artifacts.
+  comprehension artifacts. Catalog tasks persist separate `summary` rows for
+  `en` and `zh` under the existing `(task_id, kind, locale)` identity.
 - `chat_threads` / `chat_messages`: Cloud chat persistence; message content
   follows the current AI SDK parts schema defined by its migrations.
 - `guest_usage`: guest trial quota.
@@ -69,6 +70,12 @@ validates current database state by entity ID.
    always routes to `podcast_supply`, including task and output retries.
 7. Worker profiles reload `workload_kind` and reject tasks outside their
    capability before calling the pipeline.
+8. New `catalog_supply` submissions create English and Chinese summary
+   placeholders in the task submission transaction. Existing tasks use the
+   bounded `enqueue_catalog_summary_locale` backfill function so placeholder
+   state and the ID-only retry message stay atomic. It reuses
+   `submit_output_retry`, rejects non-catalog tasks, and cannot override the
+   `podcast_supply` queue. Active task jobs and queued output retries are skipped.
 
 ## Public library publication
 
@@ -78,8 +85,44 @@ when the task is `published`. Task/output triggers permit that state only after
 the quality projection confirms a valid V4+ summary, takeaway, at least three
 sourced key points, transcript, title, and thumbnail. The same projection owns
 card takeaway, key-point count, quality score, source slug, source date, and
-search text, so the library does not download full summary JSON for every card.
+search text. Bilingual catalog projections include both localized takeaways in
+search, so the library does not download full summary JSON for every card.
+New catalog tasks require both `en` and `zh` outputs to pass the content and
+language gates before publication; legacy rows are not assigned that requirement
+retroactively. `public_quality_flags.available_languages` and `takeaways` own
+per-language availability for Explore, public detail metadata/body, and sitemap.
+Existing Japanese summaries remain supported; new catalog generation targets
+English and Chinese. Missing route-language output never falls back to another
+language's summary.
 Discovery can request automatic publication, but cannot bypass this gate.
 
 The private schema is revoked from `PUBLIC`; browser roles never receive direct
 queue access.
+
+## Subscription allowances
+
+Browser roles can only read their own profile. Paid entitlement/profile writes remain
+server-owned, including on Supabase installations with default table write grants.
+
+`profiles.period_end` is the provider-recorded paid entitlement expiry, independent
+of `usage_reset_at`. Basic and Pro allowances reset on UTC calendar-month boundaries
+inside the canonical submission transaction, before any top-up credit is consumed.
+Annual payment does not defer monthly allowance refresh. Unused allowance does not
+accumulate; top-up balances are untouched by resets and expiry.
+
+Paid subscription delivery resets usage on a Basic-to-Pro transition or reactivation
+after the previous paid period expired, even before lazy downgrade has run. Same-period
+checkout/payment redelivery and cancellation preserve usage; older paid periods cannot
+shorten access. Cancellation only marks the matching paid period, and a newer paid
+period clears that flag. A future cancellation received before activation/customer
+linking fails retryably; already obsolete cancellation periods are ignored. Expired paid events cannot reactivate access. Write failures
+propagate to the webhook so delivery can retry before a subscription receipt completes.
+
+`billing_interval` is nullable and derived from configured provider product IDs;
+`cancel_at_period_end` is nullable for historical accounts whose renewal status is
+unknown. Clients project lazy expiry/month resets for display only. Neither a provider
+return URL nor a client projection grants entitlement.
+
+New Coinbase charges are retired. Existing orders and signed Coinbase callbacks are
+retained for historical reconciliation; this change neither deletes old accounting
+records nor rewrites historical crypto subscription entitlements.

@@ -18,7 +18,7 @@ export const maxDuration = 180
 const requestSchema = z.object({
   threadId: z.uuid(),
   taskId: z.uuid().nullable().optional(),
-  locale: z.enum(['zh', 'en', 'ja']).default('en'),
+  locale: z.enum(['zh', 'en']).default('en'),
   scope: z.enum(['workspace', 'source']).default('workspace'),
   message: z.object({
     id: z.string().min(1).max(200),

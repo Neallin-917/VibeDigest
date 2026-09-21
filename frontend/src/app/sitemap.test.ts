@@ -26,6 +26,7 @@ vi.mock("@/lib/supabase-public", () => ({
 
 import sitemap, { buildSitemapEntries, STATIC_SITEMAP_PATHS, TOPIC_SITEMAP_PATHS } from "./sitemap"
 import robots from "./robots"
+import { SUPPORTED_LOCALES } from "@/lib/i18n"
 
 describe("public discovery metadata", () => {
   beforeEach(() => {
@@ -77,7 +78,9 @@ describe("public discovery metadata", () => {
       ],
     }])
 
-    expect(entries).toHaveLength((STATIC_SITEMAP_PATHS.length + TOPIC_SITEMAP_PATHS.length) * 3 + 1)
+    expect(entries).toHaveLength(
+      (STATIC_SITEMAP_PATHS.length + TOPIC_SITEMAP_PATHS.length) * SUPPORTED_LOCALES.length + 1,
+    )
     expect(entries.some((entry) => entry.url === "https://vibedigest.io/en/topics/agents")).toBe(true)
     expect(entries.some((entry) => entry.url === "https://vibedigest.io/zh/topics/agents")).toBe(true)
     const englishTask = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))
@@ -174,5 +177,26 @@ describe("public discovery metadata", () => {
       },
       sitemap: "https://vibedigest.io/sitemap.xml",
     })
+  })
+
+  it.each([
+    { availability: [], expected: [] },
+    { availability: ["zh"], expected: ["zh"] },
+    { availability: undefined, expected: ["en", "zh"] },
+  ])("uses the database availability boundary for task sitemap entries: $availability", ({ availability, expected }) => {
+    const entries = buildSitemapEntries([{
+      id: "quality-boundary", video_title: "Qualified digest",
+      created_at: "2026-08-30T08:00:00.000Z", updated_at: null, published_at: null,
+      public_quality_flags: { language: "en", available_languages: availability },
+      task_outputs: [
+        { kind: "summary", status: "completed", updated_at: null, locale: "en" },
+        { kind: "summary", status: "completed", updated_at: null, locale: "zh" },
+      ],
+    }]).filter((entry) => entry.url.includes("/tasks/quality-boundary/"))
+
+    expect(entries.map((entry) => new URL(entry.url).pathname.split('/')[1])).toEqual(expected)
+    if (expected.length) {
+      expect(entries[0]?.alternates?.languages?.["x-default"]).toContain(`/${expected[0]}/tasks/`)
+    }
   })
 })

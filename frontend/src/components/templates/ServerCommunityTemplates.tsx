@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
-import type { Locale } from "@/lib/i18n"
+import { type Locale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { resolveSummaryLocale } from "@/lib/summary-contract"
 import { getTopicSourceIds } from "@/lib/topic-hubs"
@@ -12,6 +12,7 @@ import {
   Task,
 } from "./CommunityTemplates"
 import { getDemoFixtureTasks } from "./demoFixtures"
+import { LANDING_PREVIEW_LIMIT } from "./landingPreviewLayout"
 import type { PodcastSource, PodcastTopic } from "@/lib/podcast-sources"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -28,7 +29,6 @@ const PODCAST_TOPICS = new Set<PodcastTopic>([
 const PAGE_SIZE = 18
 const MAX_PAGE = 20
 const DEFAULT_PREVIEW_LIMIT = 4
-const PUBLIC_LANGUAGE_FIELD = "public_quality_flags->>language"
 
 const toPodcastSource = (value: unknown): PodcastSource | undefined => {
   if (!isRecord(value)) return undefined
@@ -71,7 +71,7 @@ const sourceFromTaskRow = (value: Record<string, unknown>) => {
   return undefined
 }
 
-const toTask = (value: unknown): Task | null => {
+const toTask = (value: unknown, locale: Locale): Task | null => {
   if (!isRecord(value)) return null
   if (
     typeof value.id !== "string" ||
@@ -82,6 +82,23 @@ const toTask = (value: unknown): Task | null => {
     return null
   }
 
+  const qualityFlags = isRecord(value.public_quality_flags) ? value.public_quality_flags : {}
+  const projectedLocale = resolveSummaryLocale(
+    typeof qualityFlags.language === "string" ? qualityFlags.language : null
+  )
+  const localizedTakeaways = isRecord(qualityFlags.takeaways) ? qualityFlags.takeaways : {}
+  const hasLocalizedProjection = "available_languages" in qualityFlags || "takeaways" in qualityFlags
+  const availableLanguages = "available_languages" in qualityFlags
+    ? Array.isArray(qualityFlags.available_languages) ? qualityFlags.available_languages : []
+    : Object.keys(localizedTakeaways)
+  const availableLocales = availableLanguages.flatMap((language) => {
+    const supportedLocale = typeof language === "string" ? resolveSummaryLocale(language) : null
+    return supportedLocale ? [supportedLocale] : []
+  })
+  const localizedTakeaway = availableLocales.includes(locale) && typeof localizedTakeaways[locale] === "string"
+    ? localizedTakeaways[locale].trim()
+    : ""
+
   return {
     id: value.id,
     video_url: value.video_url,
@@ -91,10 +108,12 @@ const toTask = (value: unknown): Task | null => {
     thumbnail_url: typeof value.thumbnail_url === "string" ? value.thumbnail_url : undefined,
     author: typeof value.author === "string" ? value.author : undefined,
     author_image_url: typeof value.author_image_url === "string" ? value.author_image_url : undefined,
-    takeaway: typeof value.public_takeaway === "string" ? value.public_takeaway : undefined,
-    takeawayLocale: isRecord(value.public_quality_flags)
-      ? resolveSummaryLocale(typeof value.public_quality_flags.language === "string" ? value.public_quality_flags.language : null)
-      : null,
+    takeaway: localizedTakeaway || (!hasLocalizedProjection && projectedLocale === locale && typeof value.public_takeaway === "string"
+      ? value.public_takeaway
+      : undefined),
+    takeawayLocale: availableLocales.includes(locale)
+      ? locale
+      : hasLocalizedProjection ? availableLocales[0] ?? null : projectedLocale,
     keyPointCount: typeof value.public_keypoint_count === "number"
       ? value.public_keypoint_count
       : undefined,
@@ -141,12 +160,13 @@ function mergeLocalePreferredTasks(
   preferredRows: Array<Record<string, unknown>>,
   fallbackRows: Array<Record<string, unknown>>,
   limit: number,
+  locale: Locale,
 ) {
   const merged: Task[] = []
   const seen = new Set<string>()
 
   for (const row of [...preferredRows, ...fallbackRows]) {
-    const task = toTask(row)
+    const task = toTask(row, locale)
     if (!task || seen.has(task.id)) continue
     seen.add(task.id)
     merged.push(task)
@@ -154,6 +174,27 @@ function mergeLocalePreferredTasks(
   }
 
   return merged
+}
+
+function selectPreviewTasks(tasks: Task[], limit: number, locale: Locale) {
+  const selected: Task[] = []
+  const seenSources = new Set<string>()
+  // Locale remains more important than diversity. Preserve query order within
+  // each pass, and use repeated shows only after offering other available shows.
+  for (const localized of [true, false]) {
+    const repeated: Task[] = []
+    for (const task of tasks) {
+      if ((task.takeawayLocale === locale) !== localized) continue
+      const source = task.source?.id || task.author?.trim().toLowerCase() || task.id
+      if (seenSources.has(source)) repeated.push(task)
+      else {
+        seenSources.add(source)
+        selected.push(task)
+      }
+    }
+    selected.push(...repeated)
+  }
+  return selected.slice(0, limit)
 }
 
 async function fetchSourceShelf(
@@ -228,14 +269,18 @@ export async function ServerCommunityTemplates({
   const normalizedSource = normalizeSource(initialSource)
   const normalizedPage = normalizePage(page)
   const pageLimit = normalizedPage * PAGE_SIZE
-  const previewLimit = Math.max(1, Math.min(limit ?? DEFAULT_PREVIEW_LIMIT, 8))
+  const previewLimit = Math.max(1, Math.min(limit ?? DEFAULT_PREVIEW_LIMIT, LANDING_PREVIEW_LIMIT))
+  const previewCandidateLimit = previewLimit * 3
   const topicSourceIds = topic ? getTopicSourceIds(topic) : []
 
   if (shouldUseDemoFixtures()) {
-    const fixtureLimit = layout === "landingPreview" ? previewLimit : Math.max(pageLimit, 8)
-    const fixtureTasks = getDemoFixtureTasks(fixtureLimit).filter(
+    const fixtureLimit = layout === "landingPreview" ? previewCandidateLimit : Math.max(pageLimit, 8)
+    const candidates = getDemoFixtureTasks(fixtureLimit).filter(
       (task) => !topic || Boolean(task.source && topicSourceIds.includes(task.source.id)),
     )
+    const fixtureTasks = layout === "landingPreview"
+      ? selectPreviewTasks(candidates, previewLimit, locale)
+      : candidates
     return (
       <CommunityTemplates
         showHeader={showHeader}
@@ -304,15 +349,20 @@ export async function ServerCommunityTemplates({
       .order("published_at", { ascending: false })
       .limit(queryLimit)
 
-    if (preferredLocale) query = query.eq(PUBLIC_LANGUAGE_FIELD, preferredLocale)
+    if (preferredLocale) {
+      query = query.or(
+        `public_quality_flags.cs.${JSON.stringify({ available_languages: [preferredLocale] })},`
+        + `and(public_quality_flags->available_languages.is.null,public_quality_flags->>language.eq.${preferredLocale})`
+      )
+    }
     if (topicSourceIds.length > 0) query = query.in("podcast_source_slug", topicSourceIds)
     return query
   }
 
   if (layout === "landingPreview") {
     const [{ data: preferredData, error: preferredError }, { data, error }] = await Promise.all([
-      createTasksQuery(previewLimit, locale),
-      createTasksQuery(previewLimit),
+      createTasksQuery(previewCandidateLimit, locale),
+      createTasksQuery(previewCandidateLimit),
     ])
 
     if (preferredError) {
@@ -323,7 +373,8 @@ export async function ServerCommunityTemplates({
       })
     }
 
-    const initialTasks = mergeLocalePreferredTasks(preferredData || [], data || [], previewLimit)
+    const candidates = mergeLocalePreferredTasks(preferredData || [], data || [], previewCandidateLimit * 2, locale)
+    const initialTasks = selectPreviewTasks(candidates, previewLimit, locale)
 
     return (
       <CommunityTemplates
@@ -383,7 +434,7 @@ export async function ServerCommunityTemplates({
     })
   }
 
-  const initialTasks = mergeLocalePreferredTasks(preferredData || [], data || [], pageLimit)
+  const initialTasks = mergeLocalePreferredTasks(preferredData || [], data || [], pageLimit, locale)
   const readyCount = totalCount ?? initialTasks.length
 
   return (

@@ -9,7 +9,6 @@ import os
 import re
 import signal
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -17,6 +16,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from dependencies import get_db_client
+from services.codex_preflight import verify_codex_subscription
 from services.execution_policy import (
     ExecutionProfile,
     WorkerProfile,
@@ -492,7 +492,16 @@ async def build_agent_worker() -> AgentAnswerWorker | None:
     db = get_db_client()
     if queue_name.startswith("agent_answers_local_"):
         await asyncio.to_thread(
-            db._execute_query, "SELECT pgmq.create(:name)", {"name": queue_name}
+            db._execute_query,
+            """
+            SELECT pgmq.create(:name)
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM pgmq.list_queues()
+                WHERE queue_name = :name
+            )
+            """,
+            {"name": queue_name},
         )
     return AgentAnswerWorker(
         PostgresTaskQueue(db, queue_name=queue_name),
@@ -501,29 +510,6 @@ async def build_agent_worker() -> AgentAnswerWorker | None:
         secret,
         runtime,
     )
-
-
-async def verify_codex_subscription(
-    *,
-    codex_factory: Callable[..., Any] | None = None,
-) -> str:
-    """Fail startup unless the local Codex session is ChatGPT-managed."""
-    from openai_codex import AsyncCodex, CodexConfig
-
-    factory = codex_factory or AsyncCodex
-    config = CodexConfig(codex_bin=settings.CODEX_LOCAL_BINARY)
-    async with factory(config) as codex:
-        response = await codex.account(refresh_token=False)
-
-    account_container = getattr(response, "account", None)
-    account = getattr(account_container, "root", account_container)
-    if account is None or getattr(account, "type", None) != "chatgpt":
-        raise RuntimeError(
-            "trusted_codex worker requires an existing ChatGPT subscription login"
-        )
-
-    plan = getattr(account, "plan_type", "unknown")
-    return str(getattr(plan, "value", plan))
 
 
 async def drain_worker(worker: TaskWorker, *, max_jobs: int) -> int:

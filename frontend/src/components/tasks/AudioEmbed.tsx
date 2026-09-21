@@ -5,6 +5,7 @@ import NextImage from 'next/image'
 import { ApplePodcastsIcon } from '@/components/icons/ApplePodcastsIcon'
 import { XiaoyuzhouIcon } from '@/components/icons/XiaoyuzhouIcon'
 import { Heading } from '@/components/ui/typography'
+import { useI18n } from '@/components/i18n/I18nProvider'
 
 export function AudioEmbed({
   audioUrl,
@@ -17,6 +18,7 @@ export function AudioEmbed({
   coverUrl?: string
   sourceUrl?: string
 }) {
+  const { t } = useI18n()
   const isXiaoyuzhou = sourceUrl?.includes('xiaoyuzhoufm.com')
   const isApple = sourceUrl?.includes('apple.com')
 
@@ -27,7 +29,7 @@ export function AudioEmbed({
           <div className="relative aspect-square shrink-0 overflow-hidden bg-black/40 md:w-64">
             <NextImage
               src={coverUrl}
-              alt={title || 'Audio cover'}
+              alt={title || t('tasks.audioCoverAlt')}
               fill
               className="object-cover"
               referrerPolicy="no-referrer"
@@ -51,13 +53,13 @@ export function AudioEmbed({
               </div>
             ) : null}
             <Heading as="h3" variant="mediaTitle" className="mb-2">
-              {title || 'Episode'}
+              {title || t('tasks.audioEpisodeFallback')}
             </Heading>
           </div>
 
-          <audio className="w-full" controls preload="none">
+          <audio className="w-full" controls preload="none" aria-label={title || t('tasks.audioEpisodeFallback')}>
             <source src={audioUrl} />
-            Your browser does not support the audio element.
+            {t('tasks.audioUnsupported')}
           </audio>
         </div>
       </div>

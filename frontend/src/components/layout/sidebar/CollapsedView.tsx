@@ -19,8 +19,7 @@ export function CollapsedView({ onNewChat, onCommunityClick, t }: CollapsedViewP
                     onClick={onNewChat}
                     className={cn(
                         "p-3 rounded-xl flex items-center justify-center transition-all",
-                        "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
-                        "dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10"
+                        "text-foreground-subtle hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                     aria-label={t("chat.newChat") || "New chat"}
                 >
@@ -43,8 +42,7 @@ export function CollapsedView({ onNewChat, onCommunityClick, t }: CollapsedViewP
                     onClick={onCommunityClick}
                     className={cn(
                         "p-3 rounded-xl flex items-center justify-center transition-all",
-                        "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
-                        "dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10"
+                        "text-foreground-subtle hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                     aria-label={t("chat.community") || "Community"}
                 >

@@ -11,8 +11,8 @@ services:
     volumes:
       # Sync source code instantly. Editing 'backend' folder updates container.
       - ./backend:/app
-      # Shared config (SSOT for model defaults, used by both frontend and backend)
-      - ./config/llm-provider-defaults.json:/app/llm-provider-defaults.json:ro
+      # Shared repository config stays outside the hot-reloaded source mount.
+      - ./config:/config:ro
       # Persist downloads and temp if needed (or keep ephemeral)
       - ./temp:/app/temp
       - ./downloads:/app/downloads
@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/app
-      - ./config/llm-provider-defaults.json:/app/llm-provider-defaults.json:ro
+      - ./config:/config:ro
       - ./temp:/app/temp
       - ./downloads:/app/downloads
     # Video jobs remain with the hosted worker, even when local dev uses the main DB.

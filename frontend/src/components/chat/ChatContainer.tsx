@@ -30,7 +30,7 @@ interface ChatContainerProps {
   isAuthenticated?: boolean | null
   isInteractionLocked?: boolean
   onSelectExample?: (task: ChatExample) => void
-  onChatStarted?: (threadId: string, taskId?: string) => void
+  onChatStarted?: (threadId: string, taskId?: string, messages?: ChatUIMessage[]) => void
   initialExamples?: Promise<ChatExample[]> | null
   variant?: 'workspace' | 'embedded'
   scope?: 'workspace' | 'source'
@@ -65,15 +65,6 @@ const CONTINUATION_COPY = {
     retry: '重试回答',
     cancelFailed: '未能取消回答，请重试。',
     retryFailed: '未能重试回答，请稍后再试。',
-  },
-  ja: {
-    waiting_task: '動画の処理が完了すると、回答を続けます。',
-    finalizing: '回答をまとめています。',
-    failed: '回答を完了できませんでした。',
-    cancelled: '続きの回答をキャンセルしました。動画の処理は継続します。',
-    cancel: '回答をキャンセル', retry: '回答を再試行',
-    cancelFailed: 'キャンセルできませんでした。もう一度お試しください。',
-    retryFailed: '再試行できませんでした。しばらくしてからお試しください。',
   },
 }
 
@@ -207,7 +198,7 @@ export function ChatContainer({
       }
       const taskId = confirmedTaskId ?? previousTaskId ?? undefined
       if (taskId) activeTaskIdRef.current = taskId
-      onChatStarted?.(effectiveThreadId, taskId)
+      onChatStarted?.(effectiveThreadId, taskId, finishedMessages)
     }
   })
 
@@ -263,7 +254,7 @@ export function ChatContainer({
             : errorPayload && typeof errorPayload === 'object' && 'error' in errorPayload && typeof errorPayload.error === 'string'
               ? errorPayload.error
               : t('chat.genericError')
-        setTaskRetryError(sanitizeErrorMessage(details))
+        setTaskRetryError(sanitizeErrorMessage(details, t('chat.genericError')))
         return false
       }
 
@@ -469,7 +460,6 @@ export function ChatContainer({
             ? 'max-h-[34rem] px-0 py-1'
             : 'flex-1 px-4 py-6 md:px-8',
           status === 'streaming' ? 'scroll-auto' : 'scroll-smooth',
-          messages.length > 0 && !isEmbedded ? 'pb-44 md:pb-56' : '',
         )}
       >
         {messages.length === 0 ? (
@@ -512,10 +502,10 @@ export function ChatContainer({
             {(status === 'submitted' || (status === 'streaming' && !hasRenderableAssistant)) && (
               <div className="flex w-full">
                 <div className="flex flex-col gap-2">
-                  <div className="bg-white/40 dark:bg-white/5 px-5 py-3 rounded-2xl rounded-tl-sm border border-white/40 dark:border-white/5 flex items-center gap-2 w-fit">
+                  <div className="flex w-fit items-center gap-2 rounded-2xl rounded-tl-sm border border-border/80 bg-card/70 px-5 py-3">
                     <ProcessingIndicator
                       label={t('chat.thinking')}
-                      className="text-sm text-slate-500 dark:text-slate-400 font-medium"
+                      className="text-sm font-medium text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -560,21 +550,21 @@ export function ChatContainer({
       </div>
 
       {displayErrorMessage && (
-        <div className={cn('pb-4', isEmbedded ? 'pt-3' : 'px-4 md:px-8')}>
+        <div className={cn('shrink-0 pb-4', isEmbedded ? 'pt-3' : 'px-4 md:px-8')}>
           <div className="max-w-3xl mx-auto">
             <div className="flex w-full">
               <div
                 role="alert"
-                className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 px-4 py-3 rounded-xl flex items-center gap-3"
+                className="flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3"
               >
-                <XCircle className="w-4 h-4 text-red-500" />
-                <div className="text-sm text-red-600 dark:text-red-400">
+                <XCircle className="h-4 w-4 text-destructive" />
+                <div className="text-sm text-destructive">
                   {displayErrorMessage}
                 </div>
                 {requiresAuth ? (
                   <button
                     onClick={handleLogin}
-                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="rounded border border-destructive/20 bg-card px-2 py-1 text-xs transition-colors hover:bg-destructive/10"
                   >
                     {t('auth.signIn')}
                   </button>
@@ -585,14 +575,14 @@ export function ChatContainer({
                       locale,
                       surface: scope === 'source' ? 'source_followup' : 'workspace',
                     })}
-                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="rounded border border-destructive/20 bg-card px-2 py-1 text-xs transition-colors hover:bg-destructive/10"
                   >
                     {t('taskForm.quotaExceeded.confirm')}
                   </Link>
                 ) : error && !taskRetryError && continuationState !== 'failed' ? (
                   <button
                     onClick={() => regenerate()}
-                    className="text-xs bg-white dark:bg-white/10 px-2 py-1 rounded border border-red-100 dark:border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="rounded border border-destructive/20 bg-card px-2 py-1 text-xs transition-colors hover:bg-destructive/10"
                   >
                     {t('chat.retry')}
                   </button>
@@ -604,9 +594,9 @@ export function ChatContainer({
       )}
 
       {(messages.length > 0 || isEmbedded) && (
-        <div className={cn(isEmbedded && messages.length > 0 ? 'mt-5' : '')}>
+        <div className={cn('shrink-0', isEmbedded && messages.length > 0 ? 'mt-5' : '')}>
           <ChatInput
-            variant={isEmbedded ? 'inline' : 'floating'}
+            variant={isEmbedded ? 'embedded' : 'floating'}
             hideDisclaimer={isEmbedded}
             onSubmit={handleSubmit}
             isLoading={isLoading}

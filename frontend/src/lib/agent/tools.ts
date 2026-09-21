@@ -13,7 +13,7 @@ import type { AgentTurn, TaskData, TurnClient } from './backend'
 const taskInput = z.object({ taskId: z.uuid() }).strict()
 const searchInput = taskInput.extend({ query: z.string().trim().min(1).max(1000), limit: z.number().int().min(1).max(8).default(6) })
 const readInput = taskInput.extend({ segmentIds: z.array(z.string().min(1).max(100)).min(1).max(8) })
-const createInput = z.object({ videoUrl: z.url().max(4000), locale: z.enum(['zh', 'en', 'ja']) }).strict()
+const createInput = z.object({ videoUrl: z.url().max(4000), locale: z.enum(['zh', 'en']) }).strict()
 
 export type SourceReference = { sourceId: string; url: string; title: string }
 

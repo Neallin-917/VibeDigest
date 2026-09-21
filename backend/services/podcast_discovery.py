@@ -10,11 +10,12 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from db_client import DBClient
+from services.execution_policy import CATALOG_SUMMARY_LOCALES
 from services.task_queue import TaskQueue
 
 logger = logging.getLogger(__name__)
 
-CATALOG_OUTPUT_LOCALE = "en"
+CATALOG_OUTPUT_LOCALE = CATALOG_SUMMARY_LOCALES[0]
 
 
 @dataclass(frozen=True)

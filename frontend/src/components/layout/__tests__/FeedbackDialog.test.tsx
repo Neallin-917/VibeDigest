@@ -11,6 +11,10 @@ const mockSupabase = {
     }
 }
 
+vi.mock('next/navigation', () => ({
+    usePathname: () => '/en/settings',
+}))
+
 vi.mock('@/lib/supabase', () => ({
     createClient: () => mockSupabase
 }))

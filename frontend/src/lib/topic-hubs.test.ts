@@ -28,6 +28,14 @@ describe("topic hubs", () => {
       slug: "product",
       shortLabel: "Product",
     })
-    expect(getTopicHubCopy("zh", "research").title).toContain("研究")
+    expect(TOPIC_ROUTE_ORDER.map((topic) => getTopicHubCopy("zh", topic).shortLabel)).toEqual([
+      "AI 智能体",
+      "AI 编程",
+      "产品",
+      "创业",
+      "研究",
+    ])
+    expect(getTopicHubCopy("zh", "agents").description).toContain("智能体工作流")
+    expect(getTopicHubCopy("zh", "startups").description).toContain("市场进入策略")
   })
 })

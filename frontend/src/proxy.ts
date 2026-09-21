@@ -8,6 +8,8 @@ const PROTECTED_ROUTES = ['/history', '/settings']
 const PUBLIC_ROUTES = ['/login', '/auth', '/register', '/faq', '/explore', '/terms', '/privacy', '/about', '/chat']
 const CHAT_HISTORY_MESSAGES_PATH = /^\/api\/chat\/threads\/[^/]+\/messages$/
 const isLocalUiDemo = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_LOCAL_DEMO === '1'
+const LOCALE_HEADER = 'x-vd-locale'
+const RETIRED_LOCALES = new Set(['ja'])
 
 function isAuthenticatedChatHistoryRead(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -31,6 +33,14 @@ function getLocale(request: NextRequest): string {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  const pathParts = pathname.split('/')
+  if (RETIRED_LOCALES.has(pathParts[1])) {
+    const target = request.nextUrl.clone()
+    const suffix = pathParts.slice(2).join('/')
+    target.pathname = `/${DEFAULT_LOCALE}${suffix ? `/${suffix}` : ''}`
+    return NextResponse.redirect(target, 308)
+  }
 
   // Static assets: skip entirely (no auth needed)
   if (
@@ -58,9 +68,10 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  const pathParts = pathname.split('/')
   const pathLocale = SUPPORTED_LOCALES.find(l => pathParts[1] === l)
   const locale = pathLocale || DEFAULT_LOCALE
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(LOCALE_HEADER, locale)
   let pathWithoutLocale = pathLocale ? '/' + pathParts.slice(2).join('/') : pathname
   if (!pathWithoutLocale.startsWith('/')) pathWithoutLocale = '/' + pathWithoutLocale
 
@@ -75,11 +86,15 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(newUrl)
     }
 
-    return NextResponse.next()
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    })
   }
 
   // Initialize the session before any route that requires server-side auth.
-  const { response, user } = await updateSession(request)
+  const { response, user } = await updateSession(request, requestHeaders)
 
   if (!pathLocale) {
     const detectedLocale = getLocale(request)
@@ -103,6 +118,7 @@ export async function proxy(request: NextRequest) {
     // If no user AND no bypass cookie, block access
     if (!user && !hasBypassCookie) {
       const loginUrl = new URL(`/${locale}/login`, request.url)
+      loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`)
       const redirectResponse = NextResponse.redirect(loginUrl)
       // Copy session cookies from updateSession response
       response.cookies.getAll().forEach(c => redirectResponse.cookies.set(c.name, c.value, c))

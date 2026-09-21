@@ -30,24 +30,24 @@ export function PlanBadge() {
         <button
           className={cn(
             "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border",
-            "focus:outline-none focus:ring-2 focus:ring-offset-2",
+            "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
             isPro
-              ? "bg-emerald-50/50 border-emerald-200/60 text-emerald-800 hover:bg-emerald-100/50 dark:bg-emerald-900/30 dark:border-emerald-500/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 focus:ring-emerald-500/50"
-              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/10 focus:ring-slate-500/50"
+              ? "border-primary/25 bg-accent/70 text-accent-foreground hover:bg-accent"
+              : "border-border bg-surface/80 text-foreground-soft hover:bg-surface-subtle"
           )}
         >
           <span>{tierLabel}</span>
           <ChevronDown className="w-3 h-3 opacity-60" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72 p-0 rounded-2xl border-slate-200 dark:border-white/10 shadow-xl" sideOffset={8}>
+      <DropdownMenuContent align="end" className="w-72 rounded-2xl border-border p-0 shadow-xl" sideOffset={8}>
         {/* Header: Plan Info + Upgrade Button */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/60 dark:border-white/5">
+        <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
           <div className="flex flex-col gap-0.5">
-            <span className="text-base font-bold text-slate-800 dark:text-white tracking-tight">
+            <span className="text-base font-bold tracking-tight text-foreground">
               {tierLabel}
             </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
+            <span className="text-xs text-foreground-subtle">
               {t('pricing.currentPlan')}
             </span>
           </div>
@@ -56,11 +56,10 @@ export function PlanBadge() {
               href={`/${locale}/settings/pricing`}
               className={cn(
                 "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all shadow-sm",
-                "bg-white border border-slate-200 hover:bg-slate-50 text-slate-700",
-                "dark:bg-white/10 dark:border-white/10 dark:hover:bg-white/20 dark:text-white"
+                "border border-border bg-card text-foreground-soft hover:bg-accent hover:text-accent-foreground"
               )}
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-emerald-400" />
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
               <span>{t('dashboard.upgrade')}</span>
             </Link>
           )}
@@ -69,16 +68,16 @@ export function PlanBadge() {
         {/* Balance Row */}
         <Link
           href={`/${locale}/settings/pricing`}
-          className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
+          className="group flex items-center justify-between px-5 py-4 transition-colors hover:bg-surface"
         >
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <span className="text-sm font-medium text-foreground-soft">
             {t('dashboard.usage.monthly')}
           </span>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-slate-800 dark:text-white">
+            <span className="text-sm font-semibold text-foreground">
               {profile.usage_count} / {profile.usage_limit}
             </span>
-            <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:translate-x-0.5 transition-transform" />
+            <ChevronRight className="h-4 w-4 text-foreground-subtle transition-transform group-hover:translate-x-0.5" />
           </div>
         </Link>
       </DropdownMenuContent>

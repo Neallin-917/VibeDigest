@@ -63,15 +63,15 @@ export const TOPIC_HUBS: Record<Locale, Record<PodcastTopic, TopicHubCopy>> = {
   zh: {
     agents: {
       slug: "agents",
-      shortLabel: "AI Agents",
+      shortLabel: "AI 智能体",
       eyebrow: "主题内容页",
-      title: "AI Agent 播客整理",
+      title: "AI 智能体播客整理",
       description:
-        "聚合 AI Agent、Agent workflow 与真实部署取舍相关的公开整理内容，直接阅读摘要、关键观点和证据。",
+        "聚合 AI 智能体、智能体工作流与真实部署取舍相关的公开整理内容，直接阅读摘要、关键观点和证据。",
     },
     "ai-coding": {
       slug: "ai-coding",
-      shortLabel: "AI Coding",
+      shortLabel: "AI 编程",
       eyebrow: "主题内容页",
       title: "AI 编程播客整理",
       description:
@@ -79,7 +79,7 @@ export const TOPIC_HUBS: Record<Locale, Record<PodcastTopic, TopicHubCopy>> = {
     },
     product: {
       slug: "product",
-      shortLabel: "Product",
+      shortLabel: "产品",
       eyebrow: "主题内容页",
       title: "产品主题播客整理",
       description:
@@ -87,61 +87,19 @@ export const TOPIC_HUBS: Record<Locale, Record<PodcastTopic, TopicHubCopy>> = {
     },
     startups: {
       slug: "startups",
-      shortLabel: "Startups",
+      shortLabel: "创业",
       eyebrow: "主题内容页",
       title: "创业主题播客整理",
       description:
-        "聚合 founders、GTM、公司搭建与运营经验相关的公开整理内容。",
+        "聚合创始人、市场进入策略、公司搭建与运营经验相关的公开整理内容。",
     },
     research: {
       slug: "research",
-      shortLabel: "Research",
+      shortLabel: "研究",
       eyebrow: "主题内容页",
       title: "研究主题播客整理",
       description:
         "浏览技术与科学长内容的研究向整理，包含摘要、证据和可追溯观点。",
-    },
-  },
-  ja: {
-    agents: {
-      slug: "agents",
-      shortLabel: "AI Agents",
-      eyebrow: "トピックハブ",
-      title: "AI Agentの整理済みポッドキャスト",
-      description:
-        "AI Agent、Agent workflow、実運用のトレードオフに関する整理済みダイジェストをまとめて読めます。",
-    },
-    "ai-coding": {
-      slug: "ai-coding",
-      shortLabel: "AI Coding",
-      eyebrow: "トピックハブ",
-      title: "AIコーディングの整理済みポッドキャスト",
-      description:
-        "AIコーディング、開発ツール、コード生成、実務的な開発フローのダイジェストをまとめて閲覧できます。",
-    },
-    product: {
-      slug: "product",
-      shortLabel: "Product",
-      eyebrow: "トピックハブ",
-      title: "プロダクトの整理済みポッドキャスト",
-      description:
-        "プロダクト戦略、ユーザーリサーチ、成長、意思決定に関する長尺会話のダイジェストを集約しています。",
-    },
-    startups: {
-      slug: "startups",
-      shortLabel: "Startups",
-      eyebrow: "トピックハブ",
-      title: "スタートアップの整理済みポッドキャスト",
-      description:
-        "創業者、GTM、会社づくり、オペレーターの学びに関するポッドキャストダイジェストを読めます。",
-    },
-    research: {
-      slug: "research",
-      shortLabel: "Research",
-      eyebrow: "トピックハブ",
-      title: "研究の整理済みポッドキャスト",
-      description:
-        "技術・科学系の長尺ソースから、要約、根拠、追跡可能な示唆をまとめたダイジェストです。",
     },
   },
 }

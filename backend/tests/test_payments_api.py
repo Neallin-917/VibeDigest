@@ -4,26 +4,13 @@ import httpx
 import pytest
 
 @pytest.mark.asyncio
-async def test_create_crypto_charge(api_client, mock_db_client, mock_coinbase_client):
-    mock_db_client.create_payment_order.return_value = {"id": "ord_123"}
-    
-    with patch("api.routes.payments.settings") as mock_settings:
-        mock_settings.get_price_by_id.return_value.amount = 10.0
-        mock_settings.get_price_by_id.return_value.name = "Credits"
-        mock_settings.FRONTEND_URL = "http://front"
-        
-        response = await api_client.post(
-            "/api/create-crypto-charge",
-            data={"price_id": "price_1", "locale": "zh"},
-        )
-        assert response.status_code == 200
-        assert response.json()["url"] == "http://cb.com/charge"
-        
-        mock_db_client.create_payment_order.assert_called()
-        mock_coinbase_client.charge.create.assert_called()
-        charge_payload = mock_coinbase_client.charge.create.call_args.kwargs
-        assert charge_payload["redirect_url"] == "http://front/zh/settings/pricing?success=true"
-        assert charge_payload["cancel_url"] == "http://front/zh/settings/pricing?canceled=true"
+async def test_create_crypto_charge_is_retired(api_client, mock_db_client, mock_coinbase_client):
+    response = await api_client.post(
+        "/api/create-crypto-charge", data={"plan_key": "pro_annual", "locale": "zh"},
+    )
+    assert response.status_code == 410
+    mock_db_client.create_payment_order.assert_not_called()
+    mock_coinbase_client.charge.create.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_create_checkout_session(api_client, mock_db_client):
@@ -48,24 +35,35 @@ async def test_create_checkout_session(api_client, mock_db_client):
             with patch("api.routes.payments.httpx.AsyncClient", return_value=mock_ac_instance):
                 response = await api_client.post(
                     "/api/create-checkout-session",
-                    data={"plan_key": "pro_monthly", "locale": "ja"},
+                    data={"plan_key": "pro_monthly", "locale": "zh"},
                 )
                 assert response.status_code == 200
                 assert response.json()["url"] == "http://creem.com/pay"
                 mock_db_client.create_payment_order.assert_called()
                 mock_settings.get_price_by_plan_key.assert_called_once_with("pro_monthly")
                 checkout_payload = mock_ac_instance.post.await_args.kwargs["json"]
-                assert checkout_payload["success_url"] == "http://front/ja/settings/pricing?success=true"
+                assert checkout_payload["success_url"] == "http://front/zh/settings/pricing?success=true"
 
 
+@pytest.mark.parametrize("locale", ["ja", "fr"])
 @pytest.mark.asyncio
-async def test_create_checkout_session_rejects_unknown_locale(api_client):
+async def test_create_checkout_session_rejects_unsupported_locale(api_client, locale):
     response = await api_client.post(
         "/api/create-checkout-session",
-        data={"plan_key": "pro_monthly", "locale": "fr"},
+        data={"plan_key": "pro_monthly", "locale": locale},
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_crypto_charge_is_retired_for_legacy_locales(api_client):
+    response = await api_client.post(
+        "/api/create-crypto-charge",
+        data={"price_id": "price_1", "locale": "ja"},
+    )
+
+    assert response.status_code == 410
 
 @pytest.mark.asyncio
 async def test_create_checkout_session_error(api_client, mock_db_client):

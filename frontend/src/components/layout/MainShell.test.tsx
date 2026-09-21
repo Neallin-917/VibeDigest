@@ -39,6 +39,10 @@ vi.mock("@/components/layout/MobileNav", () => ({
     MobileBottomNav: () => <div data-testid="mobile-bottom-nav">footer</div>,
 }))
 
+vi.mock("@/components/chat/TopHeader", () => ({
+    TopHeader: () => <div data-testid="desktop-header">Account menu</div>,
+}))
+
 vi.mock("@/components/auth/LandingUserButton", () => ({
     LandingUserButton: () => <button type="button">User</button>,
 }))
@@ -86,7 +90,19 @@ describe("MainShell", () => {
 
         expect(screen.getByTestId("app-sidebar")).toBeInTheDocument()
         expect(screen.getByTestId("mobile-header")).toBeInTheDocument()
+        expect(screen.getByTestId("desktop-header")).toBeInTheDocument()
         expect(screen.getByTestId("mobile-bottom-nav")).toBeInTheDocument()
         expect(screen.getByText("Chat workspace")).toBeInTheDocument()
+    })
+
+    it("retains the protected destination when asking a guest to sign in", () => {
+        shellState.pathname = "/en/settings/pricing"
+        shellState.user = null
+        window.history.replaceState({}, "", "/en/settings/pricing?plan=pro#topup")
+        render(<MainShell><div>Protected content</div></MainShell>)
+        const target = new URL(shellState.replace.mock.calls[0][0], 'https://vibedigest.io')
+        expect(target.pathname).toBe('/en/login')
+        expect(target.searchParams.get('next')).toBe('/en/settings/pricing?plan=pro#topup')
+        expect(screen.queryByText('Protected content')).not.toBeInTheDocument()
     })
 })

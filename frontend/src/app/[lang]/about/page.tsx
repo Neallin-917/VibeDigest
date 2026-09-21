@@ -65,34 +65,6 @@ const CONTENT: Record<string, { title: string; subtitle: string; positioning: st
             role: "VibeDigest 创始人",
             bio: "一名热爱开发和内容的开发者，热衷于构建能够弥合信息与洞察之间鸿沟的工具。VibeDigest 诞生于「在更短时间内吸收更多知识」的个人需求。"
         }
-    },
-    ja: {
-        title: "VibeDigestについて - AI動画要約ツール",
-        subtitle: "VibeDigestとは？",
-        positioning: "VibeDigestは、あらゆる動画・音声ソースから知識を効率的に習得するためのAIコンテンツ変換プラットフォームです。情報爆発の時代において、長尺コンテンツからエッセンスを素早く抽出する力は「超能力」だと私たちは信じています。",
-        useCases: [
-            {
-                title: "学術・研究",
-                description: "長い講義や研究セミナーを構造化されたノートに素早くまとめます。"
-            },
-            {
-                title: "キャリア成長",
-                description: "何時間も視聴せずに、業界ポッドキャストやウェビナーの要点を把握。"
-            },
-            {
-                title: "コンテンツ制作",
-                description: "バズ動画から重要なインサイトや引用を抽出し、研究や執筆に活用。"
-            },
-            {
-                title: "語学学習",
-                description: "多言語要約と出典に基づく回答で、外国語コンテンツを理解。"
-            }
-        ],
-        founder: {
-            name: "Neal Lin",
-            role: "VibeDigest 創設者",
-            bio: "情報とインサイトの間のギャップを埋めるツール作りに情熱を注ぐ開発者兼コンテンツ愛好家。VibeDigestは「より短い時間でより多くの知識を吸収したい」という個人的なニーズから生まれました。"
-        }
     }
 }
 
@@ -104,10 +76,6 @@ const ABOUT_SEO: Record<string, { title: string; description: string }> = {
     zh: {
         title: "关于我们 - VibeDigest AI 视频摘要助手",
         description: "了解 VibeDigest 及其背后的故事。我们的使命是利用 AI 帮助用户高效吸收长视频和音频内容中的知识。",
-    },
-    ja: {
-        title: "私たちについて - VibeDigest AI動画要約ツール",
-        description: "VibeDigestとその背景をご紹介。AIを活用して長尺動画・音声コンテンツから効率的に知識を吸収することが私たちのミッションです。",
     },
 }
 
@@ -143,7 +111,6 @@ export default async function AboutPage(props: Props) {
     const params = await props.params;
     const { lang } = params
     const isZh = lang === "zh"
-    const isJa = lang === "ja"
     const content = CONTENT[lang] ?? CONTENT.en
 
     // Organization Schema
@@ -230,13 +197,13 @@ export default async function AboutPage(props: Props) {
 
                     <div className="mt-24 text-center">
                         <p className="text-slate-600 dark:text-muted-foreground mb-8">
-                            {isZh ? "准备好提升您的效率了吗？" : isJa ? "効率を上げる準備はできましたか？" : "Ready to boost your efficiency?"}
+                            {isZh ? "准备好提升您的效率了吗？" : "Ready to boost your efficiency?"}
                         </p>
                         <Link
                             href={`/${lang}/login`}
                             className="inline-flex items-center justify-center px-10 py-4 rounded-full bg-indigo-600 dark:bg-primary text-white dark:text-primary-foreground font-bold text-lg hover:scale-105 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 dark:shadow-primary/20"
                         >
-                            {isZh ? "立即开始使用" : isJa ? "今すぐ始める" : "Get Started Now"}
+                            {isZh ? "立即开始使用" : "Get Started Now"}
                         </Link>
                     </div>
                 </div>

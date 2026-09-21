@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveProvider, resolveProviderModel } from './llm-model-registry';
 
 describe('llm routing contract', () => {
-    it('matches the Luna OpenRouter runtime contract when custom routing is disabled', () => {
+    it('matches the tiered OpenRouter runtime contract when custom routing is disabled', () => {
         const provider = resolveProvider(undefined);
 
         expect(provider).toBe('openrouter');
@@ -11,7 +11,7 @@ describe('llm routing contract', () => {
                 smart: undefined,
                 fast: undefined,
             })
-        ).toBe('openai/gpt-5.6-luna');
+        ).toBe('openai/gpt-5.6-terra');
         expect(
             resolveProviderModel(provider, 'fast', {
                 smart: undefined,
@@ -20,7 +20,7 @@ describe('llm routing contract', () => {
         ).toBe('openai/gpt-5.6-luna');
     });
 
-    it('matches the Luna custom runtime contract when OPENAI_BASE_URL is configured', () => {
+    it('matches the tiered custom runtime contract when OPENAI_BASE_URL is configured', () => {
         const provider = resolveProvider('http://localhost:8317/v1');
 
         expect(provider).toBe('custom');
@@ -29,7 +29,7 @@ describe('llm routing contract', () => {
                 smart: undefined,
                 fast: undefined,
             })
-        ).toBe('gpt-5.6-luna');
+        ).toBe('gpt-5.6-terra');
         expect(
             resolveProviderModel(provider, 'fast', {
                 smart: undefined,
@@ -38,11 +38,11 @@ describe('llm routing contract', () => {
         ).toBe('gpt-5.6-luna');
     });
 
-    it('selects Luna for both OpenAI API model tiers when explicitly configured', () => {
+    it('selects separate OpenAI API model tiers when explicitly configured', () => {
         const provider = resolveProvider(undefined, 'openai');
 
         expect(provider).toBe('openai');
-        expect(resolveProviderModel(provider, 'smart')).toBe('gpt-5.6-luna');
+        expect(resolveProviderModel(provider, 'smart')).toBe('gpt-5.6-terra');
         expect(resolveProviderModel(provider, 'fast')).toBe('gpt-5.6-luna');
     });
 

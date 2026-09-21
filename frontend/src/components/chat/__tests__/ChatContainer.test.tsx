@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ChatContainer } from '../ChatContainer'
-import type { ChatUIMessage } from '@/lib/chat-ui'
+import { createTaskDataParts, type ChatUIMessage } from '@/lib/chat-ui'
+import { LANDING_DEMO } from '@/lib/landing-demo'
 
 const mockUseChat = vi.fn()
 const mockSendMessage = vi.fn()
@@ -10,7 +11,7 @@ const mockRegenerate = vi.fn()
 const mockStop = vi.fn()
 const mockUseChatRealtime = vi.fn()
 let mockChatInputText = 'test message'
-let mockLocale: 'en' | 'zh' | 'ja' = 'en'
+let mockLocale: 'en' | 'zh' = 'en'
 
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
 const navigation = vi.hoisted(() => ({ push: vi.fn() }))
@@ -52,17 +53,23 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
       if (key === 'auth.signIn') return 'Sign In'
       if (key === 'brand.appName') return 'VibeDigest'
       if (key === 'chat.thinking') return 'Thinking...'
-      if (key === 'chat.genericError') return 'Something went wrong.'
+      if (key === 'chat.genericError') return {
+        en: 'Something went wrong.',
+        zh: '出现错误，请重试。',
+      }[mockLocale]
       if (key === 'chat.retry') return 'Retry'
+      if (key === 'chat.retryQueued') return 'Retry queued'
+      if (key === 'chat.directSubmit.unavailable') return {
+        en: 'Unable to process this video right now.',
+        zh: '暂时无法处理这个视频，请稍后重试。',
+      }[mockLocale]
       if (key === 'taskForm.quotaExceeded.description') return {
         en: 'Your plan limit has been reached.',
         zh: '您的方案额度已用完。',
-        ja: 'プランの利用上限に達しました。',
       }[mockLocale]
       if (key === 'taskForm.quotaExceeded.confirm') return {
         en: 'View Plans',
         zh: '查看方案',
-        ja: 'プランを見る',
       }[mockLocale]
       if (key === 'chat.followUpPlaceholder') return 'Ask a follow-up about this source...'
       if (key === 'chat.followUpInputLabel') return 'Follow-up question about this source'
@@ -147,11 +154,11 @@ describe('ChatContainer', () => {
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
   })
 
-  it('renders an inline follow-up composer without the welcome surface in embedded mode', () => {
+  it('renders a full-width follow-up composer without the welcome surface in embedded mode', () => {
     render(<ChatContainer activeTaskId="selected-task" variant="embedded" />)
 
     expect(screen.queryByTestId('welcome-screen')).not.toBeInTheDocument()
-    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-variant', 'inline')
+    expect(screen.getByTestId('chat-input')).toHaveAttribute('data-variant', 'embedded')
     expect(screen.getByTestId('chat-input')).toHaveAttribute('data-hide-disclaimer', 'true')
   })
 
@@ -343,6 +350,46 @@ describe('ChatContainer', () => {
   })
 
   it.each([
+    ['zh', '出现错误，请重试。'],
+  ] as const)('uses the %s route fallback when a task retry returns unsafe details', async (locale, expected) => {
+    mockLocale = locale
+    const messages: ChatUIMessage[] = [{
+      id: 'assistant-failed-task',
+      role: 'assistant',
+      parts: [{
+        type: 'data-task-status',
+        id: 'failed-task-status',
+        data: {
+          taskId: 'failed-task',
+          status: 'failed',
+          progress: 20,
+          videoUrl: 'https://www.youtube.com/watch?v=failed-task',
+          errorMessage: 'PRIVATE_TOKEN=initial-secret',
+        },
+      } as any],
+    }]
+    mockUseChat.mockReturnValue({
+      messages,
+      setMessages: mockSetMessages,
+      status: 'idle',
+      error: null,
+      regenerate: mockRegenerate,
+      sendMessage: mockSendMessage,
+      stop: mockStop,
+    })
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      json: async () => ({ details: 'PRIVATE_TOKEN=retry-secret' }),
+    } as Response)
+
+    render(<ChatContainer activeTaskId="failed-task" isAuthenticated />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+
+    expect(await screen.findByText(expected)).toBeInTheDocument()
+    expect(screen.queryByText(/PRIVATE_TOKEN/)).not.toBeInTheDocument()
+  })
+
+  it.each([
     {
       locale: 'en',
       scope: 'workspace',
@@ -352,11 +399,11 @@ describe('ChatContainer', () => {
       surface: 'workspace',
     },
     {
-      locale: 'ja',
+      locale: 'zh',
       scope: 'source',
       transportError: new Error('VIBEDIGEST_QUOTA_EXCEEDED'),
-      description: 'プランの利用上限に達しました。',
-      confirm: 'プランを見る',
+      description: '您的方案额度已用完。',
+      confirm: '查看方案',
       surface: 'source_followup',
     },
   ] as const)(
@@ -528,7 +575,9 @@ describe('ChatContainer', () => {
       locale: 'en',
       surface,
     })
-    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-new-1')
+    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-new-1', [
+      expect.objectContaining({ id: 'assistant-task-created', role: 'assistant' }),
+    ])
   })
 
   it('does not track task creation acceptance for an existing task follow-up', () => {
@@ -552,7 +601,9 @@ describe('ChatContainer', () => {
     })
 
     expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_create_accepted', expect.anything())
-    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-existing')
+    expect(onChatStarted).toHaveBeenCalledWith(expect.any(String), 'task-existing', [
+      expect.objectContaining({ id: 'assistant-followup', role: 'assistant' }),
+    ])
   })
 
   it.each([
@@ -725,10 +776,55 @@ describe('ChatContainer', () => {
       ],
     }]
     chatOptions.onFinish({ messages, isAbort: false, isError: false, isDisconnect: false })
-    expect(onChatStarted).toHaveBeenCalledWith('thread-1', 'new-task')
+    expect(onChatStarted).toHaveBeenCalledWith('thread-1', 'new-task', messages)
     expect(chatOptions.transport.prepareSendMessagesRequest({
       messages: [createTextMessage('Follow up', 'user', 'next-user')],
     }).body.taskId).toBe('new-task')
+  })
+
+  it('hands the complete first public-demo exchange back with its generated thread identity', () => {
+    const onChatStarted = vi.fn()
+    const digest = createTaskDataParts({
+      messageId: 'public-demo-' + LANDING_DEMO.id,
+      taskId: LANDING_DEMO.id,
+      status: 'completed',
+      progress: 100,
+      videoTitle: LANDING_DEMO.video_title,
+      videoUrl: LANDING_DEMO.video_url,
+      thumbnailUrl: LANDING_DEMO.thumbnail_url,
+    })
+    render(
+      <ChatContainer
+        activeTaskId={LANDING_DEMO.id}
+        threadId={null}
+        initialMessages={[digest]}
+        isAuthenticated
+        onChatStarted={onChatStarted}
+      />
+    )
+    const chatOptions = mockUseChat.mock.calls[0][0]
+    const finishedMessages = [
+      digest,
+      createTextMessage('How does the foundation preserve independence?', 'user', 'demo-question'),
+      createTextMessage('It keeps governance independent of any single company.', 'assistant', 'demo-answer'),
+    ]
+
+    act(() => {
+      chatOptions.onFinish({
+        messages: finishedMessages,
+        isAbort: false,
+        isError: false,
+        isDisconnect: false,
+      })
+    })
+
+    expect(chatOptions.id).toEqual(expect.any(String))
+    expect(onChatStarted).toHaveBeenCalledExactlyOnceWith(
+      chatOptions.id,
+      LANDING_DEMO.id,
+      finishedMessages,
+    )
+    expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith('task_create_accepted', expect.anything())
   })
 
   it.each(['isAbort', 'isError', 'isDisconnect'])('does not report a persisted chat after %s', flag => {

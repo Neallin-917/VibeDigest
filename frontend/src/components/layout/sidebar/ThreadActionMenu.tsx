@@ -33,7 +33,7 @@ export function ThreadActionMenu({
         <button
           type="button"
           aria-label={`Open thread actions for ${threadTitle}`}
-          className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-slate-200"
+          className="shrink-0 rounded-lg p-2 text-foreground-subtle transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           onClick={(event) => {
             event.stopPropagation()
           }}

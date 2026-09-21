@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useThreadsQuery } from "@/hooks/useThreadsQuery"
 import { useThreadNavigation } from "@/hooks/useThreadNavigation"
 import type { ChatExample } from "@/lib/chat-examples"
+import { useI18n } from "@/components/i18n/I18nProvider"
 
 function ChatPageContent({
     initialExamples,
@@ -17,26 +18,39 @@ function ChatPageContent({
     initialExamples: Promise<ChatExample[]> | null
     publicExample: ChatExample | null
 }) {
+    const { t } = useI18n()
     const { isAuthenticated } = useAuth()
-    const { threads, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery({
+    const { threads, status: threadsStatus, isFetching: isThreadsFetching, refetch: refetchThreads, updateThreadStatus } = useThreadsQuery({
         enabled: isAuthenticated === true,
     })
     const nav = useThreadNavigation({ threads, refetchThreads, publicExample })
+
+    const handleRetryThreads = () => {
+        if (nav.initializationError) {
+            nav.retryInitialization()
+            return
+        }
+        // The query retains its error and cached history if another attempt fails.
+        void refetchThreads().catch(() => {})
+    }
 
     const handleUpdateThreadStatus = async (threadId: string, status: 'active' | 'archived') => {
         try {
             await updateThreadStatus(threadId, status)
         } catch (error) {
             console.error('Failed to update thread status', error)
-            toast.error(status === 'archived' ? 'Failed to archive chat' : 'Failed to restore chat')
+            toast.error(status === 'archived' ? t('chat.errors.archive') : t('chat.errors.restore'))
         }
     }
 
     return (
         <AppSidebarProvider defaultCollapsed={true}>
-            <div className="h-screen w-full flex text-foreground overflow-hidden">
+            <div className="h-dvh w-full flex text-foreground overflow-hidden">
                 <AppSidebar
                     threads={threads}
+                    threadsStatus={threadsStatus}
+                    isThreadsFetching={isThreadsFetching}
+                    onRetryThreads={handleRetryThreads}
                     activeThreadId={nav.activeThreadId}
                     selectedThreadId={nav.selectedThreadId}
                     onNewChat={nav.handleNewChat}
@@ -50,6 +64,8 @@ function ChatPageContent({
                     selectedThreadId={nav.selectedThreadId}
                     activeTaskId={nav.activeTaskId}
                     isThreadSwitching={nav.isThreadSwitching || nav.isBootstrapping}
+                    historyLoadFailed={nav.initializationError}
+                    onRetryHistory={nav.retryInitialization}
                     switchingThreadTitle={nav.switchingThreadTitle}
                     taskSelectionNonce={nav.taskSelectionNonce}
                     initialMessages={nav.initialMessages}
@@ -61,6 +77,9 @@ function ChatPageContent({
                     onThreadCreated={refetchThreads}
                     onChatStarted={nav.handleChatStarted}
                     threads={threads}
+                    threadsStatus={threadsStatus}
+                    isThreadsFetching={isThreadsFetching}
+                    onRetryThreads={handleRetryThreads}
                     onUpdateThreadStatus={handleUpdateThreadStatus}
                     initialExamples={initialExamples}
                 />
@@ -77,7 +96,7 @@ export function ChatPageClient({
     publicExample?: ChatExample | null
 }) {
     return (
-        <Suspense fallback={<div className="h-screen w-full bg-background" />}>
+        <Suspense fallback={<div className="h-dvh w-full bg-background" />}>
             <ChatPageContent initialExamples={initialExamples} publicExample={publicExample} />
         </Suspense>
     )

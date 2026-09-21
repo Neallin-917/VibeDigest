@@ -16,6 +16,8 @@ interface ChatWorkspaceProps {
   selectedThreadId: string | null
   activeTaskId: string | null
   isThreadSwitching?: boolean
+  historyLoadFailed?: boolean
+  onRetryHistory?: () => void
   switchingThreadTitle?: string | null
   taskSelectionNonce?: number
   initialMessages: ChatUIMessage[]
@@ -25,8 +27,11 @@ interface ChatWorkspaceProps {
   onSelectTask: (taskId: string | null) => void
   onSelectExample?: (task: ChatExample) => void
   onThreadCreated?: () => void
-  onChatStarted?: (threadId: string, taskId?: string) => void
+  onChatStarted?: (threadId: string, taskId?: string, messages?: ChatUIMessage[]) => void
   threads?: Thread[]
+  threadsStatus?: 'pending' | 'success' | 'error'
+  isThreadsFetching?: boolean
+  onRetryThreads?: () => void
   onUpdateThreadStatus?: (threadId: string, status: 'active' | 'archived') => void | Promise<void>
   initialExamples?: Promise<ChatExample[]> | null
 }
@@ -37,6 +42,8 @@ export function ChatWorkspace({
   selectedThreadId,
   activeTaskId,
   isThreadSwitching = false,
+  historyLoadFailed = false,
+  onRetryHistory,
   switchingThreadTitle = null,
   initialMessages,
   isAuthenticated = null,
@@ -45,6 +52,9 @@ export function ChatWorkspace({
   onSelectExample,
   onChatStarted,
   threads,
+  threadsStatus,
+  isThreadsFetching,
+  onRetryThreads,
   onUpdateThreadStatus,
   initialExamples = null
 }: ChatWorkspaceProps) {
@@ -79,7 +89,7 @@ export function ChatWorkspace({
   }, [onSelectThread])
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col h-screen relative overflow-hidden bg-transparent">
+    <div className="flex-1 min-w-0 min-h-0 flex flex-col h-full relative overflow-hidden bg-transparent">
       {/* Background Blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none dark:hidden -z-10">
         <div className="blob blob-1"></div>
@@ -95,16 +105,32 @@ export function ChatWorkspace({
         onNewChat={handleMobileNewChat}
         onOpenLibrary={handleOpenLibrary}
         threads={threads}
+        threadsStatus={threadsStatus}
+        isThreadsFetching={isThreadsFetching}
+        onRetryThreads={onRetryThreads}
         activeThreadId={activeThreadId}
         selectedThreadId={selectedThreadId}
         onSelectThread={handleSelectMobileThread}
         onUpdateThreadStatus={onUpdateThreadStatus}
       />
 
-      <main className="relative flex-1 min-w-0 flex m-3 lg:m-4 overflow-hidden">
+      <main className="relative flex-1 min-w-0 min-h-0 flex m-3 lg:m-4 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0 glass-panel relative z-10">
           <div className="flex-1 flex flex-col min-w-0 min-h-0 relative h-full">
-            <ChatContainer
+            {historyLoadFailed ? (
+              <div className="flex flex-1 items-center justify-center px-4">
+                <div className="flex flex-wrap items-center justify-center gap-3 text-sm" role="alert">
+                  <span className="text-destructive">{t('chat.errors.historyLoad')}</span>
+                  <button
+                    type="button"
+                    onClick={onRetryHistory}
+                    className="rounded-md px-2 py-1 font-medium underline underline-offset-4 hover:text-primary"
+                  >
+                    {t('common.retry')}
+                  </button>
+                </div>
+              </div>
+            ) : <ChatContainer
               // Key ensures complete remount when switching threads to reset useChat state completely
               key={activeThreadId || 'new-chat'}
               threadId={activeThreadId}
@@ -115,17 +141,17 @@ export function ChatWorkspace({
               onSelectExample={onSelectExample}
               onChatStarted={onChatStarted}
               initialExamples={initialExamples}
-            />
+            />}
           </div>
         </div>
 
         {isThreadSwitching && (
           <div
             aria-label={switchingStatus}
-            className="absolute inset-0 z-30 flex items-center justify-center bg-white/32 dark:bg-black/24 backdrop-blur-[2px] transition-opacity duration-150"
+            className="absolute inset-0 z-30 flex items-center justify-center bg-background/35 backdrop-blur-[2px] transition-opacity duration-150"
           >
-            <div className="pointer-events-none inline-flex items-center gap-2 rounded-full border border-white/60 dark:border-white/10 bg-white/82 dark:bg-zinc-900/82 px-3 py-1.5 text-sm text-slate-600 dark:text-zinc-300 shadow-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-zinc-500" />
+            <div className="pointer-events-none inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
+              <Loader2 className="h-4 w-4 animate-spin text-processing" />
               <span className="max-w-[min(20rem,calc(100vw-7rem))] truncate">{switchingStatus}</span>
             </div>
           </div>

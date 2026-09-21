@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
+import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
 
@@ -15,6 +16,7 @@ interface ChatInputProps {
   onStop?: () => void
   isLoading?: boolean
   error?: string
+  onInputChange?: (text: string) => void
   disabled?: boolean
   /** Override guidance for contexts that only accept a URL. */
   placeholder?: string
@@ -22,18 +24,31 @@ interface ChatInputProps {
   inputLabel?: string
   /** 
    * Layout variant:
-   * - "floating": Absolute positioned at bottom (default, for chat mode)
+   * - "floating": Bottom composer in the chat flex layout (default)
    * - "inline": Normal block element (for welcome screen)
+   * - "embedded": Full reading-column width (for source follow-up)
    */
-  variant?: "floating" | "inline"
+  variant?: "floating" | "inline" | "embedded"
   /** Hide disclaimer text */
   hideDisclaimer?: boolean
 }
+
+const inputWidthVariants = cva("w-full", {
+  variants: {
+    variant: {
+      floating: "max-w-3xl",
+      inline: "max-w-2xl",
+      embedded: "max-w-none",
+    },
+  },
+})
 
 export function ChatInput({ 
   onSubmit, 
   onStop,
   isLoading, 
+  error,
+  onInputChange,
   disabled, 
   placeholder,
   inputLabel,
@@ -43,6 +58,8 @@ export function ChatInput({
   const [input, setInput] = useState('')
   const [isFocused, setIsFocused] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const errorId = useId()
   const { t } = useI18n()
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -58,6 +75,8 @@ export function ChatInput({
         setInput(currentInput =>
           currentInput === submittedInput ? '' : currentInput
         )
+      } else {
+        inputRef.current?.focus()
       }
     } finally {
       setIsSubmitting(false)
@@ -77,27 +96,34 @@ export function ChatInput({
     <div className={cn(
       "flex justify-center",
       isFloating 
-        ? "absolute bottom-3 md:bottom-6 left-3 md:left-6 right-3 md:right-6 z-20" 
+        ? "relative px-3 pb-3 md:px-6 md:pb-6 z-20"
         : "w-full"
     )}>
-      <div className={cn("w-full", isFloating ? "max-w-3xl" : "max-w-2xl")}>
+      <div className={inputWidthVariants({ variant })}>
         <form
           onSubmit={handleSubmit}
           className={cn(
-            "relative rounded-[2rem] p-2 pl-6 flex items-center gap-3 ring-1 transition-all duration-300",
-            "bg-card/80 ring-border shadow-[0_8px_40px_-12px_rgba(40,55,44,0.12)]",
+            "relative p-2 pl-6 flex items-center gap-3 ring-1 motion-safe:transition-all motion-safe:duration-300",
+            variant === "embedded" ? "rounded-2xl" : "rounded-[2rem]",
+            "bg-card/80 ring-border shadow-[var(--shadow-soft)]",
             
             // Focus State - Soft Glow
-            isFocused && "ring-primary/35 shadow-[0_0_0_4px_rgba(70,108,80,0.1)]"
+            isFocused && "ring-primary/35 shadow-[var(--shadow-focus)]"
           )}
         >
           <div className="flex-1 min-w-0">
             <input
+              ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value)
+                onInputChange?.(e.target.value)
+              }}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               aria-label={inputLabel ?? t('chat.inputLabel')}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
               data-testid="chat-input"
               className={cn(
                 "w-full border-none bg-transparent text-foreground focus:outline-none focus:ring-0",
@@ -118,7 +144,7 @@ export function ChatInput({
               isStopMode
                 ? "bg-foreground text-primary-foreground hover:bg-foreground-soft"
                 : (input.trim() && !isLoading && !disabled
-                  ? "bg-primary-strong text-primary-foreground shadow-[0_8px_18px_-10px_rgba(54,90,64,0.55)] hover:bg-primary"
+                  ? "bg-primary-strong text-primary-foreground shadow-[var(--shadow-action)] hover:bg-primary"
                   : "cursor-not-allowed bg-muted/70 text-foreground-subtle shadow-none")
             )}
             aria-label={isStopMode ? t('chat.stopGeneration') : t('chat.sendMessage')}
@@ -132,6 +158,12 @@ export function ChatInput({
             </div>
           </button>
         </form>
+
+        {error && (
+          <p id={errorId} role="alert" className="mt-2 px-4 text-sm leading-5 text-destructive">
+            {error}
+          </p>
+        )}
 
         {/* Disclaimer - hidden on mobile for more space */}
         {!hideDisclaimer && (

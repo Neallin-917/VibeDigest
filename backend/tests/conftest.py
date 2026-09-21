@@ -90,6 +90,15 @@ def test_db(postgres_container):
         / "20260101000000_cloud_schema_baseline.sql"
     )
     baseline_sql = baseline_path.read_text()
+    # These DBClient tests need profile schema evolution without queue functions.
+    # The PGMQ suite applies full migrations in a separate database.
+    profile_schema_sql = "\n".join(
+        (baseline_path.parent / name).read_text().split("create or replace function", 1)[0]
+        for name in (
+            "20260807103235_enforce_authenticated_task_quota.sql",
+            "20260919171942_fix_subscription_quota_lifecycle.sql",
+        )
+    )
 
     platform_sql = """
     DROP TABLE IF EXISTS public.chat_messages CASCADE;
@@ -161,6 +170,7 @@ def test_db(postgres_container):
     with engine.begin() as conn:
         conn.exec_driver_sql(platform_sql)
         conn.exec_driver_sql(baseline_sql)
+        conn.exec_driver_sql(profile_schema_sql)
         conn.exec_driver_sql(fixture_data_sql)
 
     return db_url

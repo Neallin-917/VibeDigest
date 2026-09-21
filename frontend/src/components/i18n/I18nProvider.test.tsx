@@ -35,4 +35,13 @@ describe("I18nProvider", () => {
     expect(window.localStorage.getItem("vd.locale")).toBe("zh")
     expect(document.cookie).toContain("vd_locale=zh")
   })
+
+  it("switches the saved login destination along with the page", () => {
+    window.history.replaceState({}, '', '/en/login?next=%2Fen%2Fchat%3Ftask%3Dtask-1%23answer')
+    render(<I18nProvider locale="en" messages={{}}><LocaleSwitch /></I18nProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Switch language' }))
+    const target = new URL(navigation.replace.mock.calls[0][0], 'https://vibedigest.io')
+    expect(target.pathname).toBe('/zh/login')
+    expect(target.searchParams.get('next')).toBe('/zh/chat?task=task-1#answer')
+  })
 })

@@ -350,7 +350,7 @@ export function normalizeSummaryLanguageTag(language?: string | null) {
 
 export function resolveSummaryLocale(language?: string | null): Locale | null {
   const baseLanguage = normalizeSummaryLanguageTag(language)?.split('-')[0]
-  return baseLanguage === 'en' || baseLanguage === 'zh' || baseLanguage === 'ja'
+  return baseLanguage === 'en' || baseLanguage === 'zh'
     ? baseLanguage
     : null
 }
@@ -372,17 +372,29 @@ function resolvePublicOutputLocale<T extends SummaryOutputCandidate>(
   const contentLanguage = normalizeSummaryLanguageTag(summary.language)
   if (contentLanguage) return resolveSummaryLocale(contentLanguage)
 
-  const explicitLocale = resolveSummaryLocale(output.locale)
-  if (explicitLocale) return explicitLocale
+  if (output.locale?.trim()) return resolveSummaryLocale(output.locale)
 
   return resolveSummaryLocale(projectedLanguage)
 }
 
-const PUBLIC_LOCALE_PRIORITY: Locale[] = ["en", "zh", "ja"]
+const PUBLIC_LOCALE_PRIORITY: Locale[] = ["en", "zh"]
 
 function sortPublicLocales(locales: Iterable<Locale>) {
   const localeSet = new Set(locales)
   return PUBLIC_LOCALE_PRIORITY.filter((locale) => localeSet.has(locale))
+}
+
+function filterPublishedLocales(locales: Locale[], projectedAvailableLanguages?: unknown) {
+  if (projectedAvailableLanguages === undefined) return locales
+  const publishedLocales = new Set(
+    Array.isArray(projectedAvailableLanguages)
+      ? projectedAvailableLanguages.flatMap((language) => {
+          const locale = typeof language === 'string' ? resolveSummaryLocale(language) : null
+          return locale ? [locale] : []
+        })
+      : []
+  )
+  return locales.filter((locale) => publishedLocales.has(locale))
 }
 
 export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(
@@ -426,16 +438,12 @@ export function pickPreferredSummaryOutput<T extends SummaryOutputCandidate>(
 
 export function listPublicSummaryLocales<T extends PublicSummaryLocaleCandidate>(
   outputs: T[],
-  projectedLanguage?: string | null
+  projectedLanguage?: string | null,
+  projectedAvailableLanguages?: unknown
 ): Locale[] {
   const completedSummaries = outputs.filter(
     (output) => output.kind === "summary" && output.status === "completed"
   )
-  const normalizedProjectedLanguage = normalizeSummaryLanguageTag(projectedLanguage)
-  const projectedLocale = resolveSummaryLocale(projectedLanguage)
-  if (projectedLocale && completedSummaries.length > 0) return [projectedLocale]
-  if (normalizedProjectedLanguage) return []
-
   const locales = new Set<Locale>()
 
   for (const output of completedSummaries) {
@@ -446,17 +454,24 @@ export function listPublicSummaryLocales<T extends PublicSummaryLocaleCandidate>
     if (locale) locales.add(locale)
   }
 
-  return sortPublicLocales(locales)
+  if (completedSummaries.some((output) => !output.locale?.trim())) {
+    const projectedLocale = resolveSummaryLocale(projectedLanguage)
+    if (projectedLocale && completedSummaries.length > 0) locales.add(projectedLocale)
+  }
+
+  return filterPublishedLocales(sortPublicLocales(locales), projectedAvailableLanguages)
 }
 
 export function matchPublicSummaryOutput<T extends SummaryOutputCandidate>(
   outputs: T[],
   routeLocale: Locale,
-  projectedLanguage?: string | null
+  projectedLanguage?: string | null,
+  projectedAvailableLanguages?: unknown
 ): PublicSummaryMatch<T> {
   const validOutputs = outputs.flatMap((output) => {
     const parsed = parseValidSummaryOutput(output)
     if (!parsed) return []
+    if (projectedAvailableLanguages !== undefined && !resolveSummaryLocale(parsed.summary.language)) return []
 
     return [{
       ...parsed,
@@ -464,19 +479,14 @@ export function matchPublicSummaryOutput<T extends SummaryOutputCandidate>(
     }]
   })
 
-  const normalizedProjectedLanguage = normalizeSummaryLanguageTag(projectedLanguage)
-  const projectedLocale = resolveSummaryLocale(projectedLanguage)
-  const eligibleOutputs = projectedLocale
-    ? validOutputs.filter((item) => item.summaryLocale === projectedLocale)
-    : normalizedProjectedLanguage
-      ? []
-      : validOutputs
-
-  const availableLocales = sortPublicLocales(
-    eligibleOutputs.flatMap((item) => item.summaryLocale ? [item.summaryLocale] : [])
+  const availableLocales = filterPublishedLocales(
+    sortPublicLocales(validOutputs.flatMap((item) => item.summaryLocale ? [item.summaryLocale] : [])),
+    projectedAvailableLanguages
   )
 
-  const matched = eligibleOutputs.find((item) => item.summaryLocale === routeLocale)
+  const matched = availableLocales.includes(routeLocale)
+    ? validOutputs.find((item) => item.summaryLocale === routeLocale)
+    : undefined
 
   if (matched) {
     return {
@@ -510,17 +520,11 @@ const SUMMARY_MARKDOWN_COPY = {
     inBrief: '内容摘要', overview: '内容概览', keyPoints: '关键观点', sections: '更多内容',
     whyItMatters: '为什么重要', evidence: '原文证据',
   },
-  ja: {
-    inBrief: '要点', overview: '概要', keyPoints: '重要ポイント', sections: 'その他の内容',
-    whyItMatters: '重要な理由', evidence: '根拠',
-  },
 } as const
 
 function summaryMarkdownCopy(locale?: string | null) {
   const language = normalizeLocale(locale).split('-')[0]
-  return language === 'zh' || language === 'ja'
-    ? SUMMARY_MARKDOWN_COPY[language]
-    : SUMMARY_MARKDOWN_COPY.en
+  return language === 'zh' ? SUMMARY_MARKDOWN_COPY.zh : SUMMARY_MARKDOWN_COPY.en
 }
 
 export function buildSummaryMarkdown(summary: CurrentSummary, locale?: string | null): string {

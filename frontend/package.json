@@ -6,12 +6,14 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "models:sync": "node ../scripts/sync-llm-provider-defaults.mjs",
+    "models:check": "node ../scripts/sync-llm-provider-defaults.mjs --check",
     "catalog:sync": "node ../scripts/sync-customer-plan-catalog.mjs",
     "catalog:check": "node ../scripts/sync-customer-plan-catalog.mjs --check",
-    "prebuild": "npm run catalog:check",
-    "prelint": "npm run catalog:check",
-    "pretest": "npm run catalog:check",
-    "pretest:cov": "npm run catalog:check",
+    "prebuild": "npm run catalog:check && npm run models:check",
+    "prelint": "npm run catalog:check && npm run models:check",
+    "pretest": "npm run catalog:check && npm run models:check",
+    "pretest:cov": "npm run catalog:check && npm run models:check",
     "dev": "cd .. && uv run python scripts/workspace_dev.py",
     "dev:test": "NEXT_PUBLIC_E2E_MOCK=1 NEXT_DIST_DIR=.next-test next dev -p 3001",
     "demo:chat": "NEXT_PUBLIC_E2E_MOCK=1 NEXT_PUBLIC_LOCAL_DEMO=1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-demo BACKEND_API_URL=http://127.0.0.1:16081 NEXT_DIST_DIR=.next-demo next dev -p 3002",
@@ -20,7 +22,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "test:cov": "vitest run --coverage"
+    "test:cov": "vitest run --coverage",
+    "test:artifact": "node ../scripts/check-agent-artifact.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.50",

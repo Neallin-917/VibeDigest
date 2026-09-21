@@ -1,7 +1,9 @@
 
 import { createClient } from "@/lib/supabase-server";
 import { redirect, notFound } from "next/navigation";
-import { buildTaskSlug } from "@/lib/task-path";
+import { buildTaskPath } from "@/lib/task-path";
+import { buildTaskReturnSuffix, type TaskReturnState } from "@/lib/task-navigation";
+import { isLocale } from "@/lib/i18n";
 
 // Only need ID for this redirect page
 type Props = {
@@ -9,6 +11,7 @@ type Props = {
         lang: string;
         id: string;
     }>
+    searchParams: Promise<TaskReturnState>
 }
 
 async function getTask(id: string) {
@@ -30,6 +33,7 @@ export default async function TaskRedirectPage(props: Props) {
         notFound()
     }
 
-    const slug = buildTaskSlug(task.video_title);
-    redirect(`/${lang}/tasks/${id}/${slug}`);
+    const returnState = await props.searchParams;
+    const locale = isLocale(lang) ? lang : "en";
+    redirect(`/${lang}${buildTaskPath({ ...task, id })}${buildTaskReturnSuffix(returnState, locale)}`);
 }

@@ -32,6 +32,9 @@
   --border-strong: #bbc6b8;
   --input: #c8cec4;
   --ring: rgb(70 108 80 / 0.28);
+  --shadow-soft: 0 8px 40px -12px rgb(40 55 44 / 0.12);
+  --shadow-focus: 0 0 0 4px rgb(70 108 80 / 0.1);
+  --shadow-action: 0 8px 18px -10px rgb(54 90 64 / 0.55);
 
   /* Surface roles replace one-off ivory and sage values in components. */
   --surface: #f8f7f2;
@@ -99,7 +102,7 @@ body {
   left: -10%;
   width: 50vw;
   height: 50vw;
-  background: #f8fafc; /* Very subtle slate */
+  background: var(--surface);
 }
 
 .blob-2 {
@@ -107,7 +110,7 @@ body {
   right: -10%;
   width: 45vw;
   height: 45vw;
-  background: #f0fdf4; /* Very subtle emerald tint */
+  background: var(--surface-subtle);
   animation-delay: -5s;
   animation-direction: reverse;
 }
@@ -117,7 +120,7 @@ body {
   left: 40%;
   width: 35vw;
   height: 35vw;
-  background: #f0f9ff; /* Very subtle blue tint */
+  background: var(--surface-tint);
   animation-delay: -10s;
 }
 
@@ -204,6 +207,27 @@ body {
 }
 
 @layer utilities {
+  .prose-vibedigest {
+    --tw-prose-body: var(--foreground);
+    --tw-prose-headings: var(--foreground);
+    --tw-prose-lead: var(--foreground-soft);
+    --tw-prose-links: var(--primary-strong);
+    --tw-prose-bold: var(--foreground);
+    --tw-prose-counters: var(--foreground-subtle);
+    --tw-prose-bullets: var(--primary-muted);
+    --tw-prose-hr: var(--border);
+    --tw-prose-quotes: var(--foreground-soft);
+    --tw-prose-quote-borders: var(--border-strong);
+    --tw-prose-captions: var(--foreground-subtle);
+    --tw-prose-kbd: var(--foreground);
+    --tw-prose-kbd-shadows: 27 33 28;
+    --tw-prose-code: var(--primary-strong);
+    --tw-prose-pre-code: var(--primary-foreground);
+    --tw-prose-pre-bg: var(--foreground);
+    --tw-prose-th-borders: var(--border-strong);
+    --tw-prose-td-borders: var(--border);
+  }
+
   .font-display {
     font-family: var(--font-display);
   }
@@ -224,8 +248,7 @@ body {
   /* Premium Panel: Floating effect */
   .glass-panel {
     @apply rounded-[2.5rem] overflow-hidden;
-    /* Warm ivory glass for the single product theme */
-    @apply bg-white/40 backdrop-blur-2xl border border-white/40 shadow-sm ring-1 ring-white/60;
+    @apply bg-card/60 backdrop-blur-2xl border border-surface-raised/80 shadow-sm ring-1 ring-border/40;
 
     transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
   }

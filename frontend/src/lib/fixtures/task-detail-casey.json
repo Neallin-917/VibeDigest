@@ -1,0 +1,25 @@
+{
+  "keypoints": [
+    {
+      "detail": "Muratori rejects optimization by profile-driven trial and error as an incomplete method. Engineers should first enumerate the required operations, estimate the hardware's theoretical capability, and compare that ceiling with observed performance. The unexplained gap identifies where investigation is needed and can expose unexpected hardware behavior. Without such a reference point, improvements may merely settle into a local minimum.",
+      "evidence": "The correct way to do optimization is very much like what you just said: you first go what are the operations that this system has to perform. What is the underlying hardware capable of doing at its theoretical peak? And then you measure the delta between that theoretical maximum and what you have achieved.",
+      "title": "Optimization Starts With a Theoretical Budget",
+      "why_it_matters": "A performance budget distinguishes meaningful optimization from incremental tuning and helps teams recognize when measurements or assumptions are fundamentally wrong."
+    },
+    {
+      "detail": "Performance cannot always be repaired by replacing a slow loop or data structure. Muratori's example is an application built around repeated request-process-request sequences, creating a serial dependency chain throughout the codebase. Because each operation waits for the previous one, neither threading nor local hotspot tuning can recover the lost time. Fixing it may require restructuring or rewriting the entire system.",
+      "evidence": "Your codebase will not end up that way by accident in most cases anymore. You have to engineer upfront for a hotspot codebase that people can then optimize.",
+      "title": "Architecture Determines Whether Optimization Remains Possible",
+      "why_it_matters": "Architects must understand performance well enough to avoid pervasive dependencies and preserve opportunities for batching, parallelism, and later optimization."
+    },
+    {
+      "detail": "High-level source code is input to a compiler rather than a direct account of execution. Reading compiler-generated assembly lets engineers inspect what the CPU is actually being asked to do. Muratori stresses that writing assembly is rarely necessary, while reading a small, commonly emitted subset is highly valuable. This knowledge also makes processor diagrams, throughput limits, and compiler behavior more intelligible.",
+      "evidence": "Writing it, no; reading it, essential.",
+      "title": "Assembly Literacy Reveals the CPU's Actual Work",
+      "why_it_matters": "Assembly provides a practical bridge between source-level choices and machine-level costs without requiring engineers to become specialist assembly programmers."
+    }
+  ],
+  "summary": "Casey Muratori argues that performance must be designed into software architecture by comparing actual behavior with hardware limits, not postponed as hotspot cleanup. He also connects accessible game engines and AI coding tools to lower production barriers, market saturation, changing craftsmanship, and the growing importance of developer autonomy.",
+  "thumbnail": "https://i.ytimg.com/vi/8xBJPa_480Q/maxresdefault.jpg",
+  "title": "Why performant code matters (but gets widely ignored), with Casey Muratori"
+}

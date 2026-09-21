@@ -7,19 +7,14 @@ import { isLocalUiDemo } from '@/lib/local-ui-demo'
 type MutableThreadStatus = 'active' | 'archived'
 
 async function fetchThreads(): Promise<Thread[]> {
-    try {
-        const res = await fetch('/api/threads')
-        if (res.status === 401) {
-            return []
-        }
-        if (res.ok) {
-            const data = await res.json()
-            return Array.isArray(data) ? data : []
-        }
-    } catch (error) {
-        console.error('Failed to fetch threads', error)
+    const res = await fetch('/api/threads')
+    if (!res.ok) {
+        throw new Error(`Failed to fetch threads: ${res.status}`)
     }
-    return []
+
+    const data: unknown = await res.json()
+    if (!Array.isArray(data)) throw new Error('Invalid thread history response')
+    return data as Thread[]
 }
 
 async function patchThreadStatus(threadId: string, status: MutableThreadStatus): Promise<Thread> {
@@ -56,7 +51,7 @@ export function useThreadsQuery({ enabled = true }: { enabled?: boolean } = {}) 
     const queryClient = useQueryClient()
     const isDemo = isLocalUiDemo()
 
-    const { data: threads = [], isLoading } = useQuery({
+    const { data: threads = [], isLoading, isFetching, status } = useQuery({
         queryKey: threadKeys.all,
         queryFn: fetchThreads,
         enabled: !isDemo && enabled,
@@ -93,5 +88,5 @@ export function useThreadsQuery({ enabled = true }: { enabled?: boolean } = {}) 
         return updatedThread
     }, [queryClient])
 
-    return { threads, isLoading, refetch, updateThreadStatus }
+    return { threads, isLoading, isFetching, status, refetch, updateThreadStatus }
 }

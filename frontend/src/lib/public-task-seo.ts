@@ -52,12 +52,6 @@ const META_COPY: Record<Locale, {
       `阅读${source ? `${source}《` : "《"}${title}》的内容摘要、关键观点和支撑证据。`,
     alternativeDescription: (language) => `该整理当前提供${language}版本。`,
   },
-  ja: {
-    title: (title) => `「${title}」の要約と重要ポイント`,
-    fallbackDescription: (title, source) =>
-      `${source ? `${source}「` : "「"}${title}」の要約、重要ポイント、根拠を読む。`,
-    alternativeDescription: (language) => `この整理は現在${language}で読めます。`,
-  },
 }
 
 export function buildPublicTaskPath(task: Pick<PublicTaskSeoRecord, "id" | "video_title">) {

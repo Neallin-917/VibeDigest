@@ -78,7 +78,7 @@ export function UserAvatarDropdown({
           <button 
             aria-label={t('chat.moreOptionsHint')}
             className={cn(
-              "flex items-center justify-center rounded-full border-2 border-white bg-gradient-to-tr from-emerald-600 to-teal-600 font-bold text-white shadow-sm transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
+              "flex items-center justify-center rounded-full border-2 border-primary-foreground/80 bg-primary font-bold text-primary-foreground shadow-sm transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring",
               avatarSize,
               className
             )}
@@ -93,11 +93,11 @@ export function UserAvatarDropdown({
           sideOffset={8}
         >
           {/* User Info */}
-          <div className="border-b border-slate-200 px-3 py-2">
+          <div className="border-b border-border px-3 py-2">
             <p className="text-sm font-medium truncate">
               {userEmail?.split('@')[0] || "User"}
             </p>
-            <p className="truncate text-xs text-slate-500">{userEmail}</p>
+            <p className="truncate text-xs text-foreground-subtle">{userEmail}</p>
           </div>
 
           {/* Settings */}
@@ -132,7 +132,7 @@ export function UserAvatarDropdown({
           {/* Logout */}
           <DropdownMenuItem
             onClick={handleLogout}
-            className="cursor-pointer text-red-500 focus:text-red-500"
+            className="cursor-pointer text-destructive focus:text-destructive"
           >
             <LogOut className="mr-2 h-4 w-4" />
             {t('auth.logout')}

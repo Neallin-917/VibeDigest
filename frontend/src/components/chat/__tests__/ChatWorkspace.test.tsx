@@ -20,17 +20,24 @@ vi.mock('../ChatContainer', () => ({
 }))
 
 vi.mock('../MobileMenuDrawer', () => ({
-  MobileMenuDrawer: ({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (value: boolean) => void }) => (
-    <div data-testid="mobile-menu" data-open={isOpen}>
+  MobileMenuDrawer: ({ isOpen, onOpenChange, threadsStatus, isThreadsFetching, onRetryThreads }: {
+    isOpen: boolean; onOpenChange: (value: boolean) => void
+    threadsStatus?: string; isThreadsFetching?: boolean; onRetryThreads?: () => void
+  }) => (
+    <div data-testid="mobile-menu" data-open={isOpen} data-history-status={threadsStatus}>
       <button onClick={() => onOpenChange(false)}>Close menu</button>
+      <button onClick={onRetryThreads} disabled={isThreadsFetching}>Retry list</button>
     </div>
   ),
 }))
 
 vi.mock('@/components/i18n/I18nProvider', () => ({
   useI18n: () => ({
-    t: (key: string, values?: Record<string, string>) =>
-      key === 'chat.openingThread' ? `Opening ${values?.title}` : 'Opening chat...',
+    t: (key: string, values?: Record<string, string>) => {
+      if (key === 'chat.openingThread') return `Opening ${values?.title}`
+      if (key === 'chat.openingChat') return 'Opening chat...'
+      return key
+    },
     locale: 'en',
   }),
 }))
@@ -80,5 +87,26 @@ describe('ChatWorkspace', () => {
     fireEvent.click(screen.getByText('Menu'))
     expect(screen.getByTestId('mobile-menu')).toHaveAttribute('data-open', 'true')
     expect(screen.queryByTestId('sheet')).not.toBeInTheDocument()
+  })
+
+  it('replaces an unavailable restored conversation with a retry action', () => {
+    const retry = vi.fn()
+    render(<ChatWorkspace {...defaultProps} historyLoadFailed onRetryHistory={retry} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('chat.errors.historyLoad')
+    expect(screen.queryByTestId('chat-container')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }))
+    expect(retry).toHaveBeenCalledOnce()
+  })
+
+  it('passes history error and retry state through to mobile navigation', () => {
+    const retry = vi.fn()
+    const { rerender } = render(
+      <ChatWorkspace {...defaultProps} threadsStatus="error" onRetryThreads={retry} />
+    )
+    expect(screen.getByTestId('mobile-menu')).toHaveAttribute('data-history-status', 'error')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry list' }))
+    expect(retry).toHaveBeenCalledOnce()
+    rerender(<ChatWorkspace {...defaultProps} threadsStatus="error" isThreadsFetching onRetryThreads={retry} />)
+    expect(screen.getByRole('button', { name: 'Retry list' })).toBeDisabled()
   })
 })

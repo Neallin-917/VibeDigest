@@ -398,9 +398,10 @@ async def test_build_agent_worker_creates_local_queue_only_for_local_runtime(
     assert local_api_worker is not None
     assert local_api_worker.runtime == "api"
     assert local_api_worker.queue.queue_name == "agent_answers_local_fixture_api"
-    db._execute_query.assert_called_once_with(
-        "SELECT pgmq.create(:name)", {"name": "agent_answers_local_fixture_api"}
-    )
+    query, params = db._execute_query.call_args.args
+    assert "WHERE NOT EXISTS" in query
+    assert "FROM pgmq.list_queues()" in query
+    assert params == {"name": "agent_answers_local_fixture_api"}
 
     db.reset_mock()
     monkeypatch.setenv("AGENT_CONTINUATION_RUNTIME", "codex_local")
@@ -410,9 +411,10 @@ async def test_build_agent_worker_creates_local_queue_only_for_local_runtime(
     assert local_worker.runtime == "codex_local"
     assert local_worker.queue.queue_name == "agent_answers_local_fixture"
     assert local_worker.profile.name == WorkerProfile.HOSTED_API
-    db._execute_query.assert_called_once_with(
-        "SELECT pgmq.create(:name)", {"name": "agent_answers_local_fixture"}
-    )
+    query, params = db._execute_query.call_args.args
+    assert "WHERE NOT EXISTS" in query
+    assert "FROM pgmq.list_queues()" in query
+    assert params == {"name": "agent_answers_local_fixture"}
 
 
 def stop_serve_after_first_polls(

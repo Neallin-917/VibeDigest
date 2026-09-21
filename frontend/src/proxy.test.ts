@@ -131,6 +131,8 @@ describe('proxy', () => {
 
             expect(response.status).toBe(200)
             expect(mockUpdateSession).not.toHaveBeenCalled()
+            expect(response.headers.get('x-middleware-request-x-vd-locale')).toBe('zh')
+            expect(response.headers.get('x-vd-locale')).toBeNull()
         })
 
         it('should redirect a non-localized chat page without calling updateSession', async () => {
@@ -156,11 +158,36 @@ describe('proxy', () => {
     })
 
     describe('i18n routing — non-locale paths redirect', () => {
+        it.each(['/ja/privacy?ref=legacy', '/ja/tasks/id/Dr.-Example?ref=legacy'])('redirects retired route %s including dotted slugs', async (path) => {
+            const response = await proxy(makeRequest(path))
+
+            expect(response.status).toBe(308)
+            expect(response.headers.get('location')).toBe('http://localhost:3000' + path.replace('/ja/', '/en/'))
+            expect(mockUpdateSession).not.toHaveBeenCalled()
+        })
+
         it('should redirect non-locale paths to detected locale', async () => {
             const response = await proxy(makeRequest('/history'))
             expect(response.status).toBe(307)
             expect(response.headers.get('location')).toContain('/en/history')
             expect(mockUpdateSession).toHaveBeenCalled()
+        })
+
+        it('passes the normalized locale internally without exposing it', async () => {
+            const response = await proxy(makeRequest('/zh/privacy', {
+                headers: { 'x-vd-locale': 'en' },
+            }))
+            const localeHeaders = mockUpdateSession.mock.calls[0]?.[1] as Headers
+
+            expect(localeHeaders.get('x-vd-locale')).toBe('zh')
+            expect(response.headers.get('x-vd-locale')).toBeNull()
+        })
+
+        it('uses the default locale internally for an unsupported prefix', async () => {
+            await proxy(makeRequest('/fr/privacy'))
+            const localeHeaders = mockUpdateSession.mock.calls[0]?.[1] as Headers
+
+            expect(localeHeaders.get('x-vd-locale')).toBe('en')
         })
     })
 
@@ -171,9 +198,11 @@ describe('proxy', () => {
                 user: null,
                 supabase: {}
             })
-            const response = await proxy(makeRequest('/en/history'))
+            const response = await proxy(makeRequest('/en/settings/pricing?plan=pro'))
             expect(response.status).toBe(307)
-            expect(response.headers.get('location')).toContain('/en/login')
+            const login = new URL(response.headers.get('location')!)
+            expect(login.pathname).toBe('/en/login')
+            expect(login.searchParams.get('next')).toBe('/en/settings/pricing?plan=pro')
         })
 
         it('should allow access if user is present', async () => {

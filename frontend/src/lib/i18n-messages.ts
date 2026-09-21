@@ -1,11 +1,20 @@
 import type { Locale, Messages } from "@/lib/i18n"
 
-export const messages: Record<Locale, Messages> = {
-  en: {
+type MessageShape<T> = {
+  [K in keyof T]: T[K] extends string ? string : MessageShape<T[K]>
+}
+
+const enMessages = {
     brand: {
       name: "VibeDigest",
       appName: "VibeDigest",
       versionTag: "VibeDigest v3.0",
+    },
+    common: {
+      close: "Close",
+      language: "Language",
+      untitled: "Untitled",
+      delete: "Delete",
     },
     nav: {
       newTask: "New",
@@ -18,6 +27,61 @@ export const messages: Record<Locale, Messages> = {
       showSidebar: "Show sidebar",
       hideSidebar: "Hide sidebar",
       backToHome: "Home",
+      goHome: "Go to home",
+      toggleSidebar: "Toggle sidebar",
+      toggleArchivedChats: "Toggle archived chats",
+    },
+    metadata: {
+      chat: {
+        title: "Chat",
+        description: "Ask VibeDigest to process a source or answer questions grounded in it.",
+      },
+      login: {
+        title: "Sign in",
+        description: "Sign in to continue with VibeDigest.",
+      },
+    },
+    errorBoundary: {
+      eyebrow: "Error",
+      title: "Something went wrong",
+      description: "Try again or return home.",
+      retry: "Try again",
+      home: "Home",
+    },
+    notFound: {
+      title: "Page not found",
+      description: "The page you requested does not exist.",
+      home: "Home",
+    },
+    privacy: {
+      title: "Privacy Policy",
+      introduction: 'This Privacy Policy describes how VibeDigest ("we", "us", or "our") collects, uses, and discloses your personal information when you use our website and services.',
+      collection: {
+        title: "1. Information We Collect",
+        description: "We collect information you provide directly to us, including:",
+        email: "Email address",
+        name: "Name (if provided through social login)",
+        avatar: "Profile picture (if provided through social login)",
+      },
+      use: {
+        title: "2. How We Use Your Information",
+        description: "We use the information we collect to:",
+        service: "Provide, maintain, and improve our services",
+        authentication: "Authenticate your identity",
+        notices: "Send technical notices and support messages",
+      },
+      security: {
+        title: "3. Data Security",
+        description: "We use reasonable safeguards to protect your personal information. Authentication and data storage are provided by Supabase, which applies industry-standard security practices.",
+      },
+      contact: {
+        title: "4. Contact Us",
+        description: "If you have questions about this Privacy Policy, please contact us.",
+      },
+      metadata: {
+        title: "Privacy Policy",
+        description: "Learn how VibeDigest collects, uses, and protects your personal information.",
+      },
     },
     auth: {
       welcomeBack: "Sign in",
@@ -61,6 +125,8 @@ export const messages: Record<Locale, Messages> = {
         invalidCredentials: "Invalid login credentials",
         userAlreadyRegistered: "User already registered",
         weakPassword: "Password should be at least 6 characters",
+        callbackFailed: "Sign-in could not be completed. Please try again.",
+        callbackMissingCode: "The sign-in link is incomplete. Please try again.",
         generic: "An error occurred"
       }
     },
@@ -69,7 +135,7 @@ export const messages: Record<Locale, Messages> = {
       titleEmphasis: "watch the whole podcast.",
       previewKicker: "Inside a finished digest",
       previewTitle: "State of the Claw: Peter Steinberger",
-      previewBrief: "A fast-growing open-source project is learning how to preserve independence while operating at unprecedented scale.",
+      previewBrief: "OpenClaw’s next challenge is staying independent at scale.",
       previewPointOne: "The project’s pace creates a new kind of coordination and security challenge.",
       previewPointTwo: "A neutral foundation protects the ecosystem while contributors and companies grow around it.",
       previewQuestion: "What changes for open source?",
@@ -77,7 +143,7 @@ export const messages: Record<Locale, Messages> = {
       previewSourceLabel: "Source",
       previewSourceName: "State of the Claw",
       previewSourceType: "Podcast episode",
-      previewOpen: "Explore ready-made digests",
+      previewOpen: "Ask about this episode",
       subtitle:
         "Transform long content into structured insights. Absorb information efficiently with AI summaries, keypoints, and translations.",
       greeting: "Drop a podcast or video. We’ll handle the rest.",
@@ -163,7 +229,7 @@ export const messages: Record<Locale, Messages> = {
       faqSignInQuestion: "When do I need to sign in?",
       faqSignInAnswer: "Paste a supported link first. We keep it for the handoff, then ask you to sign in before processing starts.",
       faqBillingQuestion: "How is Pro billed?",
-      faqBillingAnswer: "{proPlan} is {annualPrice} per year with a 12-month commitment. That works out to {annualMonthlyPrice} per month.",
+      faqBillingAnswer: "{proPlan} costs {monthlyPrice} monthly or {annualPrice} yearly. {basicPlan} and {proPlan} quotas reset on the first day of each month at 00:00 UTC.",
       faqLink: "View all",
       skipToContent: "Skip to main content",
       language: "Language",
@@ -214,6 +280,7 @@ export const messages: Record<Locale, Messages> = {
       comingSoon: "Settings features coming soon...",
     },
     pricing: {
+      billingPeriod: "Billing period",
       title: "Plan",
       subtitle: "Review your current usage, plan, and available top-up options.",
       free: {
@@ -227,7 +294,8 @@ export const messages: Record<Locale, Messages> = {
         desc: "Billed {price} annually for a 12-month subscription",
         button: "Upgrade",
         manage: "Manage Subscription",
-        annual: "ANNUAL"
+        annual: "Annual",
+        monthly: "Monthly"
       },
       topup: {
         title: "Top Up",
@@ -261,10 +329,11 @@ export const messages: Record<Locale, Messages> = {
       checkoutCanceled: "Checkout canceled. No changes were made.",
       portalError: "We couldn’t open subscription management. Please try again or contact support.",
       portalUnavailable: "This plan has no online subscription to manage. Contact support if you need to change it.",
+      endsOn: "Cancels on {date} (UTC)",
+      renewsOn: "Renews on {date} (UTC)",
+      validUntil: "Valid until {date} (UTC)",
       paymentMethod: "Payment Method",
       card: "Credit Card",
-      crypto: "USDC",
-      cryptoWarning: "USDC Only. Please ensure you use the correct network. Transfers are non-refundable.",
       policies: {
         refund: "Refund Policy",
         terms: "Terms of Service"
@@ -290,7 +359,7 @@ export const messages: Record<Locale, Messages> = {
         },
         billing: {
           question: "How are plans and top-ups billed?",
-          answer: "{proPlan} costs {monthlyPrice} monthly or {annualPrice} for 12 months. A one-time {topUpCredits}-video top-up costs {topUpPrice} and does not expire."
+          answer: "{proPlan} costs {monthlyPrice} monthly or {annualPrice} for 12 months. {basicPlan} and {proPlan} quotas reset on the first day of each month at 00:00 UTC. A one-time {topUpCredits}-video top-up costs {topUpPrice} and does not expire."
         },
         platforms: {
           question: "Which platforms do you support?",
@@ -316,7 +385,6 @@ export const messages: Record<Locale, Messages> = {
       summary: "Summary",
       english: "English",
       chinese: "Chinese",
-      japanese: "Japanese",
       pleaseLogin: "Sign in to continue.",
       features: "Features",
       translateTo: "Output language",
@@ -328,7 +396,7 @@ export const messages: Record<Locale, Messages> = {
       },
       urlHelp: {
         title: "Unsupported URL",
-        description: "Use a YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou link.",
+        description: "Paste a video or episode link from YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou.",
         supportedPlatforms: "Supported platforms:",
         xiaoyuzhou: "Xiaoyuzhou",
         gotIt: "Close"
@@ -368,6 +436,9 @@ export const messages: Record<Locale, Messages> = {
       generatingContent: "Generating",
       percentComplete: "{percent}% complete",
       videoThumbnailAlt: "Video thumbnail",
+      audioCoverAlt: "Audio cover",
+      audioEpisodeFallback: "Episode",
+      audioUnsupported: "Your browser does not support audio playback.",
       confirmDelete: "Are you sure you want to delete this task?",
       deleteError: "Failed to delete task. Please try again.",
       updateError: "Failed to update task. Please try again.",
@@ -450,6 +521,14 @@ export const messages: Record<Locale, Messages> = {
       retry: "Retry",
       retryQueued: "Retry queued",
       genericError: "Something went wrong.",
+      exampleUnavailable: "This example is unavailable right now.",
+      exampleLanguageUnavailable: "This example has no summary in your selected language.",
+      errors: {
+        historyLoad: "Failed to load chat history.",
+        historyListLoad: "History unavailable.",
+        archive: "Failed to archive chat.",
+        restore: "Failed to restore chat.",
+      },
       loadingExamples: "Loading...",
       openingChat: "Opening...",
       openingThread: "Opening {title}",
@@ -469,6 +548,18 @@ export const messages: Record<Locale, Messages> = {
         noSummary: "No summary available.",
       },
       tools: {
+        result: "Result",
+        error: "Error",
+        state: {
+          "approval-requested": "Awaiting approval",
+          "approval-responded": "Responded",
+          "input-available": "Running",
+          "input-streaming": "Pending",
+          "output-available": "Completed",
+          "output-denied": "Denied",
+          "output-error": "Error",
+        },
+        parameters: "Parameters",
         status: {
           checking: "Checking task status...",
           checkingFor: "Checking task status for {id}...",
@@ -479,6 +570,9 @@ export const messages: Record<Locale, Messages> = {
           errorGetStatus: "Failed to get task status",
           unknownError: "Unknown error",
           videoTask: "Video task",
+          title: "Task status",
+          latest: "Latest status: {status}",
+          taskId: "Task ID: {id}",
           steps: {
             ingestLabel: "Fetch source data",
             transcribeLabel: "Transcribe audio",
@@ -502,6 +596,13 @@ export const messages: Record<Locale, Messages> = {
         outputs: {
           retrieving: "Retrieving content",
           retrieved: "Retrieved {count} output(s)",
+          title: "Retrieved results",
+          kinds: {
+            summary: "Summary",
+            script: "Transcript",
+            scriptRaw: "Raw transcript",
+            audio: "Audio",
+          },
           errorOutputs: "Failed to get outputs",
         },
         unknown: {
@@ -542,17 +643,6 @@ export const messages: Record<Locale, Messages> = {
           title: "1. General Policy",
           content: "VibeDigest strives to provide high-quality services. If you are not satisfied with our service due to technical failures, you may request a refund within <strong>7 days</strong> of purchase."
         },
-        crypto: {
-          title: "2. Crypto Payments (USDC)",
-          noticeTitle: "Important Notice for Cryptocurrency Transactions",
-          noticeContent: "Due to the irreversible nature of blockchain transactions, we have strict policies for crypto payments:",
-          list: {
-            noRefunds: "<strong>No Automatic Refunds:</strong> Crypto transactions cannot be reversed. Any refund must be processed manually.",
-            networkErrors: "<strong>Network Errors:</strong> VibeDigest is not responsible for funds lost due to sending assets on the wrong network (e.g., sending ERC-20 USDC to a Polygon address when not supported). <strong>Please ensure you select the correct network.</strong>",
-            underpayments: "<strong>Underpayments:</strong> If you send less than the required amount, your order may not be automatically fulfilled. Please contact support.",
-            gas: "<strong>Gas Fees:</strong> Transaction fees (Gas) are non-refundable."
-          }
-        }
       },
       terms: {
         title: "Terms of Service",
@@ -575,12 +665,19 @@ export const messages: Record<Locale, Messages> = {
         }
       }
     },
-  },
-  zh: {
+} as const
+
+const zhMessages: MessageShape<typeof enMessages> = {
     brand: {
       name: "VibeDigest",
       appName: "VibeDigest",
       versionTag: "Alpha",
+    },
+    common: {
+      close: "关闭",
+      language: "语言",
+      untitled: "未命名",
+      delete: "删除",
     },
     nav: {
       newTask: "新建",
@@ -593,6 +690,61 @@ export const messages: Record<Locale, Messages> = {
       showSidebar: "显示侧边栏",
       hideSidebar: "隐藏侧边栏",
       backToHome: "首页",
+      goHome: "返回首页",
+      toggleSidebar: "切换侧边栏",
+      toggleArchivedChats: "切换已归档对话",
+    },
+    metadata: {
+      chat: {
+        title: "对话",
+        description: "让 VibeDigest 整理来源内容，或回答基于来源的问题。",
+      },
+      login: {
+        title: "登录",
+        description: "登录以继续使用 VibeDigest。",
+      },
+    },
+    errorBoundary: {
+      eyebrow: "出错了",
+      title: "页面暂时无法显示",
+      description: "请重试或返回首页。",
+      retry: "重试",
+      home: "首页",
+    },
+    notFound: {
+      title: "页面不存在",
+      description: "你访问的页面不存在。",
+      home: "首页",
+    },
+    privacy: {
+      title: "隐私政策",
+      introduction: "本隐私政策说明 VibeDigest（以下简称“我们”）在您使用我们的网站和服务时，如何收集、使用和披露您的个人信息。",
+      collection: {
+        title: "1. 我们收集的信息",
+        description: "我们会收集您直接提供的信息，包括：",
+        email: "电子邮箱地址",
+        name: "姓名（如通过社交账号登录提供）",
+        avatar: "头像（如通过社交账号登录提供）",
+      },
+      use: {
+        title: "2. 我们如何使用您的信息",
+        description: "我们将收集的信息用于：",
+        service: "提供、维护和改进服务",
+        authentication: "验证您的身份",
+        notices: "发送技术通知和支持消息",
+      },
+      security: {
+        title: "3. 数据安全",
+        description: "我们采取合理的安全措施保护您的个人信息。身份验证与数据存储由 Supabase 提供，其采用行业标准的安全实践。",
+      },
+      contact: {
+        title: "4. 联系我们",
+        description: "如对本隐私政策有任何疑问，请联系我们。",
+      },
+      metadata: {
+        title: "隐私政策",
+        description: "了解 VibeDigest 如何收集、使用和保护您的个人信息。",
+      },
     },
     auth: {
       welcomeBack: "登录",
@@ -636,6 +788,8 @@ export const messages: Record<Locale, Messages> = {
         invalidCredentials: "登录凭据无效",
         userAlreadyRegistered: "该用户已注册",
         weakPassword: "密码长度至少需要6个字符",
+        callbackFailed: "暂时无法完成登录，请重试。",
+        callbackMissingCode: "登录链接不完整，请重试。",
         generic: "发生错误"
       }
     },
@@ -647,7 +801,7 @@ export const messages: Record<Locale, Messages> = {
       titleEmphasis: "看完播客。",
       previewKicker: "一份整理结果里",
       previewTitle: "State of the Claw: Peter Steinberger",
-      previewBrief: "一个高速增长的开源项目，正在学习如何在空前规模下保持独立性。",
+      previewBrief: "OpenClaw 的下一道挑战：规模增长，独立性不退让。",
       previewPointOne: "项目的增长速度带来了全新的协作与安全挑战。",
       previewPointTwo: "中立基金会让生态保持开放，也让贡献者与公司能够共同成长。",
       previewQuestion: "这会如何改变开源？",
@@ -655,7 +809,7 @@ export const messages: Record<Locale, Messages> = {
       previewSourceLabel: "来源",
       previewSourceName: "State of the Claw",
       previewSourceType: "播客单集",
-      previewOpen: "浏览已经整理好的内容",
+      previewOpen: "追问这期内容",
       subtitle: "将长视频转化为结构化知识，助您高效获取核心信息。",
       greeting: "投递播客或视频，剩下的交给我们。",
       getStarted: "开始",
@@ -740,7 +894,7 @@ export const messages: Record<Locale, Messages> = {
       faqSignInQuestion: "什么时候需要登录？",
       faqSignInAnswer: "请先粘贴受支持的链接。我们会保留该链接用于后续跳转，并在处理开始前要求你登录。",
       faqBillingQuestion: "Pro 如何计费？",
-      faqBillingAnswer: "{proPlan} 年付 {annualPrice}，订阅期为 12 个月，折合每月 {annualMonthlyPrice}。",
+      faqBillingAnswer: "{proPlan} 月付 {monthlyPrice}，或年付 {annualPrice}。{basicPlan} 和 {proPlan} 额度均在每月 1 日 UTC 00:00 刷新。",
       faqLink: "查看全部",
       skipToContent: "跳到主要内容",
       language: "语言",
@@ -750,19 +904,6 @@ export const messages: Record<Locale, Messages> = {
       navHowItWorks: "使用方法",
       navPricing: "定价",
       navFAQ: "常见问题",
-    },
-    home: {
-      titleEmphasis: "AI 视频",
-      subtitle: "智能摘要与笔记",
-      getStarted: "开始使用",
-      github: "GitHub",
-      feature1Title: "智能摘要",
-      feature1Desc: "自动提取视频核心内容，不仅是文字转写。",
-      feature2Title: "多语言支持",
-      feature2Desc: "支持 YouTube/Apple Podcasts/Bilibili/小宇宙 等多平台视频。",
-      feature3Title: "知识库",
-      feature3Desc: "自动整理你的视频学习笔记，随时回顾。",
-      footer: "由 Supabase & Next.js 驱动",
     },
     categories: {
       tutorial: "教程",
@@ -796,12 +937,6 @@ export const messages: Record<Locale, Messages> = {
     settings: {
       title: "设置",
       subtitle: "管理你的偏好设置",
-      usage: {
-        title: "用量与额度",
-        monthly: "月度额度",
-        plan: "方案",
-        extra: "额外包"
-      },
       language: "界面语言",
       languageHint: "选择你偏好的界面语言",
       notifications: "通知设置",
@@ -809,6 +944,7 @@ export const messages: Record<Locale, Messages> = {
       comingSoon: "更多设置即将推出...",
     },
     pricing: {
+      billingPeriod: "计费周期",
       title: "方案",
       subtitle: "查看当前用量、方案与可用充值包。",
       free: {
@@ -822,7 +958,8 @@ export const messages: Record<Locale, Messages> = {
         desc: "按年收取 {price}，订阅期为 12 个月",
         button: "升级",
         manage: "管理订阅",
-        annual: "年付"
+        annual: "年付",
+        monthly: "月付"
       },
       topup: {
         title: "充值包",
@@ -856,10 +993,11 @@ export const messages: Record<Locale, Messages> = {
       checkoutCanceled: "已取消结算，账户未发生变更。",
       portalError: "暂时无法打开订阅管理，请稍后重试或联系支持。",
       portalUnavailable: "当前方案没有可在线管理的订阅，如需调整请联系支持。",
+      endsOn: "将于 {date} 到期取消（UTC）",
+      renewsOn: "将于 {date} 续费（UTC）",
+      validUntil: "有效期至 {date}（UTC）",
       paymentMethod: "支付方式",
       card: "信用卡",
-      crypto: "USDC",
-      cryptoWarning: "仅支持 USDC。请确保使用正确的网络。转账不可退款。",
       policies: {
         refund: "退款政策",
         terms: "服务条款"
@@ -885,7 +1023,7 @@ export const messages: Record<Locale, Messages> = {
         },
         billing: {
           question: "方案和充值包如何计费？",
-          answer: "{proPlan} 月付 {monthlyPrice}，或按 12 个月收取 {annualPrice}。一次性 {topUpCredits} 个视频充值包为 {topUpPrice}，永久有效。"
+          answer: "{proPlan} 月付 {monthlyPrice}，或按 12 个月收取 {annualPrice}。{basicPlan} 和 {proPlan} 额度均在每月 1 日 UTC 00:00 刷新。一次性 {topUpCredits} 个视频充值包为 {topUpPrice}，永久有效。"
         },
         platforms: {
           question: "支持哪些平台？",
@@ -911,7 +1049,6 @@ export const messages: Record<Locale, Messages> = {
       summary: "摘要",
       english: "英文",
       chinese: "中文",
-      japanese: "日文",
       pleaseLogin: "请先登录。",
       features: "功能设定",
       translateTo: "翻译目标",
@@ -923,7 +1060,7 @@ export const messages: Record<Locale, Messages> = {
       },
       urlHelp: {
         title: "不支持的链接",
-        description: "请使用 YouTube、Apple Podcasts、Bilibili 或小宇宙链接。",
+        description: "请粘贴 YouTube、Apple Podcasts、Bilibili 或小宇宙的具体视频或单期播客链接。",
         supportedPlatforms: "支持的平台：",
         xiaoyuzhou: "小宇宙",
         gotIt: "关闭"
@@ -931,14 +1068,6 @@ export const messages: Record<Locale, Messages> = {
     },
     tasks: {
       recentTasks: "最近",
-      urlPlaceholder: "输入 YouTube, Apple Podcasts, Bilibili, 小宇宙 链接...",
-      processing: "处理中",
-      generate: "生成笔记",
-      summary: "摘要",
-      english: "英文",
-      chinese: "中文",
-      japanese: "日文",
-      pleaseLogin: "请先登录以使用功能",
       loadingTasks: "加载中...",
       noTasks: "暂无任务记录",
       completed: "已完成",
@@ -971,6 +1100,9 @@ export const messages: Record<Locale, Messages> = {
       generatingContent: "生成中",
       percentComplete: "完成",
       videoThumbnailAlt: "视频缩略图",
+      audioCoverAlt: "音频封面",
+      audioEpisodeFallback: "单集",
+      audioUnsupported: "你的浏览器不支持音频播放。",
       confirmDelete: "确定要删除这个任务吗？",
       deleteError: "删除任务失败，请重试。",
       updateError: "更新任务失败，请重试。",
@@ -1053,6 +1185,14 @@ export const messages: Record<Locale, Messages> = {
       retry: "重试",
       retryQueued: "已安排重试",
       genericError: "出现错误，请重试。",
+      exampleUnavailable: "这个案例暂时无法打开。",
+      exampleLanguageUnavailable: "这个案例暂无当前语言的摘要。",
+      errors: {
+        historyLoad: "无法加载对话记录。",
+        historyListLoad: "历史加载失败",
+        archive: "无法归档对话。",
+        restore: "无法恢复对话。",
+      },
       loadingExamples: "加载中...",
       openingChat: "打开中...",
       openingThread: "正在打开「{title}」",
@@ -1072,6 +1212,18 @@ export const messages: Record<Locale, Messages> = {
         noSummary: "暂无摘要。",
       },
       tools: {
+        result: "结果",
+        error: "错误",
+        state: {
+          "approval-requested": "等待授权",
+          "approval-responded": "已响应",
+          "input-available": "运行中",
+          "input-streaming": "处理中",
+          "output-available": "已完成",
+          "output-denied": "已拒绝",
+          "output-error": "错误",
+        },
+        parameters: "参数",
         status: {
           checking: "正在查询任务状态...",
           checkingFor: "正在查询任务 {id} 的状态...",
@@ -1082,6 +1234,9 @@ export const messages: Record<Locale, Messages> = {
           errorGetStatus: "获取任务状态失败",
           unknownError: "未知错误",
           videoTask: "视频任务",
+          title: "任务状态",
+          latest: "当前状态：{status}",
+          taskId: "任务 ID：{id}",
           steps: {
             ingestLabel: "获取源数据",
             transcribeLabel: "转录音频",
@@ -1105,6 +1260,13 @@ export const messages: Record<Locale, Messages> = {
         outputs: {
           retrieving: "正在获取内容",
           retrieved: "已获取 {count} 个结果",
+          title: "已获取结果",
+          kinds: {
+            summary: "摘要",
+            script: "逐字稿",
+            scriptRaw: "原始逐字稿",
+            audio: "音频",
+          },
           errorOutputs: "获取结果失败",
         },
         unknown: {
@@ -1145,17 +1307,6 @@ export const messages: Record<Locale, Messages> = {
           title: "1. 一般政策",
           content: "VibeDigest 致力于提供高质量的服务。如果您因技术故障对我们的服务不满意，可以在购买后 <strong>7天</strong> 内申请退款。"
         },
-        crypto: {
-          title: "2. 加密货币支付 (USDC)",
-          noticeTitle: "加密货币交易重要须知",
-          noticeContent: "由于区块链交易的不可逆转性，我们对加密货币支付制定了严格的政策：",
-          list: {
-            noRefunds: "<strong>不可自动退款：</strong> 加密货币交易无法撤销。任何退款必须人工处理。",
-            networkErrors: "<strong>网络错误：</strong> 因网络选择错误导致的资金丢失（例如将 ERC-20 USDC 发送到不支持的 Polygon 地址），VibeDigest 概不负责。<strong>请务必确保选择正确的网络。</strong>",
-            underpayments: "<strong>支付金额不足：</strong> 如果您发送的金额少于所需金额，订单可能无法自动完成。请联系支持人员。",
-            gas: "<strong>Gas 费：</strong> 交易手续费 (Gas) 不可退还。"
-          }
-        }
       },
       terms: {
         title: "服务条款",
@@ -1178,491 +1329,17 @@ export const messages: Record<Locale, Messages> = {
         }
       }
     },
-  },
-  ja: {
-    brand: {
-      name: "AI 動画ノート",
-      appName: "トランスクライバー",
-      versionTag: "アルファ",
-    },
-    nav: {
-      newTask: "新規タスク",
-      history: "履歴",
-      settings: "設定",
-      pricing: "プラン",
-      menu: "メニュー",
-      openMenu: "メニューを開く",
-      showSidebar: "サイドバーを表示",
-      hideSidebar: "サイドバーを非表示",
-      backToHome: "ホームに戻る",
-    },
-    chat: {
-      newChat: "新しいチャット",
-      community: "ポッドキャストライブラリ",
-      tasks: "タスク",
-      chats: "チャット",
-      archived: "アーカイブ済み",
-      archive: "チャットをアーカイブ",
-      restore: "チャットを復元",
-      noChats: "チャットはまだありません",
-      noActiveChats: "アクティブなチャットはありません",
-      moreOptionsHint: "アバターをタップするとその他のオプションが表示されます",
-      loadMore: "さらに読み込む",
-      loadingMore: "読み込み中...",
-      inputPlaceholder: "動画URLを貼り付けるか、質問を入力...",
-      inputLabel: "チャット入力",
-      followUpPlaceholder: "この内容について続きを質問...",
-      followUpInputLabel: "この内容についての追加質問",
-      sendMessage: "送信",
-      stopGeneration: "生成を停止",
-      disclaimer: "AIは誤ることがあります。重要な情報は確認してください。",
-      thinking: "考えています...",
-      retry: "再試行",
-      retryQueued: "再試行を待機中",
-      genericError: "エラーが発生しました。もう一度お試しください。",
-      loadingExamples: "例を読み込み中...",
-      openingChat: "チャットを開いています...",
-      openingThread: "「{title}」を開いています",
-      directSubmit: {
-        unavailable: "現在この動画を処理できません。しばらくしてからお試しください。",
-        invalidResponse: "このURLのタスクを作成できませんでした。",
-        networkError: "ネットワークエラーのため、動画処理を開始できませんでした。",
-      },
-      inlineResult: {
-        noSummary: "要約はありません。",
-      },
-      tools: {
-        status: {
-          checking: "タスク状態を確認中...",
-          checkingFor: "タスク {id} の状態を確認中...",
-          statusProcessing: "処理中",
-          statusQueued: "キュー待ち",
-          statusReady: "完了",
-          statusFailed: "失敗",
-          errorGetStatus: "タスク状態の取得に失敗",
-          unknownError: "不明なエラー",
-          videoTask: "動画タスク",
-          steps: {
-            ingestLabel: "ソースデータを取得",
-            transcribeLabel: "音声を文字起こし",
-            summarizeLabel: "コンテンツを要約",
-          },
-        },
-        create: {
-          preparing: "動画の処理を準備中...",
-          starting: "動画の処理を開始: {url}",
-          failed: "タスクの作成に失敗",
-          success: "タスクが正常に作成されました！",
-          viewProgress: "進捗を見る",
-          errorCreate: "タスクの作成に失敗",
-        },
-        preview: {
-          fetching: "動画情報を取得中",
-          fetchingFrom: "{host} から動画情報を取得中...",
-          untitled: "タイトルなし動画",
-          errorPreview: "動画のプレビューに失敗",
-        },
-        outputs: {
-          retrieving: "コンテンツを取得中",
-          retrieved: "{count} 件の出力を取得",
-          errorOutputs: "出力の取得に失敗",
-        },
-        unknown: {
-          running: "実行中: {name}...",
-          completed: "完了: {name}",
-          failed: "失敗: {name}",
-        },
-      },
-    },
-    auth: {
-      welcomeBack: "ログイン",
-      signInToContinue: "ログインして続行",
-      signInToChat: "チャットを始めるにはログインしてください",
-      guestSubmitHint: "リンクを貼り付けた後、ログインすると処理を開始できます。",
-      handoffReady: "リンクを保存済み",
-      handoffMessageReady: "リクエストを保存済み",
-      continueDigest: "続ける",
-      handoffDescription: "ログイン後、アカウント内でこのソースの処理を続けます。",
-      handoffMessageDescription: "ログイン後、アカウント内で保存したリクエストを続けます。",
-      handoffDetails: "保存したソースと次の手順",
-      handoffSource: "ソース",
-      handoffOutputs: "得られる内容",
-      handoffOutputsValue: "要約、重要ポイント、根拠、ソースに基づく追加質問。",
-      handoffNext: "ログイン後",
-      handoffNextValue: "Agentがこのリンクをそのまま使い、アカウント内で処理を続けます。",
-      signInWithGoogle: "Googleでログイン",
-      signInSuccess: "ログインしました",
-      signInFailed: "ログインに失敗しました: {error}",
-      orWithEmail: "メール",
-      emailPlaceholder: "メールアドレス",
-      sending: "送信中...",
-      sendMagicLink: "リンクを送信",
-      checkYourEmail: "メールを確認してください。",
-      signUp: "新規登録",
-      logout: "ログアウト",
-      signOutFailed: "ログアウトできませんでした。もう一度お試しください。",
-      goToDashboard: "アプリを開く",
-    },
-    landing: {
-      titlePrefix: "AIがポッドキャストを",
-      titleEmphasis: "あなたの代わりに見ます。",
-      previewKicker: "整理結果の中身",
-      previewTitle: "State of the Claw: Peter Steinberger",
-      previewBrief: "急成長するオープンソースのプロジェクトが、かつてない規模で独立性を保つ方法を模索しています。",
-      previewPointOne: "急速な成長は、新しい協業とセキュリティ上の課題を生み出します。",
-      previewPointTwo: "中立的な財団が、貢献者と企業の成長を支えながらエコシステムの開放性を守ります。",
-      previewQuestion: "オープンソースはどう変わる？",
-      previewAnswer: "貢献者の独立性を守りながら、周辺企業の成長を妨げないガバナンスが必要になります。",
-      previewSourceLabel: "出典",
-      previewSourceName: "State of the Claw",
-      previewSourceType: "ポッドキャストエピソード",
-      previewOpen: "整理済みコンテンツを見る",
-      subtitle:
-        "長いコンテンツを構造化された知識に変えましょう。AI要約と要点抽出で、効率的に情報を吸収できます。",
-      getStarted: "始める",
-      github: "GitHub",
-      feature1Title: "出典に基づく回答",
-      feature1Desc: "具体的に質問し、元の内容に基づく回答を得られます。",
-      feature2Title: "構造化された要点",
-      feature2Desc: "数時間を数分に短縮。核心ロジックを習得。",
-      feature3Title: "言葉の壁を越える",
-      feature3Desc: "世界的コンテンツを母国語で。言語の壁ゼロ。",
-      feature4Title: "ナレッジの集約",
-      feature4Desc: "YouTube, Apple Podcasts, Bilibili, Xiaoyuzhou。対応プラットフォーム拡大中。",
-      footer: "© 2024 AI Video Transcriber. Built with Next.js & Supabase.",
-      smartSummarization: "スマート要約",
-      smartSummarizationDesc: "リンクを貼ると、VibeDigestが要約、重要ポイント、根拠を整理し、元の内容に基づいて質問に答えます。",
-      dynamicTemplates: "内容に合った読み方",
-      dynamicTemplatesDesc: "対談、議論、物語形式に合わせて構成し、重要な論理を読み取りやすくします。",
-      interactiveTranscript: "出典に基づく回答",
-      interactiveTranscriptDesc: "元のポッドキャストや動画に基づいて、具体的な質問へ回答します。",
-      visualMindMaps: "ビジュアルマインドマップ",
-      visualMindMapsDesc: "自動生成されたナレッジグラフで複雑な概念を可視化します。概念がどのように相互に関連しているかを視覚的に確認できます。",
-      crossLanguageAI: "クロスランゲージAI",
-      crossLanguageAIDesc: "母国語の壁？問題ありません。翻訳レイヤーを通じて、あらゆる言語の動画を母国語で吸収できます。",
-      chatWithVideo: "出典に基づいて質問",
-      chatWithVideoDesc: "具体的な質問をして、元のポッドキャストや動画に基づく回答を得られます。",
-      mobileFirst: "モバイル最適化",
-      mobileFirstDesc: "スマートフォンでも、要約、重要ポイント、チャットを快適に確認できます。",
-      fastProcessing: "進捗をリアルタイム更新",
-      fastProcessingDesc: "送信後も閲覧を続けられます。各処理が完了すると進捗と結果が自動で更新されます。",
-      howItWorks: "仕組み",
-      howItWorksSubtitle: "リンクから、読んで質問できるコンテンツへ",
-      step1Title: "リンクを貼る",
-      step1Desc: "対応するポッドキャストや動画のURLを追加します。",
-      step2Title: "Agentに整理を任せる",
-      step2Desc: "VibeDigestが文字起こしを行い、要約と重要ポイントを構成します。",
-      step3Title: "読んで続けて質問する",
-      step3Desc: "整理結果を読み、元の内容に基づいて質問できます。",
-      simplePricing: "料金",
-      simplePricingSubtitle: "ニーズに合ったプランを選択してください",
-      lovedByResearchers: "研究者に愛用されています",
-      lovedByResearchersSubtitle: "コミュニティの声をご覧ください",
-      testimonial1: "「このツールは私の講義の受け方を完全に変えました。要点は的確で、手書きのメモに費やす時間を何時間も節約してくれます。」",
-      testimonial1Author: "Sarah Chen",
-      testimonial1Role: "博士課程学生",
-      testimonial2: "「長い動画を短いツイートやブログ記事に再利用するために使っています。要約は毎回本質を完璧に捉えています。」",
-      testimonial2Author: "Mark Davis",
-      testimonial2Role: "コンテンツクリエイター",
-      testimonial3: "「翻訳機能は素晴らしいです。他の言語のポッドキャストをついに苦労せずに理解できるようになりました。必須のツールです。」",
-      testimonial3Author: "Alex Rivera",
-      testimonial3Role: "プロダクトマネージャー",
-      stillHaveQuestions: "お困りですか？",
-      supportEyebrow: "VibeDigest サポート",
-      stillHaveQuestionsDesc: "対応リンク、Agentの出力、プランについて質問があれば、お問い合わせください。",
-      contactSupport: "サポートに連絡",
-      helpCenter: "ヘルプセンター",
-      badge: "AIポッドキャスト・動画 Agent",
-      trustedBy: "YouTube、Apple Podcasts、Bilibili、小宇宙に対応",
-      freeAllowance: "毎月3件まで無料。カードは不要です。",
-      signInHandoff: "送信後にサインインして開始します。",
-      communityTitle: "ポッドキャストライブラリ",
-      communityEyebrow: "約束ではなく結果で証明",
-      communityHint: "自分のリンクを送る前に、完成したポッドキャストの整理結果を確認できます。",
-      communityUnavailable: "公開例を読み込めません。しばらくしてからもう一度お試しください。",
-      viewAll: "すべて見る",
-      viewPlan: "プランを見る",
-      footerCopyright: "© {year} VibeDigest. All rights reserved.",
-      comingSoon: "近日公開",
-      featuresTitlePrefix: "得られるもの",
-      featuresEyebrow: "読書の流れ",
-      featuresTitleEmphasis: "必要な時だけ深掘り",
-      featuresSubtitle: "まず答えを読み、重要ポイントや出典に基づく質問へ進めます。",
-      outputSummary: "要約",
-      outputKeyIdeas: "重要ポイント",
-      outputTranscript: "根拠となる情報",
-      outputFollowUp: "追加質問",
-      mostPopular: "おすすめ",
-      effectiveMonthly: "/ 月",
-      proAnnualBilling: "年額 {annualPrice}、12か月契約です。",
-      pricingPolicyPrefix: "サブスクリプションには",
-      pricingPolicyConnector: "および",
-      faqTitle: "よくある質問",
-      faqSubtitle: "リンクを貼る前に知っておきたいポイントです。",
-      faqFreeQuestion: "VibeDigestを無料で試せますか？",
-      faqFreeAnswer: "はい。{basicPlan}では毎月{basicQuota}本まで利用でき、カードは不要です。",
-      faqSignInQuestion: "いつサインインが必要ですか？",
-      faqSignInAnswer: "まず対応リンクを貼り付けます。リンクを引き継いだ後、処理の開始前にサインインをお願いします。",
-      faqBillingQuestion: "Proの請求方法は？",
-      faqBillingAnswer: "{proPlan}は年額 {annualPrice} の12か月契約で、月額換算では {annualMonthlyPrice} です。",
-      faqLink: "すべて見る",
-      skipToContent: "メインコンテンツへ移動",
-      language: "言語",
-      navProduct: "製品",
-      navDemos: "ポッドキャストライブラリ",
-      navFeatures: "機能",
-      navHowItWorks: "使い方",
-      navPricing: "料金",
-      navFAQ: "よくある質問",
-    },
-    home: {
-      titleEmphasis: "AI 動画",
-      subtitle: "スマートな要約とノート",
-      getStarted: "始める",
-      github: "GitHub",
-      feature1Title: "スマート要約",
-      feature1Desc: "重要なコンテンツを自動抽出します。",
-      feature2Title: "多言語対応",
-      feature2Desc: "YouTube/Apple Podcasts/Bilibili/Xiaoyuzhouなどに対応。",
-      feature3Title: "ナレッジベース",
-      feature3Desc: "ノートを自動的に整理します。",
-      footer: "Supabase & Next.js & Powered",
-    },
-    history: {
-      title: "履歴",
-      subtitle: "過去のノートを表示",
-      backToHistory: "リストに戻る",
-    },
-    settings: {
-      title: "設定",
-      subtitle: "設定を管理",
-      language: "言語",
-      languageHint: "表示言語を選択してください",
-      comingSoon: "その他の設定は近日公開...",
-      notifications: "通知",
-      notificationsHint: "タスクの更新を受け取るためにブラウザ通知を有効にしてください。",
-    },
-    pricing: {
-      title: "プラン",
-      subtitle: "現在の利用状況、プラン、チャージオプションを確認できます。",
-      free: {
-        title: "ベーシック",
-        desc: "VibeDigestを無料で試す（カード不要）",
-      },
-      pro: {
-        title: "プロ",
-        subtitle: "プロプランをご利用中です。利用状況の確認、チャージ、サブスクリプション管理ができます。",
-        unit: "/ 月",
-        desc: "12か月分として年額 {price} を請求",
-        button: "アップグレード",
-        manage: "サブスクリプション管理",
-        annual: "年払い"
-      },
-      topup: {
-        title: "チャージ",
-        desc: "必要な分だけ購入（買い切り）",
-        button: "クレジットを購入"
-      },
-      features: {
-        monthlyVideos: "毎月動画{count}本まで",
-        saveNotes: "ノートの保存",
-        multilingualSummaries: "多言語要約",
-        everythingInBasic: "ベーシックプランの全機能",
-        topUpVideos: "1パック{count}本分",
-        neverExpires: "有効期限なし",
-        anyPlan: "どのプランでも併用可能"
-      },
-      schema: {
-        basic: "ベーシックプラン",
-        proMonthly: "プロ月払いプラン",
-        proAnnual: "プロ年払いプラン",
-        topUp: "動画{count}本分のチャージ",
-        description: "ポッドキャストや長尺動画を要約、重要ポイント、根拠、出典に基づく回答に整理します。"
-      },
-      currentPlan: "現在のプラン",
-      active: "利用中",
-      included: "含まれています",
-      loadingPlan: "プランを確認中…",
-      profileError: "現在のプランを読み込めませんでした。ページを再読み込みしてお試しください。",
-      authRequired: "続行するには再度ログインしてください。",
-      checkoutError: "決済ページを開けませんでした。しばらくしてから再試行するか、サポートにご連絡ください。",
-      checkoutSubmitted: "決済を送信しました。確認後にプランまたはクレジットが更新されます。",
-      checkoutCanceled: "決済をキャンセルしました。アカウントに変更はありません。",
-      portalError: "サブスクリプション管理を開けませんでした。しばらくしてから再試行するか、サポートにご連絡ください。",
-      portalUnavailable: "このプランにはオンラインで管理できるサブスクリプションがありません。変更が必要な場合はサポートにご連絡ください。",
-      policies: {
-        refund: "返金ポリシー",
-        terms: "利用規約"
-      }
-    },
-    faq: {
-      title: "よくある質問",
-      subtitle: "VibeDigestについて知っておきたいポイント",
-      breadcrumb: "よくある質問",
-      homeBreadcrumb: "ホーム",
-      moreQuestions: "まだ質問がありますか？",
-      contactPrompt: "お気軽にメールでお問い合わせください。",
-      about: "私たちについて",
-      contactSupport: "サポートに連絡",
-      items: {
-        what: {
-          question: "VibeDigestとは何ですか？",
-          answer: "VibeDigestは、ポッドキャストや長尺動画を理解するためのAI Agentです。要約、重要ポイント、根拠、出典に基づく追加質問に整理します。"
-        },
-        free: {
-          question: "VibeDigestは無料で使えますか？",
-          answer: "はい。{basicPlan}は毎月{basicQuota}本、{proPlan}は毎月{proQuota}本まで利用できます。無料プランにカードは不要です。"
-        },
-        billing: {
-          question: "プランとチャージの請求方法は？",
-          answer: "{proPlan}は月額 {monthlyPrice}、または12か月で {annualPrice} です。動画{topUpCredits}本分の買い切りチャージは {topUpPrice} で、有効期限はありません。"
-        },
-        platforms: {
-          question: "どのプラットフォームに対応していますか？",
-          answer: "現在、YouTube、Apple Podcasts、Bilibili、小宇宙に対応しています。"
-        },
-        reliability: {
-          question: "要約と回答は信頼できますか？",
-          answer: "AIは誤ることがあります。VibeDigestは元のコンテンツへの導線と根拠を示し、重要な内容を出典で確認できるようにします。"
-        },
-        languages: {
-          question: "多言語に対応していますか？",
-          answer: "はい。複数言語のコンテンツを処理し、要約と重要ポイントを読みやすい言語に整理できます。"
-        }
-      }
-    },
-    taskForm: {
-      title: "新規タスク",
-      subtitle: "URLを貼り付けてAI要約を生成します。",
-      urlInputLabel: "動画またはポッドキャストのURL",
-      urlPlaceholder: "動画またはポッドキャストのURL",
-      processing: "処理中",
-      generate: "生成",
-      pleaseLogin: "ログインしてください。",
-      quotaExceeded: {
-        title: "クレジット不足",
-        description: "プランの変更またはクレジットの追加が必要です。",
-        confirm: "プランを見る",
-        cancel: "キャンセル"
-      },
-    },
-    tasks: {
-      urlPlaceholder: "YouTube, Apple Podcasts, Bilibili, Xiaoyuzhouのリンクを入力...",
-      processing: "処理中",
-      generate: "ノートを作成",
-      summary: "要約",
-      english: "英語",
-      chinese: "中国語",
-      japanese: "日本語",
-      pleaseLogin: "利用するにはログインしてください",
-      loadingTasks: "読み込み中...",
-      noTasks: "タスクはまだありません",
-      completed: "完了",
-      error: "エラー",
-      waiting: "待機中",
-      loadingTask: "読み込み中...",
-      processingVideo: "処理中",
-      processingHint1: "これには数分かかる場合があります",
-      processingHint2: "ページを離れても履歴に表示されます",
-      taskError: "タスクエラー",
-      tabScript: "書き起こし",
-      tabSummary: "要約",
-      tabTranslation: "翻訳",
-      scriptPlaceholder: "ここにスクリプトが表示されます...",
-      summaryPlaceholder: "ここに要約が表示されます...",
-      noTranslations: "翻訳はありません",
-      translationTitle: "翻訳",
-      contentPending: "待機中",
-      failedToGenerate: "生成に失敗しました",
-      retryQueued: "再試行を待機中",
-      retrySegment: "部分的に再試行",
-      generatingContent: "生成中",
-      percentComplete: "完了",
-      videoThumbnailAlt: "サムネイル",
-      confirmDelete: "このタスクを削除してもよろしいですか？",
-      deleteError: "タスクの削除に失敗しました。もう一度お試しください。",
-      updateError: "タスクの更新に失敗しました。もう一度お試しください。",
-      deleteTaskTitle: "タスクの削除",
-      cancel: "キャンセル",
-      confirm: "はい",
-      originalScriptLanguage: "原文の言語：{language}",
-      summaryStructured: {
-        tldrTitle: "要約",
-        sectionsTitle: "セクション",
-        overviewTitle: "概要",
-        keypointsTitle: "要点",
-        continueReading: "続きを読む",
-        evidenceLabel: "根拠",
-        showOriginal: "元の言語",
-        showTranslated: "翻訳",
-      },
-      enableNotifications: "完了時に通知する",
-      notificationEnabled: "通知が有効です",
-      notificationTitle: "タスク完了",
-      notificationBody: "動画 「{title}」 の準備ができました！",
-      notificationPermissionDenied: "通知の権限が拒否されました。ブラウザ設定で有効にしてください。",
-    },
-    languages: {
-      unknown: "不明",
-      en: "英語",
-      zh: "中国語",
-      "zh-cn": "中国語",
-      "zh-hans": "中国語",
-      ja: "日本語",
-      ko: "韓国語",
-      es: "スペイン語",
-      fr: "フランス語",
-      de: "ドイツ語",
-      it: "イタリア語",
-      pt: "ポルトガル語",
-      ru: "ロシア語",
-      ar: "アラビア語",
-      hi: "ヒンディー語",
-    },
-    feedback: {
-      title: "フィードバック",
-      subtitle: "{appName} の改善にご協力ください",
-      category: "カテゴリ",
-      message: "メッセージ",
-      contactEmail: "連絡先メール（任意）",
-      contactEmailPlaceholder: "name@example.com",
-      submit: "送信",
-      success: "フィードバックありがとうございます！",
-      error: "送信に失敗しました。",
-      types: {
-        bug: "バグ報告",
-        feature: "機能要望",
-        complaint: "苦情",
-        support: "サポート依頼",
-        other: "その他",
-      },
-    },
-  },
 }
 
-function mergeMessages(fallback: Messages, primary: Messages): Messages {
-  const merged: Messages = { ...fallback }
-
-  for (const [key, value] of Object.entries(primary)) {
-    const fallbackValue = fallback[key]
-    merged[key] =
-      typeof value === "object" &&
-      value !== null &&
-      typeof fallbackValue === "object" &&
-      fallbackValue !== null
-        ? mergeMessages(fallbackValue, value)
-        : value
-  }
-
-  return merged
+export const messages: Record<Locale, Messages> = {
+  en: enMessages,
+  zh: zhMessages,
 }
 
-const completeMessages: Record<Locale, Messages> = {
-  en: messages.en,
-  zh: mergeMessages(messages.en, messages.zh),
-  ja: mergeMessages(messages.en, messages.ja),
+export function getRawMessages(locale: Locale): Messages {
+  return messages[locale]
 }
 
 export function getCompleteMessages(locale: Locale): Messages {
-  return completeMessages[locale]
+  return messages[locale]
 }

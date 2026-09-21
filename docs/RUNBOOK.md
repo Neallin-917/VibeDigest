@@ -56,9 +56,26 @@ developer-scoped continuation queue, never the hosted video or catalog queues.
 6. Deploy the podcast cron with `DATABASE_URL`, `PODCAST_TASK_QUEUE_NAME`, and
    `VIBEDIGEST_DEMO_USER_ID`. It does not need an LLM API key. Run it once
    manually before enabling the schedule.
-7. On the trusted runner, confirm `codex login status` reports ChatGPT login,
+7. On the trusted runner, run `make preflight-podcast-supply`,
    then run `PODCAST_MAX_JOBS=1 make process-podcast-supply`. Startup must fail
    for API-key Codex authentication or a queue/profile mismatch.
+
+   The preflight pins `WORKER_PROFILE=trusted_codex` and `LLM_RUNTIME=codex_local`
+   exactly as the batch entry point does. It checks the resolved runtime/provider,
+   rejects Railway execution, requires an existing ChatGPT login, and verifies
+   `MODEL_SMART` / `MODEL_FAST` against the Codex model catalog (including hidden
+   models). `MODEL_ALIAS_SMART` / `MODEL_ALIAS_FAST` overrides are respected;
+   defaults come from `config/llm-provider-defaults.json`. Run `codex login` on
+   the trusted runner if ChatGPT authentication is missing.
+
+   It needs no database or Supabase credentials, never imports the worker,
+   connects to a database, or reads/consumes a queue, and makes no inference
+   request or paid-provider fallback. It reads account/model metadata through
+   the local Codex SDK; catalog membership does not prove inference success or
+   remaining quota. Success prints JSON with profile, provider, plan and both
+   models; any failed check exits nonzero. `CODEX_LOCAL_TIMEOUT_SECONDS` bounds
+   the check (default 120 seconds). Database/queue readiness is checked only
+   when the separate batch command is run.
 8. Deploy the Vercel frontend.
 9. Submit one controlled user video and one controlled catalog video and confirm:
    task/output transaction, PGMQ claim, heartbeat, progress writes, Realtime
@@ -96,6 +113,15 @@ cd frontend && npm run build
 CI additionally runs the real PGMQ lifecycle test against
 `ghcr.io/pgmq/pg16-pgmq:v1.5.1`. Local Docker validation is optional, but a
 release must not proceed unless that CI job passes.
+
+For frontend releases, run `cd frontend && npm run test:artifact` after the
+production build. After deployment, POST empty JSON (`{}`) without credentials
+to `/api/chat` and `/api/internal/agent/continue`; expect 400 and 401 respectively.
+These probes must not create tasks or invoke a model. A 500 blocks acceptance:
+inspect function initialization and runtime logs even if the deployment is Ready.
+For changes to Agent behavior, also verify one authenticated source follow-up
+against an existing completed task and inspect its answer and timestamp link;
+report this separately from the credential-free route checks.
 
 ## Database TLS
 
@@ -236,3 +262,19 @@ Never delete the queue as an automatic rollback step.
 Deployment and CI secrets are managed outside Git. Verify migrations and
 deployments by names, counts, permissions, and redacted mappings only. Never
 print or paste secret values into reports or logs.
+
+### Billing consistency release (Issue #133)
+
+Apply `20260919171942_fix_subscription_quota_lifecycle.sql` before deploying the API
+and frontend; both now reference its nullable profile columns. Run the billing lifecycle
+suite through `make test-queue-integration` against an isolated database first. No live
+subscription backfill or historical allowance reset is part of this migration.
+
+After deployment verify the retired charge endpoint returns 410 for an authenticated
+request, profile reads include the new columns, and an existing account displays the
+correct plan. Audit Creem product amounts/currency/intervals against the customer plan
+catalog without charging a card. Historical rows remain unknown for billing interval
+and renewal status until a matching provider event arrives; do not guess or bulk-fill.
+Keep Coinbase webhook verification configured while historical orders need reconciliation.
+The existing refund eligibility rule is unchanged; any broader refund policy requires
+an explicit business decision. Search engine indexing remains a separate acceptance step.

@@ -1,4 +1,4 @@
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import type { RealtimeChannel, RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js'
 
 import { createClient } from '@/lib/supabase'
 
@@ -20,12 +20,15 @@ function isTaskRow(value: unknown): value is TaskRow {
 }
 
 function publishTask(entry: TaskEntry, row: TaskRow) {
+  const previousTime = Date.parse(String(entry.snapshot?.updated_at ?? ''))
+  const nextTime = Date.parse(String(row.updated_at ?? ''))
+  if (Number.isFinite(previousTime) && Number.isFinite(nextTime) && nextTime < previousTime) return
   entry.snapshot = row
   entry.listeners.forEach((listener) => listener(row))
 }
 
-async function primeTask(taskId: string, entry: TaskEntry) {
-  if (entry.snapshot || entry.primePromise) return
+async function primeTask(taskId: string, entry: TaskEntry, force = false) {
+  if ((!force && entry.snapshot) || entry.primePromise) return
 
   const supabase = createClient()
   entry.primePromise = (async () => {
@@ -38,7 +41,9 @@ async function primeTask(taskId: string, entry: TaskEntry) {
     if (isTaskRow(data)) {
       publishTask(entry, data)
     }
-  })().finally(() => {
+  })().catch(() => {
+    // Keep the latest committed snapshot during a transient read failure.
+  }).finally(() => {
     entry.primePromise = null
   })
 
@@ -63,12 +68,15 @@ function createTaskEntry(taskId: string): TaskEntry {
             publishTask(entry, payload.new)
           }
         }
-      )
-      .subscribe(),
+      ),
     listeners: new Map<number, TaskListener>(),
     snapshot: null,
     primePromise: null,
   }
+
+  entry.channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
+    if (status === 'SUBSCRIBED') void primeTask(taskId, entry, true)
+  })
 
   return entry
 }

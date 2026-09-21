@@ -44,14 +44,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
       remarkPlugins={[remarkGfm]}
       components={{
         pre: ({ ...props }) => (
-          <div className="overflow-hidden w-full my-3 bg-slate-950 dark:bg-black/40 rounded-lg border border-slate-200 dark:border-white/10 group relative">
-            <div className="flex items-center justify-between px-4 py-2 bg-slate-900/50 dark:bg-white/5 border-b border-slate-800 dark:border-white/5">
-              <div className="flex gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/20" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/20" />
-              </div>
-            </div>
+          <div className="group relative my-3 w-full overflow-hidden rounded-lg border border-border-strong bg-foreground text-primary-foreground">
             <div className="p-4 overflow-x-auto custom-scrollbar">
               <pre
                 {...props}
@@ -70,7 +63,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
             <code
               className={cn(
                 isInline
-                  ? "bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded font-mono text-[0.9em] before:content-[''] after:content-[''] text-emerald-700 dark:text-emerald-300"
+                  ? "rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[0.9em] text-primary-strong before:content-[''] after:content-['']"
                   : 'bg-transparent font-mono text-sm',
                 className
               )}
@@ -85,7 +78,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
             {...props}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 hover:underline transition-colors font-medium"
+            className="font-medium text-primary-strong transition-colors hover:text-primary hover:underline"
           />
         ),
         ul: ({ ...props }) => <ul {...props} className="my-2 list-disc pl-4 space-y-1" />,
@@ -144,8 +137,8 @@ function MessageRowComponent({
             className={cn(
               'px-6 py-5 text-[15.5px] leading-7 relative overflow-hidden min-w-0 backdrop-blur-md',
               message.role === 'user'
-                ? 'rounded-[20px] rounded-tr-sm bg-emerald-600/10 dark:bg-emerald-500/10 border border-emerald-600/10 dark:border-emerald-500/20 text-slate-800 dark:text-zinc-200'
-                : 'rounded-[20px] rounded-tl-sm bg-white/60 dark:bg-zinc-900/60 border border-white/50 dark:border-white/10 text-slate-800 dark:text-zinc-200 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)]'
+                ? 'rounded-[20px] rounded-tr-sm border border-primary/15 bg-accent/75 text-foreground'
+                : 'rounded-[20px] rounded-tl-sm border border-border/80 bg-card/75 text-foreground shadow-[var(--shadow-soft)]'
             )}
           >
             <div className="w-full min-w-0">
@@ -154,7 +147,7 @@ function MessageRowComponent({
                     return (
                       <div
                         key={index}
-                        className="prose prose-sm md:prose-base prose-slate dark:prose-invert max-w-none break-words"
+                        className="prose prose-vibedigest prose-sm max-w-none break-words md:prose-base"
                       >
                         <MarkdownBlock text={part.text} />
                       </div>

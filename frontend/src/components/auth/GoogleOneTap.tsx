@@ -86,8 +86,8 @@ export function GoogleOneTap() {
                     })
 
                     if (error) {
-                        console.error("One Tap sign-in error:", error.message)
-                        toast.error(t("auth.signInFailed", { error: error.message }))
+                        console.error("Google One Tap sign-in failed")
+                        toast.error(t("auth.errors.generic"))
                         return
                     }
 
@@ -96,10 +96,9 @@ export function GoogleOneTap() {
                         window.google?.accounts.id.cancel()
                         toast.success(t("auth.signInSuccess"))
                     }
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : "An unexpected error occurred."
-                    console.error("One Tap error:", err)
-                    toast.error(t("auth.signInFailed", { error: message }))
+                } catch {
+                    console.error("Google One Tap sign-in failed")
+                    toast.error(t("auth.errors.generic"))
                 }
             }
 

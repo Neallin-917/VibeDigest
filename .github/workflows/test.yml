@@ -212,6 +212,8 @@ jobs:
       run: npm ci
     - name: Run Build Check
       run: npm run build
+    - name: Verify packaged Agent routes
+      run: npm run test:artifact
     - name: Run lint
       run: npm run lint
     - name: Run tests

@@ -225,3 +225,8 @@ allowed: `comparison_table`, `bar_chart`, and `steps`. Every row, value, and
 step retains source evidence. Invalid optional blocks are dropped without
 discarding an otherwise valid text summary. The LLM never supplies executable
 HTML, JSX, SVG, or renderer configuration.
+
+Catalog cognition generates both English and Chinese summary outputs from the
+same transcript and evidence. User-submitted tasks keep their requested output
+locale. Public detail routes select the exact localized output; source quotes
+and timestamp anchors remain tied to the shared transcript.

@@ -4,12 +4,12 @@ import React, { createContext, useCallback, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 
 import {
-  isLocale,
   type Locale,
   type Messages,
   createTranslator,
   COOKIE_NAME,
 } from "@/lib/i18n"
+import { localeSwitchHref } from "@/lib/locale-navigation"
 
 const STORAGE_KEY = "vd.locale" // Keep for legacy/client-side preference persistence if needed
 
@@ -63,14 +63,7 @@ export function I18nProvider({
 
     // 3. Navigate to locale-prefixed route
     const { pathname, search, hash } = window.location
-    const segments = pathname.split("/")
-    if (segments.length > 1 && isLocale(segments[1])) {
-      segments[1] = next
-    } else {
-      segments.splice(1, 0, next)
-    }
-    const nextPath = segments.join("/") || "/"
-    router.replace(`${nextPath}${search}${hash}`)
+    router.replace(localeSwitchHref(`${pathname}${search}${hash}`, next))
   }, [router])
 
   const t = useMemo(() => createTranslator(messages), [messages])

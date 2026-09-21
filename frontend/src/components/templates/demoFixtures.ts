@@ -1,3 +1,4 @@
+import caseySnapshot from "@/lib/fixtures/task-detail-casey.json"
 import type { Task } from "./CommunityTemplates"
 import type { Locale } from "@/lib/i18n"
 import { findPodcastSource } from "@/lib/podcast-sources"
@@ -189,6 +190,22 @@ const LANGUAGE_MISMATCH_DEMO_TASK = createDemoTask({
     publicLocale: "zh",
 })
 
+// Public-page snapshot captured 2026-09-11 for long-title/summary visual review.
+// Available only through the existing development-only fixture gate.
+const CASEY_DETAIL_FIXTURE: Task = {
+    ...createDemoTask({
+        id: "local-demo-casey",
+        video_url: "https://www.youtube.com/watch?v=8xBJPa_480Q",
+        video_title: caseySnapshot.title,
+        author: "youtube.com",
+        durationLabel: "1 hr 54 min",
+        keyPointCount: 3,
+        created_at: "2026-09-11T00:00:00.000Z",
+        publicLocale: "en",
+    }),
+    thumbnail_url: caseySnapshot.thumbnail,
+}
+
 export function getDemoFixtureTasks(limit: number) {
     return DEMO_FIXTURE_TASKS.slice(0, limit)
 }
@@ -214,30 +231,14 @@ function createDemoSummary(task: Task, locale: Locale) {
                     why_it_matters: "把浏览、理解和后续探索放在同一条短路径里。",
                 },
             ],
-            sections: [],
-        }
-    }
-
-    if (locale === "ja") {
-        return {
-            version: 4,
-            language: "ja",
-            tl_dr: `これは「${task.video_title}」のローカルデモ整理で、番組を開いた直後に読める情報構造を示します。`,
-            overview: "本番環境では、番組の原文に基づく要約、重要ポイント、根拠を表示します。ローカルデモは実際の番組内容を装いません。",
-            keypoints: [
-                {
-                    title: "最初に結論を確認する",
-                    detail: "短い要約と重要ポイントを先に示し、音声全体を聞く前に読む価値を判断できます。",
-                    evidence: "ローカルデモデータ",
-                    why_it_matters: "長いコンテンツを開いた直後の判断負担を減らします。",
-                },
-                {
-                    title: "元の番組と追加質問を残す",
-                    detail: "元の番組へ戻ることも、VibeDigest Agent に整理内容について質問することもできます。",
-                    evidence: "ローカルデモデータ",
-                    why_it_matters: "閲覧、理解、深掘りを短い導線にまとめます。",
-                },
-            ],
+            ui_blocks: [{
+                kind: "steps", id: "demo-reading-flow", title: "阅读路径（本地演示）",
+                steps: [
+                    { title: "读结论", detail: "先了解核心观点。", evidence: "本地演示数据" },
+                    { title: "查看证据", detail: "展开观点，核对来源。", evidence: "本地演示数据" },
+                    { title: "继续追问", detail: "围绕本期内容深入理解。", evidence: "本地演示数据" },
+                ],
+            }],
             sections: [],
         }
     }
@@ -261,6 +262,14 @@ function createDemoSummary(task: Task, locale: Locale) {
                 why_it_matters: "Browsing, understanding, and exploration stay in one short path.",
             },
         ],
+        ui_blocks: [{
+            kind: "steps", id: "demo-reading-flow", title: "Reading flow (local demo)",
+            steps: [
+                { title: "Read", detail: "Start with the main ideas.", evidence: "Local demo data" },
+                { title: "Verify", detail: "Expand an idea and check the source.", evidence: "Local demo data" },
+                { title: "Ask", detail: "Continue exploring this episode.", evidence: "Local demo data" },
+            ],
+        }],
         sections: [],
     }
 }
@@ -268,10 +277,18 @@ function createDemoSummary(task: Task, locale: Locale) {
 export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
     const task = DEMO_FIXTURE_TASKS.find((candidate) => candidate.id === id)
         ?? (LANGUAGE_MISMATCH_DEMO_TASK.id === id ? LANGUAGE_MISMATCH_DEMO_TASK : null)
+        ?? (CASEY_DETAIL_FIXTURE.id === id ? CASEY_DETAIL_FIXTURE : null)
     if (!task) return null
 
     const summaryLocale = task.takeawayLocale ?? locale
-    const summary = createDemoSummary(task, summaryLocale)
+    const summary = task.id === CASEY_DETAIL_FIXTURE.id ? {
+        version: 4,
+        language: "en",
+        tl_dr: caseySnapshot.summary,
+        overview: caseySnapshot.summary,
+        keypoints: caseySnapshot.keypoints,
+        sections: [],
+    } : createDemoSummary(task, summaryLocale)
     return {
         ...task,
         takeaway: summary.tl_dr,

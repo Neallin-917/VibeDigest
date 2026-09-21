@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { CHAT_EXAMPLE_LIMIT, getChatExample, getChatExamples } from "./chat-examples"
+import { LANDING_DEMO } from "./landing-demo"
+import landingSummaries from "./fixtures/landing-demo-summaries.json"
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -86,5 +88,50 @@ describe("getChatExamples", () => {
 
     await expect(getChatExample("not-a-task-id")).resolves.toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it.each(["en", "zh"] as const)("validates the published %s summary without caching availability or leaking its payload", async (locale) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      { ...LANDING_DEMO, task_outputs: landingSummaries.outputs },
+    ])))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const example = await getChatExample(LANDING_DEMO.id, locale)
+    expect(example?.id).toBe(LANDING_DEMO.id)
+    expect(example).not.toHaveProperty("task_outputs")
+    const [url, options] = fetchMock.mock.calls[0] as [URL, RequestInit]
+    expect(url.searchParams.get("select")).toContain("task_outputs!inner(kind,status,locale,content)")
+    expect(url.searchParams.get("publication_status")).toBe("eq.published")
+    expect(url.searchParams.get("task_outputs.status")).toBe("eq.completed")
+    expect(options.cache).toBe("no-store")
+  })
+
+  it.each([
+    { name: "missing language", locale: "zh" as const, outputs: landingSummaries.outputs.filter(output => output.locale === "en") },
+    { name: "missing outputs", locale: "zh" as const, outputs: [] },
+    { name: "invalid summary", locale: "zh" as const, outputs: [{ kind: "summary", status: "completed", locale: "zh", content: {} }] },
+    { name: "failed summary", locale: "zh" as const, outputs: landingSummaries.outputs.map(output => ({ ...output, status: "failed" })) },
+  ])("rejects a landing example with $name", async ({ locale, outputs }) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      { ...LANDING_DEMO, task_outputs: outputs },
+    ]))))
+    await expect(getChatExample(LANDING_DEMO.id, locale)).resolves.toBeNull()
+  })
+
+  it("does not retain an example after the public query stops returning it", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ ...LANDING_DEMO, task_outputs: landingSummaries.outputs }])))
+      .mockResolvedValueOnce(new Response("[]"))
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await getChatExample(LANDING_DEMO.id, "zh")).not.toBeNull()
+    expect(await getChatExample(LANDING_DEMO.id, "zh")).toBeNull()
+  })
+
+  it.each(["http", "network"])("makes a failed %s availability check recoverable", async (failure) => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    vi.stubGlobal("fetch", failure === "http"
+      ? vi.fn().mockResolvedValue(new Response(null, { status: 503 }))
+      : vi.fn().mockRejectedValue(new Error("offline")))
+    await expect(getChatExample(LANDING_DEMO.id, "zh")).resolves.toBeNull()
   })
 })

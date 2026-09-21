@@ -1,7 +1,7 @@
 .PHONY: all install start test lint lint-backend clean help
 .PHONY: install-backend install-frontend
 .PHONY: dev dev-stop start-backend start-worker start-frontend start-dev
-.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts backfill-podcasts process-podcast-supply
+.PHONY: test-backend test-frontend test-db-integration-smoke test-integration test-queue-integration test-llm-replay test-llm-live test-provider-smoke create-demo-task sync-podcast-sources discover-podcasts backfill-podcasts backfill-podcast-languages process-podcast-supply preflight-podcast-supply
 .PHONY: stop restart-dev rebuild-dev
 .PHONY: perf perf-frontend perf-check perf-update-baseline
 .PHONY: ops-audit ops-daily-report
@@ -39,7 +39,9 @@ help:
 	@echo "  make sync-podcast-sources - Sync the podcast source catalog into Postgres"
 	@echo "  make discover-podcasts - Discover and enqueue recent podcast episodes"
 	@echo "  make backfill-podcasts - Advance bounded historical podcast backfill"
+	@echo "  make backfill-podcast-languages - Preview missing en/zh summaries (set PODCAST_LANGUAGE_BACKFILL_APPLY=1 to enqueue)"
 	@echo "  make process-podcast-supply - Process a bounded catalog batch with Codex subscription"
+	@echo "  make preflight-podcast-supply - Check Codex profile, ChatGPT login and models (no database/queue)"
 	@echo "  make lint          - Run formatters and linters"
 	@echo "  make clean         - Clean up temporary files"
 
@@ -131,7 +133,7 @@ test-db-integration-smoke:
 
 test-queue-integration:
 	@echo "Running real PGMQ integration tests..."
-	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/integration/test_pgmq_queue.py backend/tests/integration/test_agent_turns.py --no-cov -v
+	PYTHONPATH=$$PYTHONPATH:$(PWD)/backend EVENTLET_NO_GREENDNS=yes uv run pytest -c backend/pytest.ini -o addopts='' backend/tests/integration/test_pgmq_queue.py backend/tests/integration/test_agent_turns.py backend/tests/integration/test_billing_lifecycle.py --no-cov -v
 
 test-provider-smoke:
 	@echo "Running provider smoke (real LLM API call)..."
@@ -189,6 +191,14 @@ backfill-podcasts:
 		$(if $(PODCAST_SINCE_DAYS),--since-days "$(PODCAST_SINCE_DAYS)",) \
 		$(if $(PODCAST_MAX_ENQUEUES),--max-enqueues "$(PODCAST_MAX_ENQUEUES)",) \
 		$(if $(PODCAST_BACKFILL_WINDOW),--backfill-window "$(PODCAST_BACKFILL_WINDOW)",)
+
+backfill-podcast-languages:
+	uv run python backend/scripts/podcasts/backfill_summary_locales.py \
+		$(if $(filter 1,$(PODCAST_LANGUAGE_BACKFILL_APPLY)),--apply,) \
+		$(if $(PODCAST_LANGUAGE_BACKFILL_LIMIT),--limit "$(PODCAST_LANGUAGE_BACKFILL_LIMIT)",)
+
+preflight-podcast-supply:
+	uv run python backend/scripts/tasks/preflight_catalog_supply.py
 
 process-podcast-supply:
 	uv run python backend/scripts/tasks/process_catalog_supply.py \

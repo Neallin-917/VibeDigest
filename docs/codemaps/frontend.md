@@ -41,17 +41,19 @@ Exact versions belong to `frontend/package.json` and
 
 ```text
 src/app/
-├── layout.tsx, page.tsx              # root shell and locale redirect
+├── (root)/layout.tsx, page.tsx       # static English shell for `/` redirect
+├── global-not-found.tsx              # locale-aware full-document 404
 ├── manifest.ts, robots.ts, sitemap.ts
 ├── [lang]/
+│   ├── layout.tsx                    # locale root; owns `<html lang>`
 │   ├── page.tsx                      # landing page
 │   ├── chat/                         # primary chat workspace
 │   ├── explore/                      # public task discovery
 │   ├── login/ and auth/callback/     # authentication
+│   ├── policies/                    # public refund and payment terms
 │   ├── (main)/
 │   │   ├── tasks/[id]/               # task result
-│   │   ├── settings/                 # account and pricing
-│   │   └── policies/                 # authenticated legal routes
+│   │   └── settings/                 # account and pricing
 │   └── about, faq, privacy, terms
 └── api/
     ├── process-video/                # authenticated FastAPI proxy
@@ -77,11 +79,63 @@ src/app/
 | Backend commands | `src/lib/api.ts` | Typed browser-facing API client |
 | Live task events | `src/lib/task-live.ts` | Supabase Realtime only |
 | Supabase clients | `src/lib/supabase*.ts` | Browser/public and server credential boundaries |
+
+Public policy pages render outside `MainShell`. Protected-route redirects and
+all authentication methods preserve the localized return path, query, and anchor
+through `locale-navigation.ts`.
+
+The landing digest pins one public example in `src/lib/landing-demo.ts`. Its CTA
+opens `/[lang]/chat?task=...`; the existing chat page verifies public availability
+before showing the task, and retains that task through the sign-in handoff.
+The CTA is offered only for the pinned episode's supported summary languages.
+Its original episode cover is bundled as `public/landing-openclaw.jpg` and served
+through Next's responsive image optimizer, avoiding an external image fetch at
+page render time.
+Optimized images use the cache minimum in `frontend/next.config.ts` to avoid
+frequently reprocessing stable covers. Replacing an image at the same URL can
+leave its old optimized version cached; use a new versioned source URL when an
+update must appear immediately. Card `sizes` must match their layout's displayed
+width, including the landing preview's four-column grid and fixed compact rows.
+Direct entry freshly validates a completed summary in the route language. A
+missing, withdrawn, or unreachable example shows a retry/new-chat recovery state
+instead of entering private thread initialization; existing conversations retain
+their authenticated restoration path. The inline pinned digest never substitutes
+another summary language, including while changing locales.
+The local visual demo uses the complete published English/Chinese summary snapshot
+in `src/lib/fixtures/landing-demo-summaries.json` for this episode; production still
+reads persisted task outputs. Inline digests render the overview, every key point,
+its significance, and all sections, with source evidence available in a disclosure.
+A standalone completed digest opens at the beginning; sending a follow-up resumes
+conversation scrolling.
+When its first follow-up receives a thread ID, the finished messages seed the
+workspace remount so the digest and new answer remain visible.
+
+Public task details pair the real source cover with the title and locale-matched
+summary, then show three expandable key-point previews beside validated summary
+`uiBlocks` when available. No illustration is inferred from episode titles; absent
+blocks collapse the layout to one reading column. The existing source-scoped
+follow-up appears before the full-digest disclosure. Long lead summaries remain
+fully available through a native disclosure, and missing covers retain the source link.
+
+Task URL paths are owned by `src/lib/task-path.ts`; metadata, social URLs,
+sitemap and discovery cards share that builder, including its title punctuation.
+Published, locale-matched digest slug aliases use permanent redirects (HTTP 308
+before streaming; an immediate meta refresh after streaming starts). Private or
+language-unavailable aliases retain temporary redirects. Canonical URLs omit
+navigation query state; both ID-only and slug aliases retain validated return and
+conversation parameters through `src/lib/task-navigation.ts`.
+
+Library navigation keeps filters and pagination in the URL. Detail links retain
+the validated originating library path and episode anchor, including when the
+digest is in another language. `TaskDetailRefresh` refreshes the server projection
+after Realtime task/summary changes and subscription recovery; it never polls.
+The shared inline-task subscription also re-reads on reconnect and ignores older
+row versions so a stale read cannot replace a newer result.
 | Durable chat schema | `src/lib/chat-message-boundary.ts` | Validate request, replay, and persistence boundaries |
 | Follow-up context budget | `src/app/api/chat/context-budget.ts` | Keep recent complete UI messages within message and character limits |
 | Task Agent | `src/lib/agent/` | Shared intent/tools/runner, signed backend client, source index and citations |
 | Chat updates | `src/components/chat/useChatRealtime.ts` | INSERT/UPDATE subscription, reconnect snapshot, buffered merge during streaming; no HTTP polling |
-| Locale content | `src/lib/i18n.ts` | `en`, `zh`, and `ja` |
+| Locale content | `src/lib/i18n.ts` | `en` and `zh` |
 
 Transient loading UI must not be persisted as an empty assistant message. Chat
 messages cross the single `chat-message-boundary.ts` validation boundary.
@@ -92,7 +146,20 @@ definitions, but no action tools. Durable metadata drives answer retry/cancel UI
 
 ## Rendering rules
 
+- Landing library previews show at most two rows: 2 items on phones, 4 from
+  640px, 6 from 1024px, and 8 from 1280px. The server selects from bounded recent
+  candidates, prioritizing the route language and then distinct shows before
+  repeated shows. This selection does not change full-library ordering.
+- The chat shell owns the dynamic viewport height. Its workspace and sidebar
+  inherit that height; messages scroll in the remaining flex space above the
+  composer. Do not reserve a fixed message padding block for the composer.
+- Welcome examples use their content container width: two columns below 36rem,
+  three from 36rem, and four from 48rem. Sidebar expansion must affect the grid
+  through available space, without a separate viewport-based column rule.
 - Prefer Server Components for static or server-owned reads.
+- Keep localized document language in the `[lang]` root layout from route
+  params. Request headers may localize the global 404, but must not make the
+  public locale tree dynamic.
 - Add `"use client"` only for browser APIs, Realtime, state, or interaction.
 - Keep command routes thin: authenticate, validate, forward, normalize errors.
 - Do not reproduce backend workflow or provider fallback logic in Next.js.

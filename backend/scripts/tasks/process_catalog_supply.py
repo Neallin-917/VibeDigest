@@ -28,6 +28,7 @@ os.environ.setdefault("TASK_QUEUE_MAX_POLL_SECONDS", "1")
 os.environ.setdefault("CODEX_LOCAL_TIMEOUT_SECONDS", "600")
 
 from worker import build_worker, drain_worker  # noqa: E402
+from services.catalog_backfill_scope import ScopedCatalogSummaryQueue, read_task_ids  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,11 +41,20 @@ def parse_args() -> argparse.Namespace:
         default=int(os.getenv("PODCAST_MAX_JOBS_PER_RUN", "4")),
         help="Maximum jobs to process before exiting (default: 4).",
     )
+    parser.add_argument(
+        "--task-ids-file",
+        type=Path,
+        help="Only consume summary retries for these task UUIDs.",
+    )
     return parser.parse_args()
 
 
-async def run(max_jobs: int) -> int:
+async def run(max_jobs: int, task_ids: list[str] | None = None) -> int:
     worker = await build_worker()
+    if task_ids is not None:
+        worker.queue = ScopedCatalogSummaryQueue(
+            worker.queue.db, task_ids=task_ids, queue_name=worker.queue.queue_name
+        )
     processed = await drain_worker(worker, max_jobs=max_jobs)
     print(
         json.dumps(
@@ -62,7 +72,8 @@ async def run(max_jobs: int) -> int:
 def main() -> int:
     args = parse_args()
     try:
-        return asyncio.run(run(args.max_jobs))
+        task_ids = read_task_ids(args.task_ids_file) if args.task_ids_file else None
+        return asyncio.run(run(args.max_jobs, task_ids))
     except Exception as exc:
         print(json.dumps({"error": str(exc)}, sort_keys=True), file=sys.stderr)
         return 1

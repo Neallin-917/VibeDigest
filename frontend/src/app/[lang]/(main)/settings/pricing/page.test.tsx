@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import PricingPage from "./page"
@@ -48,7 +49,6 @@ vi.mock("@/lib/api", () => ({
     ApiClient: {
         createCustomerPortal: vi.fn(),
         createCheckoutSession: vi.fn(),
-        createCryptoCharge: vi.fn(),
     },
 }))
 
@@ -98,7 +98,7 @@ describe("PricingPage", () => {
         expect(screen.queryByText("$8.33")).not.toBeInTheDocument()
         expect(mockSelect).toHaveBeenCalledTimes(1)
         expect(mockSelect).toHaveBeenCalledWith(
-            "tier, usage_count, usage_limit, extra_credits",
+            "tier, usage_count, usage_limit, extra_credits, billing_interval, cancel_at_period_end, period_end, usage_reset_at",
         )
         expect(document.querySelector("#pro")).toBeInTheDocument()
         expect(document.querySelector("#topup")).toBeInTheDocument()
@@ -150,7 +150,10 @@ describe("PricingPage", () => {
         })
         renderPricingPage()
 
-        fireEvent.click(await screen.findByText("pricing.pro.button"))
+        await screen.findByText("pricing.pro.button")
+        expect(screen.queryByText("free")).not.toBeInTheDocument()
+        expect(screen.getByText("pricing.free.title")).toBeInTheDocument()
+        fireEvent.click(screen.getByText("pricing.pro.button"))
 
         await waitFor(() => {
             expect(ApiClient.createCheckoutSession).toHaveBeenCalledWith(
@@ -182,7 +185,7 @@ describe("PricingPage", () => {
         })
         renderPricingPage()
 
-        fireEvent.click(await screen.findByRole("switch"))
+        fireEvent.click(await screen.findByRole("radio", { name: "pricing.pro.monthly" }))
         fireEvent.click(screen.getByText("pricing.pro.button"))
 
         await waitFor(() => {
@@ -198,6 +201,28 @@ describe("PricingPage", () => {
             billing: "monthly",
         })
         expect(mockAssign).toHaveBeenCalledWith("https://checkout.example/pro-monthly")
+    })
+
+    it("names both billing choices and supports keyboard selection", async () => {
+        mockSingle.mockResolvedValue({
+            data: { tier: "free", usage_count: 0, usage_limit: 3, extra_credits: 0 },
+            error: null,
+        })
+        const user = userEvent.setup()
+        renderPricingPage()
+
+        expect(await screen.findByRole("group", { name: "pricing.billingPeriod" })).toBeInTheDocument()
+        const annual = screen.getByRole("radio", { name: "pricing.pro.annual" })
+        const monthly = screen.getByRole("radio", { name: "pricing.pro.monthly" })
+        expect(annual).toBeChecked()
+        expect(monthly).not.toBeChecked()
+        annual.focus()
+        await user.keyboard("{ArrowLeft}")
+
+        expect(monthly).toHaveFocus()
+        expect(monthly).toBeChecked()
+        expect(annual).not.toBeChecked()
+        expect(ApiClient.createCheckoutSession).not.toHaveBeenCalled()
     })
 
     it("tracks the one-time top-up checkout mapping", async () => {

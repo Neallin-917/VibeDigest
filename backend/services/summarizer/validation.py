@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
+from utils.language_utils import normalize_lang_code
+
 from services.summarizer.models import SummaryResponseV4, SummaryResponseV5
 
 
@@ -64,3 +66,18 @@ def parse_summary_payload_v4(summary: Any) -> Dict[str, Any]:
     normalized = validated.model_dump()
     normalized["version"] = version
     return normalized
+
+
+def validate_catalog_summary_payload(payload: Dict[str, Any], locale: str) -> None:
+    """Apply the public-library content gate to every catalog locale."""
+    if normalize_lang_code(payload.get("language")) != locale:
+        raise ValueError(f"Summary language does not match requested locale {locale}")
+    overview = str(payload.get("overview") or "").strip()
+    takeaway = str(payload.get("tl_dr") or overview).strip()
+    keypoints = payload.get("keypoints")
+    if len(overview) < 60:
+        raise ValueError(f"Catalog summary overview is too short for locale {locale}")
+    if len(takeaway) < 24:
+        raise ValueError(f"Catalog summary takeaway is too short for locale {locale}")
+    if not isinstance(keypoints, list) or len(keypoints) < 3:
+        raise ValueError(f"Catalog summary needs at least three keypoints for locale {locale}")

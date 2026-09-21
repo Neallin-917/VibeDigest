@@ -22,9 +22,9 @@ function TopHeaderComponent({ onMobileMenuClick, className }: TopHeaderProps) {
   return (
     <header className={cn(
       "h-14 flex items-center justify-between px-4 md:px-6 shrink-0 z-30",
-      "bg-white/90 dark:bg-zinc-950/90",
+      "bg-background/90",
       "backdrop-blur-xl",
-      "border-b border-slate-200/60 dark:border-white/10",
+      "border-b border-border/70",
       className
     )}>
       {/* Left: Mobile Hamburger (only on mobile) */}
@@ -34,8 +34,7 @@ function TopHeaderComponent({ onMobileMenuClick, className }: TopHeaderProps) {
           onClick={onMobileMenuClick}
           className={cn(
             "p-2 -ml-2 rounded-xl transition-all md:hidden",
-            "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
-            "dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10"
+            "text-foreground-subtle hover:bg-accent hover:text-accent-foreground"
           )}
           aria-label={t('nav.openMenu')}
         >
@@ -44,7 +43,7 @@ function TopHeaderComponent({ onMobileMenuClick, className }: TopHeaderProps) {
         <Link
           href={`/${locale}`}
           className={cn(
-            "inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+            "inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             sidebar && !sidebar.isCollapsed && "md:hidden"
           )}
         >

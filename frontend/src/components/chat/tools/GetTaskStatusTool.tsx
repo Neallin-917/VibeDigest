@@ -33,7 +33,7 @@ export function GetTaskStatusTool({
       <ToolHeader
         type="tool-get_task_status"
         state={state}
-        title="Task status"
+        title={t('chat.tools.status.title')}
         className="text-foreground"
       />
       <ToolContent className="border-t border-border bg-transparent text-foreground">
@@ -42,8 +42,10 @@ export function GetTaskStatusTool({
             output
               ? (
                   <div className="space-y-2 text-sm">
-                    <div>Latest status: {statusLabel}</div>
-                    <div className="text-xs text-muted-foreground">taskId: {output.taskId}</div>
+                    <div>{t('chat.tools.status.latest', { status: statusLabel })}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t('chat.tools.status.taskId', { id: output.taskId })}
+                    </div>
                   </div>
                 )
               : undefined

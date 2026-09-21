@@ -10,6 +10,7 @@ import { LandingNav } from "@/components/landing/LandingNav"
 import { TaskNotificationListener } from "@/components/tasks/TaskNotificationListener"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import { TopHeader } from "@/components/chat/TopHeader"
 
 export function MainShell({ children }: { children: React.ReactNode }) {
   const { locale } = useI18n()
@@ -30,9 +31,10 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isPublicPath && !isLoading && !user) {
-      router.replace(`/${locale}/login`)
+      const next = `${pathname || `/${locale}/chat`}${window.location.search}${window.location.hash}`
+      router.replace(`/${locale}/login?${new URLSearchParams({ next })}`)
     }
-  }, [isLoading, isPublicPath, locale, router, user])
+  }, [isLoading, isPublicPath, locale, pathname, router, user])
 
   // Show loading spinner while checking auth (but allow public paths through)
   if (isLoading && !isPublicPath) {
@@ -56,7 +58,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="relative min-h-screen overflow-x-clip bg-background">
         <div className="pointer-events-none fixed inset-0 bg-grid opacity-20" />
-        <div className="pointer-events-none fixed left-0 top-0 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/5 blur-[120px]" />
+        <div className="pointer-events-none fixed left-0 top-0 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-[120px]" />
         <div
           data-slot="task-detail-nav-scrim"
           className="pointer-events-none fixed inset-x-0 top-0 z-40 h-24 bg-background/95 backdrop-blur-sm"
@@ -80,12 +82,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
         {/* Background glow for glass effect - Adapted for both modes */}
         <div className="pointer-events-none fixed left-0 top-0 z-0 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 mix-blend-multiply blur-[150px]" />
-        <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-emerald-600/6 blur-[120px] rounded-full pointer-events-none translate-x-1/2 translate-y-1/2 z-0" />
+        <div className="pointer-events-none fixed bottom-0 right-0 z-0 h-[500px] w-[500px] translate-x-1/2 translate-y-1/2 rounded-full bg-primary-muted/6 blur-[120px]" />
 
         <AppSidebar />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <MobileHeader />
+          <TopHeader className="hidden md:flex" />
 
           <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
             {children}

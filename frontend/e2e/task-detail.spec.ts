@@ -27,14 +27,12 @@ test.describe("Public task detail", () => {
         await expect(page.locator('[data-slot="task-source-media"] img')).toBeVisible()
         await expect(page.getByRole("button", { name: "复制分享链接" })).toBeVisible()
         await expect(page.locator("article")).not.toHaveAttribute("lang", /.+/)
-        await expect(page.locator('[aria-labelledby="task-summary-title"] [lang="zh"]').first()).toBeVisible()
-        const firstKeypoint = page.locator('details[data-slot="task-keypoint"]').first()
-        await expect(firstKeypoint).not.toHaveAttribute("open", "")
-        await expect(firstKeypoint.locator("summary")).toContainText("先读结论，再决定是否深入")
-        await firstKeypoint.locator("summary").click()
+        await expect(page.locator('[aria-labelledby="task-summary-title"] details [lang="zh"]').first()).toBeVisible()
+        const firstKeypoint = page.locator('[data-slot="task-keypoint"]').first().locator("details")
+        await expect(page.getByRole("heading", { name: "先读结论，再决定是否深入" })).toBeVisible()
+        await expect(firstKeypoint.getByRole("button")).toHaveCount(0)
         await expect(firstKeypoint.getByText("本地演示数据", { exact: true })).toBeVisible()
         await expect(firstKeypoint.getByText("本地演示数据", { exact: true })).toHaveAttribute("lang", "zh")
-        await firstKeypoint.locator("summary").click()
         await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /index, follow/)
         const jsonLdPayloads = await page.locator('script[type="application/ld+json"]').allTextContents()
         const articleJsonLd = jsonLdPayloads
@@ -54,7 +52,7 @@ test.describe("Public task detail", () => {
                 summary: top("#task-summary-title"),
                 keyIdeas: top("#task-key-ideas-title"),
                 source: top('[data-slot="task-source-media"]'),
-                fullDigest: top("details.group"),
+                fullDigest: top("#task-full-summary-title"),
                 followUp: top('[aria-labelledby="task-follow-up-title"]'),
             }
         })
@@ -81,10 +79,9 @@ test.describe("Public task detail", () => {
         expect(mobileHero.mediaAndSummaryAreSideBySide).toBe(true)
         expect(mobileHero.mediaIsInFirstViewport).toBe(true)
 
-        await page.getByText("完整整理", { exact: true }).click()
         await expect(page.getByRole("heading", { name: "内容概览" })).toBeVisible()
         await expect(page.getByRole("heading", { name: "内容概览" })).not.toHaveAttribute("lang", /.+/)
-        await expect(page.locator("details.group").locator('p[lang="zh"]').first()).toBeVisible()
+        await expect(page.locator('[aria-labelledby="task-full-summary-title"] details').locator('p[lang="zh"]').first()).toBeVisible()
         await expect(page.getByRole("heading", { name: "内容摘要" })).toHaveCount(1)
         await expect(page.getByRole("heading", { name: "关键观点" })).toHaveCount(1)
 
@@ -100,28 +97,50 @@ test.describe("Public task detail", () => {
         expect(pageErrors.filter((message) => message.includes("Hydration failed"))).toEqual([])
     })
 
-    test("opens and closes key ideas with the keyboard while preserving the preview", async ({ page }) => {
-        await page.emulateMedia({ reducedMotion: 'reduce' })
+    test("shows short key ideas while adapting the summary disclosure to available width", async ({ page }) => {
+        await page.setViewportSize({ width: 320, height: 844 })
         await page.goto(TASK_PATH)
-
-        const keypoint = page.locator('details[data-slot="task-keypoint"]').first()
-        const toggle = keypoint.locator('summary')
-        const evidence = keypoint.getByText("本地演示数据", { exact: true })
-        await expect(keypoint).not.toHaveAttribute('open', '')
-        await expect(toggle).toContainText("详情页先给出简明摘要和少量关键观点")
-        await expect(evidence).not.toBeVisible()
-
+        const keypoint = page.locator('[data-slot="task-keypoint"]').first().locator("details")
+        const summary = page.locator('[aria-labelledby="task-summary-title"]')
+        const toggle = summary.getByRole("button", { name: "展开摘要" })
+        await expect(toggle).toHaveAttribute("aria-expanded", "false")
         await toggle.focus()
-        await page.keyboard.press('Enter')
-        await expect(keypoint).toHaveAttribute('open', '')
-        await expect(evidence).toBeVisible()
-        await expect(keypoint.getByText("降低进入长内容后的判断成本。", { exact: true })).toBeVisible()
+        await page.keyboard.press("Enter")
+        await expect(summary.getByRole("button", { name: "收起摘要" })).toHaveAttribute("aria-expanded", "true")
+        await page.keyboard.press("Space")
+        await expect(toggle).toHaveAttribute("aria-expanded", "false")
+        for (const width of [390, 1280]) {
+            await page.setViewportSize({ width, height: 844 })
+            await expect(keypoint.getByRole("button")).toHaveCount(0)
+            await expect(keypoint.getByText("本地演示数据", { exact: true })).toBeVisible()
+            await expect(keypoint.getByText("降低进入长内容后的判断成本。", { exact: true })).toBeVisible()
+        }
+        await expect(summary.getByRole("button")).toHaveCount(0)
+    })
 
-        await page.keyboard.press('Space')
-        await expect(keypoint).not.toHaveAttribute('open', '')
-        await expect(evidence).not.toBeVisible()
-        await expect(toggle).toBeVisible()
-        await expect(toggle).toBeFocused()
+    test("keeps disclosure server HTML closed and usable without JavaScript", async ({ browser, baseURL }) => {
+        const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 320, height: 844 } })
+        try {
+            const page = await context.newPage()
+            // Isolate the real SSR disclosure from Next's streaming shell, which needs
+            // its own scripts to reveal suspended route content.
+            const response = await page.request.get(`${baseURL}${TASK_PATH}`)
+            expect(response.ok()).toBe(true)
+            const markup = (await response.text()).match(/<details class="group\/disclosure"[\s\S]*?<\/details>/)?.[0]
+            expect(markup).toBeTruthy()
+            await page.setContent(markup!)
+            const details = page.locator("details")
+            const body = details.locator(":scope > div")
+            await expect(details).not.toHaveAttribute("open")
+            await expect(body).not.toBeVisible()
+            await details.locator("summary").click()
+            await expect(details).toHaveAttribute("open")
+            await expect(body).toBeVisible()
+            await details.locator("summary").click()
+            await expect(body).not.toBeVisible()
+        } finally {
+            await context.close()
+        }
     })
 
     test("hides mismatched public digest sections on the english route and links to the supported locale", async ({ page }) => {
@@ -179,7 +198,7 @@ test.describe("Public task detail", () => {
             const keyIdeasRect = keyIdeas?.getBoundingClientRect()
             const sourceRect = source?.getBoundingClientRect()
             const followUpRect = followUpRegion?.getBoundingClientRect()
-            const fullDigestRect = document.querySelector("details.group")?.getBoundingClientRect()
+            const fullDigestRect = document.querySelector('[aria-labelledby="task-full-summary-title"]')?.getBoundingClientRect()
 
             return {
                 sourceIsRightOfTitle: Boolean(sourceRect && titleRect && sourceRect.left >= titleRect.right),

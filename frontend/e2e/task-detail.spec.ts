@@ -97,7 +97,8 @@ test.describe("Public task detail", () => {
         expect(pageErrors.filter((message) => message.includes("Hydration failed"))).toEqual([])
     })
 
-    test("shows short key ideas without requiring expansion at either width", async ({ page }) => {
+    test("shows short key ideas while adapting the summary disclosure to available width", async ({ page }) => {
+        await page.setViewportSize({ width: 320, height: 844 })
         await page.goto(TASK_PATH)
         const keypoint = page.locator('[data-slot="task-keypoint"]').first()
         const summary = page.locator('[aria-labelledby="task-summary-title"]')

@@ -14,6 +14,7 @@ export function TaskContentDisclosure({ children, preview, maxLines, moreLabel, 
     className?: string
 }) {
     const contentRef = useRef<HTMLDivElement>(null)
+    const previewRef = useRef<HTMLDivElement>(null)
     const [overflows, setOverflows] = useState<boolean | null>(null)
     const [expanded, setExpanded] = useState(false)
     const open = overflows === false || expanded
@@ -24,24 +25,43 @@ export function TaskContentDisclosure({ children, preview, maxLines, moreLabel, 
 
     useLayoutEffect(() => {
         const content = contentRef.current
-        if (!content) return
+        const preview = previewRef.current
+        if (!content || !preview) return
         const measure = () => {
             // Markdown prose can override the wrapper's line height at breakpoints.
             const paragraph = content.querySelector("p") ?? content
             const lineHeight = Number.parseFloat(getComputedStyle(paragraph).lineHeight)
             const limit = lineHeight * maxLines
-            setOverflows(Number.isFinite(limit) && content.getBoundingClientRect().height > limit + 1)
+            const fullHeight = content.getBoundingClientRect().height
+            const collapsedHeight = preview.getBoundingClientRect().height
+            // The control costs space too. Folding must save at least two body lines.
+            setOverflows(Number.isFinite(limit) && lineHeight > 0
+                && fullHeight > limit + 1 && fullHeight - collapsedHeight >= lineHeight * 2)
         }
         measure()
         const observer = new ResizeObserver(measure)
         observer.observe(content)
+        observer.observe(preview)
         return () => observer.disconnect()
     }, [maxLines])
+
+    // Keep the measured preview identical to the collapsed summary, including its control.
+    const renderPreview = (measurement = false) => (
+        <>
+            <span className={cn("block", !measurement && "group-open/disclosure:hidden", className)}>{excerpt}</span>
+            <span className="inline-flex min-h-11 items-center gap-1 text-xs font-medium text-primary">
+                <span className={measurement ? undefined : "group-open/disclosure:hidden"}>{moreLabel}</span>
+                {!measurement && <span className="hidden group-open/disclosure:inline">{lessLabel}</span>}
+                <ChevronDown className={cn("size-3.5", !measurement && "group-open/disclosure:rotate-180")} aria-hidden="true" />
+            </span>
+        </>
+    )
 
     return (
         <div className="relative">
             <div aria-hidden="true" inert className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
                 <div ref={contentRef} className={contentClass}>{children}</div>
+                <div ref={previewRef}>{renderPreview(true)}</div>
             </div>
             <details className="group/disclosure" open={open}>
                 <summary
@@ -55,12 +75,7 @@ export function TaskContentDisclosure({ children, preview, maxLines, moreLabel, 
                     }}
                     className="cursor-pointer list-none rounded-sm marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden"
                 >
-                    <span className={cn("block group-open/disclosure:hidden", className)}>{excerpt}</span>
-                    <span className="inline-flex min-h-11 items-center gap-1 text-xs font-medium text-primary">
-                        <span className="group-open/disclosure:hidden">{moreLabel}</span>
-                        <span className="hidden group-open/disclosure:inline">{lessLabel}</span>
-                        <ChevronDown className="size-3.5 group-open/disclosure:rotate-180" aria-hidden="true" />
-                    </span>
+                    {renderPreview()}
                 </summary>
                 <div className={contentClass}>{children}</div>
             </details>

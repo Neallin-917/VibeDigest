@@ -23,7 +23,8 @@ Supabase Realtime subscription, while Postgres remains the source of truth.
 
 Task result pages use `TaskContentDisclosure` to show short summaries and key ideas
 in full. Disclosure controls appear only when rendered content exceeds the section's
-line-height budget; resizing remeasures wrapping without resetting an explicit
+line-height budget and the preview plus control saves at least two body lines.
+Resizing remeasures both body and preview without resetting an explicit
 expansion. The full digest follows the same rule. Long sections use native closed
 `details` with a short text excerpt, hiding the full body from assistive technology
 and avoiding clipped text lines. Server-rendered disclosures work without JavaScript;

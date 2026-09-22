@@ -20,12 +20,13 @@ import { getLocaleDisplayName, isLocale, type Locale } from "@/lib/i18n"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import { resolvePodcastSourceId } from "@/lib/podcast-sources"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
-import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react"
+import { ArrowLeft, ExternalLink } from "lucide-react"
 import { KnowledgeUiBlocks } from "@/components/chat/KnowledgeUiBlocks"
 import { TaskSourceCover } from "@/components/tasks/TaskSourceCover"
 import { cache } from "react"
 import { TaskFollowUp } from "@/components/tasks/TaskFollowUp"
 import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
+import { TaskContentDisclosure } from "@/components/tasks/TaskContentDisclosure"
 import { TaskDetailRefresh } from "@/components/tasks/TaskDetailRefresh"
 import { parseLibraryReturnHref } from "@/lib/library-navigation"
 import { buildTaskReturnSuffix, getSingleSearchParam, THREAD_ID_PATTERN } from "@/lib/task-navigation"
@@ -158,6 +159,8 @@ const DETAIL_COPY = {
     en: {
         back: "Back to podcast library", source: "Source",
         more: "Read more", less: "Show less",
+        morePoint: "Show more", lessPoint: "Show less",
+        moreFull: "Expand full summary", lessFull: "Collapse full summary",
         summary: "Summary", keyIdeas: "Key ideas", fullSummary: "Read the full digest", original: "Open Original Video",
         share: "Copy share link", copied: "Copied", copyFailed: "Copy failed",
         whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at",
@@ -176,6 +179,8 @@ const DETAIL_COPY = {
     zh: {
         back: "返回播客库", source: "来源",
         more: "展开摘要", less: "收起摘要",
+        morePoint: "展开观点", lessPoint: "收起观点",
+        moreFull: "展开完整整理", lessFull: "收起完整整理",
         summary: "内容摘要", keyIdeas: "关键观点", fullSummary: "完整整理", original: "打开原视频",
         share: "复制分享链接", copied: "已复制", copyFailed: "复制失败",
         whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点",
@@ -304,7 +309,6 @@ export default async function TaskDetailPage(props: Props) {
     const leadSummary = structuredSummary?.tl_dr || structuredSummary?.overview || summaryExcerpt
     const leadKeypoints = structuredSummary?.keypoints.slice(0, 3) ?? []
     const visualBlocks = structuredSummary?.uiBlocks ?? []
-    const expandableSummary = leadSummary.length > (locale === "zh" ? 90 : 180)
     const title = task.video_title || copy.processedVideo
     const displayTitle = title.replaceAll("—", "-")
     const status = normalizeTaskStatus(task.status)
@@ -415,22 +419,9 @@ export default async function TaskDetailPage(props: Props) {
                                     {copy.summary}
                                 </Heading>
                                 {hasSummary ? (
-                                    expandableSummary ? (
-                                        <details className="group/lead">
-                                            <summary className="cursor-pointer list-none rounded-sm marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
-                                                <span lang={summaryLanguageTag} className="line-clamp-4 text-base font-semibold leading-snug tracking-tight group-open/lead:line-clamp-none sm:text-lg lg:text-xl">
-                                                    {leadSummary}
-                                                </span>
-                                                <span className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-medium text-primary">
-                                                    <span className="group-open/lead:hidden">{copy.more}</span>
-                                                    <span className="hidden group-open/lead:inline">{copy.less}</span>
-                                                    <ChevronDown className="size-3.5 motion-safe:transition-transform group-open/lead:rotate-180" aria-hidden="true" />
-                                                </span>
-                                            </summary>
-                                        </details>
-                                    ) : (
-                                        <p lang={summaryLanguageTag} className="text-base font-semibold leading-snug tracking-tight sm:text-lg lg:text-xl">{leadSummary}</p>
-                                    )
+                                    <TaskContentDisclosure maxLines={6} moreLabel={copy.more} lessLabel={copy.less} className="text-base font-semibold leading-snug tracking-tight sm:text-lg lg:text-xl">
+                                        <p lang={summaryLanguageTag}>{leadSummary}</p>
+                                    </TaskContentDisclosure>
                                 ) : languageSwitchHref ? (
                                     <div className="max-w-[46rem] space-y-3">
                                         <Text tone="muted">
@@ -477,42 +468,40 @@ export default async function TaskDetailPage(props: Props) {
                                             key={`${keypoint.title}-${index}`}
                                             className="min-w-0"
                                         >
-                                            <details data-slot="task-keypoint" className="group/point py-3">
-                                                <summary className="grid cursor-pointer list-none grid-cols-[1.75rem_minmax(0,1fr)_1rem] items-start gap-3 rounded-sm marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+                                            <div data-slot="task-keypoint" className="py-3">
+                                                <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-3">
                                                     <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-medium tabular-nums text-primary" aria-hidden="true">
                                                         {String(index + 1).padStart(2, "0")}
                                                     </span>
-                                                    <span className="min-w-0">
-                                                        <span lang={summaryLanguageTag} className="block text-sm font-semibold leading-6 text-foreground sm:text-base">{keypoint.title}</span>
-                                                        <span lang={summaryLanguageTag} className="mt-1 line-clamp-1 text-sm leading-5 text-muted-foreground group-open/point:hidden">{keypoint.detail}</span>
-                                                    </span>
-                                                    <ChevronDown className="mt-1.5 size-4 text-muted-foreground motion-safe:transition-transform group-open/point:rotate-180" aria-hidden="true" />
-                                                </summary>
-                                                <div className="ml-10 mt-2">
-                                                    <p lang={summaryLanguageTag} className="text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
-                                                    {keypoint.why_it_matters && (
-                                                        <p className="mt-3 text-sm leading-6 text-foreground/80">
-                                                            <span className="font-semibold">{copy.whyItMatters}: </span>
-                                                            <span lang={summaryLanguageTag}>{keypoint.why_it_matters}</span>
-                                                        </p>
-                                                    )}
-                                                    <div className="mt-3 border-l-2 border-primary/30 pl-3">
-                                                        <p className="text-xs font-semibold text-primary">{copy.evidence}</p>
-                                                        <p lang={evidenceLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
-                                                        {typeof keypoint.startSeconds === "number" && task.video_url && (
-                                                            <a
-                                                                href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400"
-                                                            >
-                                                                {copy.openAt} {formatTimestamp(keypoint.startSeconds)}
-                                                                <ExternalLink className="ml-1.5 size-3" aria-hidden="true" />
-                                                            </a>
-                                                        )}
-                                                    </div>
+                                                    <h3 lang={summaryLanguageTag} className="text-sm font-semibold leading-6 text-foreground sm:text-base">{keypoint.title}</h3>
                                                 </div>
-                                            </details>
+                                                <div className="ml-10 mt-2">
+                                                    <TaskContentDisclosure maxLines={14} moreLabel={copy.morePoint} lessLabel={copy.lessPoint}>
+                                                        <p lang={summaryLanguageTag} className="text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                                                        {keypoint.why_it_matters && (
+                                                            <p className="mt-3 text-sm leading-6 text-foreground/80">
+                                                                <span className="font-semibold">{copy.whyItMatters}: </span>
+                                                                <span lang={summaryLanguageTag}>{keypoint.why_it_matters}</span>
+                                                            </p>
+                                                        )}
+                                                        <div className="mt-3 border-l-2 border-primary/30 pl-3">
+                                                            <p className="text-xs font-semibold text-primary">{copy.evidence}</p>
+                                                            <p lang={evidenceLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
+                                                            {typeof keypoint.startSeconds === "number" && task.video_url && (
+                                                                <a
+                                                                    href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400"
+                                                                >
+                                                                    {copy.openAt} {formatTimestamp(keypoint.startSeconds)}
+                                                                    <ExternalLink className="ml-1.5 size-3" aria-hidden="true" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </TaskContentDisclosure>
+                                                </div>
+                                            </div>
                                         </li>
                                     ))}
                                 </ol>
@@ -537,12 +526,9 @@ export default async function TaskDetailPage(props: Props) {
                         />
                     </div>
                     {hasSummary && detailedSummaryMarkdown && (
-                        <details className="group min-w-0 border-y border-border/70">
-                            <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-foreground marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-                                <span>{copy.fullSummary}</span>
-                                <ChevronDown className="size-4 motion-safe:transition-transform group-open:rotate-180" aria-hidden="true" />
-                            </summary>
-                            <div className="border-t border-border/70 py-7">
+                        <section className="min-w-0 border-y border-border/70 py-5" aria-labelledby="task-full-summary-title">
+                            <Heading as="h2" variant="h2" id="task-full-summary-title" className="mb-5">{copy.fullSummary}</Heading>
+                            <TaskContentDisclosure maxLines={24} moreLabel={copy.moreFull} lessLabel={copy.lessFull}>
                                 <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
@@ -564,8 +550,8 @@ export default async function TaskDetailPage(props: Props) {
                                         {detailedSummaryMarkdown}
                                     </ReactMarkdown>
                                 </div>
-                            </div>
-                        </details>
+                            </TaskContentDisclosure>
+                        </section>
                     )}
 
                 </div>

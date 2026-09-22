@@ -21,6 +21,11 @@ Browser
 The browser never polls task status. `frontend/src/lib/task-live.ts` owns the
 Supabase Realtime subscription, while Postgres remains the source of truth.
 
+Task result pages use `TaskContentDisclosure` to show short summaries and key ideas
+in full. Disclosure controls appear only when rendered content exceeds the section's
+line-height budget; resizing remeasures wrapping without resetting an explicit
+expansion. The full digest follows the same rule.
+
 ## Stack
 
 | Concern | Implementation |

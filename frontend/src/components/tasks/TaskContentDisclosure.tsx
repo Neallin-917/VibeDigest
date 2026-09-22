@@ -1,63 +1,69 @@
 "use client"
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react"
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-/** Keep short content readable; constrain only sections that exceed their line budget. */
-export function TaskContentDisclosure({ children, maxLines, moreLabel, lessLabel, className }: {
+/** Static task prose only: the inert copy measures wrapping while native details is closed. */
+export function TaskContentDisclosure({ children, preview, maxLines, moreLabel, lessLabel, className }: {
     children: ReactNode
+    preview: string
     maxLines: number
     moreLabel: string
     lessLabel: string
     className?: string
 }) {
     const contentRef = useRef<HTMLDivElement>(null)
-    const contentId = useId()
-    const [maxHeight, setMaxHeight] = useState<number | null>(null)
+    const [overflows, setOverflows] = useState<boolean | null>(null)
     const [expanded, setExpanded] = useState(false)
-    const collapsed = maxHeight !== null && !expanded
+    const open = overflows === false || expanded
+    const contentClass = cn("flow-root leading-6", className)
+    // A real excerpt, not a visually clipped copy of the full accessible body.
+    const characters = Array.from(preview)
+    const excerpt = characters.length > 96 ? `${characters.slice(0, 96).join("").trimEnd()}…` : preview
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const content = contentRef.current
         if (!content) return
         const measure = () => {
-            const lineHeight = Number.parseFloat(getComputedStyle(content).lineHeight)
+            // Markdown prose can override the wrapper's line height at breakpoints.
+            const paragraph = content.querySelector("p") ?? content
+            const lineHeight = Number.parseFloat(getComputedStyle(paragraph).lineHeight)
             const limit = lineHeight * maxLines
-            const height = content.getBoundingClientRect().height
-            setMaxHeight(Number.isFinite(limit) && height > limit + 1 ? limit : null)
+            setOverflows(Number.isFinite(limit) && content.getBoundingClientRect().height > limit + 1)
         }
         measure()
-        // Observe the unconstrained inner content, so resizing also works while collapsed.
         const observer = new ResizeObserver(measure)
         observer.observe(content)
         return () => observer.disconnect()
     }, [maxLines])
 
     return (
-        <div>
-            <div
-                id={contentId}
-                style={collapsed ? { maxHeight: maxHeight!, overflow: "hidden" } : undefined}
-                onFocusCapture={() => {
-                    // Keyboard navigation must never leave a source link hidden by clipping.
-                    if (collapsed) setExpanded(true)
-                }}
-            >
-                <div ref={contentRef} className={cn("flow-root leading-6", className)}>{children}</div>
+        <div className="relative">
+            <div aria-hidden="true" inert className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
+                <div ref={contentRef} className={contentClass}>{children}</div>
             </div>
-            {maxHeight !== null && (
-                <button
-                    type="button"
-                    aria-expanded={!collapsed}
-                    aria-controls={contentId}
-                    onClick={() => setExpanded(!expanded)}
-                    className="mt-2 inline-flex min-h-11 items-center gap-1 rounded-sm text-xs font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            <details className="group/disclosure" open={open}>
+                <summary
+                    hidden={overflows === false}
+                    role="button"
+                    aria-label={overflows === null ? undefined : open ? lessLabel : moreLabel}
+                    aria-expanded={overflows === null ? undefined : open}
+                    onClick={(event) => {
+                        event.preventDefault()
+                        setExpanded(!expanded)
+                    }}
+                    className="cursor-pointer list-none rounded-sm marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden"
                 >
-                    {collapsed ? moreLabel : lessLabel}
-                    <ChevronDown className={cn("size-3.5", !collapsed && "rotate-180")} aria-hidden="true" />
-                </button>
-            )}
+                    <span className={cn("block group-open/disclosure:hidden", className)}>{excerpt}</span>
+                    <span className="inline-flex min-h-11 items-center gap-1 text-xs font-medium text-primary">
+                        <span className="group-open/disclosure:hidden">{moreLabel}</span>
+                        <span className="hidden group-open/disclosure:inline">{lessLabel}</span>
+                        <ChevronDown className="size-3.5 group-open/disclosure:rotate-180" aria-hidden="true" />
+                    </span>
+                </summary>
+                <div className={contentClass}>{children}</div>
+            </details>
         </div>
     )
 }

@@ -419,7 +419,7 @@ export default async function TaskDetailPage(props: Props) {
                                     {copy.summary}
                                 </Heading>
                                 {hasSummary ? (
-                                    <TaskContentDisclosure maxLines={6} moreLabel={copy.more} lessLabel={copy.less} className="text-base font-semibold leading-snug tracking-tight sm:text-lg lg:text-xl">
+                                    <TaskContentDisclosure preview={leadSummary} maxLines={6} moreLabel={copy.more} lessLabel={copy.less} className="text-base font-semibold leading-snug tracking-tight sm:text-lg lg:text-xl">
                                         <p lang={summaryLanguageTag}>{leadSummary}</p>
                                     </TaskContentDisclosure>
                                 ) : languageSwitchHref ? (
@@ -476,7 +476,7 @@ export default async function TaskDetailPage(props: Props) {
                                                     <h3 lang={summaryLanguageTag} className="text-sm font-semibold leading-6 text-foreground sm:text-base">{keypoint.title}</h3>
                                                 </div>
                                                 <div className="ml-10 mt-2">
-                                                    <TaskContentDisclosure maxLines={14} moreLabel={copy.morePoint} lessLabel={copy.lessPoint}>
+                                                    <TaskContentDisclosure preview={keypoint.detail} maxLines={14} moreLabel={copy.morePoint} lessLabel={copy.lessPoint}>
                                                         <p lang={summaryLanguageTag} className="text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
                                                         {keypoint.why_it_matters && (
                                                             <p className="mt-3 text-sm leading-6 text-foreground/80">
@@ -528,7 +528,7 @@ export default async function TaskDetailPage(props: Props) {
                     {hasSummary && detailedSummaryMarkdown && (
                         <section className="min-w-0 border-y border-border/70 py-5" aria-labelledby="task-full-summary-title">
                             <Heading as="h2" variant="h2" id="task-full-summary-title" className="mb-5">{copy.fullSummary}</Heading>
-                            <TaskContentDisclosure maxLines={24} moreLabel={copy.moreFull} lessLabel={copy.lessFull}>
+                            <TaskContentDisclosure preview={summaryExcerpt} maxLines={24} moreLabel={copy.moreFull} lessLabel={copy.lessFull}>
                                 <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}

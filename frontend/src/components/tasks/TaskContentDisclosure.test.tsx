@@ -1,23 +1,25 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TaskContentDisclosure } from './TaskContentDisclosure'
 
 const labels = { moreLabel: 'Show more', lessLabel: 'Show less' }
+const preview = 'A readable episode preview.'
 let contentHeight = 48
 let notifyResize: () => void
 
 function renderContent() {
   return render(
-    <TaskContentDisclosure maxLines={4} {...labels}>
+    <TaskContentDisclosure maxLines={4} preview={preview} {...labels}>
       <p>Episode summary</p>
+      <a href="https://example.com/episode">Original episode</a>
     </TaskContentDisclosure>
   )
 }
 
-function clippingContainer() {
-  return screen.getByText('Episode summary').parentElement!.parentElement!
+function getDetails(container: HTMLElement) {
+  return container.querySelector('details')!
 }
 
 function resizeTo(height: number) {
@@ -44,7 +46,10 @@ describe('TaskContentDisclosure', () => {
     const originalGetComputedStyle = window.getComputedStyle
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
       const style = originalGetComputedStyle(element)
-      Object.defineProperty(style, 'lineHeight', { value: '24px', configurable: true })
+      Object.defineProperty(style, 'lineHeight', {
+        value: element.tagName === 'P' ? '28px' : '24px',
+        configurable: true,
+      })
       return style
     })
     vi.stubGlobal('ResizeObserver', class {
@@ -63,72 +68,96 @@ describe('TaskContentDisclosure', () => {
     vi.unstubAllGlobals()
   })
 
-  it('leaves all content available in server-rendered markup', () => {
+  it('server-renders a closed native disclosure with its preview and full content', () => {
     const html = renderToStaticMarkup(
-      <TaskContentDisclosure maxLines={4} {...labels}>
+      <TaskContentDisclosure maxLines={4} preview={preview} {...labels}>
         <p>Episode summary</p>
       </TaskContentDisclosure>
     )
-    expect(html).toContain('Episode summary')
-    expect(html).not.toContain('<button')
-    expect(html).not.toContain('max-height:96px')
+    const document = new DOMParser().parseFromString(html, 'text/html')
+    const details = document.querySelector('details')!
+    expect(details.hasAttribute('open')).toBe(false)
+    expect(details.querySelector('summary')!.hasAttribute('aria-expanded')).toBe(false)
+    expect(details.querySelector('summary')!.textContent).toContain(preview)
+    expect(details.textContent).toContain('Episode summary')
+    expect(html).not.toContain('max-height:')
+    expect(html).not.toContain('overflow:hidden')
   })
 
-  it.each([48, 96, 97])('shows %s px of content without a redundant disclosure', (height) => {
+  it.each([48, 98, 112, 113])('shows %s px of content using actual paragraph line height', (height) => {
     contentHeight = height
-    renderContent()
+    const { container } = renderContent()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    expect(clippingContainer().style.maxHeight).not.toBe('96px')
+    expect(getDetails(container)).toHaveAttribute('open')
+    expect(within(getDetails(container)).getByText('Episode summary')).toBeVisible()
   })
 
-  it('collapses content only beyond the height threshold and supports both toggles', () => {
-    contentHeight = 98
-    renderContent()
+  it('collapses beyond the paragraph-height threshold and supports both toggles', () => {
+    contentHeight = 114
+    const { container } = renderContent()
+    const details = getDetails(container)
+    expect(details).not.toHaveAttribute('open')
     expect(screen.getByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false')
-    expect(clippingContainer()).toHaveStyle({ maxHeight: '96px' })
 
     fireEvent.click(screen.getByRole('button', { name: 'Show more' }))
+    expect(details).toHaveAttribute('open')
     expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true')
-    expect(clippingContainer().style.maxHeight).not.toBe('96px')
 
     fireEvent.click(screen.getByRole('button', { name: 'Show less' }))
+    expect(details).not.toHaveAttribute('open')
     expect(screen.getByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false')
-    expect(clippingContainer()).toHaveStyle({ maxHeight: '96px' })
   })
 
   it('adds or removes the disclosure when wrapping changes the measured height', () => {
-    renderContent()
+    const { container } = renderContent()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     resizeTo(144)
     expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument()
+    expect(getDetails(container)).not.toHaveAttribute('open')
     resizeTo(72)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    expect(clippingContainer().style.maxHeight).not.toBe('96px')
+    expect(getDetails(container)).toHaveAttribute('open')
   })
 
   it('preserves the reader expansion choice across shrink and grow', () => {
     contentHeight = 144
-    renderContent()
+    const { container } = renderContent()
     fireEvent.click(screen.getByRole('button', { name: 'Show more' }))
     resizeTo(48)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     resizeTo(192)
     expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true')
-    expect(clippingContainer().style.maxHeight).not.toBe('96px')
+    expect(getDetails(container)).toHaveAttribute('open')
   })
 
-  it('expands when keyboard focus enters the content so links remain visible', () => {
+  it('uses closed details to hide the body and excludes its measurement copy from interaction', () => {
     contentHeight = 144
-    render(
-      <TaskContentDisclosure maxLines={4} {...labels}>
-        <p>Episode summary</p>
-        <a href="https://example.com/episode">Original episode</a>
+    const { container } = renderContent()
+    const details = getDetails(container)
+    expect(within(details).getByText('Episode summary')).not.toBeVisible()
+    expect(within(details).getByText('Original episode')).not.toBeVisible()
+    const measurement = container.querySelector('[inert][aria-hidden="true"]')!
+    expect(measurement).not.toBeNull()
+    expect(measurement).toHaveTextContent('Episode summary')
+    expect(measurement.closest('details')).toBeNull()
+    expect(container.querySelector('[style*="max-height"]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show more' }))
+    expect(within(details).getByText('Original episode')).toBeVisible()
+  })
+
+  it('bounds the plain-text preview without splitting unicode codepoints', () => {
+    contentHeight = 144
+    const { container } = render(
+      <TaskContentDisclosure maxLines={4} preview={'😀'.repeat(120)} {...labels}>
+        <p>Full content remains available</p>
       </TaskContentDisclosure>
     )
-    expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument()
-    act(() => screen.getByRole('link', { name: 'Original episode' }).focus())
-    expect(screen.getByRole('link', { name: 'Original episode' })).toHaveFocus()
-    expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true')
-    expect(clippingContainer().style.maxHeight).not.toBe('96px')
+    const summary = getDetails(container).querySelector('summary')!
+    const text = summary.firstElementChild!.textContent!
+    expect(text).toContain('…')
+    expect(Array.from(text)).toHaveLength(97)
+    expect(text).toBe(`${'😀'.repeat(96)}…`)
+    expect(text).not.toContain('\uFFFD')
   })
 })

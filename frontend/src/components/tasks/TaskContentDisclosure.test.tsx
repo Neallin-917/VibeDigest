@@ -7,7 +7,8 @@ import { TaskContentDisclosure } from './TaskContentDisclosure'
 const labels = { moreLabel: 'Show more', lessLabel: 'Show less' }
 const preview = 'A readable episode preview.'
 let contentHeight = 48
-let notifyResize: () => void
+let previewHeight = 48
+let resizeCallbacks: Map<Element, () => void>
 
 function renderContent() {
   return render(
@@ -25,24 +26,29 @@ function getDetails(container: HTMLElement) {
 function resizeTo(height: number) {
   act(() => {
     contentHeight = height
-    notifyResize()
+    for (const callback of new Set(resizeCallbacks.values())) callback()
   })
 }
 
 describe('TaskContentDisclosure', () => {
   beforeEach(() => {
     contentHeight = 48
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
-      height: contentHeight,
-      width: 400,
-      top: 0,
-      left: 0,
-      bottom: contentHeight,
-      right: 400,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    }))
+    previewHeight = 48
+    resizeCallbacks = new Map()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const height = this.firstElementChild?.tagName === 'SPAN' ? previewHeight : contentHeight
+      return {
+        height,
+        width: 400,
+        top: 0,
+        left: 0,
+        bottom: height,
+        right: 400,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }
+    })
     const originalGetComputedStyle = window.getComputedStyle
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
       const style = originalGetComputedStyle(element)
@@ -53,12 +59,18 @@ describe('TaskContentDisclosure', () => {
       return style
     })
     vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) {
-        notifyResize = callback
+      constructor(private callback: () => void) {}
+      observe(element: Element) {
+        resizeCallbacks.set(element, this.callback)
       }
-      observe() {}
-      unobserve() {}
-      disconnect() {}
+      unobserve(element: Element) {
+        resizeCallbacks.delete(element)
+      }
+      disconnect() {
+        for (const [element, callback] of resizeCallbacks) {
+          if (callback === this.callback) resizeCallbacks.delete(element)
+        }
+      }
     })
   })
 
@@ -117,6 +129,46 @@ describe('TaskContentDisclosure', () => {
     resizeTo(72)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(getDetails(container)).toHaveAttribute('open')
+  })
+
+  it.each([242, 198, 170, 143])('keeps 198 px of content open when the collapsed preview takes %s px', (height) => {
+    contentHeight = 198
+    previewHeight = height
+    const { container } = renderContent()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(getDetails(container)).toHaveAttribute('open')
+    expect(within(getDetails(container)).getByText('Episode summary')).toBeVisible()
+  })
+
+  it('collapses when the preview and control together save exactly two paragraph lines', () => {
+    contentHeight = 198
+    previewHeight = 142
+    const { container } = renderContent()
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument()
+    expect(getDetails(container)).not.toHaveAttribute('open')
+  })
+
+  it('remeasures when only the preview height changes', () => {
+    contentHeight = 198
+    previewHeight = 142
+    const { container } = renderContent()
+    const measuredPreview = Array.from(resizeCallbacks.keys()).find(element => element.firstElementChild?.tagName === 'SPAN')
+    expect(measuredPreview).toBeDefined()
+    expect(getDetails(container)).not.toHaveAttribute('open')
+
+    act(() => {
+      previewHeight = 242
+      resizeCallbacks.get(measuredPreview!)!()
+    })
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(getDetails(container)).toHaveAttribute('open')
+
+    act(() => {
+      previewHeight = 142
+      resizeCallbacks.get(measuredPreview!)!()
+    })
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument()
+    expect(getDetails(container)).not.toHaveAttribute('open')
   })
 
   it('preserves the reader expansion choice across shrink and grow', () => {

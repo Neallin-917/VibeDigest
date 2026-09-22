@@ -274,10 +274,17 @@ function createDemoSummary(task: Task, locale: Locale) {
     }
 }
 
+// Public Chinese summary that exposed a 198px body / 242px collapsed preview regression.
+const DISCLOSURE_SHORT_FIXTURE: Task = {
+    ...DEMO_FIXTURE_TASKS.find((task) => task.id === "local-demo-latent-space")!,
+    id: "local-demo-disclosure-short",
+}
+
 export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
     const task = DEMO_FIXTURE_TASKS.find((candidate) => candidate.id === id)
         ?? (LANGUAGE_MISMATCH_DEMO_TASK.id === id ? LANGUAGE_MISMATCH_DEMO_TASK : null)
         ?? (CASEY_DETAIL_FIXTURE.id === id ? CASEY_DETAIL_FIXTURE : null)
+        ?? (DISCLOSURE_SHORT_FIXTURE.id === id ? DISCLOSURE_SHORT_FIXTURE : null)
     if (!task) return null
 
     const summaryLocale = task.takeawayLocale ?? locale
@@ -289,6 +296,9 @@ export function getDemoFixtureTask(id: string, locale: Locale): Task | null {
         keypoints: caseySnapshot.keypoints,
         sections: [],
     } : createDemoSummary(task, summaryLocale)
+    if (task.id === DISCLOSURE_SHORT_FIXTURE.id && summaryLocale === "zh") {
+        summary.tl_dr = "能执行命令的智能体天然具备类似恶意软件的能力，不能把提示词或模型判断当作安全边界。可靠方案是默认拒绝、沙箱与密钥隔离，并用确定性规则同时扫描供应链源头和实际使用点，只让大模型参与非关键的降噪判断。"
+    }
     return {
         ...task,
         takeaway: summary.tl_dr,

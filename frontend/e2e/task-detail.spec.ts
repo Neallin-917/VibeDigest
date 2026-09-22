@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test"
 
+import caseySnapshot from "../src/lib/fixtures/task-detail-casey.json"
+import { buildTaskSlug } from "../src/lib/task-path"
+
 import { setupApiMocks } from "./fixtures/mock-api"
 
 const TASK_ID = "local-demo-latent-space"
@@ -102,13 +105,6 @@ test.describe("Public task detail", () => {
         await page.goto(TASK_PATH)
         const keypoint = page.locator('[data-slot="task-keypoint"]').first().locator("details")
         const summary = page.locator('[aria-labelledby="task-summary-title"]')
-        const toggle = summary.getByRole("button", { name: "展开摘要" })
-        await expect(toggle).toHaveAttribute("aria-expanded", "false")
-        await toggle.focus()
-        await page.keyboard.press("Enter")
-        await expect(summary.getByRole("button", { name: "收起摘要" })).toHaveAttribute("aria-expanded", "true")
-        await page.keyboard.press("Space")
-        await expect(toggle).toHaveAttribute("aria-expanded", "false")
         for (const width of [390, 1280]) {
             await page.setViewportSize({ width, height: 844 })
             await expect(keypoint.getByRole("button")).toHaveCount(0)
@@ -116,6 +112,40 @@ test.describe("Public task detail", () => {
             await expect(keypoint.getByText("降低进入长内容后的判断成本。", { exact: true })).toBeVisible()
         }
         await expect(summary.getByRole("button")).toHaveCount(0)
+    })
+
+    test("does not fold the 98-character Chinese regression when its preview costs more space", async ({ page }) => {
+        await page.goto(TASK_PATH.replace(TASK_ID, "local-demo-disclosure-short"))
+        const section = page.locator('[aria-labelledby="task-summary-title"]')
+        const details = section.locator("details")
+        for (const width of [390, 320, 1280]) {
+            await page.setViewportSize({ width, height: 844 })
+            await expect(section.getByRole("button")).toHaveCount(0)
+            await expect(details).toHaveAttribute("open")
+            await expect(details.locator(":scope > div")).toContainText("只让大模型参与非关键的降噪判断。")
+        }
+    })
+
+    test("folds long content only when the preview and control save at least two lines", async ({ page }) => {
+        await page.goto(`/en/tasks/local-demo-casey/${buildTaskSlug(caseySnapshot.title)}`)
+        const section = page.locator('[aria-labelledby="task-summary-title"]')
+        const toggle = section.getByRole("button", { name: "Read more", exact: true })
+        await expect(toggle).toHaveAttribute("aria-expanded", "false")
+        const geometry = await section.evaluate((element) => {
+            const mirror = element.querySelector('[inert] > div')!
+            const paragraph = mirror.querySelector("p")!
+            return {
+                full: mirror.getBoundingClientRect().height,
+                collapsed: element.querySelector("details")!.getBoundingClientRect().height,
+                line: Number.parseFloat(getComputedStyle(paragraph).lineHeight),
+            }
+        })
+        expect(geometry.full - geometry.collapsed).toBeGreaterThanOrEqual(geometry.line * 2)
+        await toggle.focus()
+        await page.keyboard.press("Enter")
+        await expect(section.getByRole("button", { name: "Show less", exact: true })).toHaveAttribute("aria-expanded", "true")
+        await page.keyboard.press("Space")
+        await expect(toggle).toHaveAttribute("aria-expanded", "false")
     })
 
     test("keeps disclosure server HTML closed and usable without JavaScript", async ({ browser, baseURL }) => {

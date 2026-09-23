@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CommunityTemplates, type SourceShelfItem, type Task } from "./CommunityTemplates"
+import { landingPreviewVisibility } from "./landingPreviewLayout"
 import { buildTaskPath } from "@/lib/task-path"
 
 const navigation = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn(), pathname: "/en/explore" }))
@@ -166,6 +167,41 @@ describe("CommunityTemplates", () => {
       "href", expect.stringContaining("/en/tasks/preview-7/Preview-8")
     )
     expect(container.querySelector(".grid")).toHaveClass("sm:grid-cols-2", "xl:grid-cols-4")
+  })
+
+  it("uses one same-tab link per landing card without the gallery controls or duplicate content", () => {
+    const { container } = renderGallery({ layout: "landingPreview", intro: undefined })
+    const card = screen.getByText("Leading example").closest("article")!
+    const link = screen.getByRole("link", { name: "View digest: Leading example" })
+    expect(card.querySelectorAll("a")).toHaveLength(1)
+    expect(link).not.toHaveAttribute("target")
+    expect(link).toHaveAttribute("href", `/en${buildTaskPath(tasks[0])}`)
+    expect(link.querySelector("img")).toHaveAttribute("alt", "")
+    expect(screen.queryByText(tasks[0].takeaway!)).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: /^Original episode:/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument()
+    expect(container.querySelector("[data-feature-layout]")).not.toBeInTheDocument()
+    expect(Array.from({ length: 8 }, (_, index) => landingPreviewVisibility(index)))
+      .toEqual(["", "", "", "", "hidden lg:block", "hidden lg:block", "hidden xl:block", "hidden xl:block"])
+  })
+
+  it("keeps the landing card usable when its thumbnail and source avatar fail", () => {
+    const { container } = renderGallery({ layout: "landingPreview", initialTasks: [tasks[0]] })
+    fireEvent.error(container.querySelector("img")!)
+    const sourceMark = container.querySelector("[data-source-mark='latent-space']")!
+    expect(sourceMark).toBeInTheDocument()
+    fireEvent.error(sourceMark.querySelector("img")!)
+    expect(sourceMark).toHaveTextContent("L")
+    expect(screen.getByRole("link", { name: "View digest: Leading example" })).toHaveAttribute("href", `/en${buildTaskPath(tasks[0])}`)
+  })
+
+  it.each([
+    ["en", "No published digests yet."],
+    ["zh", "暂无公开的整理内容。"],
+  ] as const)("provides a localized empty landing state for %s", (locale, message) => {
+    renderGallery({ layout: "landingPreview", initialTasks: [], locale })
+    expect(screen.getByRole("status")).toHaveTextContent(message)
+    expect(screen.queryByRole("link")).not.toBeInTheDocument()
   })
 
   it("keeps source filtering on the same page and preserves the search query", async () => {

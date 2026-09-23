@@ -11,6 +11,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { cva } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -24,7 +25,6 @@ type NavItem = {
 const navItems: NavItem[] = [
     { id: "hero", key: "product" },
     { id: "library", key: "demos", href: "/explore" },
-    { id: "features", key: "features" },
     { id: "pricing", key: "pricing" },
     { id: "faq", key: "faq", href: "/faq" },
 ]
@@ -36,14 +36,34 @@ const desktopNavLinkClass =
     "after:bg-current after:opacity-70 after:transition-transform after:duration-200 after:ease-out " +
     "hover:after:scale-x-100 focus-visible:after:scale-x-100"
 
+const navPosition = cva("flex items-center", {
+    variants: {
+        home: {
+            true: "relative px-5 pt-4 sm:px-6 lg:px-10 xl:px-6",
+            false: "pointer-events-none fixed left-0 right-0 top-4 z-50 h-14",
+        },
+    },
+})
+
+const navSurface = cva("mx-auto flex w-full items-center justify-between", {
+    variants: {
+        home: {
+            true: "relative h-16 rounded-2xl border border-border bg-surface/80 px-4",
+            false: "pointer-events-auto min-h-14 rounded-[15px] border border-border/90 bg-surface/90 px-3 backdrop-blur-xl",
+        },
+    },
+})
+
 type LandingNavProps = {
-    variant?: "default" | "content"
+    variant?: "default" | "content" | "home"
     shell?: "marketing" | "library"
 }
 
 export function LandingNav({ variant = "default", shell = "marketing" }: LandingNavProps) {
     const { locale, t } = useI18n()
     const pathname = usePathname()
+    const isHome = variant === "home"
+    const visibleNavItems = isHome ? [navItems[1], { id: "features", key: "features" }, ...navItems.slice(2)] : navItems.slice(1)
     const isContentNav = variant === "content"
     const isLibraryShell = shell === "library"
 
@@ -64,15 +84,15 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
         <nav
             aria-label={t("nav.menu")}
             className={cn(
-                "pointer-events-none fixed left-0 right-0 top-4 z-50 flex h-14 items-center",
-                isLibraryShell ? "px-5 sm:px-8 lg:px-14" : "px-4 sm:px-6 lg:px-10 xl:px-6"
+                navPosition({ home: isHome }),
+                !isHome && (isLibraryShell ? "px-5 sm:px-8 lg:px-14" : "px-4 sm:px-6 lg:px-10 xl:px-6")
             )}
         >
             <div
                 className={cn(
-                    "pointer-events-auto mx-auto flex min-h-14 w-full items-center justify-between rounded-[15px] border border-border/90 bg-surface/90 px-3 backdrop-blur-xl",
-                    isLibraryShell ? "max-w-[1440px]" : "max-w-[1080px]",
-                    isContentNav ? "shadow-none" : "shadow-[0_12px_35px_-25px_rgba(27,33,28,0.5)]"
+                    navSurface({ home: isHome }),
+                    isLibraryShell ? "max-w-[1440px]" : isHome ? "max-w-[1328px]" : "max-w-[1080px]",
+                    isContentNav || isHome ? "shadow-none" : "shadow-[0_12px_35px_-25px_rgba(27,33,28,0.5)]"
                 )}
             >
                 {/* Left: Brand Logo */}
@@ -87,7 +107,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
                 {!isContentNav && (
                     <div data-slot="desktop-nav-links" className="absolute left-1/2 hidden -translate-x-1/2 lg:block">
                         <div className="flex items-center gap-1">
-                            {navItems.slice(1).map((item) => {
+                            {visibleNavItems.map((item) => {
                                 const isCurrent = isCurrentItem(item)
                                 return (
                                     <Link
@@ -142,7 +162,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
                                         {t("auth.goToDashboard")}
                                     </Link>
                                 </DropdownMenuItem>
-                                {navItems.slice(1).map((item) => {
+                                {visibleNavItems.map((item) => {
                                     const isCurrent = isCurrentItem(item)
                                     return (
                                         <DropdownMenuItem key={item.id} asChild>

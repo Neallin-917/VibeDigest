@@ -1,45 +1,28 @@
 "use client"
 
 import { useI18n } from "@/components/i18n/I18nProvider"
-import { Heading } from "@/components/ui/typography"
 
 export function FeaturesSection() {
     const { t } = useI18n()
-    const features = [
-        {
-            title: t("landing.outputSummary"),
-        },
-        {
-            title: t("landing.outputKeyIdeas"),
-        },
-        {
-            title: t("landing.outputFollowUp"),
-        },
-    ]
 
     return (
-        <section id="features" className="scroll-mt-24 px-4 py-20 sm:px-6 md:py-24 lg:px-10 lg:py-28 xl:px-6">
-            <div className="mx-auto grid max-w-[1080px] gap-14 lg:grid-cols-[minmax(0,0.82fr)_minmax(28rem,1.18fr)] lg:gap-20">
-                <div className="lg:sticky lg:top-28 lg:self-start">
-                    <Heading as="h2" className="max-w-lg text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-[1.1] tracking-[-0.038em] text-foreground">
-                        {t("landing.featuresTitlePrefix")}
-                    </Heading>
-                </div>
-
-                <ol className="border-t border-border">
-                    {features.map((feature, index) => (
-                        <li key={feature.title} className="group grid gap-5 border-b border-border py-7 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:py-8">
-                            <span className="text-[11px] font-semibold text-primary-muted transition-transform duration-200 motion-safe:group-hover:translate-x-1">
-                                0{index + 1}
-                            </span>
-                            <div>
-                                <Heading as="h3" className="text-xl font-semibold tracking-[-0.025em] text-foreground sm:text-2xl">
-                                    {feature.title}
-                                </Heading>
-                            </div>
-                        </li>
+        <section id="features" aria-labelledby="features-heading" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-20 lg:px-10 xl:px-6">
+            <div className="mx-auto max-w-[1080px]">
+                <h2 id="features-heading" className="mb-7 text-[25px] font-semibold leading-tight tracking-[-0.035em] text-foreground sm:text-[32px]">
+                    {t("landing.featuresTitlePrefix")}
+                </h2>
+                <div className="grid gap-7 md:grid-cols-3 md:gap-10">
+                    {(["Read", "Verify", "Ask"] as const).map((feature) => (
+                        <div key={feature} className="min-w-0">
+                            <h3 className="text-base font-semibold text-foreground">
+                                {t(`landing.feature${feature}Title`)}
+                            </h3>
+                            <p className="mt-2 text-sm leading-6 text-foreground-soft">
+                                {t(`landing.feature${feature}Description`)}
+                            </p>
+                        </div>
                     ))}
-                </ol>
+                </div>
             </div>
         </section>
     )

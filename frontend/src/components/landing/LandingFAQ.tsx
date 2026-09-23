@@ -1,34 +1,31 @@
 "use client"
 
-import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
+import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
 import { useI18n } from "@/components/i18n/I18nProvider"
 import { Heading, Text } from "@/components/ui/typography"
 import { getLandingFaqItems } from "@/lib/billing/faq-content"
 
 export function LandingFAQ() {
-    const { locale, t } = useI18n()
+    const { t } = useI18n()
     const items = getLandingFaqItems(t)
 
     return (
-        <section id="landing-faq" aria-labelledby="landing-faq-title" className="scroll-mt-24 px-4 py-16 sm:px-6 md:py-20 lg:px-10 lg:py-24 xl:px-6">
-            <div className="mx-auto grid max-w-[1080px] gap-12 lg:grid-cols-[minmax(0,0.78fr)_minmax(28rem,1.22fr)] lg:gap-20">
+        <section id="landing-faq" aria-labelledby="landing-faq-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
+            <div className="mx-auto grid max-w-[1080px] gap-6 md:grid-cols-[minmax(0,.75fr)_minmax(0,1.25fr)] md:gap-16">
                 <div>
                     <Heading
                         id="landing-faq-title"
                         as="h2"
-                        className="text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground"
+                        className="text-[25px] sm:text-[30px] font-semibold leading-tight tracking-[-0.038em] text-foreground"
                     >
                         {t("landing.faqTitle")}
                     </Heading>
-                    <Link
-                        href={`/${locale}/faq`}
-                        className="mt-7 inline-flex min-h-11 items-center text-[13px] font-semibold text-primary-strong underline decoration-primary-muted/45 underline-offset-4 transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4"
-                    >
-                        {t("landing.faqLink")}
-                    </Link>
+
                 </div>
 
-                <div className="divide-y divide-border border-y border-border">
+                <div>
+                  <div className="divide-y divide-border border-y border-border">
                     {items.map((item) => (
                         <details key={item.question} className="group py-1">
                             <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-5 text-sm font-semibold text-foreground outline-none transition-colors hover:text-primary-strong focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4">
@@ -40,6 +37,12 @@ export function LandingFAQ() {
                             </Text>
                         </details>
                     ))}
+                  </div>
+                  <FeedbackDialog defaultCategory="support">
+                    <button type="button" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-strong hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-primary">
+                      {t("landing.contactSupport")} <ArrowUpRight className="size-4" aria-hidden="true" />
+                    </button>
+                  </FeedbackDialog>
                 </div>
             </div>
         </section>

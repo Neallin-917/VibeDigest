@@ -93,6 +93,15 @@ Public policy pages render outside `MainShell`. Protected-route redirects and
 all authentication methods preserve the localized return path, query, and anchor
 through `locale-navigation.ts`.
 
+The landing uses an in-flow `LandingNav` home variant; library and content pages
+retain their floating navigation shells. Its centered URL composer uses the
+opt-in `ChatInput` landing variant, preserving the existing auth handoff.
+The public preview shows up to 8/6/4 episodes at desktop/narrow desktop/mobile
+widths, with compact horizontal cards on phones. The homepage omits the separate
+Features and Topics sections, keeps support under FAQ, and renders Basic/Pro
+pricing with a monthly/yearly display toggle from the customer plan catalog.
+FAQ structured data shares the visible copy; the removed steps have no HowTo schema.
+
 The landing digest pins one public example in `src/lib/landing-demo.ts`. Its CTA
 opens `/[lang]/chat?task=...`; the existing chat page verifies public availability
 before showing the task, and retains that task through the sign-in handoff.

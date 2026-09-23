@@ -28,15 +28,11 @@ test.describe('Navigation & Auth Flows', () => {
             await page.goBack();
             await page.waitForLoadState('domcontentloaded');
 
-            // 2. Test "Features" scroll (Nav Item)
-            const featuresLink = page.locator('nav').getByRole('link', { name: /Features|功能/i }).filter({ visible: true }).first();
-            await expect(featuresLink).toBeVisible();
-            await featuresLink.dispatchEvent('click');
-            // Give it a moment for potential scroll/hash update
-            await page.waitForTimeout(1000);
-            // If the hash didn't update, at least ensure we didn't leave the landing page incorrectly
-            const currentURL = page.url();
-            expect(currentURL).toMatch(/\/en(\/?$|#features)/);
+            // The approved navigation drops Features and retains the pricing anchor.
+            await expect(page.locator('nav').getByRole('link', { name: /Features|功能/i })).toHaveCount(0);
+            await page.locator('nav').getByRole('link', { name: 'Pricing', exact: true }).click();
+            await expect(page).toHaveURL(/\/en\/?#pricing$/);
+            await expect(page.locator('#pricing')).toBeInViewport();
 
             // 3. Test "Login" button in header
             const loginButton = page.locator('nav').getByRole('link', { name: /Log in|Sign up|登录/i }).filter({ visible: true }).first();
@@ -108,7 +104,7 @@ test.describe('Navigation & Auth Flows', () => {
             await urlInput.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 
             // 3. Find and Click the now-enabled button
-            const sendButton = page.getByRole('button', { name: /Send message|开始/i }).filter({ visible: true }).first();
+            const sendButton = page.getByRole('button', { name: /Create digest|生成摘要/i }).filter({ visible: true }).first();
 
             // Wait for button to be strictly enabled and stable
             await expect(sendButton).toBeEnabled();

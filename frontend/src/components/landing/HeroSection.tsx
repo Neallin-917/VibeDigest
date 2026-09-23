@@ -56,27 +56,21 @@ export function HeroSection() {
     }
 
     return (
-        <section id="hero" className="relative overflow-hidden px-4 pb-20 pt-32 sm:px-6 md:pb-28 md:pt-36 lg:px-10 xl:px-6">
-            <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[42rem] bg-[linear-gradient(to_bottom,rgba(76,103,82,0.055),transparent_72%)]" />
+        <section id="hero" className="px-5 pt-8 md:px-8 md:pt-[52px]">
             <div className="mx-auto w-full max-w-[1080px]">
-                <div className="max-w-[760px]">
+                <div className="mx-auto max-w-[820px] text-center">
                     <h1 className={cn(
-                        "max-w-[730px] font-semibold text-foreground",
+                        "font-semibold text-foreground md:text-[clamp(36px,4.1vw,56px)] md:leading-[1.12] md:tracking-[-2.3px]",
                         locale === "zh"
-                            ? "text-balance text-[clamp(2rem,4.1vw,3.125rem)] leading-[1.2] tracking-[-0.02em]"
-                            : "text-[clamp(2.5rem,4.1vw,3.125rem)] leading-[1.07] tracking-[-0.042em]"
+                            ? "text-[32px] leading-[1.25] tracking-[-1.1px] max-[359px]:text-[29px]"
+                            : "text-[30px] leading-[1.18] tracking-[-1.1px] max-[359px]:text-[27px]"
                     )}>
-                        <span className={locale === "zh" ? "inline-block whitespace-nowrap" : undefined}>
-                            {t("landing.titlePrefix")}
-                        </span>{" "}
-                        <span className={cn("text-primary", locale === "zh" && "inline-block whitespace-nowrap")}>
-                            {t("landing.titleEmphasis")}
-                        </span>
+                        <span className="block">{t("landing.titlePrefix")}</span>
+                        <span className="block text-primary">{t("landing.titleEmphasis")}</span>
                     </h1>
-
-                    <div className="mt-8 w-full max-w-[34rem]">
+                    <div className="mx-auto mt-[22px] w-full max-w-[640px] md:mt-[30px]">
                         <ChatInput
-                            variant="inline"
+                            variant="landing"
                             onSubmit={handleHeroSubmit}
                             onInputChange={() => setHasUrlError(false)}
                             error={hasUrlError ? t("taskForm.urlHelp.description") : undefined}
@@ -85,9 +79,11 @@ export function HeroSection() {
                             hideDisclaimer={true}
                         />
                     </div>
+                    <a href="#digest-preview-title" className="mt-2.5 inline-flex min-h-11 items-center gap-2 text-xs text-foreground-soft underline decoration-border-strong underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
+                        {t("landing.seeExample")}<span aria-hidden="true">↘</span>
+                    </a>
                 </div>
-
-                <div className="mt-14 sm:mt-16">
+                <div className="mt-[18px] md:mt-7">
                     <DigestPreview />
                 </div>
             </div>

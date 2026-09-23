@@ -55,8 +55,17 @@ describe("LandingNav", () => {
         render(<LandingNav />)
         expect(screen.getByText("Logo")).toBeInTheDocument()
         expect(screen.getAllByText("Demos").length).toBeGreaterThan(0)
-        expect(screen.getAllByText("Features").length).toBeGreaterThan(0)
+        expect(screen.queryByText("Features")).not.toBeInTheDocument()
         expect(screen.getAllByText("UserButton")[0]).toBeInTheDocument()
+    })
+
+    it("uses the plain home navigation without changing the default floating shell", () => {
+        const { rerender } = render(<LandingNav variant="home" />)
+        expect(screen.getByRole("navigation")).not.toHaveClass("fixed")
+        expect(screen.getByRole("navigation").firstElementChild).toHaveClass("border-b")
+        rerender(<LandingNav shell="library" />)
+        expect(screen.getByRole("navigation")).toHaveClass("fixed")
+        expect(screen.getByRole("navigation").firstElementChild).toHaveClass("max-w-[1440px]")
     })
 
     it("renders correct links with locale", () => {

@@ -83,12 +83,14 @@ describe("HeroSection", () => {
         expect(screen.queryByText(/Analysis/)).not.toBeInTheDocument()
     })
 
-    it("renders ChatInput in inline mode", () => {
+    it("renders the labeled landing composer", () => {
         render(<HeroSection />)
         const input = screen.getByRole("textbox", { name: "taskForm.urlInputLabel" })
         expect(input).toBeInTheDocument()
-        expect(screen.getByTestId("hero-chat-input")).toHaveAttribute("data-variant", "inline")
+        expect(screen.getByTestId("hero-chat-input")).toHaveAttribute("data-variant", "landing")
         expect(input).toHaveAttribute("placeholder", "taskForm.urlPlaceholder")
+        expect(screen.getByRole("button", { name: "landing.createDigest" })).toHaveTextContent("landing.createDigest")
+        expect(screen.getByRole("link", { name: /landing.seeExample/ })).toHaveAttribute("href", "#digest-preview-title")
     })
 
     it("keeps supporting copy out of the hero so the task input stays the only CTA", () => {
@@ -157,7 +159,7 @@ describe("HeroSection", () => {
         render(<HeroSection />)
         const input = screen.getByRole("textbox", { name: "taskForm.urlInputLabel" })
         fireEvent.change(input, { target: { value: "https://youtube.com" } })
-        fireEvent.click(screen.getByRole("button", { name: "chat.sendMessage" }))
+        fireEvent.click(screen.getByRole("button", { name: "landing.createDigest" }))
 
         expect(await screen.findByRole("alert")).toHaveTextContent("taskForm.urlHelp.description")
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
@@ -171,7 +173,7 @@ describe("HeroSection", () => {
         fireEvent.change(input, { target: { value: "https://youtu.be/test123" } })
         expect(screen.queryByRole("alert")).not.toBeInTheDocument()
         expect(input).not.toHaveAttribute("aria-invalid")
-        fireEvent.click(screen.getByRole("button", { name: "chat.sendMessage" }))
+        fireEvent.click(screen.getByRole("button", { name: "landing.createDigest" }))
         await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/en/login?next=%2Fen%2Fchat"))
     })
 })

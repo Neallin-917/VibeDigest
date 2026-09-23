@@ -38,7 +38,7 @@ test.describe('Landing Page Acquisition Flow', () => {
         await urlInput.fill(originalUrl)
 
         // Click generate button
-        const generateBtn = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).filter({ visible: true }).first()
+        const generateBtn = page.getByRole('button', { name: /Create digest|生成摘要/i }).filter({ visible: true }).first()
         await generateBtn.click()
 
         // Should redirect to login
@@ -82,7 +82,7 @@ test.describe('Landing Page Acquisition Flow', () => {
         await page.goto('/en')
 
         // Send button should be disabled when input is empty
-        const generateBtn = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).first()
+        const generateBtn = page.getByRole('button', { name: /Create digest|生成摘要/i }).first()
         await expect(generateBtn).toBeDisabled()
     })
 
@@ -92,7 +92,7 @@ test.describe('Landing Page Acquisition Flow', () => {
         const urlInput = page.getByLabel(/Video or podcast URL/i).first()
         await urlInput.fill('not-a-valid-url')
 
-        const generateBtn = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).first()
+        const generateBtn = page.getByRole('button', { name: /Create digest|生成摘要/i }).first()
         await generateBtn.click()
 
         const error = page.locator('#hero').getByRole('alert')

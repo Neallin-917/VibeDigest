@@ -30,11 +30,11 @@ test.describe('Landing Page', () => {
 
         // Check hero section exists
 
-        await expect(page.getByRole('heading', { name: 'Let AI help you watch the whole podcast.' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Long videos, made clear. Go deeper. Just ask.' })).toBeVisible();
 
         // The hero should demonstrate the finished product rather than only
         // describing capabilities, and its CTA opens this episode in the Agent.
-        const digestPreview = page.getByRole('region', { name: 'State of the Claw: Peter Steinberger' });
+        const digestPreview = page.getByRole('region', { name: 'Example digest' });
         await expect(digestPreview).toBeVisible();
         await expect(digestPreview.getByRole('heading', { name: 'Summary' })).toBeVisible();
         await expect(digestPreview.getByRole('heading', { name: 'Follow-up' })).toHaveCount(0);
@@ -51,7 +51,7 @@ test.describe('Landing Page', () => {
 
         // Check for Chat Input "Send message" button (replaces old CTA)
 
-        const sendButton = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).filter({ visible: true }).first();
+        const sendButton = page.getByRole('button', { name: /Create digest|生成摘要/i }).filter({ visible: true }).first();
 
         await expect(sendButton).toBeVisible();
 
@@ -73,7 +73,7 @@ test.describe('Landing Page', () => {
 
         // Fixture data makes the landing page representative without relying on
         // a remote Supabase project or production demo rows.
-        await expect(page.getByRole('heading', { name: 'Podcast library' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Explore the podcast library' })).toBeVisible();
 
     });
 
@@ -115,7 +115,7 @@ test.describe('Landing Page', () => {
 
         // Click submit without entering URL
 
-        const submitButton = page.getByRole('button', { name: /Send message|开始|AI Summary/i }).filter({ visible: true }).first();
+        const submitButton = page.getByRole('button', { name: /Create digest|生成摘要/i }).filter({ visible: true }).first();
 
         
 

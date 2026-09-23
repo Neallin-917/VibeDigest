@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useRef, useState } from 'react'
-import { ArrowUp, Square } from 'lucide-react'
+import { ArrowRight, ArrowUp, Square } from 'lucide-react'
 import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/components/i18n/I18nProvider'
@@ -26,9 +26,10 @@ interface ChatInputProps {
    * Layout variant:
    * - "floating": Bottom composer in the chat flex layout (default)
    * - "inline": Normal block element (for welcome screen)
+   * - "landing": Labeled URL composer on the public homepage
    * - "embedded": Full reading-column width (for source follow-up)
    */
-  variant?: "floating" | "inline" | "embedded"
+  variant?: "floating" | "inline" | "embedded" | "landing"
   /** Hide disclaimer text */
   hideDisclaimer?: boolean
 }
@@ -39,6 +40,7 @@ const inputWidthVariants = cva("w-full", {
       floating: "max-w-3xl",
       inline: "max-w-2xl",
       embedded: "max-w-none",
+      landing: "max-w-none",
     },
   },
 })
@@ -88,6 +90,7 @@ export function ChatInput({
     onStop?.()
   }
 
+  const isLanding = variant === "landing"
   const isFloating = variant === "floating"
   const isStopMode = isLoading && !!onStop
   const isBusy = isLoading || isSubmitting
@@ -104,7 +107,7 @@ export function ChatInput({
           onSubmit={handleSubmit}
           className={cn(
             "relative p-2 pl-6 flex items-center gap-3 ring-1 motion-safe:transition-all motion-safe:duration-300",
-            variant === "embedded" ? "rounded-2xl" : "rounded-[2rem]",
+            isLanding ? "rounded-xl gap-1.5 pl-[13px] md:gap-3 md:pl-5 max-[359px]:pl-2.5" : variant === "embedded" ? "rounded-2xl" : "rounded-[2rem]",
             "bg-card/80 ring-border shadow-[var(--shadow-soft)]",
             
             // Focus State - Soft Glow
@@ -128,10 +131,13 @@ export function ChatInput({
               className={cn(
                 "w-full border-none bg-transparent text-foreground focus:outline-none focus:ring-0",
                 "py-3.5 text-base font-medium tracking-wide",
-                "placeholder:text-foreground-subtle"
+                "placeholder:text-foreground-subtle",
+                isLanding && "h-[42px] py-0 text-base font-normal tracking-normal"
               )}
               placeholder={placeholder ?? t('chat.inputPlaceholder') ?? "Ask anything or paste a URL..."}
               disabled={disabled}
+              inputMode={isLanding ? "url" : undefined}
+              autoComplete={isLanding ? "url" : undefined}
             />
           </div>
 
@@ -141,17 +147,22 @@ export function ChatInput({
             disabled={(!input.trim() && !isStopMode) || (isBusy && !isStopMode) || (disabled && !isStopMode)}
             className={cn(
               "mr-1 flex size-11 shrink-0 items-center justify-center rounded-[1.2rem] p-0 shadow-sm transition-colors duration-200 active:scale-95",
+              isLanding && "mr-0 h-11 w-auto gap-2 rounded-lg px-3 text-xs font-semibold md:px-[21px] max-[359px]:px-2.5 max-[359px]:text-[11px]",
               isStopMode
                 ? "bg-foreground text-primary-foreground hover:bg-foreground-soft"
                 : (input.trim() && !isLoading && !disabled
                   ? "bg-primary-strong text-primary-foreground shadow-[var(--shadow-action)] hover:bg-primary"
                   : "cursor-not-allowed bg-muted/70 text-foreground-subtle shadow-none")
             )}
-            aria-label={isStopMode ? t('chat.stopGeneration') : t('chat.sendMessage')}
+            aria-label={isStopMode ? t('chat.stopGeneration') : isLanding ? t('landing.createDigest') : t('chat.sendMessage')}
+            aria-busy={isBusy || undefined}
           >
-            <div>
+            {isLanding && !isStopMode && <span>{t('landing.createDigest')}</span>}
+            <div aria-hidden="true">
               {isStopMode ? (
                 <Square className="w-5 h-5 fill-current" />
+              ) : isLanding ? (
+                <ArrowRight className="size-4" />
               ) : (
                 <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
               )}

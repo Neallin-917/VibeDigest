@@ -1,5 +1,15 @@
-import '@testing-library/jest-dom'
-import { vi } from 'vitest'
+import * as matchers from '@testing-library/jest-dom/matchers'
+import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
+import { expect, vi } from 'vitest'
+
+// Vitest 5 no longer reads Jest's matcher types. Register the DOM matchers
+// through its shared interface so sync and async assertions keep their types.
+declare module 'vitest' {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Module augmentation requires an interface.
+    interface Matchers<R, T> extends TestingLibraryMatchers<T, R> {}
+}
+
+expect.extend(matchers)
 
 // Radix UI portals require PointerEvent support in jsdom
 if (!window.PointerEvent) {

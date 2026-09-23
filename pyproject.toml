@@ -35,7 +35,7 @@ dependencies = [
 [dependency-groups]
 dev = [
   "mcp>=2,<3",
-  "openai-codex>=0.144.4,<0.145",
+  "openai-codex>=0.144.4,<0.156",
   "pytest>=8,<10",
   "pytest-asyncio>=1,<2",
   "pytest-cov>=7,<8",

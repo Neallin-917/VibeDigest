@@ -30,7 +30,7 @@ test.describe('Landing Page', () => {
 
         // Check hero section exists
 
-        await expect(page.getByRole('heading', { name: 'Long videos, made clear. Go deeper. Just ask.' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Understand the whole conversation. Ask what matters to you.' })).toBeVisible();
 
         // The hero should demonstrate the finished product rather than only
         // describing capabilities, and its CTA opens this episode in the Agent.

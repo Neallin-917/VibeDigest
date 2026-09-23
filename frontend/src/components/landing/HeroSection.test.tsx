@@ -90,7 +90,6 @@ describe("HeroSection", () => {
         expect(screen.getByTestId("hero-chat-input")).toHaveAttribute("data-variant", "landing")
         expect(input).toHaveAttribute("placeholder", "taskForm.urlPlaceholder")
         expect(screen.getByRole("button", { name: "landing.createDigest" })).toHaveTextContent("landing.createDigest")
-        expect(screen.getByRole("link", { name: /landing.seeExample/ })).toHaveAttribute("href", "#digest-preview-title")
     })
 
     it("keeps supporting copy out of the hero so the task input stays the only CTA", () => {

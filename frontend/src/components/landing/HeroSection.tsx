@@ -56,11 +56,11 @@ export function HeroSection() {
     }
 
     return (
-        <section id="hero" className="px-5 pt-8 md:px-8 md:pt-[52px]">
-            <div className="mx-auto w-full max-w-[1080px]">
-                <div className="mx-auto max-w-[820px] text-center">
+        <section id="hero" className="px-5 pt-8 md:px-8 md:pt-[76px]">
+            <div className="mx-auto w-full max-w-[1200px]">
+                <div className="mx-auto max-w-[1200px] text-center">
                     <h1 className={cn(
-                        "font-semibold text-foreground md:text-[clamp(36px,4.1vw,56px)] md:leading-[1.12] md:tracking-[-2.3px]",
+                        "font-semibold text-foreground md:text-[clamp(36px,4.4vw,64px)] md:leading-[1.12] md:tracking-[-2.3px]",
                         locale === "zh"
                             ? "text-[32px] leading-[1.25] tracking-[-1.1px] max-[359px]:text-[29px]"
                             : "text-[30px] leading-[1.18] tracking-[-1.1px] max-[359px]:text-[27px]"
@@ -68,7 +68,7 @@ export function HeroSection() {
                         <span className="block">{t("landing.titlePrefix")}</span>
                         <span className="block text-primary">{t("landing.titleEmphasis")}</span>
                     </h1>
-                    <div className="mx-auto mt-[22px] w-full max-w-[640px] md:mt-[30px]">
+                    <div className="mx-auto mt-[22px] w-full max-w-[760px] md:mt-[30px]">
                         <ChatInput
                             variant="landing"
                             onSubmit={handleHeroSubmit}
@@ -79,11 +79,8 @@ export function HeroSection() {
                             hideDisclaimer={true}
                         />
                     </div>
-                    <a href="#digest-preview-title" className="mt-2.5 inline-flex min-h-11 items-center gap-2 text-xs text-foreground-soft underline decoration-border-strong underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
-                        {t("landing.seeExample")}<span aria-hidden="true">↘</span>
-                    </a>
                 </div>
-                <div className="mt-[18px] md:mt-7">
+                <div className="mt-7 md:mt-8">
                     <DigestPreview />
                 </div>
             </div>

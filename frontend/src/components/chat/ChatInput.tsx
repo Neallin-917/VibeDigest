@@ -108,7 +108,8 @@ export function ChatInput({
           className={cn(
             "relative p-2 pl-6 flex items-center gap-3 ring-1 motion-safe:transition-all motion-safe:duration-300",
             isLanding ? "rounded-xl gap-1.5 pl-[13px] md:gap-3 md:pl-5 max-[359px]:pl-2.5" : variant === "embedded" ? "rounded-2xl" : "rounded-[2rem]",
-            "bg-card/80 ring-border shadow-[var(--shadow-soft)]",
+            "bg-card/80 ring-border",
+            !isLanding && "shadow-[var(--shadow-soft)]",
             
             // Focus State - Soft Glow
             isFocused && "ring-primary/35 shadow-[var(--shadow-focus)]"
@@ -152,7 +153,7 @@ export function ChatInput({
                 ? "bg-foreground text-primary-foreground hover:bg-foreground-soft"
                 : (input.trim() && !isLoading && !disabled
                   ? "bg-primary-strong text-primary-foreground shadow-[var(--shadow-action)] hover:bg-primary"
-                  : "cursor-not-allowed bg-muted/70 text-foreground-subtle shadow-none")
+                  : isLanding ? "cursor-not-allowed bg-primary-strong/80 text-primary-foreground shadow-none" : "cursor-not-allowed bg-muted/70 text-foreground-subtle shadow-none")
             )}
             aria-label={isStopMode ? t('chat.stopGeneration') : isLanding ? t('landing.createDigest') : t('chat.sendMessage')}
             aria-busy={isBusy || undefined}

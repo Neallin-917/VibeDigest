@@ -131,8 +131,8 @@ const enMessages = {
       }
     },
     landing: {
-      titlePrefix: "Long videos, made clear.",
-      titleEmphasis: "Go deeper. Just ask.",
+      titlePrefix: "Understand the whole conversation.",
+      titleEmphasis: "Ask what matters to you.",
       createDigest: "Create digest",
       seeExample: "See an example",
       exampleDigest: "Example digest",
@@ -808,8 +808,8 @@ const zhMessages: MessageShape<typeof enMessages> = {
     // We keep the older `home.*` keys for backwards compatibility, but `landing.*`
     // must exist to avoid falling back to English.
     landing: {
-      titlePrefix: "看懂长视频，",
-      titleEmphasis: "有问题，继续问。",
+      titlePrefix: "读懂整场对话，",
+      titleEmphasis: "追问你关心的。",
       createDigest: "生成摘要",
       seeExample: "查看示例",
       exampleDigest: "整理示例",

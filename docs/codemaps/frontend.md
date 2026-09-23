@@ -96,6 +96,9 @@ through `locale-navigation.ts`.
 The landing uses an in-flow `LandingNav` home variant; library and content pages
 retain their floating navigation shells. Its centered URL composer uses the
 opt-in `ChatInput` landing variant, preserving the existing auth handoff.
+The hero digest presents a source strip, summary and key ideas, then a
+source-grounded follow-up link in one reading surface; phones stack these in
+the same order. Home navigation includes the capability overview anchor.
 The public preview shows up to 8/6/4 episodes at desktop/narrow desktop/mobile
 widths, with compact horizontal cards on phones. The homepage presents a compact three-column feature overview between the digest
 and podcast library, omits Topics, keeps support under FAQ, and renders Basic/Pro

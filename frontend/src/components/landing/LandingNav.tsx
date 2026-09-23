@@ -39,7 +39,7 @@ const desktopNavLinkClass =
 const navPosition = cva("flex items-center", {
     variants: {
         home: {
-            true: "relative px-5 sm:px-6 lg:px-10 xl:px-6",
+            true: "relative px-5 pt-4 sm:px-6 lg:px-10 xl:px-6",
             false: "pointer-events-none fixed left-0 right-0 top-4 z-50 h-14",
         },
     },
@@ -48,7 +48,7 @@ const navPosition = cva("flex items-center", {
 const navSurface = cva("mx-auto flex w-full items-center justify-between", {
     variants: {
         home: {
-            true: "relative h-20 border-b border-border",
+            true: "relative h-16 rounded-2xl border border-border bg-surface/80 px-4",
             false: "pointer-events-auto min-h-14 rounded-[15px] border border-border/90 bg-surface/90 px-3 backdrop-blur-xl",
         },
     },
@@ -63,6 +63,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
     const { locale, t } = useI18n()
     const pathname = usePathname()
     const isHome = variant === "home"
+    const visibleNavItems = isHome ? [navItems[1], { id: "features", key: "features" }, ...navItems.slice(2)] : navItems.slice(1)
     const isContentNav = variant === "content"
     const isLibraryShell = shell === "library"
 
@@ -90,7 +91,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
             <div
                 className={cn(
                     navSurface({ home: isHome }),
-                    isLibraryShell ? "max-w-[1440px]" : "max-w-[1080px]",
+                    isLibraryShell ? "max-w-[1440px]" : isHome ? "max-w-[1328px]" : "max-w-[1080px]",
                     isContentNav || isHome ? "shadow-none" : "shadow-[0_12px_35px_-25px_rgba(27,33,28,0.5)]"
                 )}
             >
@@ -106,7 +107,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
                 {!isContentNav && (
                     <div data-slot="desktop-nav-links" className="absolute left-1/2 hidden -translate-x-1/2 lg:block">
                         <div className="flex items-center gap-1">
-                            {navItems.slice(1).map((item) => {
+                            {visibleNavItems.map((item) => {
                                 const isCurrent = isCurrentItem(item)
                                 return (
                                     <Link
@@ -161,7 +162,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
                                         {t("auth.goToDashboard")}
                                     </Link>
                                 </DropdownMenuItem>
-                                {navItems.slice(1).map((item) => {
+                                {visibleNavItems.map((item) => {
                                     const isCurrent = isCurrentItem(item)
                                     return (
                                         <DropdownMenuItem key={item.id} asChild>

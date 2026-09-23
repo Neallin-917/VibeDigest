@@ -59,10 +59,10 @@ describe("LandingNav", () => {
         expect(screen.getAllByText("UserButton")[0]).toBeInTheDocument()
     })
 
-    it("uses the plain home navigation without changing the default floating shell", () => {
+    it("uses the outlined home navigation without changing the default floating shell", () => {
         const { rerender } = render(<LandingNav variant="home" />)
         expect(screen.getByRole("navigation")).not.toHaveClass("fixed")
-        expect(screen.getByRole("navigation").firstElementChild).toHaveClass("border-b")
+        expect(screen.getByRole("navigation").firstElementChild).toHaveClass("rounded-2xl", "border")
         rerender(<LandingNav shell="library" />)
         expect(screen.getByRole("navigation")).toHaveClass("fixed")
         expect(screen.getByRole("navigation").firstElementChild).toHaveClass("max-w-[1440px]")

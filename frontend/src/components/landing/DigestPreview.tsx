@@ -20,7 +20,6 @@ export function DigestPreview() {
             aria-labelledby="digest-preview-heading"
             className="w-full scroll-mt-8 overflow-hidden rounded-2xl border border-border-strong bg-surface-raised text-foreground shadow-[var(--shadow-soft)]"
         >
-            <span id="features" aria-hidden="true" className="block scroll-mt-8" />
             <h2 id="digest-preview-heading" className="border-b border-border px-5 py-3 text-[11px] font-semibold md:px-7 md:text-xs">
                 {t("landing.exampleDigest")}
             </h2>

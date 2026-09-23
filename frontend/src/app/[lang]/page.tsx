@@ -1,5 +1,6 @@
 import { GoogleOneTap } from "@/components/auth/GoogleOneTap"
 import { LandingNav } from "@/components/landing/LandingNav"
+import { FeaturesSection } from "@/components/landing/FeaturesSection"
 import { HeroSection } from "@/components/landing/HeroSection"
 import { PricingSection } from "@/components/landing/PricingSection"
 import { LandingFAQ } from "@/components/landing/LandingFAQ"
@@ -76,6 +77,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
 
       <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
         <HeroSection />
+        <FeaturesSection />
 
         <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
           <div className="mx-auto max-w-[1080px]">

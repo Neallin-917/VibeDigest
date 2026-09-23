@@ -6,7 +6,15 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      # Vitest and its coverage provider require matching versions, including majors.
+      vitest:
+        patterns:
+          - vitest
+          - "@vitest/*"
       frontend-minor-and-patch:
+        exclude-patterns:
+          - vitest
+          - "@vitest/*"
         update-types:
           - minor
           - patch

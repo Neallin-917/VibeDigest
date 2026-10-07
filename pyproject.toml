@@ -5,7 +5,7 @@ description = "Cloud video transcription and AI knowledge platform"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "coinbase-commerce>=1.0.1,<2",
-  "fastapi>=0.140.13,<0.142",
+  "fastapi>=0.140.13,<0.143",
   "httpx>=0.28,<0.29",
   "langchain-community>=0.3,<0.4",
   "langchain-core>=1.0,<2",
@@ -35,7 +35,7 @@ dependencies = [
 [dependency-groups]
 dev = [
   "mcp>=2,<3",
-  "openai-codex>=0.144.4,<0.145",
+  "openai-codex>=0.144.4,<0.161",
   "pytest>=8,<10",
   "pytest-asyncio>=1,<2",
   "pytest-cov>=7,<8",

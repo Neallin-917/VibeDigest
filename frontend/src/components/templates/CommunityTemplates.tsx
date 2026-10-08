@@ -262,6 +262,50 @@ function SourceMark({ source, size = "large" }: { source: PodcastSource; size?: 
     )
 }
 
+function LandingEpisodeCard({ task, locale, copy }: { task: Task; locale: Locale; copy: PodcastCopy }) {
+    const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null)
+    const source = sourceForTask(task)
+    const title = task.video_title || task.video_url
+    const digestNotice = mismatchNotice(task, locale, copy)
+
+    return (
+        <Link
+            href={taskDetailHref(task, taskDigestLocale(task, locale))}
+            aria-label={`${copy.read}: ${title}`}
+            onClick={() => trackGrowthEvent("library_digest_open", {
+                locale,
+                source: source.id,
+                area: "standard",
+            })}
+            className="group grid grid-cols-[104px_minmax(0,1fr)] items-start gap-4 py-[18px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary max-[360px]:grid-cols-[92px_minmax(0,1fr)] max-[360px]:gap-3 sm:block sm:rounded-lg sm:py-0"
+        >
+            <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-surface-subtle sm:aspect-video">
+                {task.thumbnail_url && task.thumbnail_url !== failedThumbnail ? (
+                    <Image
+                        src={task.thumbnail_url}
+                        alt=""
+                        fill
+                        sizes="(max-width: 359px) 92px, (max-width: 639px) 104px, (min-width: 1280px) 252px, (min-width: 1160px) 344px, (min-width: 1024px) calc((100vw - 128px) / 3), calc((100vw - 72px) / 2)"
+                        className="object-cover"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        onError={() => setFailedThumbnail(task.thumbnail_url ?? null)}
+                    />
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                        <SourceMark source={source} />
+                    </div>
+                )}
+            </div>
+            <div className="min-w-0 sm:pt-3">
+                <p className="mb-[5px] truncate text-[11px] font-semibold text-primary-strong sm:mb-1.5">{source.name}</p>
+                <h3 className="line-clamp-2 text-[13px] font-semibold leading-[1.55] text-foreground transition-colors group-hover:text-primary-strong sm:text-sm sm:tracking-[-0.2px]">{title}</h3>
+                {digestNotice ? <p className="mt-2 text-xs text-muted-foreground">{digestNotice}</p> : null}
+            </div>
+        </Link>
+    )
+}
+
 function EpisodeFeatureCard({
     task,
     locale,
@@ -703,24 +747,19 @@ export function CommunityTemplates({
     }
 
     if (layout === "landingPreview") {
-        if (featuredTasks.length === 0) return null
+        if (initialTasks.length === 0) {
+            return <p className="py-8 text-sm text-muted-foreground" role="status">{locale === "zh" ? "暂无公开的整理内容。" : "No published digests yet."}</p>
+        }
         return (
-            <div className={cn(landingPreviewGrid, "bg-border-strong [&>div]:!bg-card [&_[data-card-role]]:!border-0 [&_[data-card-role]]:!bg-card")}>
+            <div className={landingPreviewGrid}>
                 {initialTasks.slice(0, LANDING_PREVIEW_LIMIT).map((task, index) => (
-                    <div
+                    <article
                         key={task.id}
-                        className={cn("bg-card", landingPreviewVisibility(index))}
+                        id={libraryEpisodeAnchor(task.id)}
+                        className={cn("min-w-0 border-t border-border first:border-0 first:[&>a]:pt-0 sm:border-0", landingPreviewVisibility(index))}
                     >
-                        <EpisodeFeatureCard
-                            task={task}
-                            locale={locale}
-                            copy={podcastCopy}
-                            priority={index === 0}
-                            role="standard"
-                            // Match the landing's 1080px cap, section padding, border and 1px grid gaps.
-                            sizes="(min-width: 1280px) 268.75px, (min-width: 1160px) 358.67px, (min-width: 1024px) calc((100vw - 84px) / 3), (min-width: 640px) calc(50vw - 25.5px), calc(100vw - 34px)"
-                        />
-                    </div>
+                        <LandingEpisodeCard task={task} locale={locale} copy={podcastCopy} />
+                    </article>
                 ))}
             </div>
         )

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LoginForm } from './LoginForm'
+import { savePendingHandoff, PENDING_HANDOFF_KEY } from '@/lib/pending-handoff'
 
 const authMocks = vi.hoisted(() => ({
   signInWithOAuth: vi.fn(),
@@ -84,6 +85,8 @@ vi.mock('@/components/i18n/LanguageInlineSelect', () => ({
 }))
 
 describe('LoginForm', () => {
+  const originalLocation = window.location.href
+  afterEach(() => window.history.replaceState({}, '', originalLocation))
   beforeEach(() => {
     localStorage.clear()
     window.history.replaceState({}, '', '/en/login')
@@ -157,6 +160,44 @@ describe('LoginForm', () => {
     expect(localStorage.getItem('vibedigest_pending_message')).toBe(originalUrl)
   })
 
+  it('previews a structured landing handoff as the original source', async () => {
+    const source = 'https://youtu.be/fixture?t=42'
+    savePendingHandoff(source, { path: '/en/chat', scope: 'workspace' })
+    const saved = localStorage.getItem(PENDING_HANDOFF_KEY)
+    render(<LoginForm />)
+    expect(await screen.findByText('Your link is saved')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: source })).toHaveAttribute('href', source)
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).toBe(saved)
+  })
+
+  it('does not promise a source receipt will continue in a fresh workspace', () => {
+    savePendingHandoff('Question for A', { path: '/en/tasks/source-a/title', scope: 'source', taskId: 'source-a' })
+    const receipt = localStorage.getItem(PENDING_HANDOFF_KEY)
+    render(<LoginForm />)
+    expect(screen.getByRole('heading', { name: 'Welcome Back' })).toBeInTheDocument()
+    expect(screen.queryByText('Your request is saved')).not.toBeInTheDocument()
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).toBe(receipt)
+  })
+
+  it('does not preview a receipt belonging to another thread', () => {
+    savePendingHandoff('Question for thread A', { path: '/en/chat?threadId=a', scope: 'workspace', threadId: 'a' })
+    loginState.nextUrl = '/en/chat?threadId=b'
+    const receipt = localStorage.getItem(PENDING_HANDOFF_KEY)
+    render(<LoginForm />)
+    expect(screen.getByRole('heading', { name: 'Welcome Back' })).toBeInTheDocument()
+    expect(screen.queryByText('Your request is saved')).not.toBeInTheDocument()
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).toBe(receipt)
+  })
+
+  it('previews the same workspace task after switching the login language', () => {
+    savePendingHandoff('Question for A', { path: '/en/chat?task=a', scope: 'workspace', taskId: 'a' })
+    loginState.nextUrl = '/en/chat?task=a'
+    loginState.locale = 'zh'
+    render(<LoginForm />)
+    expect(screen.getByText('Your request is saved')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Continue your digest' })).toBeInTheDocument()
+  })
+
   it('keeps the usual sign-in framing for a direct login', async () => {
     render(<LoginForm />)
 
@@ -168,7 +209,7 @@ describe('LoginForm', () => {
 
   it('keeps the handoff confirmation when the chat source is retained in next', async () => {
     loginState.nextUrl = '/en/chat?task=public-demo'
-    localStorage.setItem('vibedigest_pending_message', 'What is the main risk?')
+    savePendingHandoff('What is the main risk?', { scope: 'workspace', taskId: 'public-demo', path: '/en/chat?task=public-demo' })
 
     render(<LoginForm />)
 

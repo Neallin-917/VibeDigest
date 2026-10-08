@@ -1,13 +1,10 @@
 import { GoogleOneTap } from "@/components/auth/GoogleOneTap"
 import { LandingNav } from "@/components/landing/LandingNav"
-import { HeroSection } from "@/components/landing/HeroSection"
 import { FeaturesSection } from "@/components/landing/FeaturesSection"
+import { HeroSection } from "@/components/landing/HeroSection"
 import { PricingSection } from "@/components/landing/PricingSection"
 import { LandingFAQ } from "@/components/landing/LandingFAQ"
-import { SupportCTA } from "@/components/landing/SupportCTA"
 import { ServerCommunityTemplates } from "@/components/templates/ServerCommunityTemplates"
-import { TopicHubLinks } from "@/components/templates/TopicHubLinks"
-import { TemplatesSkeleton } from "@/components/templates/TemplatesSkeleton"
 import { LANDING_PREVIEW_LIMIT } from "@/components/templates/landingPreviewLayout"
 import { Suspense } from "react"
 import Link from "next/link"
@@ -17,30 +14,6 @@ import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n"
 import { createTranslator } from "@/lib/i18n-server"
 import { getLandingFaqItems } from "@/lib/billing/faq-content"
 import { buildFaqPageSchema, serializeJsonLd } from "@/lib/billing/structured-data"
-
-// HowTo schema step data per locale (mirrors i18n but accessible at server level)
-const HOW_TO_STEPS: Record<string, { name: string; text: string }[]> = {
-  en: [
-    { name: "Paste a podcast or video link", text: "Copy a supported podcast or video URL and paste it into VibeDigest." },
-    { name: "Let the agent organize it", text: "VibeDigest transcribes the source and organizes its summary and key ideas." },
-    { name: "Read and follow up", text: "Read the digest and ask follow-up questions grounded in the source." },
-  ],
-  zh: [
-    { name: "粘贴播客或视频链接", text: "复制受支持的播客或视频链接并粘贴到 VibeDigest。" },
-    { name: "让 Agent 整理", text: "VibeDigest 转写原内容，并整理摘要和关键观点。" },
-    { name: "阅读并继续追问", text: "阅读整理结果，并基于原内容继续提问。" },
-  ],
-}
-
-const HOW_TO_NAME: Record<string, string> = {
-  en: "How to use the VibeDigest agent for podcasts and videos",
-  zh: "如何使用 VibeDigest Agent 看播客和视频",
-}
-
-const HOW_TO_DESC: Record<string, string> = {
-  en: "Turn a podcast or video into a digest you can read and question in 3 steps",
-  zh: "3 步获得可以阅读和继续追问的整理结果",
-}
 
 const SEO_COPY: Record<string, { title: string; description: string }> = {
   en: {
@@ -87,19 +60,6 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
   const locale = isLocale(lang) ? lang : DEFAULT_LOCALE
   const t = createTranslator(locale)
 
-  const steps = HOW_TO_STEPS[lang] ?? HOW_TO_STEPS.en
-  const howToSchema = {
-    "@context": "https://schema.org",
-    "@type": "HowTo",
-    "name": HOW_TO_NAME[lang] ?? HOW_TO_NAME.en,
-    "description": HOW_TO_DESC[lang] ?? HOW_TO_DESC.en,
-    "step": steps.map((s, i) => ({
-      "@type": "HowToStep",
-      "position": i + 1,
-      "name": s.name,
-      "text": s.text,
-    })),
-  }
   const landingFaqSchema = buildFaqPageSchema(getLandingFaqItems(t))
 
   return (
@@ -113,71 +73,45 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
 
       {/* Login & Nav */}
       <GoogleOneTap />
-      <LandingNav />
+      <LandingNav variant="home" />
 
       <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
         <HeroSection />
+        <FeaturesSection />
 
-        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-24 border-y border-border bg-surface-subtle px-4 py-20 text-foreground sm:px-6 md:py-24 lg:px-10 xl:px-6">
+        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
           <div className="mx-auto max-w-[1080px]">
-            <div className="flex items-end justify-between gap-8">
-              <div className="max-w-2xl">
-                <h2 id="community-title" className="text-[clamp(2rem,3.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.038em] text-foreground">
-                  {t("landing.communityTitle")}
-                </h2>
-                <TopicHubLinks
-                  locale={locale}
-                  title={locale === "zh" ? "主题" : "Topics"}
-                  className="mt-6"
-                />
-              </div>
-              <Link
-                href={`/${locale}/explore`}
-                className="group hidden min-h-11 shrink-0 items-center gap-2 text-[12px] font-semibold text-primary transition-colors hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:inline-flex"
-              >
-                {t("landing.viewAll")}
-                <span className="transition-transform group-hover:translate-x-1">→</span>
+            <div className="mb-7 flex items-center justify-between gap-4 sm:items-end sm:gap-6">
+              <h2 id="community-title" className="max-w-[220px] text-[25px] font-semibold leading-tight tracking-[-0.035em] text-foreground sm:max-w-none sm:text-[32px]">
+                {t("landing.communityTitle")}
+              </h2>
+              <Link href={`/${locale}/explore`} className="inline-flex min-h-11 shrink-0 items-center gap-2 text-xs font-semibold text-primary-strong hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-primary sm:text-sm">
+                {t("landing.viewAll")} <span aria-hidden="true">→</span>
               </Link>
             </div>
-
-            <div className="mt-10 overflow-hidden border border-border-strong bg-border-strong [&_.animate-pulse]:!bg-card/55">
-              <Suspense fallback={<TemplatesSkeleton count={LANDING_PREVIEW_LIMIT} layout="landingPreview" />}>
-                <ServerCommunityTemplates limit={LANDING_PREVIEW_LIMIT} layout="landingPreview" showHeader={false} locale={locale} />
-              </Suspense>
-            </div>
-
-            <div className="mt-6 flex sm:hidden">
-              <Link
-                href={`/${locale}/explore`}
-                className="group inline-flex min-h-11 items-center gap-2 text-[12px] font-semibold text-primary transition-colors hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                {t("landing.viewAll")}
-                <span className="transition-transform group-hover:translate-x-1">→</span>
-              </Link>
-            </div>
+            <Suspense fallback={<div className="min-h-32" aria-busy="true" />}>
+              <ServerCommunityTemplates limit={LANDING_PREVIEW_LIMIT} layout="landingPreview" showHeader={false} locale={locale} />
+            </Suspense>
           </div>
         </section>
 
-        <FeaturesSection />
         <PricingSection />
         <LandingFAQ />
-        <SupportCTA />
       </main>
 
-      <footer className="border-t border-border bg-background py-8 text-center text-xs text-foreground-subtle">
-        <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
-          <div className="mt-1 flex flex-wrap justify-center gap-x-5">
-            <Link href={`/${locale}/about`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '关于我们' : 'About'}</Link>
-            <Link href={`/${locale}/faq`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '常见问题' : 'FAQ'}</Link>
-            <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '隐私政策' : 'Privacy Policy'}</Link>
-            <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center transition-colors hover:text-foreground">{locale === 'zh' ? '服务条款' : 'Terms of Service'}</Link>
+      <footer className="mx-auto mt-10 w-[calc(100%-40px)] max-w-[1080px] border-t border-border py-7 text-xs text-foreground-subtle sm:mt-14 sm:w-[calc(100%-48px)]">
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+          <span className="font-semibold text-foreground">VibeDigest</span>
+          <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
+          <div className="flex flex-wrap gap-x-5">
+            <Link href={`/${locale}/about`} className="inline-flex min-h-11 items-center hover:text-foreground">{locale === 'zh' ? '关于我们' : 'About'}</Link>
+            <Link href={`/${locale}/faq`} className="inline-flex min-h-11 items-center hover:text-foreground">{locale === 'zh' ? '常见问题' : 'FAQ'}</Link>
+            <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center hover:text-foreground">{locale === 'zh' ? '隐私政策' : 'Privacy Policy'}</Link>
+            <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center hover:text-foreground">{locale === 'zh' ? '服务条款' : 'Terms of Service'}</Link>
           </div>
+        </div>
       </footer>
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(howToSchema) }}
-      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(landingFaqSchema) }}

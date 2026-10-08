@@ -5,11 +5,22 @@ import { buildTaskSlug } from "@/lib/task-path"
 
 vi.mock("@/env", () => ({ env: { NEXT_PUBLIC_APP_URL: "https://www.vibedigest.io" } }))
 
-const db = vi.hoisted(() => ({ task: null as Record<string, unknown> | null, outputs: [] as unknown[] }))
+type QueryResult = { data: unknown; error?: unknown }
+const db = vi.hoisted(() => ({
+    task: null as Record<string, unknown> | null,
+    outputs: [] as unknown[],
+    taskError: null as unknown,
+    outputsError: null as unknown,
+    taskRead: null as (() => Promise<QueryResult>) | null,
+    outputsRead: null as (() => Promise<QueryResult>) | null,
+}))
 vi.mock("@/lib/local-ui-demo", () => ({ shouldUseDemoFixtures: () => false }))
 vi.mock("@/lib/supabase-server", () => ({
     createClient: async () => ({ from: (table: string) => {
-        const result = () => ({ data: table === "tasks" ? db.task : db.outputs })
+        const result = () => {
+            const read = table === "tasks" ? db.taskRead : db.outputsRead
+            return read ? read() : { data: table === "tasks" ? db.task : db.outputs, error: table === "tasks" ? db.taskError : db.outputsError }
+        }
         const query = { select: () => query, eq: () => query, single: result, maybeSingle: result, order: result }
         return query
     } }),
@@ -35,6 +46,10 @@ beforeEach(() => {
     const fixture = getDemoFixtureTask(id, "en")!
     db.task = { ...fixture }
     db.outputs = fixture.task_outputs || []
+    db.taskError = null
+    db.outputsError = null
+    db.taskRead = null
+    db.outputsRead = null
 })
 
 describe("task URL aliases", () => {
@@ -93,5 +108,52 @@ describe("task URL aliases", () => {
     it("drops external and repeated return parameters on the ID entry", async () => {
         await expect(TaskRedirectPage({ ...props(""), searchParams: Promise.resolve({ from: "https://evil.invalid", threadId: [threadId] }) }))
             .rejects.toEqual(new Error(`307:/en/tasks/${id}/${buildTaskSlug(db.task!.video_title as string)}`))
+    })
+})
+
+
+describe("task detail concurrent reads", () => {
+    it("starts the summary read while the task read is unresolved", async () => {
+        let resolveTask!: (value: QueryResult) => void
+        let markOutputsStarted!: () => void
+        const taskDeferred = new Promise<QueryResult>(resolve => { resolveTask = resolve })
+        const outputsStarted = new Promise<void>(resolve => { markOutputsStarted = resolve })
+        let taskResolved = false
+        db.taskRead = vi.fn(() => taskDeferred)
+        db.outputsRead = vi.fn(async () => {
+            expect(taskResolved).toBe(false)
+            markOutputsStarted()
+            return { data: db.outputs }
+        })
+        const page = TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string)))
+        await outputsStarted
+        expect(db.taskRead).toHaveBeenCalledTimes(1)
+        expect(db.outputsRead).toHaveBeenCalledTimes(1)
+        taskResolved = true
+        resolveTask({ data: db.task })
+        await expect(page).resolves.toBeTruthy()
+    })
+
+    it.each([false, true])("returns 404 when task is absent even with independently returned outputs (error: %s)", async error => {
+        db.task = null
+        // Keep the existing real summary fixture to prove it cannot become a page.
+        expect(db.outputs.length).toBeGreaterThan(0)
+        db.outputsError = error ? new Error("Output query failed") : null
+        await expect(TaskDetailPage(props("old"))).rejects.toThrow("404")
+    })
+
+    it("preserves task error precedence if both queries fail", async () => {
+        db.taskError = new Error("Task query failed")
+        db.outputsError = new Error("Output query failed")
+        await expect(TaskDetailPage(props("old"))).rejects.toMatchObject({
+            message: "Failed to load task details", cause: db.taskError,
+        })
+    })
+
+    it("reports the output error when the task exists", async () => {
+        db.outputsError = new Error("Output query failed")
+        await expect(TaskDetailPage(props("old"))).rejects.toMatchObject({
+            message: "Failed to load task outputs", cause: db.outputsError,
+        })
     })
 })

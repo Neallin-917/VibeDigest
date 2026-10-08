@@ -190,6 +190,8 @@ describe('hosted Agent execution with the real SDK tool loop', () => {
     const model = modelFor([textEvents('Source-scoped answer.')])
     await runTaskAgent({ ...baseTurn, runtime_config: { ...baseTurn.runtime_config, scope: 'source' } }, clientFixture())
     expect(model.doStreamCalls[0].tools?.map(tool => tool.name)).not.toContain('create_video_task')
+    expect(JSON.stringify(model.doStreamCalls[0].prompt)).toContain('Scope: source.')
+    expect(JSON.stringify(model.doStreamCalls[0].prompt)).toContain('Before answering source-related claims, obtain supporting evidence')
   })
 
   it('preserves separate text blocks without exposing native tool stream parts', async () => {
@@ -396,6 +398,7 @@ describe('official local Codex execution boundary', () => {
     expect(prompt).toContain('USER:\nExplain tokenization with evidence.')
     expect(prompt).not.toContain(baseTurn.execution_token)
     expect(options).toMatchObject({ model: 'fixture-smart', reasoningEffort: 'high', instructions: expect.stringContaining('Current task: ' + taskId) })
+    expect(options.instructions).toContain('Scope: workspace.')
     expect(options.tools.map((tool: { name: string }) => tool.name)).toEqual(['get_task_status', 'get_task_context', 'search_source', 'read_source', 'create_video_task', 'continue_when_ready'])
     expect(result.parts).toEqual([{ type: 'text', text: 'Local answer.' }])
     expect(result.metadata).toMatchObject({ runtime: 'codex_local', provider: 'codex_local', actualModel: 'fixture-local-actual', inputTokens: 10, outputTokens: 5, totalTokens: 15 })

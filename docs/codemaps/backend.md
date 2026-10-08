@@ -136,6 +136,12 @@ trusted catalog runner (Bounded Consumer)
 
 ## Core Modules
 
+The trusted-local chat runner in `scripts/run_local_codex_chat.py` sends the
+application policy as developer context alongside its isolation policy. User
+conversation and retrieved evidence remain separate, lower-trust inputs; neither
+is promoted into developer instructions. This runner does not replace hosted
+inference or the canonical database/queue contract.
+
 | File | Purpose | Key exports |
 |------|---------|-------------|
 | `main.py` | FastAPI routes and middleware | `app` |

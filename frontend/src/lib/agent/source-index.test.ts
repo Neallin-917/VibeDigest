@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { buildSourceIndex, readSource, searchSource } from './source-index'
+import { buildSourceIndex, readSource, searchSource, sourceContext } from './source-index'
 
 const raw = (segments: unknown[]) => JSON.stringify({
   version: 1,
   model: 'fixture-only',
   language: 'en',
   segments,
+})
+
+describe('sourceContext', () => {
+  it('retains the subject before a pricing hit and its qualification afterwards', () => {
+    const index = buildSourceIndex('fixture', raw([
+      { start: 10, text: 'We are discussing how to monetize your own application.' },
+      { start: 20, text: 'You can choose subscription or usage-based pricing.' },
+      { start: 30, text: 'This is not the price of the SDK or its model API.' },
+    ]))
+    expect(sourceContext(index, [index.segments[1].id])).toEqual(index.segments)
+    expect(sourceContext(index, [index.segments[0].id, index.segments[1].id])).toEqual(index.segments)
+    expect(sourceContext(index, ['unknown', 'v1-stale:1'])).toEqual([])
+    expect(readSource(index, sourceContext(index, [index.segments[1].id]).map(s => s.id), 60)
+      .reduce((sum, segment) => sum + segment.text.length, 0)).toBeLessThanOrEqual(60)
+  })
 })
 
 describe('buildSourceIndex', () => {

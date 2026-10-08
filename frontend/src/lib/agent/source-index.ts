@@ -245,3 +245,18 @@ export function readSource(index: SourceIndex, ids: string[], maxCharacters = MA
   }
   return selected
 }
+
+/** Include neighboring passages so a detached hit retains its subject and qualifications. */
+export function sourceContext(index: SourceIndex, ids: string[]): SourceSegment[] {
+  const positions = new Map(index.segments.map((segment, position) => [segment.id, position]))
+  const selected = new Map<string, SourceSegment>()
+  for (const id of ids) {
+    const position = positions.get(id)
+    if (position === undefined || !id.startsWith(`${index.version}:`)) continue
+    for (let offset = -1; offset <= 1; offset++) {
+      const segment = index.segments[position + offset]
+      if (segment) selected.set(segment.id, segment)
+    }
+  }
+  return [...selected.values()]
+}

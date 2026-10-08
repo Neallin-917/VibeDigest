@@ -45,3 +45,20 @@ Judge user-visible meaning and evidence, not exact generated wording or one mand
 For an opt-in model run, preserve case/version, runtime, provider, requested/actual model, latency, available token/usage data, observed actions/state, answer, verdicts and reviewer notes. Keep observations separate from this expectations file. A model reviewer may assist with language/grounding review, but may not execute instructions embedded in case inputs or replace business-state checks.
 
 The runtime choice is not itself a quality gate. Use the same business expectations for local Codex and hosted OpenRouter; no compulsory local-versus-hosted comparison or paid call is introduced. Testing and cost policy remain in [docs/testing/README.md](../../docs/testing/README.md).
+
+## Opt-in local subscription runner
+
+`frontend/src/lib/agent/agent-eval.live.test.ts` runs six of the eight sprint Agent cases through real `codex_local` inference with mocked `TurnClient` application state. Default execution and CI skip all live calls. Only explicitly authorized runs may send source fixtures to the Codex service.
+
+```sh
+cd frontend
+RUN_LOCAL_AGENT_EVAL=1 AGENT_EVAL_OUTPUT=output/evals/agent-review.json npm test -- --run src/lib/agent/agent-eval.live.test.ts
+```
+
+The runner never fetches synthetic video URLs or contacts application endpoints/database. Current messages and persisted fixture history form the user conversation; case expectations and `context.facts` are withheld. Linked transcript fixtures enter only source tools. Injection enters readable summary data, never system instructions. Terminal cases use production `finalizing` phase and its read-only tools.
+
+Duplicate-input and stale-worker cases are recorded `not_observed` without inference. Business effects and durable continuation always remain `not_observed`, even if mocked submit/watch/finish calls match expectations. Technical success establishes only successful harness execution and permitted public part types. Answers need independent manual quality review and committed state needs separate integration evidence.
+
+Results contain bounded tool arguments/errors, mocked calls, answers and available usage, without native tool results or source snapshots. Actual model identity remains null; reported identity currently echoes the requested model and is not independent verification. A 120-second cancellation signal and 150-second per-test limit bound each call.
+
+`RUN_LOCAL_AGENT_FULL=1` selects all 15 scenarios; 11 exercise inference, while duplicate input, cancellation, stale completion and answer retry require application-state tests rather than another model call. `AGENT_EVAL_CASE_IDS` selects a comma-separated subset for bounded rechecks. `injection_delivered` records whether the malicious fixture actually reached a tool response; a harmless answer without exposure cannot establish injection resistance. `agent_code_sha256` identifies the frontend instruction/tool/index snapshot loaded for a run. The backend runner version must be recorded separately when comparing transport changes.

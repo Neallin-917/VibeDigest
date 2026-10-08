@@ -15,6 +15,7 @@ import { getSupportedUrlDetails } from "@/lib/urls"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { sanitizeErrorMessage } from "@/lib/safe-error"
 import { authCallbackUrl, localizePath, safeReturnPath } from "@/lib/locale-navigation"
+import { matchingPendingHandoff, PENDING_HANDOFF_KEY } from "@/lib/pending-handoff"
 
 interface LoginFormProps {
     className?: string
@@ -23,7 +24,7 @@ interface LoginFormProps {
 
 const subscribeToPendingHandoff = () => () => undefined
 const getPendingHandoffSnapshot = () =>
-    typeof window !== "undefined" ? window.localStorage.getItem("vibedigest_pending_message") || "" : ""
+    typeof window !== "undefined" ? window.localStorage.getItem(PENDING_HANDOFF_KEY) || "" : ""
 const getPendingHandoffServerSnapshot = () => ""
 const subscribeToReturnHash = (notify: () => void) => {
     window.addEventListener('hashchange', notify)
@@ -97,11 +98,20 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
     // HTTP redirects inherit the original fragment in the browser; the server cannot read it.
     const returnHash = useSyncExternalStore(subscribeToReturnHash, getReturnHashSnapshot, getPendingHandoffServerSnapshot)
     const nextUrl = safeNext ? localizePath(`${safeNext}${safeNext.includes('#') ? '' : returnHash}`, locale) : null
-    const pendingMessage = useSyncExternalStore(
+    const pendingReceipt = useSyncExternalStore(
         subscribeToPendingHandoff,
         getPendingHandoffSnapshot,
         getPendingHandoffServerSnapshot
     )
+    const pendingMessage = useMemo(() => {
+        if (!nextUrl) return ''
+        const destination = new URL(nextUrl, 'https://vibedigest.invalid')
+        return matchingPendingHandoff(pendingReceipt, {
+            path: nextUrl, scope: 'workspace',
+            taskId: destination.searchParams.get('task'),
+            threadId: destination.searchParams.get('threadId'),
+        }) ?? ''
+    }, [pendingReceipt, nextUrl])
     const pendingSource = useMemo(() => getSupportedUrlDetails(pendingMessage), [pendingMessage])
     const isChatHandoff = useMemo(() => {
         try {

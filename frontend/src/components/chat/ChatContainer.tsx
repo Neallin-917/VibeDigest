@@ -22,6 +22,7 @@ import { ProcessingIndicator } from './ProcessingIndicator'
 import { sanitizeErrorMessage } from '@/lib/safe-error'
 import { AGENT_QUOTA_EXCEEDED_CODE, isAgentQuotaExceededError } from '@/lib/agent/error-codes'
 import { trackGrowthEvent } from '@/lib/growth-events'
+import { matchingPendingHandoff, PENDING_HANDOFF_KEY, savePendingHandoff } from '@/lib/pending-handoff'
 
 interface ChatContainerProps {
   activeTaskId?: string | null
@@ -225,11 +226,11 @@ export function ChatContainer({
   const requiresAuth = useMemo(() => isAuthRequiredError(error), [error])
   const liveQuotaExceeded = useMemo(() => isAgentQuotaExceededError(error), [error])
 
-  const handleLogin = () => {
-    const nextPath = `${window.location.pathname}${window.location.search}`
+  const handleLogin = useCallback(() => {
+    const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
     const loginUrl = `/${locale}/login?next=${encodeURIComponent(nextPath)}`
     router.push(loginUrl)
-  }
+  }, [locale, router])
 
   const [taskRetryError, setTaskRetryError] = useState<string | null>(null)
   const [isAnswerActionPending, setIsAnswerActionPending] = useState(false)
@@ -265,7 +266,7 @@ export function ChatContainer({
     }
   }, [t])
 
-  const handleSendMessage = async (content: string): Promise<boolean> => {
+  const handleSendMessage = useCallback(async (content: string): Promise<boolean> => {
     if (isInteractionLocked) return false
 
     const trimmed = content.trim()
@@ -282,13 +283,19 @@ export function ChatContainer({
     // The initial browser session arrives asynchronously. Queue the submission
     // until that local session is known instead of misrouting a signed-in user.
     if (isAuthenticated === null) {
-      localStorage.setItem('vibedigest_pending_message', trimmed)
+      savePendingHandoff(trimmed, {
+        path: `${window.location.pathname}${window.location.search}`,
+        scope, taskId: activeTaskId, threadId,
+      })
       return true
     }
 
     // Auth gate: save message and redirect to login for unauthenticated users.
     if (isAuthenticated === false) {
-      localStorage.setItem('vibedigest_pending_message', trimmed)
+      savePendingHandoff(trimmed, {
+        path: `${window.location.pathname}${window.location.search}`,
+        scope, taskId: activeTaskId, threadId,
+      })
       handleLogin()
       return true
     }
@@ -300,7 +307,7 @@ export function ChatContainer({
     // Every input, including a URL, goes through the Agent's intent decision.
     sendMessageToApi(createUserTextMessage(`user-${uuidv4()}`, trimmed))
     return true
-  }
+  }, [isInteractionLocked, scope, locale, sourceId, isAuthenticated, activeTaskId, threadId, handleLogin, sendMessageToApi])
 
   useEffect(() => {
     activeTaskIdRef.current = activeTaskId
@@ -428,20 +435,28 @@ export function ChatContainer({
 
   const { scrollRef, handleScroll } = useChatScroll({ messages, status, activeTaskId })
 
-  const handledPendingMessageRef = useRef(false)
+  const redirectedPendingMessageRef = useRef<string | null>(null)
 
   // Handle a pending landing/login message once the browser session is known.
   useEffect(() => {
-    if (isAuthenticated === null || handledPendingMessageRef.current) return
-
-    const pendingMessage = localStorage.getItem('vibedigest_pending_message')
-    if (pendingMessage) {
-      handledPendingMessageRef.current = true
-      localStorage.removeItem('vibedigest_pending_message')
-      void handleSendMessage(pendingMessage)
+    if (isAuthenticated === null || isInteractionLocked) return
+    const raw = localStorage.getItem(PENDING_HANDOFF_KEY)
+    const pendingMessage = matchingPendingHandoff(raw, {
+      path: `${window.location.pathname}${window.location.search}`,
+      scope, taskId: activeTaskId, threadId,
+    })
+    if (!pendingMessage) return
+    if (!isAuthenticated) {
+      if (redirectedPendingMessageRef.current === raw) return
+      redirectedPendingMessageRef.current = raw
+      handleLogin()
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated])
+    // Claim synchronously so a second container/StrictMode effect cannot send it twice.
+    // Authentication, destination and interaction readiness were checked above.
+    localStorage.removeItem(PENDING_HANDOFF_KEY)
+    void handleSendMessage(pendingMessage)
+  }, [isAuthenticated, isInteractionLocked, scope, activeTaskId, threadId, handleLogin, handleSendMessage])
 
   /* handleSendMessage is already defined above */
 

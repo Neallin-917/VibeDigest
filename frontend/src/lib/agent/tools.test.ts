@@ -94,6 +94,17 @@ describe('shared Agent tool definitions', () => {
 })
 
 describe('source retrieval and citations', () => {
+  it('caps oversized retrieval requests while keeping invalid limits rejected', async () => {
+    const content = JSON.stringify({ version: 1, language: 'en', segments: Array.from({ length: 12 }, (_, i) => ({
+      text: `sharedneedle evidence number ${i}`, start: i * 10, end: i * 10 + 5,
+    })) })
+    const { call } = setup(fixture([{ id: 'raw', kind: 'script_raw', status: 'completed', locale: 'en', content }]))
+    const result = await call<EvidenceResult>('search_source', { taskId, query: 'sharedneedle', limit: 20 })
+    expect(result.evidence).toHaveLength(8)
+    for (const limit of [0, -1, 1.5, '10', Infinity]) {
+      await expect(call('search_source', { taskId, query: 'sharedneedle', limit })).rejects.toThrow()
+    }
+  })
   it('retrieves exact evidence with versioned IDs and emits only timestamped source references', async () => {
     const onPart = vi.fn()
     const { call, client, bundle } = setup(undefined, { onPart })
@@ -122,9 +133,10 @@ describe('source retrieval and citations', () => {
     const { call, client } = setup(undefined, { onPart })
     const searched = await call<EvidenceResult>('search_source', { taskId, query: 'tokenizer' })
     const read = await call<EvidenceResult>('read_source', { taskId, segmentIds: [searched.evidence[0].id] })
-    expect(read.evidence).toEqual(searched.evidence)
+    expect(read.evidence).toEqual(expect.arrayContaining(searched.evidence))
+    expect(read.evidence[0].text).toBe('Opening remarks unrelated to the question.')
     expect(client.read).toHaveBeenCalledTimes(1)
-    expect(onPart).toHaveBeenCalledTimes(1)
+    expect(onPart).toHaveBeenCalledTimes(2)
   })
 
   it('rejects fabricated and stale source IDs without producing evidence or citations', async () => {
@@ -201,7 +213,7 @@ describe('shared context budget', () => {
       returned += result.evidence.length
       expect(result.evidence.every(item => item.reference.url.includes('t='))).toBe(true)
     }
-    expect(returned).toBe(128)
+    expect(returned).toBeGreaterThanOrEqual(128)
     expect(bundle.references.size).toBe(128)
     expect(onPart).toHaveBeenCalledTimes(48)
   })

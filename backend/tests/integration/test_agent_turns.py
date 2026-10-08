@@ -179,6 +179,13 @@ def test_quota_failure_has_durable_pricing_state_after_reload(pgmq_db):
 
 def test_create_receipt_is_atomic_idempotent_and_goal_stays_private(pgmq_db):
     turn = _accept(pgmq_db)
+    pgmq_db._execute_query(
+        """INSERT INTO public.profiles(id, usage_count, usage_limit)
+        VALUES (CAST(:id AS uuid), 0, 3)
+        ON CONFLICT (id) DO UPDATE SET usage_count = 0, usage_limit = 3
+        RETURNING id""",
+        {"id": turn["user_id"]},
+    )
     first = _submit(pgmq_db, turn)
     second = _submit(pgmq_db, turn)
     assert first == second
@@ -193,6 +200,19 @@ def test_create_receipt_is_atomic_idempotent_and_goal_stays_private(pgmq_db):
         {"id": turn["user_id"]},
     )
     assert len(tasks) == 1
+    quota = pgmq_db._execute_query(
+        "SELECT usage_count FROM public.profiles WHERE id = CAST(:id AS uuid)",
+        {"id": turn["user_id"]},
+    )
+    assert quota == [{"usage_count": 1}]
+    jobs = pgmq_db._execute_query(
+        """SELECT q.msg_id FROM pgmq.q_video_processing q
+        JOIN vibedigest_private.task_queue_handoffs h ON h.message_id = q.msg_id
+        AND h.queue_name = 'video_processing'
+        WHERE h.entity_id = CAST(:id AS uuid) AND h.kind = 'process_video'""",
+        {"id": first["taskId"]},
+    )
+    assert len(jobs) == 1
     outputs = pgmq_db.get_task_outputs(first["taskId"])
     assert "private research" not in str(outputs)
     with pytest.raises(DBAPIError, match="agent_action_conflict"):

@@ -7,6 +7,7 @@ the filtering/sampling rules are easy to audit in one place.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -107,12 +108,13 @@ def init_sentry(dsn: str) -> None:
         environment=environment,
         traces_sample_rate=traces_sample_rate,
         profiles_sample_rate=profiles_sample_rate,
-        # InterceptHandler forwards standard logging to Loguru. Disable event
-        # creation in both integrations while preserving breadcrumbs and the
-        # SDK's exception capture, so one failure does not become log events too.
+        # InterceptHandler forwards standard logging to Loguru. Keep a single
+        # log-event path: handled failures may only be reported by logger.exception
+        # or logger.error. The SDK deduplicates repeated captures of an exception.
+        # Exclude Loguru's timestamp/source prefix from event grouping messages.
         integrations=[
             LoggingIntegration(event_level=None),
-            LoguruIntegration(event_level=None),
+            LoguruIntegration(event_level=logging.ERROR, event_format="{message}"),
         ],
         before_send=_before_send,
     )

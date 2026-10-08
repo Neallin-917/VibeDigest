@@ -80,7 +80,7 @@ def test_noise_filter_handles_sentry_payload_shapes(payload_kind, message, suppr
         assert result is event
 
 
-def test_logging_keeps_breadcrumbs_without_duplicate_events(tmp_path):
+def test_logging_preserves_alerts_without_duplicate_events(tmp_path):
     """Exercise both installed logging integrations without global SDK leakage."""
     script = textwrap.dedent(
         r'''
@@ -130,20 +130,40 @@ def test_logging_keeps_breadcrumbs_without_duplicate_events(tmp_path):
             init_sentry("https://public@example.invalid/1")
 
         logging.getLogger("sentry-regression").error("stdlib-error-marker")
-        logger.error("loguru-error-marker")
-        assert transport.events == [], transport.events
+        assert len(transport.events) == 1, transport.events
+        assert transport.events[0]["logentry"]["formatted"].strip() == "stdlib-error-marker"
 
+        logger.error("loguru-error-marker")
+        assert len(transport.events) == 2, transport.events
+        assert transport.events[1]["logentry"]["formatted"].strip() == "loguru-error-marker"
+
+        logger.error("Authentication failed with dummy-key")
+        assert len(transport.events) == 2, transport.events
+
+        # Handled exceptions (e.g. translated to an HTTP 503) must remain visible
+        # even when the caller never invokes capture_exception explicitly.
         try:
-            raise RuntimeError("real-exception-marker")
+            raise RuntimeError("handled-exception-marker")
         except RuntimeError as exc:
+            logger.exception("handled-failure-marker")
+            assert len(transport.events) == 3, transport.events
+            event = transport.events[-1]
+            assert event["exception"]["values"][-1]["value"] == "handled-exception-marker"
+            sentry_sdk.capture_exception(exc)
+            assert len(transport.events) == 3, transport.events
+
+        # Independent explicitly captured exceptions still produce their event.
+        try:
+            raise ValueError("explicit-exception-marker")
+        except ValueError as exc:
             sentry_sdk.capture_exception(exc)
         sentry_sdk.flush()
 
-        assert len(transport.events) == 1, transport.events
-        event = transport.events[0]
-        assert event["exception"]["values"][-1]["value"] == "real-exception-marker"
+        assert len(transport.events) == 4, transport.events
+        event = transport.events[-1]
+        assert event["exception"]["values"][-1]["value"] == "explicit-exception-marker"
         breadcrumbs = event["breadcrumbs"]["values"]
-        for marker in ("stdlib-error-marker", "loguru-error-marker"):
+        for marker in ("stdlib-error-marker", "loguru-error-marker", "handled-failure-marker"):
             assert any(marker in crumb.get("message", "") for crumb in breadcrumbs), breadcrumbs
         sentry_sdk.get_client().close()
         '''

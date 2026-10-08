@@ -7,6 +7,7 @@ the filtering/sampling rules are easy to audit in one place.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -44,25 +45,25 @@ def _before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] 
     Suppresses known-noise events so the Sentry dashboard only surfaces
     actionable issues.
     """
-    # Walk through exception values and check their string representations.
+    # SDK integrations use logentry and serialized exceptions; message alone
+    # does not cover log-captured events or events without a live exc_info.
+    logentry = event.get("logentry") or {}
+    messages = [
+        event.get("message"),
+        logentry.get("message"),
+        logentry.get("formatted"),
+    ]
+    messages.extend(
+        value.get("value")
+        for value in (event.get("exception") or {}).get("values", [])
+    )
     exc_info = hint.get("exc_info")
     if exc_info:
-        exc_type, exc_value, _ = exc_info
-        exc_str = str(exc_value)
-        for pattern in _SUPPRESSED_MESSAGES:
-            if pattern in exc_str:
-                logger.debug(
-                    f"[sentry] Suppressed event matching pattern '{pattern}': {exc_str[:120]}"
-                )
-                return None
+        messages.append(str(exc_info[1]))
 
-    # Also check the top-level event message (e.g. log-captured events)
-    message: str = event.get("message") or ""
     for pattern in _SUPPRESSED_MESSAGES:
-        if pattern in message:
-            logger.debug(
-                f"[sentry] Suppressed log event matching pattern '{pattern}': {message[:120]}"
-            )
+        if any(isinstance(message, str) and pattern in message for message in messages):
+            logger.debug(f"[sentry] Suppressed event matching pattern '{pattern}'")
             return None
 
     return event
@@ -93,6 +94,7 @@ def init_sentry(dsn: str) -> None:
     """
     import sentry_sdk
     from sentry_sdk.integrations.logging import LoggingIntegration
+    from sentry_sdk.integrations.loguru import LoguruIntegration
 
     environment = resolve_sentry_environment()
 
@@ -106,12 +108,13 @@ def init_sentry(dsn: str) -> None:
         environment=environment,
         traces_sample_rate=traces_sample_rate,
         profiles_sample_rate=profiles_sample_rate,
-        # Disable automatic Sentry event creation from Python log records.
-        # The logging handler itself still works (breadcrumbs are fine), but
-        # we don't want every logger.error() to create a *separate* Sentry
-        # event that duplicates the real exception event.
+        # InterceptHandler forwards standard logging to Loguru. Keep a single
+        # log-event path: handled failures may only be reported by logger.exception
+        # or logger.error. The SDK deduplicates repeated captures of an exception.
+        # Exclude Loguru's timestamp/source prefix from event grouping messages.
         integrations=[
             LoggingIntegration(event_level=None),
+            LoguruIntegration(event_level=logging.ERROR, event_format="{message}"),
         ],
         before_send=_before_send,
     )

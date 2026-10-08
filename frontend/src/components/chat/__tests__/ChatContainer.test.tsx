@@ -3,6 +3,8 @@ import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ChatContainer } from '../ChatContainer'
 import { createTaskDataParts, type ChatUIMessage } from '@/lib/chat-ui'
 import { LANDING_DEMO } from '@/lib/landing-demo'
+import { StrictMode } from 'react'
+import { matchingPendingHandoff, savePendingHandoff, PENDING_HANDOFF_KEY } from '@/lib/pending-handoff'
 
 const mockUseChat = vi.fn()
 const mockSendMessage = vi.fn()
@@ -116,6 +118,7 @@ vi.mock('../tools', () => ({
 }))
 
 describe('ChatContainer', () => {
+  const originalLocation = window.location.href
   beforeEach(() => {
     growth.trackGrowthEvent.mockReset()
     navigation.push.mockReset()
@@ -132,11 +135,13 @@ describe('ChatContainer', () => {
     })
     
     localStorage.clear()
+    window.history.replaceState({}, '', '/en/chat')
     mockChatInputText = 'test message'
     mockLocale = 'en'
   })
 
   afterEach(() => {
+    window.history.replaceState({}, '', originalLocation)
     vi.clearAllMocks()
     vi.restoreAllMocks()
   })
@@ -278,7 +283,7 @@ describe('ChatContainer', () => {
     fireEvent.click(screen.getByText('Send'))
 
     expect(mockSendMessage).not.toHaveBeenCalled()
-    expect(localStorage.getItem('vibedigest_pending_message')).toBe('test message')
+    expect(matchingPendingHandoff(localStorage.getItem(PENDING_HANDOFF_KEY), { path: '/en/chat', scope: 'workspace' })).toBe('test message')
     expect(navigation.push).toHaveBeenCalledWith(
       `/en/login?next=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`,
     )
@@ -532,6 +537,53 @@ describe('ChatContainer', () => {
       )
     })
     expect(localStorage.getItem('vibedigest_pending_message')).toBeNull()
+  })
+
+  it('keeps a source A request when source B is opened, then sends it on A', () => {
+    savePendingHandoff('Question about A', { path: '/en/tasks/source-a/title', scope: 'source', taskId: 'source-a' })
+    window.history.replaceState({}, '', '/en/tasks/source-b/title')
+    const { rerender } = render(<ChatContainer isAuthenticated={true} scope="source" activeTaskId="source-b" variant="embedded" />)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).not.toBeNull()
+    window.history.replaceState({}, '', '/zh/tasks/source-a/new-slug?returnPage=2')
+    rerender(<ChatContainer isAuthenticated={true} scope="source" activeTaskId="source-a" variant="embedded" />)
+    expect(mockSendMessage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ parts: [{ type: 'text', text: 'Question about A' }] }))
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).toBeNull()
+  })
+
+  it.each([
+    { activeTaskId: 'other-task' },
+    { threadId: 'existing-thread' },
+    { scope: 'source' as const, activeTaskId: 'source-a' },
+  ])('does not send a landing request into a different context: %j', props => {
+    savePendingHandoff('https://youtu.be/fixture', { path: '/en/chat', scope: 'workspace' })
+    render(<ChatContainer isAuthenticated={true} {...props} />)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).not.toBeNull()
+  })
+
+  it('retains a locked request and sends exactly once after unlocking', () => {
+    savePendingHandoff('Retained request', { path: '/en/chat', scope: 'workspace' })
+    const { rerender } = render(<StrictMode><ChatContainer isAuthenticated={true} isInteractionLocked /></StrictMode>)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).not.toBeNull()
+    rerender(<StrictMode><ChatContainer isAuthenticated={true} isInteractionLocked={false} /></StrictMode>)
+    rerender(<StrictMode><ChatContainer isAuthenticated={true} isInteractionLocked={false} /></StrictMode>)
+    expect(mockSendMessage).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).toBeNull()
+  })
+
+  it('keeps structured input until authentication resolves and avoids duplicate login redirects', () => {
+    savePendingHandoff('Queued request', { path: '/en/chat', scope: 'workspace' })
+    const { rerender } = render(<ChatContainer isAuthenticated={null} />)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    expect(navigation.push).not.toHaveBeenCalled()
+    rerender(<ChatContainer isAuthenticated={false} />)
+    rerender(<ChatContainer isAuthenticated={false} />)
+    expect(navigation.push).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(PENDING_HANDOFF_KEY)).not.toBeNull()
+    rerender(<ChatContainer isAuthenticated={true} />)
+    expect(mockSendMessage).toHaveBeenCalledTimes(1)
   })
 
   it('sends a pending URL through the Agent without a direct-submit request', async () => {

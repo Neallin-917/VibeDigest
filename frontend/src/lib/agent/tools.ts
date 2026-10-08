@@ -7,11 +7,12 @@ import { normalizeTaskStatus } from '@/lib/safe-error'
 import type { LocalCodexTool } from '@/lib/local-codex'
 import type { ChatUIMessagePart } from '@/lib/chat-ui'
 import { isAgentQuotaExceededError } from './error-codes'
-import { buildSourceIndex, readSource, searchSource, type SourceIndex, type SourceSegment } from './source-index'
+import { buildSourceIndex, readSource, searchSource, sourceContext, type SourceIndex, type SourceSegment } from './source-index'
 import type { AgentTurn, TaskData, TurnClient } from './backend'
 
 const taskInput = z.object({ taskId: z.uuid() }).strict()
-const searchInput = taskInput.extend({ query: z.string().trim().min(1).max(1000), limit: z.number().int().min(1).max(8).default(6) })
+const MAX_TOOL_SEARCH_RESULTS = 8
+const searchInput = taskInput.extend({ query: z.string().trim().min(1).max(1000), limit: z.number().int().min(1).default(6) })
 const readInput = taskInput.extend({ segmentIds: z.array(z.string().min(1).max(100)).min(1).max(8) })
 const createInput = z.object({ videoUrl: z.url().max(4000), locale: z.enum(['zh', 'en']) }).strict()
 
@@ -118,15 +119,15 @@ export function createAgentTools(
         return { task: data.task, summary, truncated: text.length > budget, reference: addReference(data),
           evidenceAvailable: 'Use search_source to locate source passages. No summary is not evidence of absence.' }
       }),
-    search_source: define('search_source', 'Search the full source by keywords. Rewrite/translate queries into the source language when needed. No match really means no match.', searchInput,
+    search_source: define('search_source', 'Search the full source by keywords. Returns at most 8 evidence segments; larger positive limits are capped at 8. Rewrite/translate queries into the source language when needed. No match really means no match.', searchInput,
       async ({ taskId, query, limit }) => {
         const { data, index } = await source(taskId)
-        return returnSegments(data, searchSource(index, query, limit), index)
+        return returnSegments(data, searchSource(index, query, Math.min(limit, MAX_TOOL_SEARCH_RESULTS)), index)
       }),
-    read_source: define('read_source', 'Read specific versioned evidence IDs returned by search_source. Unknown or outdated IDs are not readable.', readInput,
+    read_source: define('read_source', 'Read specific versioned evidence IDs returned by search_source, including adjacent passages to verify the subject and qualifications. Unknown or outdated IDs are not readable; the shared character budget still applies.', readInput,
       async ({ taskId, segmentIds }) => {
         const { data, index } = await source(taskId)
-        return returnSegments(data, readSource(index, segmentIds), index)
+        return returnSegments(data, sourceContext(index, segmentIds), index)
       }),
   }
   const actions = options.readOnly ? {} : {

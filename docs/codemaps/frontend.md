@@ -30,6 +30,19 @@ expansion. The full digest follows the same rule. Long sections use native close
 and avoiding clipped text lines. Server-rendered disclosures work without JavaScript;
 client measurement opens short sections and removes their controls.
 
+`frontend/src/lib/pending-handoff.ts` owns browser input continuity through login.
+Landing and chat store a versioned receipt bound to destination, scope, task and
+explicit thread. Chat consumes it only after authentication and interaction
+readiness, on the matching destination. Locale and task-slug changes preserve
+source identity; legacy plain text may resume only in a fresh workspace. This
+local input receipt does not replace committed conversation or task state.
+
+`src/lib/agent/source-index.ts` owns versioned internal source segments. Search
+returns lexical matches; `read_source` includes adjacent passages to retain the
+subject and qualifications of a match. Unknown/stale IDs cannot expand into
+context, and all returned text shares the existing per-read and per-turn budgets.
+Only projected answer text, source links and task receipts reach the UI.
+
 ## Stack
 
 | Concern | Implementation |
@@ -92,6 +105,18 @@ src/app/
 Public policy pages render outside `MainShell`. Protected-route redirects and
 all authentication methods preserve the localized return path, query, and anchor
 through `locale-navigation.ts`.
+
+The landing uses an in-flow `LandingNav` home variant; library and content pages
+retain their floating navigation shells. Its centered URL composer uses the
+opt-in `ChatInput` landing variant, preserving the existing auth handoff.
+The hero digest presents a source strip, summary and key ideas, then a
+source-grounded follow-up link in one reading surface; phones stack these in
+the same order. Home navigation includes the capability overview anchor.
+The public preview shows up to 8/6/4 episodes at desktop/narrow desktop/mobile
+widths, with compact horizontal cards on phones. The homepage presents a compact three-column feature overview between the digest
+and podcast library, omits Topics, keeps support under FAQ, and renders Basic/Pro
+pricing with a monthly/yearly display toggle from the customer plan catalog.
+FAQ structured data shares the visible copy; the capability overview has no HowTo schema.
 
 The landing digest pins one public example in `src/lib/landing-demo.ts`. Its CTA
 opens `/[lang]/chat?task=...`; the existing chat page verifies public availability

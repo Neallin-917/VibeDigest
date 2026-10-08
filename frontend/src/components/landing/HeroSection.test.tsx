@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ComponentProps } from "react"
-import { beforeEach, vi, describe, it, expect } from "vitest"
+import { afterEach, beforeEach, vi, describe, it, expect } from "vitest"
 import { HeroSection } from "./HeroSection"
+import { matchingPendingHandoff, PENDING_HANDOFF_KEY } from "@/lib/pending-handoff"
 
 const mocks = vi.hoisted(() => ({
     push: vi.fn(),
@@ -61,6 +62,8 @@ vi.mock("@/components/chat/ChatInput", async (importOriginal) => {
 })
 
 describe("HeroSection", () => {
+  const originalLocation = window.location.href
+  afterEach(() => window.history.replaceState({}, "", originalLocation))
     beforeEach(() => {
         vi.clearAllMocks()
         localStorage.clear()
@@ -83,12 +86,13 @@ describe("HeroSection", () => {
         expect(screen.queryByText(/Analysis/)).not.toBeInTheDocument()
     })
 
-    it("renders ChatInput in inline mode", () => {
+    it("renders the labeled landing composer", () => {
         render(<HeroSection />)
         const input = screen.getByRole("textbox", { name: "taskForm.urlInputLabel" })
         expect(input).toBeInTheDocument()
-        expect(screen.getByTestId("hero-chat-input")).toHaveAttribute("data-variant", "inline")
+        expect(screen.getByTestId("hero-chat-input")).toHaveAttribute("data-variant", "landing")
         expect(input).toHaveAttribute("placeholder", "taskForm.urlPlaceholder")
+        expect(screen.getByRole("button", { name: "landing.createDigest" })).toHaveTextContent("landing.createDigest")
     })
 
     it("keeps supporting copy out of the hero so the task input stays the only CTA", () => {
@@ -108,7 +112,7 @@ describe("HeroSection", () => {
         })
 
         expect(mocks.refetch).not.toHaveBeenCalled()
-        expect(localStorage.getItem("vibedigest_pending_message"))
+        expect(matchingPendingHandoff(localStorage.getItem(PENDING_HANDOFF_KEY), { path: "/en/chat", scope: "workspace" }))
             .toBe("https://www.youtube.com/watch?v=test123")
         expect(mocks.push).toHaveBeenCalledWith("/en/chat")
         expect(mocks.trackGrowthEvent).toHaveBeenCalledWith("landing_agent_intent", {
@@ -128,7 +132,7 @@ describe("HeroSection", () => {
             await mocks.submit?.(originalUrl)
         })
 
-        expect(localStorage.getItem("vibedigest_pending_message")).toBe(originalUrl)
+        expect(matchingPendingHandoff(localStorage.getItem(PENDING_HANDOFF_KEY), { path: "/zh/chat", scope: "workspace" })).toBe(originalUrl)
         expect(mocks.push).toHaveBeenCalledWith(
             "/zh/login?next=%2Fzh%2Fchat",
         )
@@ -157,7 +161,7 @@ describe("HeroSection", () => {
         render(<HeroSection />)
         const input = screen.getByRole("textbox", { name: "taskForm.urlInputLabel" })
         fireEvent.change(input, { target: { value: "https://youtube.com" } })
-        fireEvent.click(screen.getByRole("button", { name: "chat.sendMessage" }))
+        fireEvent.click(screen.getByRole("button", { name: "landing.createDigest" }))
 
         expect(await screen.findByRole("alert")).toHaveTextContent("taskForm.urlHelp.description")
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
@@ -171,7 +175,7 @@ describe("HeroSection", () => {
         fireEvent.change(input, { target: { value: "https://youtu.be/test123" } })
         expect(screen.queryByRole("alert")).not.toBeInTheDocument()
         expect(input).not.toHaveAttribute("aria-invalid")
-        fireEvent.click(screen.getByRole("button", { name: "chat.sendMessage" }))
+        fireEvent.click(screen.getByRole("button", { name: "landing.createDigest" }))
         await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/en/login?next=%2Fen%2Fchat"))
     })
 })

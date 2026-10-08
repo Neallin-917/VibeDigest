@@ -17,7 +17,7 @@ describe("DigestPreview", () => {
     it("shows the real task-detail reading hierarchy without dashboard controls", () => {
         render(<DigestPreview />)
 
-        const preview = screen.getByRole("region", { name: "landing.previewTitle" })
+        const preview = screen.getByRole("region", { name: "landing.exampleDigest" })
 
         expect(within(preview).getByRole("heading", { name: "landing.outputSummary" })).toBeVisible()
         expect(within(preview).queryByRole("heading", { name: "landing.outputFollowUp" })).not.toBeInTheDocument()
@@ -43,6 +43,7 @@ describe("DigestPreview", () => {
         render(<DigestPreview />)
 
         expect(screen.getAllByRole("link", { name: /landing.previewOpen/ })).toHaveLength(1)
+        expect(screen.getByRole("link", { name: /landing.previewOpen/ })).not.toHaveAttribute("target")
         expect(screen.getByRole("link", { name: /landing.previewOpen/ })).toHaveAttribute(
             "href", `/${locale}/chat?task=3a6c1431-239b-49f2-89be-00f3f52f59bc`
         )
@@ -62,6 +63,7 @@ describe("DigestPreview", () => {
         const source = screen.getByRole("link", { name: /landing.previewSourceLabel.*landing.previewTitle/ })
         expect(source).toHaveAttribute("href", "https://youtube.com/watch?v=zgNvts_2TUE")
         expect(source).toHaveAttribute("rel", "noopener noreferrer")
+        expect(source).toHaveAttribute("target", "_blank")
 
         fireEvent.error(within(source).getByAltText(""))
 

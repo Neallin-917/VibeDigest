@@ -259,7 +259,9 @@ async def run(request: LocalChatRequest) -> None:
                     ephemeral=True,
                     model=request.model,
                     base_instructions=request.instructions,
-                    developer_instructions=DEFAULT_INSTRUCTIONS,
+                    # Application policy is trusted developer context, separate
+                    # from user conversation and evidence delivered by tools.
+                    developer_instructions=(DEFAULT_INSTRUCTIONS + "\n\n" + request.instructions),
                     sandbox=SandboxMode.read_only,
                     config=thread_config,
                 )

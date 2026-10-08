@@ -98,6 +98,29 @@ describe('ChatInput', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('labels landing submission and blocks duplicate submits during the handoff', async () => {
+    let resolveSubmission!: (accepted: boolean) => void
+    const onSubmit = vi.fn(() => new Promise<boolean>((resolve) => {
+      resolveSubmission = resolve
+    }))
+    render(<ChatInput variant="landing" onSubmit={onSubmit} />)
+    const input = screen.getByRole('textbox')
+    const submit = screen.getByRole('button', { name: 'landing.createDigest' })
+    expect(submit).toHaveTextContent('landing.createDigest')
+    expect(submit).toBeDisabled()
+    expect(input).toHaveAttribute('inputmode', 'url')
+    fireEvent.change(input, { target: { value: 'https://youtu.be/example' } })
+    fireEvent.submit(input)
+    expect(submit).toBeDisabled()
+    expect(submit).toHaveAttribute('aria-busy', 'true')
+    fireEvent.submit(input)
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    resolveSubmission(false)
+    await waitFor(() => expect(submit).toBeEnabled())
+    expect(input).toHaveValue('https://youtu.be/example')
+    expect(input).toHaveFocus()
+  })
+
   it('does not clear newer text when an earlier submission finishes', async () => {
     let resolveSubmission!: (accepted: boolean) => void
     const onSubmit = vi.fn(() => new Promise<boolean>((resolve) => {

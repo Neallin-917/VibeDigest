@@ -35,6 +35,11 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
                 "landing.viewPlan": "View plan",
                 "landing.effectiveMonthly": "effective / month",
                 "landing.proAnnualBilling": "{annualPrice} billed annually.",
+                "landing.proMonthlyBilling": "Billed monthly.",
+                "pricing.pro.monthly": "Monthly",
+                "pricing.pro.annual": "Annual",
+                "pricing.pro.unit": "/ month",
+                "pricing.billingPeriod": "Billing period",
                 "pricing.free.title": "Basic",
                 "pricing.free.desc": "Try VibeDigest",
                 "pricing.pro.title": "Pro",
@@ -86,8 +91,26 @@ describe("PricingSection", () => {
         expect(screen.getByRole("button", { name: "View plan" })).toBeInTheDocument()
         expect(screen.queryByRole("button", { name: "Upgrade" })).not.toBeInTheDocument()
         expect(screen.getByText("$8.25")).toBeInTheDocument()
-        expect(screen.getByText("$4.99")).toBeInTheDocument()
+        expect(screen.getByText(/\$4\.99 · 50 videos per pack · Never expires/)).toBeInTheDocument()
         expect(screen.queryByText("$5.00")).not.toBeInTheDocument()
+    })
+
+    it("discloses annual billing and switches back from monthly billing", async () => {
+        const user = userEvent.setup()
+        renderPricingSection()
+        expect(screen.getByRole("button", { name: "Annual" })).toHaveAttribute("aria-pressed", "true")
+        expect(screen.getByText("$8.25")).toBeInTheDocument()
+        expect(screen.getByText("$99 billed annually.")).toBeInTheDocument()
+        expect(screen.getByText("100 videos / month")).toBeInTheDocument()
+        await user.click(screen.getByRole("button", { name: "Monthly" }))
+        expect(screen.getByRole("button", { name: "Monthly" })).toHaveAttribute("aria-pressed", "true")
+        expect(screen.getByRole("button", { name: "Annual" })).toHaveAttribute("aria-pressed", "false")
+        expect(screen.getByText("$9.99")).toBeInTheDocument()
+        expect(screen.getByText("Billed monthly.")).toBeInTheDocument()
+        expect(screen.queryByText("$99 billed annually.")).not.toBeInTheDocument()
+        await user.click(screen.getByRole("button", { name: "Annual" }))
+        expect(screen.getByText("$8.25")).toBeInTheDocument()
+        expect(screen.getByText("$99 billed annually.")).toBeInTheDocument()
     })
 
     it("reuses the landing account lookup across plan actions", async () => {

@@ -100,6 +100,7 @@ def fake_sdk(monkeypatch):
         interrupted=False,
         unregistered=False,
         thread_config=None,
+        thread_params=None,
         closed=False,
         events=[
             _event("item/agentMessage/delta", {"delta": "A grounded answer"}),
@@ -154,6 +155,7 @@ def fake_sdk(monkeypatch):
 
         async def thread_start(self, params):
             state.thread_config = params.config
+            state.thread_params = params
             return SimpleNamespace(thread=SimpleNamespace(id="thread"))
 
         async def turn_start(self, *args, **kwargs):
@@ -185,6 +187,17 @@ async def test_official_runner_emits_only_public_text_and_usage(fake_sdk, capsys
     assert "A grounded answer" in output and "inputTokens" in output
     assert "PRIVATE SOURCE" not in output
     assert fake_sdk.closed and fake_sdk.unregistered
+
+
+@pytest.mark.asyncio
+async def test_application_policy_is_developer_context_without_promoting_user_evidence(fake_sdk):
+    policy = "Respond in English and distinguish evidence from inference."
+    prompt = "UNTRUSTED_SOURCE_SENTINEL"
+    await runner.run(LocalChatRequest(prompt, "test-model", "high", instructions=policy))
+    assert policy in fake_sdk.thread_params.developer_instructions
+    assert runner.DEFAULT_INSTRUCTIONS in fake_sdk.thread_params.developer_instructions
+    assert prompt not in fake_sdk.thread_params.developer_instructions
+    assert fake_sdk.thread_params.config["project_doc_max_bytes"] == 0
 
 
 @pytest.mark.asyncio

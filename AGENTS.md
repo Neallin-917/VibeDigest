@@ -81,6 +81,7 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 18. **Complexity Budget**: A technical-debt fix must solve a current user problem, a production blocker, or a measured reliability/performance issue. Otherwise document the trigger for revisiting it instead of adding code now.
 19. **Public Transcript Guardrail**: Transcripts are internal processing and retrieval artifacts. Public task details and public HTTP endpoints must not render or return verbatim transcripts. Public surfaces provide summaries, key ideas, evidence, original-source links, and source-grounded follow-up instead.
 20. **Agent tool boundary**: Source tools return internal evidence to the model only. Project public streams and persisted parts explicitly to answer text, source links and task receipts; never forward native tool-result streams. Tool schemas contain no user IDs, credentials or execution tokens. Creation URLs must originate in authenticated user messages. Keep one bounded task-level continuation, not an in-house general workflow engine.
+21. **Local instruction boundary**: Trusted application and isolation policies are developer context in the local SDK runner. User conversation and retrieved evidence must never be inserted into developer instructions. Evidence reads may include adjacent source passages within existing budgets to preserve attribution; this does not authorize public transcript output.
 
 ## Codex Delegation
 

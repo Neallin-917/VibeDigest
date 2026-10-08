@@ -211,26 +211,31 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
 
     const supabase = await createClient()
 
-    // Fetch task
-    const { data: task, error: taskError } = await supabase
+    // Both reads use the same user-scoped client and RLS. Outputs depend only on
+    // the route ID, so avoid waiting for the task round trip before requesting them.
+    const [taskResult, outputsResult] = await Promise.all([
+      supabase
         .from('tasks')
         .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags')
         .eq('id', id)
-        .maybeSingle()
+        .maybeSingle(),
+      supabase
+        .from('task_outputs')
+        .select('kind, content, status, locale, created_at, updated_at, provenance')
+        .eq('task_id', id)
+        .eq('kind', 'summary')
+        .order('created_at', { ascending: false }),
+    ])
+    const { data: task, error: taskError } = taskResult
 
     if (taskError) {
         throw new Error("Failed to load task details", { cause: taskError })
     }
 
-    // Fetch outputs if task exists
+    // A missing/inaccessible task must not expose independently returned outputs.
     let outputs: TaskOutput[] = []
     if (task) {
-        const { data, error: outputsError } = await supabase
-            .from('task_outputs')
-            .select('kind, content, status, locale, created_at, updated_at, provenance')
-            .eq('task_id', id)
-            .eq('kind', 'summary')
-            .order('created_at', { ascending: false })
+        const { data, error: outputsError } = outputsResult
 
         if (outputsError) {
             throw new Error("Failed to load task outputs", { cause: outputsError })

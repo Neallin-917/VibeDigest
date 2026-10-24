@@ -28,7 +28,7 @@ dependencies = [
   "sqlalchemy>=2.0.51,<3",
   "stop-words==2018.7.23",
   "supabase>=2.31,<3",
-  "uvicorn[standard]>=0.51,<0.53",
+  "uvicorn[standard]>=0.51,<0.54",
   "yt-dlp>=2025.12.8",
 ]
 

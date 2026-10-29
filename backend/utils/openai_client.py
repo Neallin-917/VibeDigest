@@ -353,11 +353,15 @@ def create_chat_model(
         # New model IDs may precede LiteLLM's bundled provider registry.
         kwargs.setdefault("custom_llm_provider", "openai")
         api_options = dict(kwargs.get("model_kwargs") or {})
-        api_options.setdefault("reasoning_effort", "none")
-        # Keep the verified API parameter even when the bundled registry is stale.
-        api_options["allowed_openai_params"] = list(dict.fromkeys([
-            *api_options.get("allowed_openai_params", []), "reasoning_effort",
-        ]))
+        # Only the vetted defaults receive this preset. Aliases retain their
+        # model's own parameter contract, including legacy non-reasoning models.
+        if model_name in settings._PROVIDER_DEFAULTS["openai"].values():
+            api_options.setdefault("reasoning_effort", "none")
+        if "reasoning_effort" in api_options:
+            # Keep explicit reasoning options when the bundled registry is stale.
+            api_options["allowed_openai_params"] = list(dict.fromkeys([
+                *api_options.get("allowed_openai_params", []), "reasoning_effort",
+            ]))
         token_limit = kwargs.pop("max_tokens", None)
         if token_limit is not None:
             api_options.setdefault("max_completion_tokens", token_limit)

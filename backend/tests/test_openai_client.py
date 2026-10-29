@@ -56,6 +56,7 @@ def test_create_chat_model_uses_openrouter_base_url(mock_llm_cls, mock_settings)
 def test_explicit_openai_provider_does_not_depend_on_model_registry(mock_llm_cls, mock_settings):
     mock_settings.LLM_PROVIDER = "openai"
     mock_settings.get_temperature.return_value = 1.0
+    mock_settings._PROVIDER_DEFAULTS = {"openai": {"smart": "fixture-new-model", "fast": "fixture-fast"}}
 
     create_chat_model("fixture-new-model", max_tokens=256)
 
@@ -72,6 +73,7 @@ def test_explicit_openai_provider_does_not_depend_on_model_registry(mock_llm_cls
 @patch("utils.openai_client.RateLimitAwareChatLiteLLM")
 def test_openai_preserves_explicit_model_options(mock_llm_cls, mock_settings):
     mock_settings.LLM_PROVIDER = "openai"
+    mock_settings._PROVIDER_DEFAULTS = {"openai": {"smart": "fixture-new-model", "fast": "fixture-fast"}}
     options = {"reasoning_effort": "low", "max_completion_tokens": 512}
 
     create_chat_model("fixture-new-model", max_tokens=256, model_kwargs=options)
@@ -80,6 +82,22 @@ def test_openai_preserves_explicit_model_options(mock_llm_cls, mock_settings):
         **options, "allowed_openai_params": ["reasoning_effort"],
     }
     assert options == {"reasoning_effort": "low", "max_completion_tokens": 512}
+
+
+@patch("utils.openai_client.settings")
+@patch("utils.openai_client.RateLimitAwareChatLiteLLM")
+def test_legacy_openai_alias_does_not_receive_reasoning_options(mock_llm_cls, mock_settings):
+    mock_settings.LLM_PROVIDER = "openai"
+    mock_settings._PROVIDER_DEFAULTS = {"openai": {"smart": "fixture-new-model", "fast": "fixture-fast"}}
+    mock_settings.MODEL_ALIAS_FAST = "gpt-4o"
+    mock_settings.get_temperature.return_value = 0.0
+
+    create_chat_model(mock_settings.MODEL_ALIAS_FAST, max_tokens=256,
+                      model_kwargs={"response_format": {"type": "json_object"}})
+
+    assert mock_llm_cls.call_args.kwargs["model_kwargs"] == {
+        "response_format": {"type": "json_object"}, "max_completion_tokens": 256,
+    }
 
 
 def test_litellm_retains_reasoning_for_a_model_missing_from_its_registry():

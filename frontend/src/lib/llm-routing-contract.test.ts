@@ -42,8 +42,8 @@ describe('llm routing contract', () => {
         const provider = resolveProvider(undefined, 'openai');
 
         expect(provider).toBe('openai');
-        expect(resolveProviderModel(provider, 'smart')).toBe('gpt-5.6-terra');
-        expect(resolveProviderModel(provider, 'fast')).toBe('gpt-5.6-luna');
+        expect(resolveProviderModel(provider, 'smart')).toBe('gpt-6.1-terra');
+        expect(resolveProviderModel(provider, 'fast')).toBe('gpt-6-luna');
     });
 
     it('always prefers alias overrides over provider defaults', () => {

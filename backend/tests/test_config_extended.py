@@ -179,8 +179,8 @@ class TestModelSmartFast:
         s.MODEL_ALIAS_FAST = None
 
         assert s.LLM_PROVIDER == "openai"
-        assert s.MODEL_SMART == "gpt-5.6-terra"
-        assert s.MODEL_FAST == "gpt-5.6-luna"
+        assert s.MODEL_SMART == "gpt-6.1-terra"
+        assert s.MODEL_FAST == "gpt-6-luna"
 
     def test_local_codex_runtime_uses_subscription_defaults(self):
         s = Settings()

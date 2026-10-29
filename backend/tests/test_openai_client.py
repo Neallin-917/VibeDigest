@@ -51,6 +51,50 @@ def test_create_chat_model_uses_openrouter_base_url(mock_llm_cls, mock_settings)
     assert kwargs["api_base"] == "https://openrouter.example/api/v1"
 
 
+@patch("utils.openai_client.settings")
+@patch("utils.openai_client.RateLimitAwareChatLiteLLM")
+def test_explicit_openai_provider_does_not_depend_on_model_registry(mock_llm_cls, mock_settings):
+    mock_settings.LLM_PROVIDER = "openai"
+    mock_settings.get_temperature.return_value = 1.0
+
+    create_chat_model("fixture-new-model", max_tokens=256)
+
+    assert mock_llm_cls.call_args.kwargs["model"] == "fixture-new-model"
+    assert mock_llm_cls.call_args.kwargs["custom_llm_provider"] == "openai"
+    assert mock_llm_cls.call_args.kwargs["model_kwargs"] == {
+        "reasoning_effort": "none", "max_completion_tokens": 256,
+        "allowed_openai_params": ["reasoning_effort"],
+    }
+    assert "max_tokens" not in mock_llm_cls.call_args.kwargs
+
+
+@patch("utils.openai_client.settings")
+@patch("utils.openai_client.RateLimitAwareChatLiteLLM")
+def test_openai_preserves_explicit_model_options(mock_llm_cls, mock_settings):
+    mock_settings.LLM_PROVIDER = "openai"
+    options = {"reasoning_effort": "low", "max_completion_tokens": 512}
+
+    create_chat_model("fixture-new-model", max_tokens=256, model_kwargs=options)
+
+    assert mock_llm_cls.call_args.kwargs["model_kwargs"] == {
+        **options, "allowed_openai_params": ["reasoning_effort"],
+    }
+    assert options == {"reasoning_effort": "low", "max_completion_tokens": 512}
+
+
+def test_litellm_retains_reasoning_for_a_model_missing_from_its_registry():
+    from litellm.utils import get_optional_params
+
+    params = get_optional_params(
+        model="fixture-unregistered-model", custom_llm_provider="openai",
+        reasoning_effort="none", max_completion_tokens=256,
+        allowed_openai_params=["reasoning_effort"], drop_params=True,
+    )
+
+    assert params["reasoning_effort"] == "none"
+    assert params["max_completion_tokens"] == 256
+
+
 # ---------------------------------------------------------------------------
 # _is_rate_limit_error
 # ---------------------------------------------------------------------------

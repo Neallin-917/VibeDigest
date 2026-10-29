@@ -349,7 +349,20 @@ def create_chat_model(
     # Logic for Custom (OpenAI-compatible) providers:
     # If the provider is 'custom', we need to tell LiteLLM to use the 'openai' adapter,
     # but keep the model name as-is so it matches the proxy's expectation.
-    if settings.LLM_PROVIDER == "custom" and "/" not in model_name:
+    if settings.LLM_PROVIDER == "openai":
+        # New model IDs may precede LiteLLM's bundled provider registry.
+        kwargs.setdefault("custom_llm_provider", "openai")
+        api_options = dict(kwargs.get("model_kwargs") or {})
+        api_options.setdefault("reasoning_effort", "none")
+        # Keep the verified API parameter even when the bundled registry is stale.
+        api_options["allowed_openai_params"] = list(dict.fromkeys([
+            *api_options.get("allowed_openai_params", []), "reasoning_effort",
+        ]))
+        token_limit = kwargs.pop("max_tokens", None)
+        if token_limit is not None:
+            api_options.setdefault("max_completion_tokens", token_limit)
+        kwargs["model_kwargs"] = api_options
+    elif settings.LLM_PROVIDER == "custom" and "/" not in model_name:
         kwargs.setdefault("custom_llm_provider", "openai")
         # Ensure base_url is passed if using custom provider
         if settings.OPENAI_BASE_URL:

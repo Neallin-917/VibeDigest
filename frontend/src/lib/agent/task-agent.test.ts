@@ -9,8 +9,8 @@ import { AgentServiceError } from './backend'
 import { buildSourceIndex } from './source-index'
 import { agentConversation, resolveAgentRuntime, runTaskAgent, TASK_AGENT_INSTRUCTIONS } from './task-agent'
 
-const { localRuntime, localRun, providerClient, providerChat, resolveProviderMock, resolveModelMock, config } = vi.hoisted(() => ({
-  localRuntime: vi.fn(), localRun: vi.fn(), providerClient: vi.fn(), providerChat: vi.fn(),
+const { localRuntime, localRun, providerClient, providerChat, providerResponses, resolveProviderMock, resolveModelMock, config } = vi.hoisted(() => ({
+  localRuntime: vi.fn(), localRun: vi.fn(), providerClient: vi.fn(), providerChat: vi.fn(), providerResponses: vi.fn(),
   resolveProviderMock: vi.fn(), resolveModelMock: vi.fn(),
   config: { OPENAI_BASE_URL: undefined as string | undefined, LLM_PROVIDER: 'openrouter', MODEL_ALIAS_SMART: 'fixture-smart', MODEL_ALIAS_FAST: 'fixture-fast' },
 }))
@@ -58,6 +58,7 @@ function modelFor(steps: LanguageModelV4StreamPart[][]) {
     })),
   })
   providerChat.mockReturnValue(model)
+  providerResponses.mockReturnValue(model)
   return model
 }
 function historyRow(id: string, role: 'user' | 'assistant', content: unknown): StoredChatMessageRow {
@@ -76,7 +77,7 @@ function clientFixture() {
 beforeEach(() => {
   vi.clearAllMocks()
   localRuntime.mockReturnValue(false)
-  providerClient.mockReturnValue({ chat: providerChat })
+  providerClient.mockReturnValue({ chat: providerChat, responses: providerResponses })
   resolveProviderMock.mockReturnValue('openrouter')
   resolveModelMock.mockReturnValue('fixture-smart')
   localRun.mockReset()
@@ -269,11 +270,20 @@ describe('hosted Agent execution with the real SDK tool loop', () => {
     expect(client.read).toHaveBeenCalledTimes(8)
   })
 
-  it('uses the configured OpenAI reasoning option and bounded output limit', async () => {
+  it('uses Responses for OpenAI tools with non-reasoning and bounded output', async () => {
     const model = modelFor([textEvents('Answer.')])
     await runTaskAgent({ ...baseTurn, runtime_config: { ...baseTurn.runtime_config, provider: 'openai', reasoningEffort: 'none' } }, clientFixture())
     expect(providerClient).toHaveBeenCalledWith('openai')
-    expect(model.doStreamCalls[0]).toMatchObject({ maxOutputTokens: 4096, providerOptions: { openai: { reasoningEffort: 'none' } } })
+    expect(providerResponses).toHaveBeenCalledWith(baseTurn.runtime_config.model)
+    expect(providerChat).not.toHaveBeenCalled()
+    expect(model.doStreamCalls[0]).toMatchObject({ maxOutputTokens: 4096, providerOptions: { openai: { reasoningEffort: 'none', store: false } } })
+  })
+
+  it.each(['openrouter', 'custom'] as const)('keeps Chat Completions for %s', async provider => {
+    modelFor([textEvents('Answer.')])
+    await runTaskAgent({ ...baseTurn, runtime_config: { ...baseTurn.runtime_config, provider } }, clientFixture())
+    expect(providerChat).toHaveBeenCalledWith(baseTurn.runtime_config.model)
+    expect(providerResponses).not.toHaveBeenCalled()
   })
 
   it('drops malformed stored system messages before sending history to the model', async () => {

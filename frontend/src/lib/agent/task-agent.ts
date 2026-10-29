@@ -136,10 +136,11 @@ export async function runTaskAgent(
     } else {
       const provider = createProviderClient(config.provider)
       const agent = new ToolLoopAgent({
-        model: provider.chat(config.model), instructions, tools: bundle.tools,
+        model: config.provider === 'openai' ? provider.responses(config.model) : provider.chat(config.model),
+        instructions, tools: bundle.tools,
         stopWhen: [isStepCount(8), () => bundle.isWaiting() || Boolean(bundle.quotaFailure())],
         maxOutputTokens: 4096,
-        providerOptions: config.provider === 'openai' ? { openai: { reasoningEffort: 'none' } } : undefined,
+        providerOptions: config.provider === 'openai' ? { openai: { reasoningEffort: 'none', store: false } } : undefined,
       })
       const result = await agent.stream({
         messages, abortSignal: callbacks.signal,

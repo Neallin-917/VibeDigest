@@ -1,7 +1,7 @@
 {
   "openai": {
-    "smart": "gpt-5.6-terra",
-    "fast": "gpt-5.6-luna"
+    "smart": "gpt-6.1-terra",
+    "fast": "gpt-6-luna"
   },
   "codex_local": {
     "smart": "gpt-5.6-sol",

@@ -11,8 +11,8 @@ describe('llm-model-registry', () => {
 
     it('returns tiered defaults for the OpenAI API provider', () => {
         expect(getProviderModelDefaults('openai')).toEqual({
-            smart: 'gpt-5.6-terra',
-            fast: 'gpt-5.6-luna',
+            smart: 'gpt-6.1-terra',
+            fast: 'gpt-6-luna',
         });
     });
 

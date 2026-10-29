@@ -140,6 +140,17 @@ For changes to Agent behavior, also verify one authenticated source follow-up
 against an existing completed task and inspect its answer and timestamp link;
 report this separately from the credential-free route checks.
 
+## Updating direct OpenAI models
+
+Edit the OpenAI entries in `config/llm-provider-defaults.json`, regenerate the
+frontend mirror with `cd frontend && npm run models:sync`, and check for
+`MODEL_ALIAS_SMART` / `MODEL_ALIAS_FAST` overrides on every hosted consumer.
+Keep other providers and the trusted catalog runtime independently configured.
+Run the opt-in hosted continuation evaluation described in `docs/testing/README.md`
+and a real backend JSON/guard probe before rollout; a model catalog listing alone
+does not establish adapter compatibility. Verify the actual response model in
+production chat metadata and a completed video task after deployment.
+
 ## Database TLS
 
 Production Supabase must keep database SSL enforcement enabled. Application

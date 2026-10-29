@@ -103,7 +103,7 @@ class AgentTurns:
         queue_name: str = "video_processing",
     ) -> dict[str, Any]:
         if not is_supported_content_url(video_url):
-            raise ValueError("Invalid video URL")
+            raise ValueError("Only YouTube video URLs with existing captions are supported")
         normalized = normalize_video_url(video_url)
         if not normalized:
             raise ValueError("Invalid video URL")

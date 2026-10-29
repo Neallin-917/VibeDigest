@@ -56,7 +56,7 @@ describe("localized layout metadata", () => {
     expect(metadata.openGraph).toMatchObject({
       locale: "zh_CN",
       url: "https://vibedigest.io/zh",
-      title: "VibeDigest - 将视频与音频整理为结构化知识",
+      title: "VibeDigest - 将 YouTube 视频整理为结构化知识",
       description: "用结构化摘要、关键观点、证据和基于来源的追问，快速理解长内容。",
     })
     expect(metadata.twitter).toMatchObject({

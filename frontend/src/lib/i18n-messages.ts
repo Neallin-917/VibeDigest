@@ -150,7 +150,7 @@ const enMessages = {
       previewOpen: "Ask about this episode",
       subtitle:
         "Transform long content into structured insights. Absorb information efficiently with AI summaries, keypoints, and translations.",
-      greeting: "Drop a podcast or video. We’ll handle the rest.",
+      greeting: "Paste a YouTube video with captions.",
       getStarted: "Start",
       github: "GitHub",
       feature1Title: "Source-grounded answers",
@@ -160,7 +160,7 @@ const enMessages = {
       feature3Title: "Break Language Barriers",
       feature3Desc: "Global content, native language. Zero barriers.",
       feature4Title: "Centralized Knowledge",
-      feature4Desc: "YouTube, Apple Podcasts, Bilibili, and Xiaoyuzhou. More platforms coming soon.",
+      feature4Desc: "YouTube videos with existing captions.",
       footer: "© 2024 VibeDigest. Built with Next.js & Supabase.",
       smartSummarization: "Smart Summarization",
       smartSummarizationDesc: "Paste a link. VibeDigest turns it into a summary, key ideas, evidence, and answers grounded in the source.",
@@ -179,9 +179,9 @@ const enMessages = {
       howItWorks: "How It Works",
       howItWorksSubtitle: "From a link to content you can read and question",
       step1Title: "Paste a link",
-      step1Desc: "Add a supported podcast or video URL.",
+      step1Desc: "Add a YouTube video URL with captions.",
       step2Title: "Let the agent organize it",
-      step2Desc: "VibeDigest transcribes the source and structures its summary and key ideas.",
+      step2Desc: "VibeDigest reads the existing captions and structures the summary and key ideas.",
       step3Title: "Read and follow up",
       step3Desc: "Read the digest or ask questions grounded in the source.",
       simplePricing: "Start free. Go further when you need to.",
@@ -202,7 +202,7 @@ const enMessages = {
       stillHaveQuestionsDesc: "Questions about supported links, agent output, or plans? Send us a note.",
       contactSupport: "Contact support",
       badge: "AI podcast and video agent",
-      trustedBy: "Supports YouTube, Apple Podcasts, Bilibili, and Xiaoyuzhou",
+      trustedBy: "Supports YouTube videos with captions",
       freeAllowance: "3 summaries each month. No card required.",
       signInHandoff: "Sign in after submitting to begin.",
       communityTitle: "Explore the podcast library",
@@ -264,7 +264,7 @@ const enMessages = {
     },
     dashboard: {
       title: "Home",
-      subtitle: "Manage your video transcriptions and summaries.",
+      subtitle: "Manage your video summaries.",
       usage: {
         title: "Usage",
         monthly: "Monthly",
@@ -374,7 +374,7 @@ const enMessages = {
         },
         platforms: {
           question: "Which platforms do you support?",
-          answer: "Currently, we support YouTube, Apple Podcasts, Bilibili, and Xiaoyuzhou."
+          answer: "We support YouTube videos with existing captions. Videos without usable captions and audio-only links cannot be processed."
         },
         reliability: {
           question: "How reliable are the summary and answers?",
@@ -389,8 +389,8 @@ const enMessages = {
     taskForm: {
       title: "New task",
       subtitle: "Paste a video URL to generate an AI summary.",
-      urlInputLabel: "Video or podcast URL",
-      urlPlaceholder: "Paste a video or podcast URL",
+      urlInputLabel: "YouTube video URL",
+      urlPlaceholder: "Paste a YouTube video URL with captions",
       processing: "Processing...",
       generate: "AI Summary",
       summary: "Summary",
@@ -407,7 +407,7 @@ const enMessages = {
       },
       urlHelp: {
         title: "Unsupported URL",
-        description: "Paste a video or episode link from YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou.",
+        description: "Paste a YouTube video link with existing captions. Audio-only links are not supported.",
         supportedPlatforms: "Supported platforms:",
         xiaoyuzhou: "Xiaoyuzhou",
         gotIt: "Close"
@@ -424,19 +424,19 @@ const enMessages = {
       processingVideo: "Processing",
       statusSteps: {
         step1: "Analyzing",
-        step2: "Extracting audio",
-        step3: "Transcribing",
-        step4: "Identifying speakers",
+        step2: "Fetching captions",
+        step3: "Reading captions",
+        step4: "Analyzing content",
         step5: "Summarizing",
       },
       processingHint1: "This may take a few minutes depending on the video length.",
-      processingHint2: "We are transcribing and summarizing simultaneously.",
+      processingHint2: "We are reading the captions and preparing your summary.",
       taskError: "Task failed. Try again.",
       tabScript: "Transcript",
       tabSummary: "Summary",
       tabLearning: "Learning",
       tabTranslation: "Translation",
-      scriptPlaceholder: "Transcription will appear here...",
+      scriptPlaceholder: "Captions will appear here...",
       summaryPlaceholder: "Summary will appear here...",
       noTranslations: "No translations requested.",
       translationTitle: "{locale} Translation",
@@ -552,7 +552,7 @@ const enMessages = {
       loadingMore: "Loading...",
       welcome: {
         title: "What do you want to understand?",
-        subtitle: "Paste a video or podcast URL for a summary, key ideas, and source-grounded answers",
+        subtitle: "Paste a YouTube video URL with captions for a summary, key ideas, and source-grounded answers",
         tryExamples: "Examples",
       },
       inlineResult: {
@@ -578,6 +578,8 @@ const enMessages = {
           statusQueued: "Queued",
           statusReady: "Ready",
           statusFailed: "Failed",
+          captionsUnavailable: "This video has no usable captions. Try a YouTube video with existing captions.",
+          unsupportedSource: "This source is not supported. Try a YouTube video with existing captions.",
           errorGetStatus: "Failed to get task status",
           unknownError: "Unknown error",
           videoTask: "Video task",
@@ -586,7 +588,7 @@ const enMessages = {
           taskId: "Task ID: {id}",
           steps: {
             ingestLabel: "Fetch source data",
-            transcribeLabel: "Transcribe audio",
+            transcribeLabel: "Read captions",
             summarizeLabel: "Summarize content",
           },
         },
@@ -659,7 +661,7 @@ const enMessages = {
         title: "Terms of Service",
         service: {
           title: "1. Service Description",
-          content: "VibeDigest provides AI-powered video transcription, summarization, and translation services. By using our services, you agree to these terms."
+          content: "VibeDigest provides AI-powered summaries and source-grounded answers for YouTube videos with existing captions. By using our services, you agree to these terms."
         },
         payments: {
           title: "2. Payments",
@@ -826,7 +828,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       previewSourceType: "播客单集",
       previewOpen: "追问这期内容",
       subtitle: "将长视频转化为结构化知识，助您高效获取核心信息。",
-      greeting: "投递播客或视频，剩下的交给我们。",
+      greeting: "粘贴有字幕的 YouTube 视频链接。",
       getStarted: "开始",
       github: "GitHub",
       feature1Title: "基于来源的回答",
@@ -836,7 +838,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       feature3Title: "打破语言壁垒",
       feature3Desc: "用母语学习全球知识。全网内容零障碍。",
       feature4Title: "一站式知识库",
-      feature4Desc: "支持 YouTube、Apple Podcasts、Bilibili 与小宇宙。更多平台持续接入中。",
+      feature4Desc: "支持已有字幕的 YouTube 视频。",
       footer: "© 2024 VibeDigest. 由 Next.js & Supabase 驱动。",
       smartSummarization: "智能摘要",
       smartSummarizationDesc: "粘贴一个链接，VibeDigest 会整理摘要、关键观点和证据，并基于原内容回答后续问题。",
@@ -851,13 +853,13 @@ const zhMessages: MessageShape<typeof enMessages> = {
       mobileFirst: "移动端优化",
       mobileFirstDesc: "完全响应式设计，配备专属移动端体验。随时随地，在任何设备上学习。",
       fastProcessing: "进度实时更新",
-      fastProcessingDesc: "提交后可以继续浏览；转写、摘要和结果会在各阶段完成时自动更新。",
+      fastProcessingDesc: "提交后可以继续浏览；进度和结果会自动更新。",
       howItWorks: "工作原理",
       howItWorksSubtitle: "从一个链接，变成可以阅读和继续追问的内容",
       step1Title: "粘贴链接",
-      step1Desc: "添加受支持的播客或视频链接。",
+      step1Desc: "添加有字幕的 YouTube 视频链接。",
       step2Title: "让 Agent 整理",
-      step2Desc: "VibeDigest 转写原内容，并组织摘要与关键观点。",
+      step2Desc: "VibeDigest 读取已有字幕，并组织摘要与关键观点。",
       step3Title: "阅读并继续追问",
       step3Desc: "阅读整理结果，或基于原内容继续提问。",
       simplePricing: "免费开始，按需升级。",
@@ -878,7 +880,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       stillHaveQuestionsDesc: "对支持的链接、Agent 输出或方案有疑问？给我们留言。",
       contactSupport: "联系支持",
       badge: "AI 播客与视频 Agent",
-      trustedBy: "支持 YouTube、Apple Podcasts、Bilibili 与小宇宙",
+      trustedBy: "支持有字幕的 YouTube 视频",
       freeAllowance: "每月 3 次摘要，无需信用卡。",
       signInHandoff: "提交后登录即可开始处理。",
       communityTitle: "探索播客库",
@@ -939,7 +941,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
     },
     dashboard: {
       title: "首页",
-      subtitle: "管理你的视频转写与摘要。",
+      subtitle: "管理你的视频摘要。",
       usage: {
         title: "用量",
         monthly: "每月",
@@ -1049,7 +1051,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
         },
         platforms: {
           question: "支持哪些平台？",
-          answer: "目前支持 YouTube、Apple Podcasts、Bilibili 和小宇宙。"
+          answer: "目前支持已有字幕的 YouTube 视频。无可用字幕的视频和纯音频链接暂不支持处理。"
         },
         reliability: {
           question: "摘要和回答可靠吗？",
@@ -1064,8 +1066,8 @@ const zhMessages: MessageShape<typeof enMessages> = {
     taskForm: {
       title: "新建任务",
       subtitle: "粘贴视频链接以生成 AI 摘要。",
-      urlInputLabel: "视频或播客链接",
-      urlPlaceholder: "粘贴视频或播客链接",
+      urlInputLabel: "YouTube 视频链接",
+      urlPlaceholder: "粘贴有字幕的 YouTube 视频链接",
       processing: "处理中",
       generate: "AI 总结",
       summary: "摘要",
@@ -1082,7 +1084,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       },
       urlHelp: {
         title: "不支持的链接",
-        description: "请粘贴 YouTube、Apple Podcasts、Bilibili 或小宇宙的具体视频或单期播客链接。",
+        description: "请粘贴已有字幕的 YouTube 视频链接，暂不支持纯音频链接。",
         supportedPlatforms: "支持的平台：",
         xiaoyuzhou: "小宇宙",
         gotIt: "关闭"
@@ -1099,9 +1101,9 @@ const zhMessages: MessageShape<typeof enMessages> = {
       processingVideo: "处理中",
       statusSteps: {
         step1: "分析中",
-        step2: "提取音频",
-        step3: "转写中",
-        step4: "识别说话人",
+        step2: "获取字幕",
+        step3: "读取字幕",
+        step4: "分析内容",
         step5: "生成摘要",
       },
       processingHint1: "这可能需要几分钟时间",
@@ -1227,7 +1229,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
       loadingMore: "加载中...",
       welcome: {
         title: "你想读懂什么？",
-        subtitle: "粘贴视频或播客链接，获取摘要、关键观点和基于来源的回答",
+        subtitle: "粘贴有字幕的 YouTube 视频链接，获取摘要、关键观点和基于来源的回答",
         tryExamples: "示例",
       },
       inlineResult: {
@@ -1253,6 +1255,8 @@ const zhMessages: MessageShape<typeof enMessages> = {
           statusQueued: "排队中",
           statusReady: "就绪",
           statusFailed: "失败",
+          captionsUnavailable: "此视频暂无可用字幕，请换一个已有字幕的 YouTube 视频。",
+          unsupportedSource: "暂不支持此来源，请换一个已有字幕的 YouTube 视频。",
           errorGetStatus: "获取任务状态失败",
           unknownError: "未知错误",
           videoTask: "视频任务",
@@ -1261,7 +1265,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
           taskId: "任务 ID：{id}",
           steps: {
             ingestLabel: "获取源数据",
-            transcribeLabel: "转录音频",
+            transcribeLabel: "读取字幕",
             summarizeLabel: "生成摘要",
           },
         },
@@ -1334,7 +1338,7 @@ const zhMessages: MessageShape<typeof enMessages> = {
         title: "服务条款",
         service: {
           title: "1. 服务描述",
-          content: "VibeDigest 提供基于 AI 的视频转写、摘要和翻译服务。使用我们的服务即表示您同意这些条款。"
+          content: "VibeDigest 为已有字幕的 YouTube 视频提供 AI 摘要和基于来源的回答。使用我们的服务即表示您同意这些条款。"
         },
         payments: {
           title: "2. 支付",

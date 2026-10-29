@@ -126,7 +126,7 @@ describe("HeroSection", () => {
         mocks.locale = "zh"
         render(<HeroSection />)
 
-        const originalUrl = "https://podcasts.apple.com/us/podcast/id123456?i=episode#notes"
+        const originalUrl = "https://www.youtube.com/watch?v=test123&list=playlist#notes"
 
         await act(async () => {
             await mocks.submit?.(originalUrl)
@@ -139,7 +139,7 @@ describe("HeroSection", () => {
         expect(mocks.trackGrowthEvent).toHaveBeenCalledWith("landing_agent_intent", {
             locale: "zh",
             destination: "login",
-            source: "apple_podcasts",
+            source: "youtube",
         })
     })
 
@@ -157,15 +157,20 @@ describe("HeroSection", () => {
         expect(mocks.push).toHaveBeenCalledWith("/en/chat")
     })
 
-    it("keeps unsupported input in place and does not report activation", async () => {
+    it.each([
+        "https://youtube.com",
+        "https://podcasts.apple.com/us/podcast/id123456?i=episode",
+        "https://www.xiaoyuzhoufm.com/episode/123",
+        "https://www.bilibili.com/video/BV1test",
+    ])("keeps unsupported input in place and does not report activation: %s", async (url) => {
         render(<HeroSection />)
         const input = screen.getByRole("textbox", { name: "taskForm.urlInputLabel" })
-        fireEvent.change(input, { target: { value: "https://youtube.com" } })
+        fireEvent.change(input, { target: { value: url } })
         fireEvent.click(screen.getByRole("button", { name: "landing.createDigest" }))
 
         expect(await screen.findByRole("alert")).toHaveTextContent("taskForm.urlHelp.description")
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-        expect(input).toHaveValue("https://youtube.com")
+        expect(input).toHaveValue(url)
         expect(input).toHaveAccessibleDescription("taskForm.urlHelp.description")
         await waitFor(() => expect(input).toHaveFocus())
         expect(localStorage.getItem("vibedigest_pending_message")).toBeNull()

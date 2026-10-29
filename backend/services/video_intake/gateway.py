@@ -1,24 +1,19 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from services.supadata_client import SupadataClient
 from services.video_processor import VideoProcessor
-from utils.url import normalize_video_url
+from utils.url import is_supported_content_url, normalize_video_url
 
 from .schemas import ProviderAttempt, TranscriptSegment, VideoContext, VideoIntakeOptions
 
-if TYPE_CHECKING:
-    from services.transcriber import Transcriber
-
-
 def _platform_for_url(url: str) -> str:
     host = (urlparse(url).hostname or "").lower().replace("www.", "")
-    if "youtube.com" in host or "youtu.be" in host:
+    if host in {"youtube.com", "youtu.be"} or host.endswith((".youtube.com", ".youtu.be")):
         return "youtube"
     if host.endswith("bilibili.com"):
         return "bilibili"
@@ -34,8 +29,6 @@ def _source_quality(source: str) -> str:
         return "provider"
     if source == "vtt":
         return "caption"
-    if source == "asr":
-        return "asr"
     return "missing"
 
 
@@ -101,32 +94,28 @@ def _segments_from_raw_json(raw_json: Optional[str]) -> List[TranscriptSegment]:
 
 
 class VideoIntakeGateway:
-    """Credential-aware video context extraction without task/database coupling."""
+    """Extract existing YouTube captions without task/database coupling."""
 
     def __init__(
         self,
         *,
         supadata_client: Optional[SupadataClient] = None,
         video_processor: Optional[VideoProcessor] = None,
-        transcriber: Optional["Transcriber"] = None,
+        transcriber: Optional[Any] = None,
         temp_dir: Optional[Path] = None,
     ) -> None:
         self.supadata_client = supadata_client or SupadataClient()
         self.video_processor = video_processor or VideoProcessor()
-        self.transcriber = transcriber
-        self.temp_dir = temp_dir or Path(os.getenv("VIBEDIGEST_INTAKE_TEMP_DIR", "temp/video-intake"))
-
-    def _get_transcriber(self) -> "Transcriber":
-        if self.transcriber is None:
-            from services.transcriber import Transcriber
-
-            self.transcriber = Transcriber()
-        return self.transcriber
+        # Retain legacy constructor arguments without initializing ASR or downloading audio.
 
     async def get_video_context(
         self,
         options: VideoIntakeOptions,
     ) -> VideoContext:
+        if not is_supported_content_url(options.url) or _platform_for_url(
+            normalize_video_url(options.url)
+        ) != "youtube":
+            raise ValueError("Only YouTube videos with existing captions are supported.")
         normalized_url = normalize_video_url(options.url)
         if not normalized_url:
             raise ValueError("A valid video URL is required.")
@@ -140,7 +129,6 @@ class VideoIntakeGateway:
         source, markdown, raw_json, language = await self._extract_transcript(
             normalized_url=normalized_url,
             platform=platform,
-            allow_asr=options.allow_asr,
             attempts=attempts,
             errors=errors,
         )
@@ -153,10 +141,8 @@ class VideoIntakeGateway:
         if metadata and status == "failed":
             status = "partial"
 
-        if not options.allow_asr and status != "completed":
-            warnings.append(
-                "ASR fallback was not attempted. Re-run with allow_asr=true if a full audio transcription is acceptable."
-            )
+        if options.allow_asr:
+            warnings.append("Audio transcription is not supported; only existing captions are used.")
 
         return VideoContext(
             url=options.url,
@@ -203,7 +189,6 @@ class VideoIntakeGateway:
         *,
         normalized_url: str,
         platform: str,
-        allow_asr: bool,
         attempts: List[ProviderAttempt],
         errors: List[str],
     ) -> Tuple[str, str, Optional[str], str]:
@@ -231,14 +216,7 @@ class VideoIntakeGateway:
                 )
             )
 
-        if allow_asr:
-            asr = await self._try_asr(normalized_url, attempts)
-            if asr:
-                return asr
-        else:
-            attempts.append(ProviderAttempt("asr", "skipped", "allow_asr=false"))
-
-        errors.append("No transcript source returned usable content.")
+        errors.append("No usable captions are available. Audio transcription is not supported.")
         return "none", "", None, "unknown"
 
     async def _try_supadata(
@@ -281,27 +259,4 @@ class VideoIntakeGateway:
             return "vtt", markdown, raw_json, language or "unknown"
 
         attempts.append(ProviderAttempt("vtt", "failed", "Caption extraction returned an empty transcript."))
-        return None
-
-    async def _try_asr(
-        self,
-        normalized_url: str,
-        attempts: List[ProviderAttempt],
-    ) -> Optional[Tuple[str, str, Optional[str], str]]:
-        try:
-            self.temp_dir.mkdir(parents=True, exist_ok=True)
-            audio_path, _, _, _, _ = await self.video_processor.download_and_convert(
-                normalized_url,
-                self.temp_dir,
-            )
-            markdown, raw_json, language = await self._get_transcriber().transcribe_with_raw(audio_path)
-        except Exception as exc:
-            attempts.append(ProviderAttempt("asr", "failed", str(exc)))
-            return None
-
-        if markdown and raw_json:
-            attempts.append(ProviderAttempt("asr", "success"))
-            return "asr", markdown, raw_json, language or "unknown"
-
-        attempts.append(ProviderAttempt("asr", "failed", "ASR returned an empty transcript."))
         return None

@@ -7,7 +7,7 @@
 [![Next.js](https://img.shields.io/badge/next.js-16-black.svg)](frontend)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](docker-compose.yml)
 
-VibeDigest is a full-stack tool for downloading videos, transcribing audio, and generating AI-powered condensed knowledge. The product uses a control-plane/data-plane split: HTTP starts work, Supabase Realtime carries task state, and the frontend does not poll for progress.
+VibeDigest turns YouTube videos with existing captions into AI-powered summaries, key ideas, and source-grounded answers. The product uses a control-plane/data-plane split: HTTP starts work, Supabase Realtime carries task state, and the frontend does not poll for progress.
 
 ## Quick Start
 
@@ -31,7 +31,7 @@ The Cloud runtime requires:
 
 - Supabase/Postgres credentials for Auth, task state, Realtime, and PGMQ
 - OpenRouter, or an OpenAI-compatible generation endpoint
-- optional audio transcription and Supadata credentials
+- optional Supadata credentials for fetching existing captions (direct captions are the fallback)
 
 ### Run
 

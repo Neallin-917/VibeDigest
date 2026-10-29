@@ -2,13 +2,12 @@
   "tool": "get_video_context",
   "arguments": {
     "url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
-    "strategy": "fastest_reliable",
-    "allow_asr": false
+    "strategy": "fastest_reliable"
   },
   "expected_shape": {
     "status": "completed|partial|failed",
-    "source": "supadata|vtt|asr|none",
-    "quality": "provider|caption|asr|missing",
+    "source": "supadata|vtt|none",
+    "quality": "provider|caption|missing",
     "metadata": {
       "title": "string",
       "duration_seconds": "number|null"

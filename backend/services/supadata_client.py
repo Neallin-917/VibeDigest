@@ -108,7 +108,8 @@ class SupadataClient:
             return None, None, None
 
         url = f"{self.BASE_URL}/transcript"
-        params = {"url": video_url, "text": "false", "mode": "auto"}
+        # Never ask the provider to generate audio transcription implicitly.
+        params = {"url": video_url, "text": "false", "mode": "native"}
 
         max_attempts = len(self.rotator._keys)
 
@@ -257,7 +258,7 @@ class SupadataClient:
 
                     raw_payload = {
                         "version": 1,
-                        "model": "supadata-auto",
+                        "model": "supadata-native",
                         "language": detected_lang,
                         "segments": final_segments,
                     }

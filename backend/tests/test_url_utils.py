@@ -11,9 +11,6 @@ from utils.url import is_supported_content_url, normalize_video_url
         "https://youtu.be/dQw4w9WgXcQ",
         "https://youtube.com/shorts/dQw4w9WgXcQ",
         "https://youtube.com/live/dQw4w9WgXcQ",
-        "https://podcasts.apple.com/us/podcast/show/id123456?i=1000123",
-        "https://bilibili.com/video/BV1xx411c7XW",
-        "https://xiaoyuzhoufm.com/episode/12345",
     ],
 )
 def test_supported_content_url_requires_a_known_source_and_identifier(url):
@@ -31,6 +28,9 @@ def test_supported_content_url_requires_a_known_source_and_identifier(url):
         "https://bilibili.com",
         "https://xiaoyuzhoufm.com/podcast/123",
         "https://example.com/video/123",
+        "https://podcasts.apple.com/us/podcast/show/id123456?i=1000123",
+        "https://bilibili.com/video/BV1xx411c7XW",
+        "https://xiaoyuzhoufm.com/episode/12345",
         "https://notyoutube.com/watch?v=spoofed",
     ],
 )

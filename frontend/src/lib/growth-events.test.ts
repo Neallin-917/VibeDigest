@@ -39,13 +39,13 @@ describe("growth event vocabulary", () => {
     trackGrowthEvent("landing_agent_intent", {
       locale: "en",
       destination: "login",
-      source: "apple_podcasts",
+      source: "youtube",
     })
 
     expect(analytics.track).toHaveBeenCalledWith("landing_agent_intent", {
       locale: "en",
       destination: "login",
-      source: "apple_podcasts",
+      source: "youtube",
     })
   })
 

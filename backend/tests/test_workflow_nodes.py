@@ -121,7 +121,6 @@ def _patch_workflow_deps():
 
     mock_supadata = AsyncMock()
     mock_vp = AsyncMock()
-    mock_transcriber = AsyncMock()
 
     mock_summarizer = MagicMock()
     mock_summarizer.summarize = AsyncMock()
@@ -132,7 +131,6 @@ def _patch_workflow_deps():
         "_get_db_client": mock_db,
         "_get_supadata_client": mock_supadata,
         "_get_video_processor": mock_vp,
-        "_get_transcriber": mock_transcriber,
         "_get_summarizer": mock_summarizer,
     }
 
@@ -161,11 +159,6 @@ def mock_supadata(_patch_workflow_deps):
 @pytest.fixture
 def mock_vp(_patch_workflow_deps):
     return _patch_workflow_deps["_get_video_processor"]
-
-
-@pytest.fixture
-def mock_transcriber(_patch_workflow_deps):
-    return _patch_workflow_deps["_get_transcriber"]
 
 
 @pytest.fixture
@@ -518,8 +511,8 @@ class TestIngest:
         assert result["transcript_text"] == "VTT transcript"
 
     @pytest.mark.asyncio
-    async def test_youtube_all_strategies_fail(self, mock_db, mock_supadata, mock_vp, mock_transcriber, mock_summarizer):
-        """All three strategies fail → errors populated, task marked ERROR."""
+    async def test_youtube_all_strategies_fail(self, mock_db, mock_supadata, mock_vp, mock_summarizer):
+        """Both caption sources fail → atomic failure without audio fallback."""
         mock_vp.extract_info_only.return_value = {
             "title": "Fail Video", "thumbnail": None, "duration": 0,
             "author": "", "audio_url": None,
@@ -529,7 +522,7 @@ class TestIngest:
         mock_supadata.last_error = "API down"
         # VTT fails
         mock_vp.extract_captions.return_value = None
-        # Whisper fails
+        # An audio download would fail if a removed fallback were invoked.
         mock_vp.download_and_convert.side_effect = Exception("Download failed: 403")
 
         state = _make_state(is_youtube=True)
@@ -537,37 +530,25 @@ class TestIngest:
 
         assert len(result["errors"]) > 0
         assert result.get("ingest_error") is not None
-        # Verify task was marked as error in DB
-        error_calls = [
-            c for c in mock_db.update_task_status.call_args_list
-            if c.kwargs.get("status") == TaskStatus.ERROR
-        ]
-        assert len(error_calls) > 0
+        mock_db.fail_caption_task.assert_called_once_with(state["task_id"], result["ingest_error"])
+        assert result["ingest_error"].startswith("captions_unavailable:")
+        mock_vp.download_and_convert.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_non_youtube_skips_supadata_and_vtt(self, mock_db, mock_supadata, mock_vp, mock_transcriber, mock_summarizer):
-        """Non-YouTube URL → skips Supadata and VTT, goes straight to Whisper."""
-        mock_vp.extract_info_only.return_value = {
-            "title": "Bilibili Video", "thumbnail": "http://t", "duration": 600,
-            "author": "UP主", "audio_url": None,
-        }
-        mock_vp.download_and_convert.return_value = (
-            "/tmp/audio.m4a", "Bilibili Video", "http://t", None, {"duration": 600}
-        )
-        mock_transcriber.transcribe_with_raw.return_value = ("Whisper text", '{}', "zh")
-        mock_summarizer.optimize_transcript.return_value = "Cleaned whisper text"
-
-        state = _make_state(
-            video_url="https://www.bilibili.com/video/BV123",
-            is_youtube=False,
-        )
+    @pytest.mark.parametrize("url", [
+        "https://www.bilibili.com/video/BV123",
+        "https://www.xiaoyuzhoufm.com/episode/abc",
+        "https://podcasts.apple.com/us/podcast/id123?i=456",
+    ])
+    async def test_non_youtube_rejected_before_provider_calls(self, mock_db, mock_supadata, mock_vp, url):
+        state = _make_state(video_url=url, is_youtube=False)
         result = await ingest(state)
-
-        assert result["transcript_source"] == "whisper"
-        assert result["transcript_text"] == "Cleaned whisper text"
-        # Supadata and VTT should NOT be called
+        assert result["ingest_error"].startswith("unsupported_source:")
+        mock_db.fail_caption_task.assert_called_once_with(state["task_id"], result["ingest_error"])
         mock_supadata.get_transcript_async.assert_not_called()
+        mock_vp.extract_info_only.assert_not_called()
         mock_vp.extract_captions.assert_not_called()
+        mock_vp.download_and_convert.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_metadata_extraction_failure_continues(self, mock_db, mock_supadata, mock_vp):
@@ -581,32 +562,6 @@ class TestIngest:
         # Should still succeed with transcript
         assert result["transcript_source"] == "supadata"
         assert result["transcript_text"] == "Good transcript"
-
-    @pytest.mark.asyncio
-    async def test_podcast_url_includes_audio_output(self, mock_db, mock_supadata, mock_vp, mock_transcriber, mock_summarizer):
-        """Podcast URL (xiaoyuzhoufm) → AUDIO output kind is created."""
-        mock_vp.extract_info_only.return_value = {
-            "title": "Podcast", "thumbnail": "http://cover", "duration": 1800,
-            "author": "Host", "audio_url": "http://audio.mp3",
-        }
-        mock_vp.download_and_convert.return_value = (
-            "/tmp/pod.m4a", "Podcast", "http://cover", "http://audio.mp3", {"duration": 1800}
-        )
-        mock_transcriber.transcribe_with_raw.return_value = ("Podcast text", '{}', "zh")
-        mock_summarizer.optimize_transcript.return_value = "Clean podcast text"
-
-        state = _make_state(
-            video_url="https://www.xiaoyuzhoufm.com/episode/abc",
-            is_youtube=False,
-        )
-        await ingest(state)
-
-        # Audio output should be persisted
-        audio_calls = [
-            c for c in mock_db.update_task_output_by_kind.call_args_list
-            if c.args[1] == OutputKind.AUDIO.value
-        ]
-        assert len(audio_calls) > 0
 
     @pytest.mark.asyncio
     async def test_language_correction_for_cjk(self, mock_db, mock_supadata, mock_vp):

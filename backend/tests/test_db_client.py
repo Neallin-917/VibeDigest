@@ -4,6 +4,20 @@ from uuid import UUID
 import os
 from db_client import DBClient
 
+
+@pytest.mark.parametrize("rows", [[], [{"failed": False}], [{"failed": True}]])
+def test_fail_caption_task_requires_confirmed_transaction(db_client_instance, rows):
+    with patch.object(db_client_instance, "_execute_query", return_value=rows) as execute:
+        if rows and rows[0]["failed"]:
+            db_client_instance.fail_caption_task("task-1", "captions_unavailable: Missing")
+        else:
+            with pytest.raises(RuntimeError, match="not persisted"):
+                db_client_instance.fail_caption_task("task-1", "captions_unavailable: Missing")
+        assert "vibedigest_private.fail_caption_task" in execute.call_args.args[0]
+        assert execute.call_args.args[1]["task_id"] == "task-1"
+
+
+
 @pytest.fixture
 def mock_engine():
     return MagicMock()

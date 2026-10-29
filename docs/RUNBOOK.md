@@ -24,6 +24,23 @@ The repository contains no local “production” deployment path. Docker Compos
 is development-only. Its worker uses `--agent-only` and can consume only a
 developer-scoped continuation queue, never the hosted video or catalog queues.
 
+## Caption-only rollout
+
+Apply `20261028081449_caption_only_submission_refunds.sql` before deploying the
+API and workers. Readiness requires its refund function and private debit table.
+The migration records new submission debits; it does not guess historical
+charges or refund old tasks. No new audio API key is required. Supadata native
+caption retrieval still uses its configured allowance, but never requests AI
+transcription. Deploy both hosted and trusted catalog code so neither keeps the
+retired audio fallback. Deploy the frontend/plugin with matching source limits.
+Do not run the full migration directory blindly; follow the target/schema checks below.
+
+Verify a captioned YouTube task completes, and a missing-caption task fails once,
+returns its recorded debit once and offers no retry. Check guest, monthly and
+purchased credits separately. No-caption failures must not invoke a transcription
+provider or trigger paid fallback. Historical tasks remain readable; fresh tasks
+for non-YouTube sources must be rejected before quota/queue submission.
+
 ## Release order
 
 1. Confirm the Supabase target explicitly. Prefer an isolated development branch;

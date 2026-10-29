@@ -21,18 +21,16 @@ async def test_workflow_mocked():
     # 1. Setup Mocks
     mock_db = MagicMock()
     mock_vp = AsyncMock()
-    mock_transcriber = AsyncMock()
     mock_summarizer = MagicMock()
     mock_supadata = AsyncMock()
 
     with patch('workflow._get_db_client', return_value=mock_db), \
          patch('workflow._get_video_processor', return_value=mock_vp), \
-         patch('workflow._get_transcriber', return_value=mock_transcriber), \
          patch('workflow._get_summarizer', return_value=mock_summarizer), \
          patch('workflow._get_supadata_client', return_value=mock_supadata):
 
         # --- Mock Supadata ---
-        mock_supadata.get_transcript_async = AsyncMock(return_value=(None, None, None)) # Force fallback to download
+        mock_supadata.get_transcript_async = AsyncMock(return_value=(None, None, None)) # Force fallback to native VTT captions
 
         # --- Mock DB Behaviors ---
         mock_db.find_latest_completed_task_by_url.return_value = None  # Cache Miss
@@ -56,28 +54,13 @@ async def test_workflow_mocked():
             "duration": 120,
             "audio_url": None
         })
-        # Mock download_and_convert return: (audio_path, title, thumb, direct_url, meta)
-        mock_vp.download_and_convert = AsyncMock(return_value=(
-            "mock_audio.mp3",
-            "Mock Video Title",
-            "http://thumb.url",
-            None,
-            {"duration": 120, "author": "Mock Author"}
-        ))
-
-        # --- Mock Transcriber ---
-        # Return: (script_md, raw_json, lang)
-        mock_transcriber.transcribe_with_raw = AsyncMock(return_value=(
-            "Mock transcript text with timestamps.",
-            '{"segments": []}',
-            "en"
-        ))
-
         # --- Mock Summarizer ---
         # Mock class methods
         # IMPORTANT: Must be >50 chars to pass 'Smart Skip' in cognition node
         long_transcript = "Optimized mock transcript. " * 3
         mock_summarizer.optimize_transcript = AsyncMock(return_value=long_transcript)
+        mock_summarizer.fast_clean_transcript = MagicMock(side_effect=lambda text: text)
+        mock_vp.extract_captions = AsyncMock(return_value=(long_transcript, '{"segments": []}', "en"))
         # Workflow calls .summarize() which internally might call others, but we should mock the entry point used by workflow.py
         mock_summarizer.summarize = AsyncMock(return_value={
             "version": 4,

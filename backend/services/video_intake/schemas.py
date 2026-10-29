@@ -45,6 +45,7 @@ class VideoIntakeOptions:
     url: str
     language: Optional[str] = None
     strategy: str = "fastest_reliable"
+    # Legacy input accepted for compatibility; never enables audio transcription.
     allow_asr: bool = False
 
 

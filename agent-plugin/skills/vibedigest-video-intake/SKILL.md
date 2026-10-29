@@ -1,41 +1,30 @@
 # VibeDigest Video Intake
 
-Use this skill when the user asks Codex to fetch, transcribe, summarize, quote, or analyze a video, podcast, lecture, or other URL-based media source.
+Use this skill when the user asks Codex to summarize or analyze a YouTube video or lecture with existing captions.
 
 ## Core Rule
 
-Call the `get_video_context` MCP tool before trying ad hoc browser scraping, raw `yt-dlp`, manual audio download, or paid ASR. The tool owns provider fallback, URL normalization, metadata extraction, timestamp normalization, and source quality labels.
+Call the `get_video_context` MCP tool before summarizing a supported YouTube URL. The tool retrieves existing captions, normalizes timestamps, and reports source quality. It does not download audio or generate speech recognition transcripts. Audio-only sources and videos without usable captions are unsupported.
 
 ## Secret Handling
 
 - Never ask the user to paste API keys into chat.
 - Never write API keys into this skill, the plugin manifest, examples, or source-controlled docs.
 - If the tool reports missing provider configuration, tell the user which environment variable is missing.
-- Use `allow_asr=false` first unless the user explicitly asks for full extraction at any cost, accepts slower processing, or captions/transcripts are unavailable and ASR is the only remaining route.
 
 ## Workflow
 
-1. Extract the media URL from the user request.
-2. Call `get_video_context` with:
-   - `url`: the media URL
-   - `strategy`: `fastest_reliable`
-   - `allow_asr`: `false` by default
+1. Extract the YouTube video URL from the user request. Reject other media sources without calling the tool.
+2. Call `get_video_context` with `url` and `strategy=fastest_reliable`.
 3. Read `status`, `source`, `quality`, `warnings`, and `errors`.
-4. If `status` is `completed`, use the returned `markdown`, `transcript`, and `metadata` as the factual base.
-5. If `status` is `partial` or `failed` and the user needs complete coverage, call `get_video_context` again with `allow_asr=true` only when ASR cost and runtime are acceptable.
-6. When summarizing, cite timestamps from `transcript` where possible.
+4. If `status` is `completed`, use the returned captions and metadata as internal evidence for the answer.
+5. If `status` is `partial` or `failed`, explain that usable captions could not be obtained. Do not offer ASR, download audio, or retry with an ASR flag.
+6. Paraphrase the supported ideas and cite original-source timestamp links. Retrieved transcript text stays internal; do not publish verbatim passages.
 
 ## Output Expectations
 
-Prefer compact, useful artifacts:
+Prefer a title, short overview, and timestamped key points grounded in the retrieved source. Mention source quality when it affects the answer:
 
-- For summaries: title, source quality, short overview, timestamped key points.
-- For research notes: metadata, chapter-style sections, notable quotes with timestamps.
-- For transcript requests: cleaned Markdown transcript with timestamps preserved.
-
-Always mention source quality when it matters:
-
-- `provider`: external transcript provider returned structured segments.
+- `provider`: the external provider returned existing captions.
 - `caption`: direct subtitle/caption extraction succeeded.
-- `asr`: audio was transcribed, likely slower and costlier.
-- `missing`: no usable transcript source was found.
+- `missing`: no usable captions were obtained.

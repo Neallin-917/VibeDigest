@@ -13,7 +13,6 @@ from constants import OutputKind, TaskStatus
 from dependencies import (
     get_db_client,
     get_video_processor,
-    get_transcriber,
     get_summarizer,
     get_supadata_client,
 )
@@ -24,7 +23,7 @@ from services.execution_policy import (
     WorkloadKind,
     current_execution_provenance,
 )
-from utils.url import normalize_video_url
+from utils.url import is_supported_content_url, normalize_video_url
 from utils.language_utils import normalize_lang_code
 from utils.text_utils import detect_language, is_cjk_language
 from utils.trace_utils import build_trace_config
@@ -42,10 +41,6 @@ def _get_db_client():
 
 def _get_video_processor():
     return get_video_processor()
-
-
-def _get_transcriber():
-    return get_transcriber()
 
 
 def _get_summarizer():
@@ -102,7 +97,7 @@ class VideoProcessingState(TypedDict):
     # Status
     # Use operator.add to append errors instead of overwriting them
     errors: Annotated[List[str], operator.add]
-    transcript_source: Optional[str]  # "supadata", "vtt", "whisper"
+    transcript_source: Optional[str]  # New work: "supadata", "vtt"; historical values remain readable.
     ingest_error: Optional[str]
 
 
@@ -285,69 +280,6 @@ async def _ingest_vtt(video_url: str, task_id: str) -> Optional[Dict]:
     return {"error": "Direct VTT failed: no captions available"}
 
 
-async def _ingest_whisper(state: VideoProcessingState) -> Optional[Dict]:
-    task_id = state["task_id"]
-    video_url = state["video_url"]
-
-    try:
-        _get_db_client().update_task_status(task_id, status=TaskStatus.PROCESSING, progress=30)
-        logger.info("Attempting Strategy 3 (Download + Whisper)...")
-
-        # 1. Download
-        TEMP_DIR = Path("temp")
-        TEMP_DIR.mkdir(exist_ok=True)
-
-        (
-            audio_path,
-            title,
-            thumb,
-            direct_audio_url,
-            info,
-        ) = await _get_video_processor().download_and_convert(video_url, TEMP_DIR)
-
-        updates = {
-            "audio_path": audio_path,
-            "video_title": title,
-            "thumbnail_url": thumb,
-            "direct_audio_url": direct_audio_url,
-            "duration": info.get("duration"),
-        }
-
-        # 2. Transcribe
-        _get_db_client().update_task_status(task_id, status=TaskStatus.PROCESSING, progress=50)
-        (
-            script_text_with_timestamps,
-            raw_json,
-            detected_language,
-        ) = await _get_transcriber().transcribe_with_raw(audio_path)
-
-        updates["transcript_raw"] = raw_json
-        updates["transcript_lang"] = detected_language
-
-        # 3. LLM Optimization
-        _get_db_client().update_task_status(task_id, status=TaskStatus.PROCESSING, progress=70)
-        trace_meta = build_trace_config(
-            run_name="Ingest/Optimize",
-            task_id=str(task_id),
-            user_id=str(state["user_id"]),
-            stage="ingest",
-            source="whisper",
-            metadata={"video_url": video_url},
-        )
-        cleaned = await _get_summarizer().optimize_transcript(
-            script_text_with_timestamps, trace_metadata=trace_meta
-        )
-
-        updates["transcript_text"] = cleaned
-        updates["transcript_source"] = "whisper"
-
-        return updates
-
-    except Exception as e:
-        logger.error(f"Strategy 3 (Whisper) failed: {e}")
-        return {"error": str(e)}  # Special key to indicate failure inside helper
-
-
 async def ingest(state: VideoProcessingState) -> Dict:
     """Unified Ingest Node: URL -> Clean Transcript & Metadata."""
     logger.info(f"Node: ingest for {state['video_url']}")
@@ -366,7 +298,11 @@ async def ingest(state: VideoProcessingState) -> Dict:
     task_id = state["task_id"]
     user_id = state["user_id"]
     video_url = state["video_url"]
-    is_youtube = state["is_youtube"]
+    if not is_supported_content_url(video_url):
+        error = "unsupported_source: Only YouTube videos with existing captions are supported."
+        _get_db_client().fail_caption_task(task_id, error)
+        return {"errors": [error], "ingest_error": error}
+    is_youtube = True
     strategy_errors: List[str] = []
 
     # --- Step 1: Initialize DB Outputs ---
@@ -420,14 +356,6 @@ async def ingest(state: VideoProcessingState) -> Dict:
             strategy_errors = [*strategy_errors, str(result["error"])]
             result = None
 
-    # Strategy 3: Whisper
-    if not result:
-        result = await _ingest_whisper(state)
-        if result and "error" in result:
-            whisper_error = f"Whisper failed: {result['error']}"
-            strategy_errors = [*strategy_errors, whisper_error]
-            result = None
-
     # Merge results
     if result:
         # Enforce SSOT: Source language is determined solely by the transcript text content.
@@ -469,15 +397,12 @@ async def ingest(state: VideoProcessingState) -> Dict:
             progress=100,
         )
     else:
-        error_messages = strategy_errors or ["All ingest strategies failed."]
-        updates["errors"] = [*error_messages]
-        updates["ingest_error"] = error_messages[0]
-
-        err_msg = " | ".join(error_messages)
-
-        _get_db_client().update_task_status(
-            task_id, status=TaskStatus.ERROR, error=err_msg
-        )
+        # Provider diagnostics stay in server logs, not public task errors.
+        logger.info("Caption acquisition failed for task %s: %s", task_id, strategy_errors)
+        error = "captions_unavailable: No usable captions were found. Audio transcription is not supported."
+        _get_db_client().fail_caption_task(task_id, error)
+        updates["errors"] = [error]
+        updates["ingest_error"] = error
 
     # Update Audio Logic
     if updates.get("direct_audio_url"):

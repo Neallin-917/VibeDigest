@@ -5,6 +5,8 @@ import { TaskDataGroup } from '../TaskDataGroup'
 import { LANDING_DEMO } from '@/lib/landing-demo'
 import landingDemoSummaries from '@/lib/fixtures/landing-demo-summaries.json'
 import { matchPublicSummaryOutput } from '@/lib/summary-contract'
+import { getRawMessages } from '@/lib/i18n-messages'
+import { createTranslator } from '@/lib/i18n'
 
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
 
@@ -22,6 +24,9 @@ let taskOutputRows: Array<Record<string, unknown>> = []
 vi.mock('@/components/i18n/I18nProvider', () => ({
   useI18n: () => ({
     t: (key: string) => {
+      if (key === 'chat.tools.status.captionsUnavailable' || key === 'chat.tools.status.unsupportedSource') {
+        return createTranslator(getRawMessages(i18nState.locale === 'zh' ? 'zh' : 'en'))(key)
+      }
       const labels: Record<string, string> = {
         'chat.tools.status.videoTask': 'Video task',
         'chat.tools.status.statusReady': 'Ready',
@@ -318,6 +323,33 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Unable to process this video right now.')).toBeInTheDocument()
     expect(screen.queryByText(/litellm/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/processing plan/i)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['en', 'captions_unavailable', 'This video has no usable captions. Try a YouTube video with existing captions.'],
+    ['zh', 'captions_unavailable', '此视频暂无可用字幕，请换一个已有字幕的 YouTube 视频。'],
+    ['en', 'unsupported_source', 'This source is not supported. Try a YouTube video with existing captions.'],
+    ['zh', 'unsupported_source', '暂不支持此来源，请换一个已有字幕的 YouTube 视频。'],
+  ] as const)('localizes permanent source failures without offering retry: %s %s', (locale, code, message) => {
+    i18nState.locale = locale
+    const onRetryTask = vi.fn()
+    render(
+      <TaskDataGroup
+        onRetryTask={onRetryTask}
+        taskStatus={{
+          taskId: 'task-without-captions',
+          status: 'failed',
+          videoUrl: 'https://www.youtube.com/watch?v=video-789',
+          errorMessage: `${code}: upstream provider diagnostic`,
+        }}
+      />
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent(message)
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/upstream provider diagnostic/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/refund|退额|退还/i)).not.toBeInTheDocument()
+    expect(onRetryTask).not.toHaveBeenCalled()
   })
 
   it('offers an owned failed task a single retry action', async () => {

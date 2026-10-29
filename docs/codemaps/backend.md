@@ -44,7 +44,7 @@ and [configuration](config.md) for callback/runtime isolation.
               │              │              ▼
               │              │     ┌─────────────────┐
               │              │     │     ingest      │
-              │              │     │ (Download+ASR)  │
+              │              │     │ (Fetch captions)  │
               │              │     └────────┬────────┘
               │              │              │
               │              └──────┬───────┘
@@ -91,7 +91,7 @@ class VideoProcessingState(TypedDict):
     transcript_text: Optional[str]      # Optimized/Clean
     transcript_raw: Optional[str]       # JSON with segments
     transcript_lang: str
-    transcript_source: Optional[str]    # "supadata" | "vtt" | "whisper"
+    transcript_source: Optional[str]    # "supadata" | "vtt"
 
     # === AI Output ===
     final_summary_json: Optional[Dict]
@@ -115,7 +115,6 @@ worker.py (Durable Consumer)
     │
     ├──▶ job_handlers.py ──▶ workflow.py (LangGraph)
     │       ├──▶ video_processor.py ──▶ yt-dlp
-    │       ├──▶ transcriber.py ──▶ configured audio provider
     │       ├──▶ summarizer.py ──▶ configured smart/fast model aliases
     │       ├──▶ supadata_client.py ──▶ Supadata API
     │       └──▶ db_client.py ──▶ Supabase
@@ -152,7 +151,6 @@ inference or the canonical database/queue contract.
 | `services/job_handlers.py` | Pipeline attempt and output retry | `run_pipeline`, `handle_retry_output` |
 | `workflow.py` | LangGraph state machine | `app` (compiled graph) |
 | `services/summarizer/` | LLM summarization and validated V4/V5 output contracts | `Summarizer`, `SummaryResponseV5` |
-| `services/transcriber.py` | Audio transcription | `Transcriber` |
 | `services/video_processor.py` | yt-dlp download, caption extraction | `VideoProcessor` |
 | `db_client.py` | Postgres operations | `DBClient` |
 | `services/prompts.py` | LLM prompt templates | Prompt strings |
@@ -160,25 +158,20 @@ inference or the canonical database/queue contract.
 | `config.py` | Settings and environment validation | `settings` |
 | `services/translator.py` | Multi-language translation | `Translator` |
 
-## Ingest Strategy (Cascade Fallback)
+## Ingest Strategy (Caption-only)
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    INGEST NODE                               │
-│                                                              │
-│  Strategy 1: Supadata API (YouTube only)                     │
-│      │ Success? ──▶ Return transcript                        │
-│      │ Fail? ──▼                                             │
-│                                                              │
-│  Strategy 2: Direct VTT (YouTube only)                       │
-│      │ Success? ──▶ Return transcript                        │
-│      │ Fail? ──▼                                             │
-│                                                              │
-│  Strategy 3: Download + Whisper (Universal)                  │
-│      │ Success? ──▶ Return transcript                        │
-│      │ Fail? ──▶ Mark task as ERROR                          │
-└──────────────────────────────────────────────────────────────┘
-```
+New processing accepts individual YouTube videos only. The worker fetches existing
+captions via Supadata `native`, then direct VTT extraction. If neither returns
+usable captions, it never downloads or transcribes audio. The private
+`fail_caption_task` transaction marks pending outputs/task as failed and refunds
+its recorded debit once. Requested provider errors stay in server logs; clients
+receive a stable caption/source failure code. Completed historical evidence is
+still reusable. The Agent plugin follows the same caption-only boundary.
+
+`task_submission_debits` records guest, monthly or top-up consumption inside the
+canonical submission transaction. Refunds never decrement another billing
+period's usage, never infer historical debit sources, and never enable a free
+retry of the refunded task. A new submission may try newly available captions.
 
 ## Delivery and Concurrency
 

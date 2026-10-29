@@ -99,7 +99,7 @@ test.describe('Landing Page Acquisition Flow', () => {
 
         const error = page.locator('#hero').getByRole('alert')
         await expect(error).toBeVisible()
-        await expect(error).toHaveText('Paste a video or episode link from YouTube, Apple Podcasts, Bilibili, or Xiaoyuzhou.')
+        await expect(error).toHaveText('Paste a YouTube video link with existing captions. Audio-only links are not supported.')
         await expect(urlInput).toHaveAttribute('aria-invalid', 'true')
         await expect(urlInput).toHaveAttribute('aria-describedby', await error.getAttribute('id') as string)
         await expect(urlInput).toBeFocused()

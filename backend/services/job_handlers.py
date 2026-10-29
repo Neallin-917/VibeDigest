@@ -50,6 +50,8 @@ async def run_pipeline(
     errors = final_state.get("errors") if isinstance(final_state, dict) else None
     if errors:
         error_text = "; ".join(str(error) for error in errors if error)
+        if error_text.startswith(("captions_unavailable:", "unsupported_source:")):
+            raise NonRetryableJobError(error_text)
         raise RuntimeError(error_text or "Pipeline completed with errors")
 
 

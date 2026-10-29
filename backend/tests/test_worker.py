@@ -62,6 +62,27 @@ def video_job(*, message_id: int = 11, read_count: int = 1) -> QueuedJob:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("code", ["captions_unavailable", "unsupported_source"])
+async def test_caption_failure_redelivery_archives_without_running_pipeline(code):
+    queue = MagicMock()
+    instance = TaskWorker(queue, worker_config())
+    error = f"{code}: No usable captions"
+    db = MagicMock()
+    db.get_task.return_value = {
+        "id": "task-1", "status": "error", "error_message": error,
+        "workload_kind": "user_submission",
+    }
+    with patch("worker.get_db_client", return_value=db), patch("worker.run_pipeline", new=AsyncMock()) as pipeline:
+        await instance._process(video_job())
+    pipeline.assert_not_awaited()
+    db.mark_task_failed_if_not_completed.assert_called_once_with("task-1", error)
+    queue.archive.assert_called_once_with(
+        job_id="00000000-0000-0000-0000-000000000099", message_id=11, status="failed",
+    )
+    queue.set_visibility.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_worker_processes_and_archives_video_job():
     queue = MagicMock()
     worker = TaskWorker(queue, worker_config())

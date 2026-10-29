@@ -22,7 +22,6 @@ async def get_video_context(args: argparse.Namespace) -> dict:
             url=args.url,
             language=args.language,
             strategy=args.strategy,
-            allow_asr=args.allow_asr,
         )
     )
     return result.to_dict()
@@ -36,7 +35,6 @@ def build_parser() -> argparse.ArgumentParser:
     context_parser.add_argument("--url", required=True)
     context_parser.add_argument("--language")
     context_parser.add_argument("--strategy", default="fastest_reliable")
-    context_parser.add_argument("--allow-asr", action="store_true")
 
     return parser
 

@@ -46,7 +46,7 @@ test('Chinese hero keeps whole phrases and gives an inline recoverable URL error
   }
   await page.setViewportSize({ width: 390, height: 844 })
   await page.screenshot({ path: `${outputDir}/hero-zh-390.jpg`, type: 'jpeg' })
-  const input = page.getByRole('textbox', { name: '视频或播客链接' })
+  const input = page.getByRole('textbox', { name: 'YouTube 视频链接' })
   await input.fill('https://example.com/video')
   await page.getByRole('button', { name: '生成摘要', exact: true }).click()
   await expect(input).toHaveAttribute('aria-invalid', 'true')

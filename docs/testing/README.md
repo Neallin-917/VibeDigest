@@ -55,6 +55,19 @@ cd frontend && npx playwright test
 cd frontend && npm run build && npm run test:artifact
 ```
 
+The hosted continuation model regression is manual and billable. With an OpenAI
+key supplied through the approved secret manager, run:
+
+```bash
+cd frontend && RUN_HOSTED_CONTINUATION_EVAL=1 npm run test -- --run src/lib/agent/continuation-hosted.live.test.ts
+```
+
+It uses the configured OpenAI model and the real Agent SDK loop over synthetic
+source fixtures. Database state, task creation and persistence are mocked; it
+does not process a real video or replace production end-to-end acceptance. It
+is skipped in CI and without the explicit opt-in. Results are written under
+`output/evals/`, or to `HOSTED_CONTINUATION_EVAL_OUTPUT` when specified.
+
 The artifact check copies only the two Agent routes and their Next.js
 `.nft.json` dependencies into a temporary directory, without checkout or
 `node_modules` symlinks. It loads the actual packaged handlers and verifies

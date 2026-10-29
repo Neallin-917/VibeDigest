@@ -6,6 +6,7 @@ import { APICallError, type LanguageModelV4StreamPart } from '@ai-sdk/provider'
 import type { ChatUIMessage, ChatUIMessagePart, StoredChatMessageRow } from '@/lib/chat-ui'
 import type { AgentTurn, TaskData, TurnClient } from './backend'
 import { AgentServiceError } from './backend'
+import { buildSourceIndex } from './source-index'
 import { agentConversation, resolveAgentRuntime, runTaskAgent, TASK_AGENT_INSTRUCTIONS } from './task-agent'
 
 const { localRuntime, localRun, providerClient, providerChat, resolveProviderMock, resolveModelMock, config } = vi.hoisted(() => ({
@@ -184,6 +185,63 @@ describe('hosted Agent execution with the real SDK tool loop', () => {
     expect(JSON.stringify(options.prompt)).toContain('Phase: background continuation')
     expect(JSON.stringify(options.prompt)).toContain('Complete the latest user')
     expect(result.waiting).toBe(false)
+  })
+
+  it('resumes a process-plus-analysis goal through source tools without replaying creation instructions', async () => {
+    const goal = 'Process https://youtu.be/fixture and, when it is ready, explain the main claim and give two timestamped source links.'
+    const data: TaskData = {
+      ...sourceData,
+      outputs: [{ id: 'raw-proof', kind: 'script_raw', locale: null, status: 'completed', content: JSON.stringify({ segments: [
+        { start: 45, text: 'PRIVATE_SOURCE_ONE A proof establishes that an implementation follows a specification for every input.' },
+        { start: 90, text: 'PRIVATE_SOURCE_TWO The specification must be checked by people before the implementation is trusted.' },
+      ] }) }],
+    }
+    const index = buildSourceIndex(taskId, data.outputs[0].content!)
+    const client = clientFixture()
+    client.history.mockResolvedValue({ messages: [
+      historyRow('user-1', 'user', [{ type: 'text', text: goal }]),
+      historyRow('receipt', 'assistant', [{ type: 'data-task-status', data: { taskId, status: 'pending' } }]),
+    ] })
+    client.read.mockResolvedValue(data)
+    const model = modelFor([
+      [toolEvent('get_task_status', { taskId })],
+      [toolEvent('search_source', { taskId, query: 'specification' })],
+      [toolEvent('read_source', { taskId, segmentIds: index.segments.map(segment => segment.id) })],
+      textEvents('The claim is that correctness can be established against a reviewed specification. See [the guarantee](https://youtu.be/fixture?t=45) and [the human responsibility](https://youtu.be/fixture?t=90).'),
+    ])
+    const result = await runTaskAgent({ ...baseTurn, status: 'finalizing',
+      runtime_config: { ...baseTurn.runtime_config, provider: 'openai', reasoningEffort: 'none' } }, client)
+    const prompt = model.doStreamCalls[0].prompt
+    const system = prompt.find(message => message.role === 'system')?.content
+    expect(system).toContain('processing action in the accepted user message is already fulfilled')
+    expect(system).not.toContain('call create_video_task before writing any reply')
+    expect(system).not.toContain('continue_when_ready')
+    expect(system).not.toContain(goal)
+    expect(prompt).toContainEqual({ role: 'user', content: [{ type: 'text', text: goal }] })
+    expect(model.doStreamCalls).toHaveLength(4)
+    expect(client.read).toHaveBeenCalledWith(taskId, true)
+    expect(client.submit).not.toHaveBeenCalled()
+    expect(client.watch).not.toHaveBeenCalled()
+    expect(result.parts.filter(part => part.type === 'source-url').map(part => part.url))
+      .toEqual(['https://youtu.be/fixture?t=45', 'https://youtu.be/fixture?t=90'])
+    expect(JSON.stringify(client.finish.mock.calls)).not.toContain('PRIVATE_SOURCE_')
+    expect(client.finish).toHaveBeenCalledExactlyOnceWith(result.parts, result.metadata)
+  })
+
+  it('checks a failed terminal task without inventing a successful source or retrying processing', async () => {
+    const client = clientFixture()
+    client.read.mockResolvedValue({ ...sourceData, task: { ...sourceData.task, status: 'error' }, outputs: [] })
+    const model = modelFor([
+      [toolEvent('get_task_status', { taskId })],
+      textEvents('Processing failed, so the source cannot yet support an answer. Check the task failure before choosing a supported recovery.'),
+    ])
+    const result = await runTaskAgent({ ...baseTurn, status: 'finalizing' }, client)
+    expect(JSON.stringify(model.doStreamCalls[0].prompt)).toContain('terminal can mean completed or failed')
+    expect(JSON.stringify(model.doStreamCalls[1].prompt)).toContain('"status":"error"')
+    expect(client.submit).not.toHaveBeenCalled()
+    expect(client.watch).not.toHaveBeenCalled()
+    expect(result.parts.filter(part => part.type === 'source-url')).toEqual([])
+    expect(client.finish).toHaveBeenCalledExactlyOnceWith(result.parts, result.metadata)
   })
 
   it('uses source scope to prevent video creation during a detail-page follow-up', async () => {
@@ -385,6 +443,25 @@ describe('official local Codex execution boundary', () => {
     localRuntime.mockReturnValue(true)
     return { ...baseTurn, runtime_config: { ...baseTurn.runtime_config, runtime: 'codex_local', provider: 'codex_local', reasoningEffort: 'high' } }
   }
+
+  it('uses the same phase separation for a local continuation while keeping user input out of instructions', async () => {
+    const goal = 'Process https://youtu.be/fixture and explain the main claim when ready.'
+    const client = clientFixture()
+    client.history.mockResolvedValue({ messages: [historyRow('user-1', 'user', [{ type: 'text', text: goal }])] })
+    localRun.mockImplementation(async (_prompt, options) => {
+      options.onText('A grounded answer.')
+      return { text: 'A grounded answer.', usage: {} }
+    })
+    await runTaskAgent({ ...localTurn(), status: 'finalizing' }, client)
+    const [prompt, options] = localRun.mock.calls[0]
+    expect(prompt).toContain(goal)
+    expect(options.instructions).not.toContain(goal)
+    expect(options.instructions).not.toContain('call create_video_task before writing any reply')
+    expect(options.tools.map((tool: { name: string }) => tool.name))
+      .toEqual(['get_task_status', 'get_task_context', 'search_source', 'read_source'])
+    expect(client.submit).not.toHaveBeenCalled()
+    expect(client.watch).not.toHaveBeenCalled()
+  })
 
   it('passes only the scoped business tools and streams through the same public callbacks', async () => {
     localRun.mockImplementation(async (_prompt, options) => {

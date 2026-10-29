@@ -1,4 +1,3 @@
-import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 
@@ -7,7 +6,7 @@ def _host_matches(host: str, domain: str) -> bool:
 
 
 def is_supported_content_url(url: str | None) -> bool:
-    """Return whether a URL identifies one supported video or podcast source."""
+    """New processing accepts YouTube videos with existing captions only."""
     if not url or not url.strip():
         return False
 
@@ -34,18 +33,6 @@ def is_supported_content_url(url: str | None) -> bool:
                 and segments[0] in {"shorts", "live", "embed"}
                 and bool(segments[1])
             )
-        if _host_matches(host, "podcasts.apple.com"):
-            return any(
-                re.fullmatch(r"id\d+", segment, re.IGNORECASE) for segment in segments
-            )
-        if _host_matches(host, "bilibili.com"):
-            return bool(
-                re.match(
-                    r"^/video/(?:BV[0-9A-Za-z]+|av\d+)(?:/|$)", path, re.IGNORECASE
-                )
-            )
-        if _host_matches(host, "xiaoyuzhoufm.com"):
-            return len(segments) >= 2 and segments[0] == "episode" and bool(segments[1])
         return False
     except (TypeError, ValueError):
         return False

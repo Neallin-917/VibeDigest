@@ -84,7 +84,7 @@ const LOCALE_METADATA: Record<Locale, {
       "视频转笔记",
       "AI 学习助手",
     ],
-    openGraphTitle: "VibeDigest - 将视频与音频整理为结构化知识",
+    openGraphTitle: "VibeDigest - 将 YouTube 视频整理为结构化知识",
     openGraphDescription: "用结构化摘要、关键观点、证据和基于来源的追问，快速理解长内容。",
     twitterTitle: "VibeDigest - 播客与视频 AI Agent",
     imageAlt: "VibeDigest 默认封面",

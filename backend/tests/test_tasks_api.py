@@ -45,6 +45,9 @@ async def test_process_video_success(api_client, mock_task_queue):
     [
         "https://youtube.com",
         "https://podcasts.apple.com",
+        "https://podcasts.apple.com/us/podcast/example/id123?i=456",
+        "https://www.xiaoyuzhoufm.com/episode/abc",
+        "https://bilibili.com/video/BV123",
         "https://example.com/video/123",
         "https://notyoutube.com/watch?v=spoofed",
     ],
@@ -60,7 +63,7 @@ async def test_process_video_rejects_urls_without_supported_content(
     )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "Invalid video URL"}
+    assert response.json() == {"detail": "Only YouTube video URLs with existing captions are supported"}
     mock_task_queue.submit_process_video.assert_not_called()
 
 
@@ -540,3 +543,21 @@ async def test_authenticated_user_can_create_task(
         )
     finally:
         app.dependency_overrides = saved
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint,payload", [
+    ("/api/retry-task", {"task_id": "task_123"}),
+    ("/api/retry-output", {"output_id": "output_123"}),
+])
+@pytest.mark.parametrize("code", ["captions_unavailable", "unsupported_source"])
+async def test_caption_failure_rejects_retry_before_enqueue(api_client, mock_db_client, mock_task_queue, endpoint, payload, code):
+    mock_db_client.get_task.return_value = {
+        "id": "task_123", "status": "error", "guest_id": "caption-guest",
+        "error_message": f"{code}: Cannot process this source",
+    }
+    mock_db_client.get_output.return_value = {"task_id": "task_123", "id": "output_123"}
+    response = await api_client.post(endpoint, data=payload, headers={"X-Guest-Id": "caption-guest"})
+    assert response.status_code == 409
+    mock_task_queue.submit_retry_task.assert_not_called()
+    mock_task_queue.submit_retry_output.assert_not_called()

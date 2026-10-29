@@ -31,7 +31,6 @@ class TestBilibiliAppleIntegration(unittest.IsolatedAsyncioTestCase):
 
         self.mock_vp = AsyncMock()
 
-        self.mock_transcriber = AsyncMock()
 
         self.mock_summarizer = MagicMock()
         self.mock_summarizer.summarize = AsyncMock()
@@ -43,7 +42,6 @@ class TestBilibiliAppleIntegration(unittest.IsolatedAsyncioTestCase):
             ('_get_db_client', self.mock_db),
             ('_get_supadata_client', self.mock_supadata),
             ('_get_video_processor', self.mock_vp),
-            ('_get_transcriber', self.mock_transcriber),
             ('_get_summarizer', self.mock_summarizer),
         ]:
             p = patch(f'workflow.{attr}', return_value=mock)
@@ -77,75 +75,23 @@ class TestBilibiliAppleIntegration(unittest.IsolatedAsyncioTestCase):
         is_yt = "youtube.com" in normalized or "youtu.be" in normalized
         self.assertFalse(is_yt, "Apple Podcast URL incorrectly identified as YouTube")
 
-    async def test_bilibili_full_pipeline_uses_whisper(self):
-        """Test Bilibili Full Pipeline (Mocked) -> Uses Whisper"""
-        # Setup Mocks
-        self.mock_db.find_latest_task_with_valid_script_for_owner.return_value = (
-            None  # Cache miss
-        )
-        self.mock_vp.extract_info_only.return_value = {
-            "title": "Bilibili Video",
-            "thumbnail": "img",
-            "duration": 100,
-        }
-        self.mock_vp.download_and_convert.return_value = (
-            "audio.mp3",
-            "Bilibili Title",
-            "thumb",
-            None,
-            {},
-        )
-        self.mock_transcriber.transcribe_with_raw.return_value = (
-            "Whisper Transcript",
-            "{}",
-            "zh",
-        )
-        self.mock_summarizer.optimize_transcript.return_value = "Optimized Transcript"
-        self.mock_summarizer.summarize.return_value = {
-            "overview": "Summary",
-            "keypoints": [],
-        }
-
-        app = build_graph()
-
-        inputs = cast(
-            VideoProcessingState,
-            {
-                "task_id": str(uuid4()),
-                "user_id": str(uuid4()),
-                "video_url": BILIBILI_URL,
-                "is_youtube": False,
-                "cache_hit": False,
-                "errors": [],
-                "video_title": "",
-                "thumbnail_url": "",
-                "author": "",
-                "duration": 0,
-                "transcript_text": None,
-                "transcript_raw": None,
-                "transcript_lang": "",
-                "final_summary_json": None,
-                "audio_path": None,
-                "direct_audio_url": None,
-                "transcript_source": None,
-                "ingest_error": None,
-            },
-        )
-
-        final_state = await app.ainvoke(inputs)
-
-        # Verify Whisper was called
-        self.assertTrue(
-            self.mock_transcriber.transcribe_with_raw.called, "Whisper should be called"
-        )
-        # Verify Supadata was NOT called
-        self.assertFalse(
-            self.mock_supadata.get_transcript_async.called,
-            "Supadata should NOT be called for Bilibili",
-        )
-        # Verify state
-        self.assertEqual(final_state["transcript_source"], "whisper")
-        self.assertFalse(final_state["is_youtube"])
+    async def test_retired_sources_fail_before_audio_download(self):
+        for url in (BILIBILI_URL, APPLE_URL):
+            with self.subTest(url=url):
+                self.mock_db.find_latest_task_with_valid_script_for_owner.return_value = None
+                self.mock_db.reset_mock()
+                inputs = cast(VideoProcessingState, {
+                    "task_id": str(uuid4()), "user_id": str(uuid4()), "video_url": url,
+                    "is_youtube": False, "cache_hit": False, "errors": [],
+                    "video_title": "", "thumbnail_url": "", "author": "", "duration": 0,
+                    "transcript_text": None,
+                })
+                final_state = await build_graph().ainvoke(inputs)
+                self.assertTrue(final_state["ingest_error"].startswith("unsupported_source:"))
+                self.mock_db.fail_caption_task.assert_called_once()
+                self.mock_vp.extract_info_only.assert_not_called()
+                self.mock_vp.download_and_convert.assert_not_called()
+                self.mock_supadata.get_transcript_async.assert_not_called()
 
     @pytest.mark.network
     async def test_bilibili_metadata_extraction_real(self):

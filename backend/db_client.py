@@ -300,6 +300,15 @@ class DBClient:
         if not rows:
             raise LookupError(f"Output {output_id} was not updated")
 
+    def fail_caption_task(self, task_id: str, error: str) -> None:
+        """Fail outputs/task and refund its recorded debit in one transaction."""
+        rows = self._execute_query(
+            "SELECT vibedigest_private.fail_caption_task(CAST(:task_id AS uuid), :error) AS failed",
+            {"task_id": task_id, "error": error},
+        )
+        if not rows or not rows[0].get("failed"):
+            raise RuntimeError("Caption failure was not persisted")
+
     def mark_task_failed_if_not_completed(self, task_id: str, error: str) -> bool:
         """Set a terminal task error without permitting completed -> error."""
         rows = self._execute_query(

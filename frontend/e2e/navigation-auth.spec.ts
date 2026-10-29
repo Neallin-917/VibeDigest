@@ -99,7 +99,7 @@ test.describe('Navigation & Auth Flows', () => {
             await expect(page.locator('h1')).toBeVisible();
 
             // 1. Find the URL input
-            const urlInput = page.getByLabel(/Video or podcast URL/i).first();
+            const urlInput = page.getByLabel(/YouTube video URL/i).first();
             await expect(urlInput).toBeVisible();
 
             // 2. Type a valid URL to enable the button

@@ -50,7 +50,7 @@ execution location; Supabase remains the sole task, queue, and result plane.
                │                                ▼
                │                  ┌─────────────────────────────┐
                │                  │ Video / Transcript / LLM    │
-               │                  │ Supadata · yt-dlp · ASR     │
+               │                  │ Supadata native · VTT     │
                │                  │ API provider / Codex login  │
                │                  └─────────────────────────────┘
                └──────── committed task/output changes ────────► UI
@@ -109,13 +109,13 @@ durable workflow runtime if multiple arbitrary waits become a product requiremen
 | Component | Owns | Does not own |
 | --- | --- | --- |
 | Next.js | Cloud UI, task Agent, safe message projection, session-aware routes | Video pipeline, task/queue transactions |
-| FastAPI | Validation, authorization, task creation, enqueue | Video/ASR/LLM execution |
+| FastAPI | Validation, authorization, task creation, enqueue | Caption/LLM execution |
 | Podcast cron | Source sync, metadata discovery, bounded enqueue | Pipeline execution, public-read authorization |
 | PGMQ | Durable delivery, visibility timeout, retry eligibility | Business workflow |
 | Hosted worker | `user_submission` pipeline plus bounded Agent callback delivery | Catalog supply, browser sessions, a second Agent loop |
 | Trusted Codex worker | `catalog_supply`, subscription preflight, bounded drain | ToC tasks, source discovery |
 | `workflow.py` | Pipeline stage orchestration | Message delivery or process durability |
-| `VideoIntakeGateway` | Agent-plugin metadata/caption/ASR boundary | Cloud task persistence, MCP protocol |
+| `VideoIntakeGateway` | Agent-plugin metadata/caption boundary | Cloud task persistence, MCP protocol |
 | Supabase Postgres | Tasks, outputs, users, chat, billing facts | Transient React state |
 | Supabase Realtime | Committed state notification | Source-of-truth storage |
 | MCP adapter | Protocol and structured result mapping | Cloud task queue orchestration |
@@ -155,7 +155,7 @@ durable workflow runtime if multiple arbitrary waits become a product requiremen
 | Concern | Rule |
 | --- | --- |
 | Auth | Supabase Auth; backend validates bearer tokens; data access respects ownership |
-| Async work | Only the worker executes video/ASR/LLM jobs |
+| Async work | Only the worker executes caption/LLM jobs |
 | Delivery | PGMQ messages are archived only after terminal handling |
 | Routing | Persisted workload selects queue; worker profile is fail-closed |
 | Idempotency | Advisory transaction lock + active handoff key + terminal-state short circuit |

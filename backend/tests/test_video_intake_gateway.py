@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -105,7 +106,7 @@ async def test_gateway_falls_back_to_vtt_when_supadata_has_no_content():
 
 
 @pytest.mark.asyncio
-async def test_gateway_skips_asr_by_default_and_returns_partial_context():
+async def test_gateway_returns_partial_context_when_no_captions_are_available():
     gateway = VideoIntakeGateway(
         supadata_client=FakeSupadata((None, None, None)),
         video_processor=FakeVideoProcessor(captions=None),
@@ -118,24 +119,56 @@ async def test_gateway_skips_asr_by_default_and_returns_partial_context():
     assert result.source == "none"
     assert result.quality == "missing"
     assert result.transcript == []
-    assert any("ASR fallback was not attempted" in warning for warning in result.warnings)
-    assert result.attempts[-1].provider == "asr"
-    assert result.attempts[-1].status == "skipped"
+    assert result.errors == ["No usable captions are available. Audio transcription is not supported."]
+    assert [attempt.provider for attempt in result.attempts] == ["metadata", "supadata", "vtt"]
 
 
 @pytest.mark.asyncio
-async def test_gateway_uses_asr_when_allowed():
+async def test_legacy_asr_option_cannot_download_audio_or_transcribe():
+    processor = FakeVideoProcessor(captions=None)
+    processor.download_and_convert = AsyncMock(side_effect=AssertionError("Audio download is disabled"))
+    transcriber = FakeTranscriber()
+    transcriber.transcribe_with_raw = AsyncMock(side_effect=AssertionError("ASR is disabled"))
     gateway = VideoIntakeGateway(
         supadata_client=FakeSupadata((None, None, None)),
-        video_processor=FakeVideoProcessor(captions=None),
-        transcriber=FakeTranscriber(),
+        video_processor=processor,
+        transcriber=transcriber,
     )
 
     result = await gateway.get_video_context(
         VideoIntakeOptions(url="https://youtube.com/watch?v=abc", allow_asr=True)
     )
 
-    assert result.status == "completed"
-    assert result.source == "asr"
-    assert result.quality == "asr"
-    assert result.transcript[0].text == "ASR text"
+    assert result.status == "partial"
+    assert result.source == "none"
+    assert result.quality == "missing"
+    assert result.transcript == []
+    assert "Audio transcription is not supported" in result.warnings[0]
+    processor.download_and_convert.assert_not_awaited()
+    transcriber.transcribe_with_raw.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url", [
+    "https://podcasts.apple.com/us/podcast/name/id123?i=456",
+    "https://www.xiaoyuzhoufm.com/episode/abc",
+    "https://www.bilibili.com/video/BV123",
+    "https://youtube.com.evil.example/watch?v=abc",
+    "https://youtube.com/playlist?list=abc",
+])
+async def test_unsupported_sources_are_rejected_before_any_provider_call(url):
+    processor = FakeVideoProcessor()
+    processor.extract_info_only = AsyncMock()
+    processor.extract_captions = AsyncMock()
+    processor.download_and_convert = AsyncMock()
+    supadata = FakeSupadata((None, None, None))
+    supadata.get_transcript_async = AsyncMock()
+    gateway = VideoIntakeGateway(supadata_client=supadata, video_processor=processor)
+
+    with pytest.raises(ValueError, match="Only YouTube videos with existing captions"):
+        await gateway.get_video_context(VideoIntakeOptions(url=url, allow_asr=True))
+
+    processor.extract_info_only.assert_not_awaited()
+    processor.extract_captions.assert_not_awaited()
+    processor.download_and_convert.assert_not_awaited()
+    supadata.get_transcript_async.assert_not_awaited()

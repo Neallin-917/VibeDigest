@@ -161,7 +161,9 @@ Unified Agent gates:
 - `backend/tests/test_agent_api.py` and `test_agent_worker.py`: signed service
   requests, ownership, callback/lease/ack behavior and retry budgets.
 - `make test-queue-integration`: real isolated Postgres/PGMQ, billing allowance
-  refresh, payment redelivery, entitlement write permissions, atomic create,
+  refresh, payment redelivery, entitlement write permissions, caption-failure
+  refunds (guest/monthly/top-up, concurrent redelivery, period rollover and
+  retry rejection), a real caption-failure pipeline without model/audio calls, atomic create,
   rollback, concurrent dedupe, cancellation, output wake-up, retry generations
   and stale-write fencing, plus chat-message Realtime publication/readiness.
   Use a dedicated test database; fixtures apply schema. Do not reuse it for

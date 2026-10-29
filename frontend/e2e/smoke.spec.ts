@@ -59,7 +59,7 @@ test.describe('Landing Page', () => {
 
         // Check for video URL input field - using Aria Label from ChatInput component
 
-        const urlInput = page.getByLabel(/Video or podcast URL/i).filter({ visible: true }).first();
+        const urlInput = page.getByLabel(/YouTube video URL/i).filter({ visible: true }).first();
 
         await expect(urlInput).toBeVisible();
 
@@ -121,7 +121,7 @@ test.describe('Landing Page', () => {
 
         // Ensure input is empty
 
-        const urlInput = page.getByLabel(/Video or podcast URL/i).filter({ visible: true }).first();
+        const urlInput = page.getByLabel(/YouTube video URL/i).filter({ visible: true }).first();
 
         await urlInput.clear();
 

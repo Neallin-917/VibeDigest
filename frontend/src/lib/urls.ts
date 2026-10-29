@@ -1,9 +1,6 @@
 const SUPPORTED_SOURCES = [
     { domain: 'youtube.com', source: 'youtube', name: 'YouTube' },
     { domain: 'youtu.be', source: 'youtube', name: 'YouTube' },
-    { domain: 'podcasts.apple.com', source: 'apple_podcasts', name: 'Apple Podcasts' },
-    { domain: 'bilibili.com', source: 'bilibili', name: 'Bilibili' },
-    { domain: 'xiaoyuzhoufm.com', source: 'xiaoyuzhou', name: 'Xiaoyuzhou' },
 ] as const
 
 export const SUPPORTED_DOMAINS = SUPPORTED_SOURCES.map(source => source.domain)
@@ -22,12 +19,6 @@ function hasContentIdentifier(url: URL, source: SupportedSource): boolean {
             return ['shorts', 'live', 'embed'].includes(pathSegments[0] ?? '')
                 && Boolean(pathSegments[1])
         }
-        case 'apple_podcasts':
-            return pathSegments.some(segment => /^id\d+$/i.test(segment))
-        case 'bilibili':
-            return /^\/video\/(?:BV[0-9A-Za-z]+|av\d+)(?:\/|$)/i.test(url.pathname)
-        case 'xiaoyuzhou':
-            return pathSegments[0] === 'episode' && Boolean(pathSegments[1])
     }
 }
 

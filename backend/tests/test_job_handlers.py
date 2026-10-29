@@ -49,6 +49,18 @@ async def test_run_pipeline_failure(mock_db_client):
         mock_db_client.update_task_status.assert_not_called()
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("error", [
+    "captions_unavailable: No usable captions were found.",
+    "unsupported_source: Only YouTube videos with existing captions are supported.",
+])
+async def test_caption_failures_are_nonretryable(error):
+    with patch("services.job_handlers.workflow_app") as mock_workflow:
+        mock_workflow.ainvoke = AsyncMock(return_value={"errors": [error]})
+        with pytest.raises(NonRetryableJobError, match=error):
+            await run_pipeline("task_1", "https://youtube.com/watch?v=test", "u1")
+
+
+@pytest.mark.asyncio
 async def test_handle_retry_output_script_success(mock_db_client, mock_summarizer):
     mock_db_client.get_output.return_value = {
         "id": "out_1", "task_id": "task_1", "user_id": "u1", "kind": "script"

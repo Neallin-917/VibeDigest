@@ -28,7 +28,7 @@ def process_video(
 ):
     """Create and durably enqueue a video-processing task."""
     if not is_supported_content_url(video_url):
-        raise HTTPException(status_code=400, detail="Invalid video URL")
+        raise HTTPException(status_code=400, detail="Only YouTube video URLs with existing captions are supported")
     video_url = normalize_video_url(video_url)
     if not video_url:
         raise HTTPException(status_code=400, detail="Invalid video URL")
@@ -95,6 +95,9 @@ def retry_output(
     else:
         database_user_id = user_id
 
+    if str(task.get("error_message") or "").startswith(("captions_unavailable:", "unsupported_source:")):
+        raise HTTPException(status_code=409, detail="Submit a YouTube video with usable captions instead")
+
     try:
         queue.submit_retry_output(
             output_id=output_id,
@@ -132,6 +135,8 @@ def retry_task(
         raise HTTPException(status_code=403, detail="Unauthorized")
     if task.get("status") != "error":
         raise HTTPException(status_code=409, detail="Only failed tasks can be retried")
+    if str(task.get("error_message") or "").startswith(("captions_unavailable:", "unsupported_source:")):
+        raise HTTPException(status_code=409, detail="Submit a YouTube video with usable captions instead")
 
     database_user_id = GUEST_DATABASE_USER_ID if is_guest else user_id
     try:

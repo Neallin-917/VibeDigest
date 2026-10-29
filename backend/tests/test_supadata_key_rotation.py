@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import httpx
+import json
 import pytest
 
 from services.supadata_client import SupadataClient
@@ -104,6 +105,7 @@ class TestSupadataBackwardCompatibility:
 
         async def mock_get(url, headers=None, params=None):
             used_headers.update(headers)
+            assert params == {"url": "https://youtube.com/watch?v=test", "text": "false", "mode": "native"}
             return _make_response(
                 200,
                 {
@@ -120,5 +122,6 @@ class TestSupadataBackwardCompatibility:
             markdown, raw_json, lang = await client.get_transcript_async("https://youtube.com/watch?v=test")
 
         assert used_headers["x-api-key"] == "my_key"
+        assert json.loads(raw_json)["model"] == "supadata-native"
         assert markdown is not None
         assert lang == "en"

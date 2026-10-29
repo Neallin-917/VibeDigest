@@ -10,17 +10,14 @@ describe('isSupportedUrl', () => {
         expect(isSupportedUrl('https://www.youtube.com/live/dQw4w9WgXcQ')).toBe(true)
     })
 
-    it('should return true for valid Bilibili URLs', () => {
-        expect(isSupportedUrl('https://www.bilibili.com/video/BV1GJ411x7h7')).toBe(true)
-        expect(isSupportedUrl('bilibili.com/video/BV1GJ411x7h7')).toBe(true)
-    })
-
-    it('should return true for Apple Podcasts URLs', () => {
-        expect(isSupportedUrl('https://podcasts.apple.com/us/podcast/id123456')).toBe(true)
-    })
-
-    it('should return true for Xiaoyuzhou URLs', () => {
-        expect(isSupportedUrl('https://www.xiaoyuzhoufm.com/episode/123')).toBe(true)
+    it.each([
+        'https://www.bilibili.com/video/BV1GJ411x7h7',
+        'bilibili.com/video/BV1GJ411x7h7',
+        'https://podcasts.apple.com/us/podcast/id123456?i=123',
+        'https://www.xiaoyuzhoufm.com/episode/123',
+    ])('rejects sources without supported caption extraction: %s', (url) => {
+        expect(isSupportedUrl(url)).toBe(false)
+        expect(getSupportedUrlDetails(url)).toBeNull()
     })
 
     it('should return false for unsupported domains', () => {
@@ -59,11 +56,11 @@ describe('isSupportedUrl', () => {
     })
 
     it('adds a safe protocol only to the rendered link', () => {
-        expect(getSupportedUrlDetails('bilibili.com/video/BV1test')).toEqual({
-            originalUrl: 'bilibili.com/video/BV1test',
-            href: 'https://bilibili.com/video/BV1test',
-            source: 'bilibili',
-            sourceName: 'Bilibili',
+        expect(getSupportedUrlDetails('youtu.be/test123')).toEqual({
+            originalUrl: 'youtu.be/test123',
+            href: 'https://youtu.be/test123',
+            source: 'youtube',
+            sourceName: 'YouTube',
         })
     })
 })

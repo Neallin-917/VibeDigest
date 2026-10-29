@@ -21,7 +21,7 @@ const FAQ_SEO: Record<string, { title: string; description: string; ogDescriptio
     },
     zh: {
         title: "常见问题 (FAQ) - VibeDigest AI 视频摘要助手",
-        description: "关于 VibeDigest 的常见问题解答。了解如何使用 AI 快速摘要 YouTube 和 Bilibili 视频，以及我们的定价和功能详情。",
+        description: "关于 VibeDigest 的常见问题解答。了解如何使用 AI 整理已有字幕的 YouTube 视频，以及我们的定价和功能详情。",
         ogDescription: "了解 VibeDigest 的常见问题与功能支持。",
     },
 }

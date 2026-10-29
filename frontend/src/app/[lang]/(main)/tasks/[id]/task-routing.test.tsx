@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
 import { buildTaskReturnSuffix } from "@/lib/task-navigation"
 import { buildTaskSlug } from "@/lib/task-path"
+import { isValidElement } from "react"
 
 vi.mock("@/env", () => ({ env: { NEXT_PUBLIC_APP_URL: "https://www.vibedigest.io" } }))
 
@@ -13,6 +14,7 @@ const db = vi.hoisted(() => ({
     outputsError: null as unknown,
     taskRead: null as (() => Promise<QueryResult>) | null,
     outputsRead: null as (() => Promise<QueryResult>) | null,
+    taskColumns: "",
 }))
 vi.mock("@/lib/local-ui-demo", () => ({ shouldUseDemoFixtures: () => false }))
 vi.mock("@/lib/supabase-server", () => ({
@@ -21,7 +23,10 @@ vi.mock("@/lib/supabase-server", () => ({
             const read = table === "tasks" ? db.taskRead : db.outputsRead
             return read ? read() : { data: table === "tasks" ? db.task : db.outputs, error: table === "tasks" ? db.taskError : db.outputsError }
         }
-        const query = { select: () => query, eq: () => query, single: result, maybeSingle: result, order: result }
+        const query = { select: (columns: string) => {
+            if (table === "tasks") db.taskColumns = columns
+            return query
+        }, eq: () => query, single: result, maybeSingle: result, order: result }
         return query
     } }),
 }))
@@ -50,6 +55,7 @@ beforeEach(() => {
     db.outputsError = null
     db.taskRead = null
     db.outputsRead = null
+    db.taskColumns = ""
 })
 
 describe("task URL aliases", () => {
@@ -111,6 +117,42 @@ describe("task URL aliases", () => {
     })
 })
 
+
+function treeText(node: unknown): string {
+    if (typeof node === "string") return node
+    if (Array.isArray(node)) return node.map(treeText).join(" ")
+    if (isValidElement<{ children?: unknown }>(node)) return treeText(node.props.children)
+    return ""
+}
+
+describe("task detail source failures", () => {
+    it.each([
+        ["en", "captions_unavailable", "This video has no usable captions. Try a YouTube video with existing captions."],
+        ["zh", "captions_unavailable", "此视频暂无可用字幕，请换一个已有字幕的 YouTube 视频。"],
+        ["en", "unsupported_source", "This source is not supported. Try a YouTube video with existing captions."],
+        ["zh", "unsupported_source", "暂不支持此来源，请换一个已有字幕的 YouTube 视频。"],
+    ])("shows an actionable %s %s message without promising retry or refund", async (locale, code, expected) => {
+        db.task!.status = "error"
+        db.task!.error_message = `${code}: internal diagnostic`
+        db.outputs = []
+
+        const text = treeText(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string), locale)))
+
+        expect(text).toContain(expected)
+        expect(db.taskColumns.split(", ")).toContain("error_message")
+        expect(text).not.toMatch(/retry it below|在下方重试|internal diagnostic|refund|退还|退额/i)
+    })
+
+    it("retains retry guidance for a recoverable failure", async () => {
+        db.task!.status = "failed"
+        db.task!.error_message = "Temporary upstream failure"
+        db.outputs = []
+
+        const text = treeText(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string))))
+
+        expect(text).toContain("This task did not complete. You can retry it below.")
+    })
+})
 
 describe("task detail concurrent reads", () => {
     it("starts the summary read while the task read is unresolved", async () => {

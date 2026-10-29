@@ -102,7 +102,7 @@ def test_browser_cannot_call_internal_agent_without_signature(setup):
 def test_agent_submit_rejects_urls_without_supported_content(video_url):
     db = MagicMock()
 
-    with pytest.raises(ValueError, match="Invalid video URL"):
+    with pytest.raises(ValueError, match="Only YouTube video URLs"):
         AgentTurns(db).submit_video(
             turn_id=str(uuid4()),
             user_id=str(uuid4()),

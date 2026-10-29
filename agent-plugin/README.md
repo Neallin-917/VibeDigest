@@ -25,12 +25,10 @@ Do not put secrets in this plugin package. Configure provider credentials throug
 
 ```env
 SUPADATA_API_KEY=...
-OPENAI_API_KEY=...
-OPENAI_AUDIO_API_KEY=...
 YTDLP_COOKIE_FILE=/absolute/path/to/cookies.txt
 ```
 
-ASR is disabled by default. Calls that need audio download and transcription must pass `allow_asr=true`.
+Only YouTube videos with existing captions are supported. Supadata uses native-caption mode, with direct subtitle extraction as fallback. The plugin never downloads audio or invokes speech recognition. Videos without usable captions, Apple Podcasts, Xiaoyuzhou, and Bilibili are not accepted.
 
 ## Local MCP Smoke
 

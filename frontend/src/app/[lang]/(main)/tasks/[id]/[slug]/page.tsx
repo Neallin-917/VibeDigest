@@ -16,7 +16,8 @@ import { Badge } from "@/components/ui/badge"
 import { Heading, Text } from "@/components/ui/typography"
 import { cn } from "@/lib/utils"
 import { normalizeTaskStatus } from "@/lib/safe-error"
-import { getLocaleDisplayName, isLocale, type Locale } from "@/lib/i18n"
+import { createTranslator, getLocaleDisplayName, isLocale, type Locale } from "@/lib/i18n"
+import { getRawMessages } from "@/lib/i18n-messages"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
 import { resolvePodcastSourceId } from "@/lib/podcast-sources"
 import { getDemoFixtureTask } from "@/components/templates/demoFixtures"
@@ -216,7 +217,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     const [taskResult, outputsResult] = await Promise.all([
       supabase
         .from('tasks')
-        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags')
+        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, error_message, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags')
         .eq('id', id)
         .maybeSingle(),
       supabase
@@ -317,6 +318,16 @@ export default async function TaskDetailPage(props: Props) {
     const title = task.video_title || copy.processedVideo
     const displayTitle = title.replaceAll("—", "-")
     const status = normalizeTaskStatus(task.status)
+    const sourceFailure = /^(captions_unavailable|unsupported_source):/.exec(
+        getOptionalString(task, "error_message")?.trim() ?? ""
+    )?.[1]
+    const failureCopy = sourceFailure
+        ? createTranslator(getRawMessages(locale))(
+            sourceFailure === "captions_unavailable"
+                ? "chat.tools.status.captionsUnavailable"
+                : "chat.tools.status.unsupportedSource"
+        )
+        : copy.failed
     const initialThreadId = getSingleSearchParam(returnState.threadId)
     const sourceLabel = task.video_url ? getSourceLabel(task.video_url, task.author) : ""
     const sourceId = resolvePodcastSourceId({
@@ -442,7 +453,7 @@ export default async function TaskDetailPage(props: Props) {
                                 ) : (
                                     <Text tone="muted">
                                         {status === "failed"
-                                            ? copy.failed
+                                            ? failureCopy
                                             : copy.pending}
                                     </Text>
                                 )}

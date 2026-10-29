@@ -17,7 +17,9 @@ select
   ) is not null
   and to_regprocedure(
     'vibedigest_private.submit_catalog_video_task(uuid,text,jsonb,text,boolean)'
-  ) is not null as submission_function_ready,
+  ) is not null
+  and to_regprocedure('vibedigest_private.fail_caption_task(uuid,text)') is not null
+  and to_regclass('vibedigest_private.task_submission_debits') is not null as submission_function_ready,
   to_regnamespace('pgmq') is not null as queue_schema_ready,
   exists (
     select 1 from information_schema.columns

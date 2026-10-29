@@ -514,16 +514,23 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const keypoints = summary?.keypoints ?? []
   const evidenceItems = summary ? collectEvidence(summary) : []
   const stageLabel = getStageLabel(t, status, snapshot.progress)
+  const sourceFailure = status === 'failed'
+    ? /^(captions_unavailable|unsupported_source):/.exec(snapshot.errorMessage?.trim() ?? '')?.[1]
+    : undefined
   const safeError = status === 'failed' && snapshot.errorMessage
-    ? sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
+    ? sourceFailure
+      ? t(sourceFailure === 'captions_unavailable'
+        ? 'chat.tools.status.captionsUnavailable'
+        : 'chat.tools.status.unsupportedSource')
+      : sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
     : null
-  const canRetry = status === 'failed' && Boolean(onRetryTask)
+  const canRetry = status === 'failed' && !sourceFailure && Boolean(onRetryTask)
   const failureMessage = safeError ?? (
     status === 'failed' ? t('chat.directSubmit.unavailable') : null
   )
 
   const handleRetry = async () => {
-    if (!onRetryTask || isRetrying) return
+    if (!onRetryTask || isRetrying || !canRetry) return
     const attempt = { taskId: snapshot.taskId, failedUpdatedAt: snapshot.updatedAt }
     setRetryAttempt(attempt)
     try {

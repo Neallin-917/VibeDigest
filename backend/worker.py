@@ -232,6 +232,8 @@ class TaskWorker:
             self._assert_workload_allowed(task)
             if task.get("status") == "completed":
                 return
+            if str(task.get("error_message") or "").startswith(("captions_unavailable:", "unsupported_source:")):
+                raise NonRetryableJobError(str(task["error_message"]))
             await run_pipeline(
                 task_id=task_id,
                 video_url=self._required_record_string(task, "video_url"),
@@ -314,7 +316,7 @@ class TaskWorker:
         error: str,
     ) -> None:
         db = get_db_client()
-        safe_error = f"Processing failed after queue retries: {error}"[:500]
+        safe_error = error if error.startswith(("captions_unavailable:", "unsupported_source:")) else f"Processing failed after queue retries: {error}"[:500]
         if message.get("kind") == "process_video" and message.get("task_id"):
             await asyncio.to_thread(
                 db.mark_task_failed_if_not_completed,

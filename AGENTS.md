@@ -4,7 +4,7 @@
 
 ## Project
 
-VibeDigest — Full-stack tool to download videos, transcribe audio, and generate AI-powered condensed knowledge.
+VibeDigest — AI agent for understanding YouTube videos with existing captions and generating source-grounded knowledge.
 
 ## Product Positioning
 
@@ -12,7 +12,7 @@ VibeDigest — Full-stack tool to download videos, transcribe audio, and generat
 - The public podcast library is a ready-made gallery of mature agent output. It helps users experience and trust the product before submitting their own link, while naturally creating a community content surface.
 - Tracked shows and ingestion frequency are supply-side implementation details, not the product promise. Do not position VibeDigest as a closed AI-podcast directory or foreground source counts and refresh cadence in acquisition copy.
 - Landing pages explain and activate the agent. The public library proves the output. Task detail pages deliver the value. Keep this hierarchy consistent in navigation, copy, and calls to action.
-- English is the primary acquisition and default product language; Simplified Chinese is the only other product locale. Explicit user locale choices always override defaults, and public pages must not silently render summary content in a different language from the active route. Source media may still be detected and transcribed in other languages, but product UI, routes, and newly requested output locales are limited to `en` and `zh`.
+- English is the primary acquisition and default product language; Simplified Chinese is the only other product locale. Explicit user locale choices always override defaults, and public pages must not silently render summary content in a different language from the active route. Source captions may be in other languages, but product UI, routes, and newly requested output locales are limited to `en` and `zh`.
 
 ## Core Rules
 
@@ -58,6 +58,10 @@ Use one owner per fact. Refer to the owning file instead of copying facts into m
 - **Durable continuation**: Accept user input before inference. A private turn and one idempotent create receipt bind the existing task to its conversation. Terminal task/output writes enqueue an ID-only `agent_answers` job; the hosted worker dispatches one signed callback to the same read-only Agent and archives only after a terminal database write. Superseded/cancelled execution tokens cannot commit. Local Compose uses `worker.py --agent-only` with a developer-scoped continuation queue; it must never consume hosted video or continuation queues. Production keeps the normal combined entrypoint.
 - **Data Plane**: Supabase Realtime watches committed Postgres task/output changes (`supabase.channel`).
 - **Rule**: Frontend NEVER polls HTTP. It subscribes to database changes.
+
+## Source Support
+
+New processing accepts only individual YouTube videos with existing manual or automatic captions. Supadata uses `native` mode; neither hosted/catalog workers nor the Agent plugin generate audio transcription or download audio as a fallback. Historical tasks and evidence remain readable. Unsupported links are rejected before submission. Caption acquisition failure is terminal; the canonical database transaction fails outputs/task and idempotently refunds the recorded submission debit. Historical tasks without a debit receipt are never guessed/refunded. Refunded caption failures cannot be retried; a fresh submission can try again if captions become available.
 
 ## Critical Rules
 

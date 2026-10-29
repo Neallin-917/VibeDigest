@@ -23,7 +23,6 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
 
         self.mock_supadata = AsyncMock()
         self.mock_vp = AsyncMock()
-        self.mock_transcriber = AsyncMock()
 
         # Use MagicMock as base, then attach AsyncMocks for async methods
         self.mock_summarizer = MagicMock()
@@ -36,7 +35,6 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
             ('_get_db_client', self.mock_db),
             ('_get_supadata_client', self.mock_supadata),
             ('_get_video_processor', self.mock_vp),
-            ('_get_transcriber', self.mock_transcriber),
             ('_get_summarizer', self.mock_summarizer),
         ]:
             p = patch(f'workflow.{attr}', return_value=mock)
@@ -66,33 +64,19 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         # Check DB calls
         self.mock_db.ensure_task_outputs.assert_called()
 
-    async def test_ingest_whisper_fallback(self):
-        """Test Ingest strategy: Whisper fallback"""
-        print("\nRunning test_ingest_whisper_fallback...")
-        # Fail others
+    async def test_ingest_caption_failure_has_no_audio_fallback(self):
         self.mock_supadata.get_transcript_async.return_value = (None, None, None)
         self.mock_vp.extract_captions.return_value = None
-        # Mock extract_info_only to return a dict (avoid AsyncMock return which causes warnings)
-        self.mock_vp.extract_info_only.return_value = {"title": "Whisper Video", "thumbnail": "thumb"}
-
-        # Whisper Success
-        self.mock_vp.download_and_convert.return_value = ("audio.mp3", "Whisper Title", "thumb", None, {})
-        self.mock_transcriber.transcribe_with_raw.return_value = ("Whisper Text", "Raw", "en")
-        self.mock_summarizer.optimize_transcript.return_value = "Cleaned Whisper Test"
-
+        self.mock_vp.extract_info_only.return_value = {"title": "No Captions", "thumbnail": "thumb"}
         state = cast(VideoProcessingState, {
-            "task_id": str(uuid4()),
-            "user_id": str(uuid4()),
-            "video_url": "https://example.com/video",
-            "is_youtube": False,
-            "video_title": "",
-            "thumbnail_url": ""
+            "task_id": str(uuid4()), "user_id": str(uuid4()),
+            "video_url": "https://youtube.com/watch?v=no-captions", "is_youtube": True,
+            "video_title": "", "thumbnail_url": "",
         })
-
         updates = await ingest(state)
-
-        self.assertEqual(updates["transcript_source"], "whisper")
-        self.assertEqual(updates["transcript_text"], "Cleaned Whisper Test")
+        self.assertTrue(updates["ingest_error"].startswith("captions_unavailable:"))
+        self.mock_db.fail_caption_task.assert_called_once_with(state["task_id"], updates["ingest_error"])
+        self.mock_vp.download_and_convert.assert_not_called()
 
     class MockModel:
         def __init__(self, data): self.data = data
@@ -148,7 +132,7 @@ class TestWorkflow(unittest.IsolatedAsyncioTestCase):
         inputs = cast(VideoProcessingState, {
             "task_id": str(uuid4()),
             "user_id": str(uuid4()),
-            "video_url": "https://youtube.com/graph_test",
+            "video_url": "https://youtube.com/watch?v=graph_test",
             "is_youtube": True,
             "cache_hit": False,
             "errors": [],

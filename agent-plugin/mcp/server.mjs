@@ -37,14 +37,6 @@ function nonEmptyString(value, name) {
   return value.trim();
 }
 
-function booleanValue(value, fallback = false) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
-  }
-  return fallback;
-}
-
 function runCli(args) {
   return new Promise((resolve, reject) => {
     const child = spawn("uv", ["run", "python", "agent-plugin/bin/video_intake_cli.py", ...args], {
@@ -117,8 +109,9 @@ async function handleToolCall(id, params) {
   if (input.strategy) {
     cliArgs.push("--strategy", nonEmptyString(input.strategy, "strategy"));
   }
-  if (booleanValue(input.allow_asr)) {
-    cliArgs.push("--allow-asr");
+  if (input.allow_asr !== undefined && input.allow_asr !== false) {
+    sendError(id, JsonRpcError.INVALID_PARAMS, "Audio transcription is not supported. Use a YouTube video with existing captions.");
+    return;
   }
 
   const result = await runCli(cliArgs);
@@ -140,7 +133,7 @@ async function handleRequest(message) {
         version: SERVER_VERSION,
       },
       instructions:
-        "Use get_video_context to extract video metadata, transcript segments, source quality, and Markdown before summarizing or analyzing URL-based media.",
+        "Use get_video_context to extract existing YouTube captions and metadata before summarizing or analyzing a video. Audio transcription is not supported.",
     });
     return;
   }
@@ -157,13 +150,13 @@ async function handleRequest(message) {
           name: TOOL_GET_VIDEO_CONTEXT,
           title: "Get Video Context",
           description:
-            "Extract normalized video metadata, timestamped transcript segments, source quality, warnings, and Markdown. Tries fast provider/caption paths first; ASR is optional.",
+            "Extract existing YouTube captions, metadata, timestamps, source quality, warnings, and Markdown. Videos without usable captions cannot be processed.",
           inputSchema: {
             type: "object",
             properties: {
               url: {
                 type: "string",
-                description: "Video, podcast, lecture, or media URL.",
+                description: "YouTube video URL with existing captions.",
               },
               language: {
                 type: "string",
@@ -173,12 +166,6 @@ async function handleRequest(message) {
                 type: "string",
                 description: "Extraction strategy. Defaults to fastest_reliable.",
                 default: "fastest_reliable",
-              },
-              allow_asr: {
-                type: "boolean",
-                description:
-                  "Allow audio download and ASR fallback. This may be slower and can call paid transcription APIs.",
-                default: false,
               },
             },
             required: ["url"],

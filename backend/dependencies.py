@@ -10,7 +10,6 @@ from services.notifier import Notifier
 from services.supadata_client import SupadataClient
 from services.summarizer import Summarizer
 from services.task_queue import PostgresTaskQueue, TaskQueue
-from services.transcriber import Transcriber
 from services.video_processor import VideoProcessor
 
 logger = logging.getLogger(__name__)
@@ -33,11 +32,6 @@ def get_task_queue(
 @lru_cache()
 def get_video_processor() -> VideoProcessor:
     return VideoProcessor()
-
-
-@lru_cache()
-def get_transcriber() -> Transcriber:
-    return Transcriber()
 
 
 @lru_cache()

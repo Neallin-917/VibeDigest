@@ -198,6 +198,7 @@ export default async function RootLayout({
   ];
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("vibedigest:theme");document.documentElement.classList.toggle("dark",t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches))}catch{}` }} /></head>
       <body suppressHydrationWarning>
         <div
           className={cn(

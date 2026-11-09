@@ -220,3 +220,19 @@ npm run build
 
 Run these under Node 24, the runtime declared by `.nvmrc` and
 `package.json#engines`.
+
+### Editorial public pages and Rare UI
+
+The landing page retains its complete content and live submission, account,
+pricing and support flows. `components/landing/landing-design.css` owns the
+homepage composition. `components/tasks/TaskReadingNav.tsx` and
+`task-reading.module.css` supply document-scrolling navigation for the actual
+sections available in each task, including nested key ideas; the mobile view
+uses section anchors. Data loading, evidence, disclosure and follow-up contracts
+remain unchanged.
+
+`components/ui/rare/` contains Rare UI FAQ, Rail TOC and Theme Selector with
+license/provenance notices. `layout/AppearanceSelector.tsx` preserves the user's
+light/dark choice locally; the locale layout initializes it before paint, and
+`globals.css` owns both semantic palettes. FAQ and Rail TOC respect reduced
+motion. Full homepage and task footer credits retain the required attribution.

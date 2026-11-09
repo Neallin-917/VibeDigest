@@ -1,3 +1,5 @@
+import "@/components/landing/landing-design.css"
+import { BrandLogo } from "@/components/layout/BrandLogo"
 import { GoogleOneTap } from "@/components/auth/GoogleOneTap"
 import { LandingNav } from "@/components/landing/LandingNav"
 import { FeaturesSection } from "@/components/landing/FeaturesSection"
@@ -63,7 +65,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
   const landingFaqSchema = buildFaqPageSchema(getLandingFaqItems(t))
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-sans text-foreground selection:bg-primary/20 selection:text-primary-strong">
+    <div className="landing-design relative flex min-h-screen flex-col bg-background font-sans text-foreground selection:bg-primary/20 selection:text-primary-strong">
       <a
         href="#main-content"
         className="sr-only fixed left-4 top-4 z-[60] rounded-md bg-primary-strong px-4 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
@@ -80,7 +82,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
         <FeaturesSection />
 
         <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
-          <div className="mx-auto max-w-[1080px]">
+          <div className="mx-auto max-w-[1184px]">
             <div className="mb-7 flex items-center justify-between gap-4 sm:items-end sm:gap-6">
               <h2 id="community-title" className="max-w-[220px] text-[25px] font-semibold leading-tight tracking-[-0.035em] text-foreground sm:max-w-none sm:text-[32px]">
                 {t("landing.communityTitle")}
@@ -99,9 +101,9 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
         <LandingFAQ />
       </main>
 
-      <footer className="mx-auto mt-10 w-[calc(100%-40px)] max-w-[1080px] border-t border-border py-7 text-xs text-foreground-subtle sm:mt-14 sm:w-[calc(100%-48px)]">
+      <footer className="mx-auto mt-16 w-[calc(100%-40px)] max-w-[1184px] border-t border-border py-7 text-xs text-foreground-subtle sm:mt-24 sm:w-[calc(100%-48px)]">
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
-          <span className="font-semibold text-foreground">VibeDigest</span>
+          <Link href={`/${locale}`} aria-label="VibeDigest"><BrandLogo /></Link>
           <p>{t("landing.footerCopyright", { year: new Date().getFullYear() })}</p>
           <div className="flex flex-wrap gap-x-5">
             <Link href={`/${locale}/about`} className="inline-flex min-h-11 items-center hover:text-foreground">{locale === 'zh' ? '关于我们' : 'About'}</Link>
@@ -110,6 +112,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
             <Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center hover:text-foreground">{locale === 'zh' ? '服务条款' : 'Terms of Service'}</Link>
           </div>
         </div>
+        <a href="https://www.rareui.com/" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-9 items-center text-[11px] text-foreground-subtle hover:text-foreground">Components by Rare UI ↗</a>
       </footer>
 
       <script

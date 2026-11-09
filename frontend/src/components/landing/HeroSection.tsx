@@ -57,9 +57,9 @@ export function HeroSection() {
     }
 
     return (
-        <section id="hero" className="px-5 pt-8 md:px-8 md:pt-[76px]">
-            <div className="mx-auto w-full max-w-[1200px]">
-                <div className="mx-auto max-w-[1200px] text-center">
+        <section id="hero" className="px-5 pt-10 sm:px-6 md:pt-16">
+            <div className="mx-auto w-full max-w-[1184px]">
+                <div className="mx-auto max-w-[1184px] text-center">
                     <h1 className={cn(
                         "font-semibold text-foreground md:text-[clamp(36px,4.4vw,64px)] md:leading-[1.12] md:tracking-[-2.3px]",
                         locale === "zh"
@@ -69,7 +69,7 @@ export function HeroSection() {
                         <span className="block">{t("landing.titlePrefix")}</span>
                         <span className="block text-primary">{t("landing.titleEmphasis")}</span>
                     </h1>
-                    <div className="mx-auto mt-[22px] w-full max-w-[760px] md:mt-[30px]">
+                    <div className="mx-auto mt-[22px] w-full max-w-[720px] md:mt-10">
                         <ChatInput
                             variant="landing"
                             onSubmit={handleHeroSubmit}
@@ -81,7 +81,7 @@ export function HeroSection() {
                         />
                     </div>
                 </div>
-                <div className="mt-7 md:mt-8">
+                <div className="mt-12 md:mt-14">
                     <DigestPreview />
                 </div>
             </div>

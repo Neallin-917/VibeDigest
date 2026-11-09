@@ -25,7 +25,7 @@ test.describe("Public task detail", () => {
         await expect(page.getByRole("heading", { name: "内容摘要" })).toBeVisible()
         await expect(page.getByRole("heading", { name: "关键观点" })).toBeVisible()
         await expect(page.getByRole("heading", { name: "来源" })).toBeVisible()
-        await expect(page.getByText("完整整理", { exact: true })).toBeVisible()
+        await expect(page.getByRole("heading", { name: "完整整理", exact: true })).toBeVisible()
         await expect(page.getByRole("heading", { name: "基于本期内容继续追问" })).toBeVisible()
         await expect(page.locator('[data-slot="task-source-media"] img')).toBeVisible()
         await expect(page.getByRole("button", { name: "复制分享链接" })).toBeVisible()
@@ -72,14 +72,12 @@ test.describe("Public task detail", () => {
             const summary = document.querySelector('[aria-labelledby="task-summary-title"]')?.getBoundingClientRect()
             return {
                 titleIsAboveMedia: Boolean(title && source && title.bottom <= source.top),
-                mediaAndSummaryAreSideBySide: Boolean(source && summary && (
-                    source.right <= summary.left || summary.right <= source.left
-                ) && Math.max(source.top, summary.top) < Math.min(source.bottom, summary.bottom)),
+                sourceIsAboveSummary: Boolean(source && summary && source.bottom <= summary.top),
                 mediaIsInFirstViewport: Boolean(source && source.top >= 0 && source.bottom <= window.innerHeight),
             }
         })
         expect(mobileHero.titleIsAboveMedia).toBe(true)
-        expect(mobileHero.mediaAndSummaryAreSideBySide).toBe(true)
+        expect(mobileHero.sourceIsAboveSummary).toBe(true)
         expect(mobileHero.mediaIsInFirstViewport).toBe(true)
 
         await expect(page.getByRole("heading", { name: "内容概览" })).toBeVisible()
@@ -209,13 +207,15 @@ test.describe("Public task detail", () => {
         await expect(page.getByRole("heading", { name: "关键观点" })).toBeVisible()
     })
 
-    test("keeps a readable two-column hierarchy on desktop", async ({ page }) => {
+    test("keeps a reading rail beside the complete desktop digest", async ({ page }) => {
         const pageErrors: string[] = []
         page.on("pageerror", (error) => pageErrors.push(error.message))
         await page.setViewportSize({ width: 1280, height: 800 })
 
         await page.goto(TASK_PATH)
         await expect(page.getByRole("region", { name: "基于本期内容继续追问" })).toBeVisible()
+        const rail = page.locator('[data-slot="rail-toc"]')
+        await expect(rail).toBeVisible()
 
         const layoutAudit = await page.evaluate(() => {
             const title = document.querySelector("h1")
@@ -223,6 +223,7 @@ test.describe("Public task detail", () => {
             const keyIdeas = document.querySelector("#task-key-ideas-title")
             const source = document.querySelector('[data-slot="task-source-media"]')
             const followUpRegion = document.querySelector('[aria-labelledby="task-follow-up-title"]')
+            const railRect = document.querySelector('[data-slot="rail-toc"]')?.getBoundingClientRect()
             const titleRect = title?.getBoundingClientRect()
             const summaryRect = summary?.getBoundingClientRect()
             const keyIdeasRect = keyIdeas?.getBoundingClientRect()
@@ -231,10 +232,13 @@ test.describe("Public task detail", () => {
             const fullDigestRect = document.querySelector('[aria-labelledby="task-full-summary-title"]')?.getBoundingClientRect()
 
             return {
-                sourceIsRightOfTitle: Boolean(sourceRect && titleRect && sourceRect.left >= titleRect.right),
+                railIsLeftOfContent: Boolean(railRect && titleRect && sourceRect && summaryRect && (
+                    railRect.right < Math.min(titleRect.left, sourceRect.left, summaryRect.left)
+                )),
+                sourceIsBelowTitle: Boolean(sourceRect && titleRect && sourceRect.top >= titleRect.bottom),
                 summaryIsBelowTitle: Boolean(summaryRect && titleRect && summaryRect.top >= titleRect.bottom),
                 sourceIsInFirstViewport: Boolean(sourceRect && sourceRect.top >= 0 && sourceRect.bottom <= window.innerHeight),
-                sourceIsRightOfSummary: Boolean(sourceRect && summaryRect && sourceRect.left >= summaryRect.right),
+                sourceIsAboveSummary: Boolean(sourceRect && summaryRect && sourceRect.bottom <= summaryRect.top),
                 followUpIsBeforeFullDigest: Boolean(followUpRect && fullDigestRect && followUpRect.bottom <= fullDigestRect.top),
                 followUpIsAfterKeyIdeas: Boolean(followUpRect && keyIdeasRect && followUpRect.top > keyIdeasRect.bottom),
                 mainLandmarks: document.querySelectorAll("main").length,
@@ -243,14 +247,28 @@ test.describe("Public task detail", () => {
             }
         })
 
-        expect(layoutAudit.sourceIsRightOfTitle).toBe(true)
+        expect(layoutAudit.railIsLeftOfContent).toBe(true)
+        expect(layoutAudit.sourceIsBelowTitle).toBe(true)
         expect(layoutAudit.summaryIsBelowTitle).toBe(true)
         expect(layoutAudit.sourceIsInFirstViewport).toBe(true)
         expect(layoutAudit.followUpIsBeforeFullDigest).toBe(true)
-        expect(layoutAudit.sourceIsRightOfSummary).toBe(true)
+        expect(layoutAudit.sourceIsAboveSummary).toBe(true)
         expect(layoutAudit.followUpIsAfterKeyIdeas).toBe(true)
         expect(layoutAudit.mainLandmarks).toBe(1)
         expect(layoutAudit.documentWidth).toBe(layoutAudit.viewportWidth)
+
+        const firstIdea = page.locator("#task-idea-0")
+        const ideaLabel = await firstIdea.innerText()
+        const ideaLink = rail.getByRole("button", { name: ideaLabel, exact: true })
+        await ideaLink.click()
+        await expect(ideaLink).toHaveAttribute("aria-current", "location")
+        await expect(firstIdea).toBeInViewport()
+        // The 128 px reading offset keeps the heading clear of the fixed top navigation.
+        await expect.poll(async () => {
+            const box = await firstIdea.boundingBox()
+            return box ? Math.abs(box.y - 128) : Number.POSITIVE_INFINITY
+        }).toBeLessThanOrEqual(3)
+        await expect(rail.locator('button[aria-current="location"]')).toHaveCount(1)
         expect(pageErrors.filter((message) => message.includes("Hydration failed"))).toEqual([])
     })
 })

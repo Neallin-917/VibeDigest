@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { LandingFAQ } from "./LandingFAQ"
 
@@ -36,8 +36,23 @@ describe("LandingFAQ", () => {
         expect(screen.getByText("Can I try VibeDigest for free?")).toBeInTheDocument()
         expect(screen.getByText("When do I need to sign in?")).toBeInTheDocument()
         expect(screen.getByText("How is Pro billed?")).toBeInTheDocument()
+        fireEvent.click(screen.getByRole("button", { name: "How is Pro billed?" }))
+        expect(screen.getByRole("button", { name: "How is Pro billed?" })).toHaveAttribute("aria-expanded", "true")
         expect(screen.getByText("Pro costs $9.99 monthly or $99 yearly.")).toBeInTheDocument()
         expect(screen.getByRole("button", { name: "Contact support" })).toBeInTheDocument()
         expect(screen.getByTestId("support-dialog")).toHaveAttribute("data-category", "support")
+    })
+    it("supports keyboard navigation without hiding any question", () => {
+        render(<LandingFAQ />)
+        const first = screen.getByRole("button", { name: "Can I try VibeDigest for free?" })
+        const last = screen.getByRole("button", { name: "How is Pro billed?" })
+        first.focus()
+        fireEvent.keyDown(first, { key: "End" })
+        expect(last).toHaveFocus()
+        fireEvent.keyDown(last, { key: "Home" })
+        expect(first).toHaveFocus()
+        fireEvent.click(screen.getByRole("button", { name: "When do I need to sign in?" }))
+        expect(screen.getByText("Paste a supported link first.")).toBeInTheDocument()
+        expect(first).toHaveAttribute("aria-expanded", "false")
     })
 })

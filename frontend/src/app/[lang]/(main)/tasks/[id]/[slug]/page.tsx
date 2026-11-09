@@ -28,6 +28,8 @@ import { cache } from "react"
 import { TaskFollowUp } from "@/components/tasks/TaskFollowUp"
 import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
 import { TaskContentDisclosure } from "@/components/tasks/TaskContentDisclosure"
+import { TaskReadingNav } from "@/components/tasks/TaskReadingNav"
+import readingStyles from "@/components/tasks/task-reading.module.css"
 import { TaskDetailRefresh } from "@/components/tasks/TaskDetailRefresh"
 import { parseLibraryReturnHref } from "@/lib/library-navigation"
 import { buildTaskReturnSuffix, getSingleSearchParam, THREAD_ID_PATTERN } from "@/lib/task-navigation"
@@ -369,8 +371,18 @@ export default async function TaskDetailPage(props: Props) {
     const statusLabel = copy.status[status as keyof typeof copy.status] || copy.status.processing
     const statusVariant = statusVariantMap[status] || "processing"
 
+    const readingItems = [
+        { id: "task-summary-title", label: copy.summary },
+        ...(hasSummary && leadKeypoints.length > 0 ? [
+            { id: "task-key-ideas-title", label: copy.keyIdeas },
+            ...leadKeypoints.map((point, index) => ({ id: `task-idea-${index}`, label: point.title, depth: 1 })),
+        ] : []),
+        { id: "task-follow-up", label: copy.followUp.title },
+        ...(hasSummary && detailedSummaryMarkdown ? [{ id: "task-full-summary-title", label: copy.fullSummary }] : []),
+    ]
+
     return (
-        <div className="relative z-10 min-h-0 w-full flex-1 px-4 pb-24 pt-1 sm:px-6 sm:pt-5 md:pb-12">
+        <div className={cn(readingStyles.page, "relative z-10 min-h-0 w-full flex-1 px-5 pb-24 pt-1 sm:px-6 sm:pt-5 md:pb-12")}>
             <TaskDetailRefresh taskId={id} />
             {jsonLd ? (
                 <script
@@ -378,7 +390,9 @@ export default async function TaskDetailPage(props: Props) {
                     dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
                 />
             ) : null}
-            <div className="mx-auto max-w-6xl">
+            <div className={readingStyles.layout}>
+                <TaskReadingNav items={readingItems} title={locale === "zh" ? "本篇内容" : "In this digest"} />
+                <div className={readingStyles.content}>
                 <header>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Link
@@ -406,12 +420,12 @@ export default async function TaskDetailPage(props: Props) {
                             <Badge variant={statusVariant}>{statusLabel}</Badge>
                         </div>
                     )}
-                    <div className={cn("mt-4 grid min-w-0 gap-x-5 gap-y-5 lg:gap-x-10 lg:gap-y-5 lg:grid-rows-[auto_1fr]", task.thumbnail_url ? "grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]" : "grid-cols-1")}>
-                        <div className="col-span-full min-w-0 lg:col-span-1 lg:col-start-1 lg:row-start-1">
+                    <div className={readingStyles.introduction}>
+                        <div className={readingStyles.titleBlock}>
                             <Heading
                                 as="h1"
                                 variant="display"
-                                className="text-2xl leading-[1.18] tracking-[-0.025em] sm:text-3xl lg:text-[2rem]"
+                                className={readingStyles.title}
                             >
                                 {displayTitle}
                             </Heading>
@@ -429,13 +443,13 @@ export default async function TaskDetailPage(props: Props) {
                                 </div>
                             )}
                         </div>
-                        <div className={cn("min-w-0", task.thumbnail_url ? "col-start-2 row-start-2 lg:col-start-1" : "col-start-1 row-start-2")}>
+                        <div className={readingStyles.summary}>
                             <section className="min-w-0 space-y-2" aria-labelledby="task-summary-title">
                                 <Heading as="h2" variant="h2" id="task-summary-title" className="scroll-mt-28 text-xs font-medium text-muted-foreground sm:text-sm">
                                     {copy.summary}
                                 </Heading>
                                 {hasSummary ? (
-                                    <TaskContentDisclosure preview={leadSummary} maxLines={6} moreLabel={copy.more} lessLabel={copy.less} className="text-base font-semibold leading-snug tracking-tight sm:text-lg lg:text-xl">
+                                    <TaskContentDisclosure preview={leadSummary} maxLines={6} moreLabel={copy.more} lessLabel={copy.less} className="text-lg font-medium leading-relaxed tracking-tight sm:text-xl">
                                         <p lang={summaryLanguageTag}>{leadSummary}</p>
                                     </TaskContentDisclosure>
                                 ) : languageSwitchHref ? (
@@ -459,7 +473,7 @@ export default async function TaskDetailPage(props: Props) {
                                 )}
                             </section>
                         </div>
-                        <aside data-slot="task-source-media" className={cn("min-w-0", task.thumbnail_url ? "col-start-1 row-start-2 lg:col-start-2 lg:row-span-2 lg:row-start-1" : "col-start-1 row-start-3")} aria-labelledby="task-source-title">
+                        <aside data-slot="task-source-media" className={readingStyles.source} aria-labelledby="task-source-title">
                             <h2 id="task-source-title" className="sr-only">{copy.source}</h2>
                             <TaskSourceCover thumbnailUrl={task.thumbnail_url} videoUrl={task.video_url} title={displayTitle} />
                             {task.video_url && (
@@ -471,7 +485,7 @@ export default async function TaskDetailPage(props: Props) {
                         </aside>
                     </div>
                 </header>
-                <div className="mt-5 space-y-5">
+                <div className={readingStyles.sections}>
                     <article className={cn("grid min-w-0 items-start gap-6 border-t border-border/70 pt-5", visualBlocks.length > 0 && "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-10")}>
                         {hasSummary && leadKeypoints.length > 0 && (
                             <section className="min-w-0 space-y-3" aria-labelledby="task-key-ideas-title">
@@ -484,16 +498,16 @@ export default async function TaskDetailPage(props: Props) {
                                             key={`${keypoint.title}-${index}`}
                                             className="min-w-0"
                                         >
-                                            <div data-slot="task-keypoint" className="py-3">
+                                            <div data-slot="task-keypoint" className="py-6">
                                                 <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-3">
                                                     <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-medium tabular-nums text-primary" aria-hidden="true">
                                                         {String(index + 1).padStart(2, "0")}
                                                     </span>
-                                                    <h3 lang={summaryLanguageTag} className="text-sm font-semibold leading-6 text-foreground sm:text-base">{keypoint.title}</h3>
+                                                    <h3 id={`task-idea-${index}`} lang={summaryLanguageTag} className="scroll-mt-32 text-base font-semibold leading-7 text-foreground sm:text-lg">{keypoint.title}</h3>
                                                 </div>
                                                 <div className="ml-10 mt-2">
                                                     <TaskContentDisclosure preview={keypoint.detail} maxLines={14} moreLabel={copy.morePoint} lessLabel={copy.lessPoint}>
-                                                        <p lang={summaryLanguageTag} className="text-sm leading-6 text-muted-foreground">{keypoint.detail}</p>
+                                                        <p lang={summaryLanguageTag} className="text-base leading-8 text-muted-foreground">{keypoint.detail}</p>
                                                         {keypoint.why_it_matters && (
                                                             <p className="mt-3 text-sm leading-6 text-foreground/80">
                                                                 <span className="font-semibold">{copy.whyItMatters}: </span>
@@ -529,7 +543,7 @@ export default async function TaskDetailPage(props: Props) {
                             </div>
                         )}
                     </article>
-                    <div id="task-follow-up" className="min-w-0 scroll-mt-24">
+                    <div id="task-follow-up" className={readingStyles.followUp}>
                         <TaskFollowUp
                             taskId={id}
                             taskStatus={status}
@@ -570,6 +584,10 @@ export default async function TaskDetailPage(props: Props) {
                         </section>
                     )}
 
+                </div>
+                <p className="mt-12 border-t border-border pt-6 text-xs text-muted-foreground">
+                    <a href="https://www.rareui.com/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center hover:text-foreground">Components by Rare UI ↗</a>
+                </p>
                 </div>
             </div>
         </div>

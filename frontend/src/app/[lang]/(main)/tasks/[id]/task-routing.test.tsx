@@ -199,3 +199,31 @@ describe("task detail concurrent reads", () => {
         })
     })
 })
+
+describe("task reading navigation", () => {
+    function elements(node: unknown): Array<{ type: unknown; props: Record<string, unknown> }> {
+        if (Array.isArray(node)) return node.flatMap(elements)
+        if (!isValidElement<Record<string, unknown>>(node)) return []
+        return [{ type: node.type, props: node.props }, ...elements(node.props.children)]
+    }
+
+    it("links every reading entry to an actual rendered section, including key ideas", async () => {
+        const nodes = elements(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string))))
+        const navigation = nodes.find(node => typeof node.type === "function" && node.type.name === "TaskReadingNav")!
+        const items = navigation.props.items as Array<{ id: string; depth?: number }>
+        const ids = nodes.map(node => node.props.id).filter(Boolean)
+        expect(items.some(item => item.depth === 1)).toBe(true)
+        expect(items.map(item => item.id)).toContain("task-full-summary-title")
+        for (const item of items) expect(ids).toContain(item.id)
+        expect(new Set(items.map(item => item.id)).size).toBe(items.length)
+    })
+
+    it.each(["pending", "other-locale"])("omits unavailable content from navigation for %s", async mode => {
+        if (mode === "pending") { db.task!.status = "processing"; db.outputs = [] }
+        const locale = mode === "other-locale" ? "zh" : "en"
+        const nodes = elements(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string), locale)))
+        const navigation = nodes.find(node => typeof node.type === "function" && node.type.name === "TaskReadingNav")!
+        const items = navigation.props.items as Array<{ id: string }>
+        expect(items.map(item => item.id)).toEqual(["task-summary-title", "task-follow-up"])
+    })
+})

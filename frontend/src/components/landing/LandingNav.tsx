@@ -1,6 +1,7 @@
 "use client"
 
 import { useI18n } from "@/components/i18n/I18nProvider"
+import { AppearanceSelector } from "@/components/layout/AppearanceSelector"
 import { Menu } from "lucide-react"
 import { LandingUserButton } from "@/components/auth/LandingUserButton"
 import { BrandLogo } from "@/components/layout/BrandLogo"
@@ -39,7 +40,7 @@ const desktopNavLinkClass =
 const navPosition = cva("flex items-center", {
     variants: {
         home: {
-            true: "relative px-5 pt-4 sm:px-6 lg:px-10 xl:px-6",
+            true: "relative px-5 sm:px-6 lg:px-10 xl:px-6",
             false: "pointer-events-none fixed left-0 right-0 top-4 z-50 h-14",
         },
     },
@@ -48,7 +49,7 @@ const navPosition = cva("flex items-center", {
 const navSurface = cva("mx-auto flex w-full items-center justify-between", {
     variants: {
         home: {
-            true: "relative h-16 rounded-2xl border border-border bg-surface/80 px-4",
+            true: "relative h-20 px-0",
             false: "pointer-events-auto min-h-14 rounded-[15px] border border-border/90 bg-surface/90 px-3 backdrop-blur-xl",
         },
     },
@@ -91,7 +92,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
             <div
                 className={cn(
                     navSurface({ home: isHome }),
-                    isLibraryShell ? "max-w-[1440px]" : isHome ? "max-w-[1328px]" : "max-w-[1080px]",
+                    isLibraryShell ? "max-w-[1440px]" : isHome ? "max-w-[1184px]" : "max-w-[1080px]",
                     isContentNav || isHome ? "shadow-none" : "shadow-[0_12px_35px_-25px_rgba(27,33,28,0.5)]"
                 )}
             >
@@ -104,7 +105,7 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
                 </Link>
 
                 {/* Center: Navigation Capsule */}
-                {!isContentNav && (
+                {(
                     <div data-slot="desktop-nav-links" className="absolute left-1/2 hidden -translate-x-1/2 lg:block">
                         <div className="flex items-center gap-1">
                             {visibleNavItems.map((item) => {
@@ -128,7 +129,8 @@ export function LandingNav({ variant = "default", shell = "marketing" }: Landing
                 )}
 
                 {/* Right: Actions & Mobile Menu */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 sm:gap-3">
+                    <AppearanceSelector />
                     <div className="hidden items-center gap-3 lg:flex">
                         <LanguageInlineSelect />
                         <div className="mx-1 h-4 w-px bg-border" />

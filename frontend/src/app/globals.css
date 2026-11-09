@@ -362,3 +362,41 @@ body {
     }
   }
 }
+
+/* Approved editorial palette: appearance choices share the existing semantic roles. */
+.dark {
+  --background: #191e1a;
+  --foreground: #eceee5;
+  --foreground-soft: #c7d0c1;
+  --foreground-subtle: #adb8aa;
+  --card: #222923;
+  --popover: #222923;
+  --primary: #abc6a3;
+  --primary-strong: #b7cfae;
+  --primary-muted: #9bb897;
+  --primary-foreground: #1b211c;
+  --secondary: #2d382e;
+  --secondary-foreground: #eceee5;
+  --muted: #2d382e;
+  --muted-foreground: #adb8aa;
+  --accent: #344836;
+  --accent-foreground: #c7dfbd;
+  --border: #404c40;
+  --border-strong: #64745f;
+  --input: #64745f;
+  --ring: rgb(171 198 163 / .45);
+  --surface: #222923;
+  --surface-raised: #29322a;
+  --surface-subtle: #2d382e;
+  --surface-tint: #344836;
+  --sidebar: #1d241e;
+  --sidebar-foreground: #eceee5;
+  --sidebar-primary: #abc6a3;
+  --sidebar-primary-foreground: #1b211c;
+  --sidebar-accent: #2d382e;
+  --sidebar-accent-foreground: #eceee5;
+  --sidebar-border: #404c40;
+}
+.dark body { color-scheme: dark; }
+.appearance-panel [data-slot=theme-selector-ring] { border-color: var(--primary); }
+.appearance-panel [data-slot=theme-selector-item]:focus-visible { outline-color: var(--primary); }

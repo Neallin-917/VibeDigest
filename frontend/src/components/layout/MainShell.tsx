@@ -57,8 +57,6 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   if (isPublicTaskDetail) {
     return (
       <div className="relative min-h-screen overflow-x-clip bg-background">
-        <div className="pointer-events-none fixed inset-0 bg-grid opacity-20" />
-        <div className="pointer-events-none fixed left-0 top-0 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-[120px]" />
         <div
           data-slot="task-detail-nav-scrim"
           className="pointer-events-none fixed inset-x-0 top-0 z-40 h-24 bg-background/95 backdrop-blur-sm"

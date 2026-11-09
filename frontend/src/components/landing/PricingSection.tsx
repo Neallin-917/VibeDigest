@@ -58,18 +58,18 @@ export function PricingSection() {
 
     return (
         <section id="pricing" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
-            <div className="mx-auto max-w-[1080px]">
+            <div className="mx-auto max-w-[992px]">
                 <div className="mb-7 max-w-2xl">
                     <Heading as="h2" className="text-[25px] sm:text-[32px] font-semibold leading-tight tracking-[-0.038em] text-foreground">
                         {t("landing.simplePricing")}
                     </Heading>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_1.15fr]">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     {plans.map((plan) => (
                         <article key={plan.key} className={cn(
-                            "flex flex-col rounded-xl border p-6 md:p-[30px]",
-                            plan.key === "pro" ? "border-border-strong bg-surface-subtle" : "border-border bg-surface"
+                            "landing-plan flex flex-col rounded-[20px] border p-6 md:p-8",
+                            plan.key === "pro" ? "landing-plan-pro border-primary-strong bg-primary-strong" : "border-border bg-surface"
                         )}>
                             <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
                                 <Heading as="h3" className="text-[19px] font-semibold text-foreground">{plan.title}</Heading>
@@ -87,12 +87,12 @@ export function PricingSection() {
                             </div>
                             <div aria-live={plan.key === "pro" ? "polite" : undefined} aria-atomic="true" className="mt-5">
                                 <p className="flex flex-wrap items-baseline gap-2">
-                                    <span className="text-[40px] font-semibold leading-tight tracking-[-0.035em] text-foreground">{plan.price}</span>
+                                    <span className="text-[56px] font-normal leading-tight tracking-[-0.035em] text-foreground">{plan.price}</span>
                                     {plan.key === "pro" && <span className="text-[13px] text-foreground-soft">{t("pricing.pro.unit")}</span>}
                                 </p>
                                 <p className="mt-2 min-h-6 text-xs leading-relaxed text-foreground-soft">{plan.billing}</p>
                             </div>
-                            <p className="mb-[22px] mt-[18px] text-[13px] font-medium text-foreground">{plan.features[0]}</p>
+                            <p className="mb-[22px] mt-7 border-t border-border pt-5 text-[13px] font-medium text-foreground">{plan.features[0]}</p>
                             <Button variant={plan.key === "pro" ? "default" : "outline"}
                                 onClick={() => handlePlanClick(plan.key)}
                                 className={cn("mt-auto min-h-11 w-full rounded-[9px] text-[13px] font-semibold",

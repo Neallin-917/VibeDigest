@@ -182,7 +182,7 @@ describe("CommunityTemplates", () => {
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument()
     expect(container.querySelector("[data-feature-layout]")).not.toBeInTheDocument()
     expect(Array.from({ length: 8 }, (_, index) => landingPreviewVisibility(index)))
-      .toEqual(["", "", "", "", "hidden lg:block", "hidden lg:block", "hidden xl:block", "hidden xl:block"])
+      .toEqual(Array(8).fill(""))
   })
 
   it("keeps the landing card usable when its thumbnail and source avatar fail", () => {

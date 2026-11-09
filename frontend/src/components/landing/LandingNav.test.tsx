@@ -59,10 +59,10 @@ describe("LandingNav", () => {
         expect(screen.getAllByText("UserButton")[0]).toBeInTheDocument()
     })
 
-    it("uses the outlined home navigation without changing the default floating shell", () => {
+    it("uses the open home navigation without changing the default floating shell", () => {
         const { rerender } = render(<LandingNav variant="home" />)
         expect(screen.getByRole("navigation")).not.toHaveClass("fixed")
-        expect(screen.getByRole("navigation").firstElementChild).toHaveClass("rounded-2xl", "border")
+        expect(screen.getByRole("navigation").firstElementChild).toHaveClass("h-20", "px-0")
         rerender(<LandingNav shell="library" />)
         expect(screen.getByRole("navigation")).toHaveClass("fixed")
         expect(screen.getByRole("navigation").firstElementChild).toHaveClass("max-w-[1440px]")
@@ -124,10 +124,10 @@ describe("LandingNav", () => {
         expect(navSurface).toHaveClass("max-w-[1440px]")
     })
 
-    it("removes acquisition links from the desktop content-page navigation", () => {
+    it("preserves shared links on the desktop content-page navigation", () => {
         const { container } = render(<LandingNav variant="content" />)
 
-        expect(container.querySelector('[data-slot="desktop-nav-links"]')).not.toBeInTheDocument()
+        expect(container.querySelector('[data-slot="desktop-nav-links"]')).toBeInTheDocument()
         expect(screen.getByText("Logo")).toBeInTheDocument()
         expect(screen.getAllByText("UserButton")[0]).toBeInTheDocument()
     })

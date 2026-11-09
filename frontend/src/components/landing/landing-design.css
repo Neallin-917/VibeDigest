@@ -1,0 +1,37 @@
+/* Approved full-content composition; shared colors live in globals.css. */
+.landing-design .landing-digest { box-shadow: 0 20px 65px -40px rgb(36 49 40 / 20%); }
+.landing-design .landing-plan-pro {
+  --foreground: #fbfaf5;
+  --foreground-soft: #d9e2d5;
+  --foreground-subtle: #c3cfbf;
+  --border: #63735f;
+  background: #344635;
+  border-color: #344635;
+  box-shadow: 0 20px 40px -25px rgb(36 49 40 / 38%);
+}
+.landing-design .landing-plan-pro button[aria-pressed="true"],
+.landing-design .landing-plan-pro > button { background: #e7ebe3; color: #263b2b; }
+.landing-design .landing-plan-pro > button:hover { background: #fbfaf5; }
+.landing-design .landing-plan-pro button[aria-pressed="false"] { color: #d9e2d5; }
+.landing-faq-bubbles [data-slot="faq-question"] {
+  border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground);
+  padding: 16px 20px; font-size: 14px; line-height: 1.5; box-shadow: 0 3px 10px rgb(0 0 0 / 2%);
+}
+.landing-faq-bubbles [data-slot="faq-answer"] { line-height: 1.8; }
+.landing-faq-bubbles [data-slot="faq-answer"] [role="img"] { padding: 0; }
+/* Preserve all eight library entries on every screen, with compact covers. */
+.landing-design #agent-output article { border: 0; }
+.landing-design #agent-output article > a { display: block; padding: 0; }
+.landing-design #agent-output article > a > div:first-child { aspect-ratio: 16 / 10; }
+.landing-design #agent-output article > a > div:last-child { padding-top: 12px; }
+.landing-design #agent-output article h3 { display: block; overflow: visible; -webkit-line-clamp: unset; }
+@media (max-width: 639px) {
+  .landing-design #agent-output article h3 { font-size: 12px; line-height: 1.6; }
+  .landing-design #agent-output article p { font-size: 10px; }
+  .landing-faq-bubbles [data-slot="faq-question"] { padding: 13px 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .landing-design #hero { animation: landing-arrive .5s both; }
+  .landing-design .landing-digest { animation: landing-arrive .65s .08s both; }
+  @keyframes landing-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+}

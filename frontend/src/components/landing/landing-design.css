@@ -35,3 +35,22 @@
   .landing-design .landing-digest { animation: landing-arrive .65s .08s both; }
   @keyframes landing-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 }
+
+/* Desktop sections share a 1184px canvas and 24px gutters.
+   Four library columns, three feature columns and two pricing columns
+   are subdivisions of the same twelve-column grid. */
+@media (min-width: 768px) {
+  .landing-features-grid > div + div::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    inset-block: 0;
+    width: 1px;
+    background: var(--border);
+  }
+}
+@media (min-width: 1024px) {
+  .landing-design .landing-digest > div:first-of-type {
+    grid-template-columns: calc((100% + 24px) / 4) minmax(0, 1fr);
+  }
+}

@@ -166,7 +166,7 @@ describe("CommunityTemplates", () => {
     expect(screen.getByRole("link", { name: "View digest: Preview 8" })).toHaveAttribute(
       "href", expect.stringContaining("/en/tasks/preview-7/Preview-8")
     )
-    expect(container.querySelector(".grid")).toHaveClass("sm:grid-cols-2", "xl:grid-cols-4")
+    expect(container.querySelector(".grid")).toHaveClass("sm:grid-cols-2", "lg:grid-cols-4")
   })
 
   it("uses one same-tab link per landing card without the gallery controls or duplicate content", () => {

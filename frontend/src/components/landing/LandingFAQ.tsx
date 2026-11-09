@@ -13,8 +13,8 @@ export function LandingFAQ() {
     const items = getLandingFaqItems(t).map((item, index) => ({ ...item, id: String(index) }))
 
     return (
-        <section id="landing-faq" aria-labelledby="landing-faq-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
-            <div className="mx-auto grid max-w-[992px] gap-8 md:grid-cols-[minmax(0,.75fr)_minmax(0,1.25fr)] md:gap-16">
+        <section id="landing-faq" aria-labelledby="landing-faq-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24">
+            <div className="mx-auto grid max-w-[1184px] gap-8 md:grid-cols-3 md:gap-6">
                 <div className="flex items-center justify-between gap-5 md:block">
                     <Heading id="landing-faq-title" as="h2" className="text-[25px] sm:text-[30px] font-semibold leading-tight tracking-[-0.038em] text-foreground">
                         {t("landing.faqTitle")}
@@ -25,7 +25,7 @@ export function LandingFAQ() {
                         </button>
                     </FeedbackDialog>
                 </div>
-                <Faq items={items} defaultValue="0" accent="#466c50" avatar={<BrandLogo showText={false} />} className="landing-faq-bubbles max-w-none gap-[18px]" />
+                <Faq items={items} defaultValue="0" accent="#466c50" avatar={<BrandLogo showText={false} />} className="landing-faq-bubbles max-w-none gap-[18px] md:col-span-2" />
             </div>
         </section>
     )

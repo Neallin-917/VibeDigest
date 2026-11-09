@@ -57,15 +57,15 @@ export function PricingSection() {
     ]
 
     return (
-        <section id="pricing" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
-            <div className="mx-auto max-w-[992px]">
+        <section id="pricing" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24">
+            <div className="mx-auto max-w-[1184px]">
                 <div className="mb-7 max-w-2xl">
                     <Heading as="h2" className="text-[25px] sm:text-[32px] font-semibold leading-tight tracking-[-0.038em] text-foreground">
                         {t("landing.simplePricing")}
                     </Heading>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     {plans.map((plan) => (
                         <article key={plan.key} className={cn(
                             "landing-plan flex flex-col rounded-[20px] border p-6 md:p-8",

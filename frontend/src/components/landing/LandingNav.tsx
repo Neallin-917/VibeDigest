@@ -40,7 +40,7 @@ const desktopNavLinkClass =
 const navPosition = cva("flex items-center", {
     variants: {
         home: {
-            true: "relative px-5 sm:px-6 lg:px-10 xl:px-6",
+            true: "relative px-5 sm:px-6",
             false: "pointer-events-none fixed left-0 right-0 top-4 z-50 h-14",
         },
     },

@@ -7,12 +7,13 @@ import { ThemeSelector } from "@/components/ui/rare/theme-selector"
 
 const eventName = "vibedigest:appearance"
 const storageKey = "vibedigest:theme"
+let sessionTheme: string | undefined
 function readTheme() {
     try {
         const saved = localStorage.getItem(storageKey)
         if (saved === "light" || saved === "dark") return saved
     } catch { /* Appearance still works when storage is unavailable. */ }
-    return document.documentElement.classList.contains("dark") ? "dark" : "light"
+    return sessionTheme ?? (window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light")
 }
 function subscribe(callback: () => void) {
     window.addEventListener(eventName, callback)
@@ -27,7 +28,7 @@ export function AppearanceSelector() {
     const theme = useSyncExternalStore(subscribe, readTheme, () => "light")
     const ref = useRef<HTMLDetailsElement>(null)
     useEffect(() => {
-        document.documentElement.classList.toggle("dark", theme === "dark")
+        if (theme === readTheme()) document.documentElement.classList.toggle("dark", theme === "dark")
     }, [theme])
     useEffect(() => {
         const close = (event: PointerEvent) => {
@@ -50,7 +51,7 @@ export function AppearanceSelector() {
             <div className="appearance-panel absolute -right-16 top-full z-[60] mt-2 w-[276px] rounded-2xl border border-border bg-popover p-5 shadow-xl sm:right-0">
                 <ThemeSelector aria-label={zh ? "外观" : "Appearance"} value={theme} onChange={value => {
                     document.documentElement.classList.toggle("dark", value === "dark")
-                    try { localStorage.setItem(storageKey, value) } catch { /* No persistence available. */ }
+                    try { localStorage.setItem(storageKey, value); sessionTheme = undefined } catch { sessionTheme = value }
                     window.dispatchEvent(new Event(eventName))
                 }} itemClassName="w-28" themes={[
                     { value: "light", label: zh ? "浅色" : "Light", colors: { sidebar: "#e7ebe3", panel: "#fbfaf5", border: "#d3d7cd", strong: "#466c50", muted: "#d3d7cd", tile: "#f3f1ea" } },

@@ -81,7 +81,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
         <HeroSection />
         <FeaturesSection />
 
-        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24 lg:px-10 xl:px-6">
+        <section id="agent-output" aria-labelledby="community-title" className="scroll-mt-6 px-5 pt-12 sm:px-6 md:pt-24">
           <div className="mx-auto max-w-[1184px]">
             <div className="mb-7 flex items-center justify-between gap-4 sm:items-end sm:gap-6">
               <h2 id="community-title" className="max-w-[220px] text-[25px] font-semibold leading-tight tracking-[-0.035em] text-foreground sm:max-w-none sm:text-[32px]">

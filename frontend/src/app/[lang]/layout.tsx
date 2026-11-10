@@ -221,7 +221,7 @@ export default async function RootLayout({
             <EngagementTracker />
             {children}
           </Providers>
-          <Toaster />
+          <Toaster toastOptions={{ style: { background: "var(--popover)", color: "var(--popover-foreground)", borderColor: "var(--border)" } }} />
           <Analytics />
           <SpeedInsights />
         </div>

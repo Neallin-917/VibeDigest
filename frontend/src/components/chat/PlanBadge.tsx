@@ -29,7 +29,7 @@ export function PlanBadge() {
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border",
+            "flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium transition-all border",
             "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
             isPro
               ? "border-primary/25 bg-accent/70 text-accent-foreground hover:bg-accent"

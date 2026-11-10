@@ -399,7 +399,7 @@ export default async function TaskDetailPage(props: Props) {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Link
                             href={buildLibraryHref(locale, returnState)}
-                            className="inline-flex min-h-10 items-center gap-2 rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
+                            className="inline-flex min-h-10 items-center gap-2 rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-foreground-soft dark:focus-visible:ring-ring dark:hover:text-foreground dark:hover:bg-accent"
                         >
                             <ArrowLeft className="size-4" aria-hidden="true" />
                             {copy.back}
@@ -463,7 +463,7 @@ export default async function TaskDetailPage(props: Props) {
                                         </Text>
                                         <Link
                                             href={languageSwitchHref}
-                                            className="inline-flex min-h-10 items-center rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
+                                            className="inline-flex min-h-10 items-center rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-foreground-soft dark:focus-visible:ring-ring dark:hover:text-foreground dark:hover:bg-accent"
                                         >
                                             {copy.switchToLanguage(languageSwitchLabel)}
                                         </Link>
@@ -526,7 +526,7 @@ export default async function TaskDetailPage(props: Props) {
                                                                     href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400"
+                                                                    className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-foreground-soft dark:focus-visible:ring-ring dark:hover:text-foreground"
                                                                 >
                                                                     {copy.openAt} {formatTimestamp(keypoint.startSeconds)}
                                                                     <ExternalLink className="ml-1.5 size-3" aria-hidden="true" />

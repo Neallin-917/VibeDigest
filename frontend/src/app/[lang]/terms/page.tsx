@@ -7,7 +7,7 @@ export default function TermsOfService() {
     const { t } = useI18n()
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:bg-[#0A0A0A]">
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:bg-none dark:bg-background">
             {/* Light mode background blobs */}
             <div className="landing-blobs pointer-events-none dark:hidden">
                 <div className="blob blob-1" />
@@ -15,11 +15,7 @@ export default function TermsOfService() {
                 <div className="blob blob-3" />
             </div>
             
-            {/* Dark mode background gradient */}
-            <div className="hidden dark:block absolute inset-0 -z-10 overflow-hidden">
-                <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl" />
-                <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-gradient-to-tr from-blue-500/10 to-transparent rounded-full blur-3xl" />
-            </div>
+
 
             {/* Navigation */}
             <LandingNav />
@@ -73,7 +69,7 @@ export default function TermsOfService() {
                         </h2>
                         <p className="text-slate-700 dark:text-[#EDEDED]">
                             {t("policies.common.contactText")}
-                            <a href="mailto:support@vibedigest.io" className="text-indigo-600 dark:text-blue-500 hover:underline ml-1">support@vibedigest.io</a>
+                            <a href="mailto:support@vibedigest.io" className="text-indigo-600 dark:text-foreground dark:underline hover:underline ml-1">support@vibedigest.io</a>
                         </p>
                     </section>
                 </div>

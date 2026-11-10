@@ -90,7 +90,7 @@ export default async function FAQPage(props: Props) {
             </div>
 
             {/* Dark Mode Background */}
-            <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-[#0A0A0A]" />
+            <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-background" />
 
             <LandingNav />
 
@@ -121,7 +121,7 @@ export default async function FAQPage(props: Props) {
                         ))}
                     </div>
 
-                    <div className="mt-20 text-center p-8 rounded-2xl bg-gradient-to-b from-indigo-500/10 dark:from-emerald-900/10 to-transparent border border-slate-200 dark:border-white/5">
+                    <div className="mt-20 text-center p-8 rounded-2xl bg-gradient-to-b from-indigo-500/10 dark:from-surface-raised to-transparent border border-slate-200 dark:border-white/5">
                         <h3 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">
                             {t("faq.moreQuestions")}
                         </h3>

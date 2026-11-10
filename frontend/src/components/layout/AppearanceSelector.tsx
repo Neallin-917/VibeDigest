@@ -48,14 +48,14 @@ export function AppearanceSelector() {
             <summary aria-label={zh ? "切换明暗外观" : "Change appearance"} className="flex size-11 cursor-pointer list-none items-center justify-center rounded-xl text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
                 <SunMoon className="size-4" aria-hidden="true" />
             </summary>
-            <div className="appearance-panel absolute -right-16 top-full z-[60] mt-2 w-[276px] rounded-2xl border border-border bg-popover p-5 shadow-xl sm:right-0">
+            <div className="appearance-panel fixed inset-x-4 top-16 z-[60] mx-auto mt-2 max-w-[276px] sm:absolute sm:inset-x-auto sm:top-full sm:mx-0 sm:w-[276px] rounded-2xl border border-border bg-popover p-5 shadow-xl sm:right-0">
                 <ThemeSelector aria-label={zh ? "外观" : "Appearance"} value={theme} onChange={value => {
                     document.documentElement.classList.toggle("dark", value === "dark")
                     try { localStorage.setItem(storageKey, value); sessionTheme = undefined } catch { sessionTheme = value }
                     window.dispatchEvent(new Event(eventName))
                 }} itemClassName="w-28" themes={[
                     { value: "light", label: zh ? "浅色" : "Light", colors: { sidebar: "#e7ebe3", panel: "#fbfaf5", border: "#d3d7cd", strong: "#466c50", muted: "#d3d7cd", tile: "#f3f1ea" } },
-                    { value: "dark", label: zh ? "深色" : "Dark", colors: { sidebar: "#2d382e", panel: "#191e1a", border: "#404c40", strong: "#abc6a3", muted: "#404c40", tile: "#222923" } },
+                    { value: "dark", label: zh ? "深色" : "Dark", colors: { sidebar: "#202023", panel: "#09090b", border: "#303036", strong: "#e4e4e7", muted: "#52525b", tile: "#141416" } },
                 ]} />
             </div>
         </details>

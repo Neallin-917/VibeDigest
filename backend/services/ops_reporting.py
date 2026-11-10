@@ -263,6 +263,65 @@ SELECT
 """
 
 
+ENGAGEMENT_SQL = """
+WITH bounds AS (
+ SELECT CAST(:report_date AS date)::timestamp AT TIME ZONE :timezone AS day_start,
+ (CAST(:report_date AS date) + 1)::timestamp AT TIME ZONE :timezone AS day_end,
+ (CAST(:report_date AS date) - 7)::timestamp AT TIME ZONE :timezone AS cohort_start,
+ (CAST(:report_date AS date) - 6)::timestamp AT TIME ZONE :timezone AS cohort_end
+), excluded AS (
+ SELECT user_id FROM vibedigest_private.ops_excluded_users
+ UNION SELECT '00000000-0000-0000-0000-000000000001'::uuid
+), eligible_tasks AS (
+ SELECT t.id,t.user_id FROM public.tasks t CROSS JOIN bounds b
+ WHERE t.created_at >= b.day_start AND t.created_at < b.day_end
+ AND t.updated_at < b.day_end AND t.status='completed'
+ AND t.workload_kind='user_submission' AND t.guest_id IS NULL
+ AND NOT t.is_demo AND NOT t.is_deleted
+ AND NOT EXISTS (SELECT 1 FROM excluded x WHERE x.user_id=t.user_id)
+), cohort AS (
+ SELECT u.id FROM auth.users u CROSS JOIN bounds b
+ WHERE u.created_at >= b.cohort_start AND u.created_at < b.cohort_end
+ AND NOT EXISTS (SELECT 1 FROM excluded x WHERE x.user_id=u.id)
+)
+SELECT (SELECT min(started_at) FROM vibedigest_private.ops_engagement_config) AS started_at,
+ (SELECT count(*) FROM eligible_tasks) AS completed_tasks,
+ (SELECT count(*) FROM eligible_tasks t WHERE EXISTS (
+ SELECT 1 FROM vibedigest_private.ops_engagement_events e CROSS JOIN bounds b
+ WHERE e.task_id=t.id AND e.user_id=t.user_id AND e.event_name='result_view'
+ AND e.occurred_at >= b.day_start AND e.occurred_at < b.day_end)) AS viewed_tasks,
+ (SELECT count(*) FROM eligible_tasks t WHERE EXISTS (
+ SELECT 1 FROM vibedigest_private.ops_engagement_events e CROSS JOIN bounds b
+ WHERE e.task_id=t.id AND e.user_id=t.user_id AND e.event_name='engaged_read'
+ AND e.occurred_at >= b.day_start AND e.occurred_at < b.day_end)) AS read_tasks,
+ (SELECT count(*) FROM cohort) AS cohort_users,
+ (SELECT count(*) FROM cohort c WHERE EXISTS (
+ SELECT 1 FROM vibedigest_private.ops_engagement_events e CROSS JOIN bounds b
+ WHERE e.user_id=c.id AND e.event_name='visit'
+ AND e.occurred_at >= b.cohort_end AND e.occurred_at < b.day_end)) AS returned_users;
+"""
+
+
+def engagement_metrics(row, report_date, timezone):
+    from zoneinfo import ZoneInfo
+    started = row.get("started_at")
+    day_start = datetime.combine(report_date, datetime.min.time(), ZoneInfo(timezone))
+    covered = started is not None and started <= day_start
+    return_covered = started is not None and started <= day_start - timedelta(days=7)
+    def ratio(numerator, denominator, available):
+        return row[numerator] / row[denominator] if available and row[denominator] else None
+    return {
+        "started_at": started,
+        "result_view_rate": ratio("viewed_tasks", "completed_tasks", covered),
+        "engaged_read_rate": ratio("read_tasks", "completed_tasks", covered),
+        "revisit_7d_rate": ratio("returned_users", "cohort_users", return_covered),
+        "result_coverage": covered,
+        "revisit_coverage": return_covered,
+        **{k: row[k] if covered else None for k in ("completed_tasks", "viewed_tasks", "read_tasks")},
+        **{k: row[k] if return_covered else None for k in ("cohort_users", "returned_users")},
+    }
+
+
 @dataclass(frozen=True)
 class DailyMetrics:
     report_date: date
@@ -372,6 +431,15 @@ def load_ops_daily_report(
         snapshot = dict(
             connection.execute(text(SNAPSHOT_SQL), params).mappings().one()
         )
+        available = connection.execute(text(
+            "SELECT to_regclass('vibedigest_private.ops_engagement_events') IS NOT NULL "
+            "AND to_regclass('vibedigest_private.ops_engagement_config') IS NOT NULL AS available"
+        )).mappings().one()["available"]
+        snapshot["engagement"] = engagement_metrics(
+            dict(connection.execute(text(ENGAGEMENT_SQL), params).mappings().one()),
+            report_date, timezone,
+        ) if available else {}
+
 
     if require_explicit_exclusions and not snapshot["explicit_excluded_users"]:
         raise RuntimeError(
@@ -457,6 +525,16 @@ def render_html(report: OpsDailyReport) -> str:
             "不含续费和退款，不能视为净收入",
         ),
     ]
+    engagement = report.snapshot.get("engagement", {})
+    for label, key, coverage, definition in (
+        ("结果查看率", "result_view_rate", "result_coverage", "当日创建且完成任务中，当日已展示结果的比例"),
+        ("有效阅读率", "engaged_read_rate", "result_coverage", "当日创建且完成任务中，结果前台可见累计 20 秒的比例；不代表读懂"),
+        ("7 日回访率", "revisit_7d_rate", "revisit_coverage", "7 天前注册用户中，在注册次日至第 7 天有访问的比例"),
+    ):
+        hint = definition if engagement.get(coverage) else "埋点尚未启用或统计窗口覆盖不足"
+        if engagement.get(coverage) and engagement.get(key) is None:
+            hint += "；无样本"
+        cards.append((label, _percent(engagement.get(key)), hint))
     card_html = "".join(
         f"<article class='card'><div class='label'>{escape(label)}</div>"
         f"<div class='value'>{escape(value)}</div>"

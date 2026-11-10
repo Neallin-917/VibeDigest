@@ -1,3 +1,4 @@
+import { ResultEngagement } from '@/components/EngagementTracker'
 
 import { createClient } from "@/lib/supabase-server"
 import type { Metadata } from "next"
@@ -393,6 +394,7 @@ export default async function TaskDetailPage(props: Props) {
             <div className={readingStyles.layout}>
                 <TaskReadingNav items={readingItems} title={locale === "zh" ? "本篇内容" : "In this digest"} />
                 <div className={readingStyles.content}>
+                <ResultEngagement taskId={id} enabled={hasSummary && !task.is_demo && task.status === 'completed'} regions>
                 <header>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Link
@@ -449,9 +451,11 @@ export default async function TaskDetailPage(props: Props) {
                                     {copy.summary}
                                 </Heading>
                                 {hasSummary ? (
+                                    <div data-engagement-region>
                                     <TaskContentDisclosure preview={leadSummary} maxLines={6} moreLabel={copy.more} lessLabel={copy.less} className="text-lg font-medium leading-relaxed tracking-tight sm:text-xl">
                                         <p lang={summaryLanguageTag}>{leadSummary}</p>
                                     </TaskContentDisclosure>
+                                    </div>
                                 ) : languageSwitchHref ? (
                                     <div className="max-w-[46rem] space-y-3">
                                         <Text tone="muted">
@@ -486,7 +490,7 @@ export default async function TaskDetailPage(props: Props) {
                     </div>
                 </header>
                 <div className={readingStyles.sections}>
-                    <article className={cn("grid min-w-0 items-start gap-6 border-t border-border/70 pt-5", visualBlocks.length > 0 && "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-10")}>
+                    <article data-engagement-region className={cn("grid min-w-0 items-start gap-6 border-t border-border/70 pt-5", visualBlocks.length > 0 && "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-10")}>
                         {hasSummary && leadKeypoints.length > 0 && (
                             <section className="min-w-0 space-y-3" aria-labelledby="task-key-ideas-title">
                                 <Heading as="h2" variant="h2" id="task-key-ideas-title" className="scroll-mt-28">
@@ -556,7 +560,7 @@ export default async function TaskDetailPage(props: Props) {
                         />
                     </div>
                     {hasSummary && detailedSummaryMarkdown && (
-                        <section className="min-w-0 border-y border-border/70 py-5" aria-labelledby="task-full-summary-title">
+                        <section data-engagement-region className="min-w-0 border-y border-border/70 py-5" aria-labelledby="task-full-summary-title">
                             <Heading as="h2" variant="h2" id="task-full-summary-title" className="mb-5">{copy.fullSummary}</Heading>
                             <TaskContentDisclosure preview={summaryExcerpt} maxLines={24} moreLabel={copy.moreFull} lessLabel={copy.lessFull}>
                                 <div className="prose prose-sm max-w-none prose-slate dark:prose-invert md:prose-base">
@@ -585,6 +589,7 @@ export default async function TaskDetailPage(props: Props) {
                     )}
 
                 </div>
+                </ResultEngagement>
                 <p className="mt-12 border-t border-border pt-6 text-xs text-muted-foreground">
                     <a href="https://www.rareui.com/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center hover:text-foreground">Components by Rare UI ↗</a>
                 </p>

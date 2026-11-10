@@ -1,3 +1,4 @@
+import { EngagementTracker } from '@/components/EngagementTracker'
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Syne, Manrope, Plus_Jakarta_Sans } from "next/font/google";
@@ -217,6 +218,7 @@ export default async function RootLayout({
           />
           <Providers locale={locale} messages={messages}>
             {auth}
+            <EngagementTracker />
             {children}
           </Providers>
           <Toaster />

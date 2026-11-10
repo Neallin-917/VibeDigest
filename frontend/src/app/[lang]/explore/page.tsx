@@ -86,7 +86,7 @@ export default async function ExplorePage({
         <div className="min-h-screen bg-transparent font-sans text-slate-800 dark:text-[#F5F5F5]">
             <LandingNav shell="library" />
 
-            <div className="fixed inset-0 -z-10 bg-[color:var(--background)] dark:bg-[#090b0b]">
+            <div className="fixed inset-0 -z-10 bg-[color:var(--background)] dark:bg-background">
                 <div className="absolute inset-0 hidden bg-grid opacity-30 dark:block" />
             </div>
 
@@ -103,7 +103,7 @@ export default async function ExplorePage({
                 </Suspense>
             </main>
 
-            <footer className="relative z-10 border-t border-slate-200 bg-white/50 py-8 text-center text-xs text-slate-500 backdrop-blur-sm dark:border-white/5 dark:bg-[#090b0b] dark:text-zinc-600">
+            <footer className="relative z-10 border-t border-slate-200 bg-white/50 py-8 text-center text-xs text-slate-500 backdrop-blur-sm dark:border-white/5 dark:bg-background dark:text-muted-foreground">
                 <p>© {new Date().getFullYear()} VibeDigest. {copy.copyright}</p>
                 <div className="mt-3 flex justify-center gap-5">
                     <Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center transition-colors hover:text-slate-900 dark:hover:text-white">{copy.privacy}</Link>

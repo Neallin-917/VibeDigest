@@ -18,7 +18,7 @@ export default function NotFound() {
       </div>
 
       {/* Dark Mode Background */}
-      <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-[#0A0A0A]" />
+      <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-background" />
 
       <div className="text-center max-w-md relative z-10">
         <p className="text-8xl font-extrabold bg-clip-text text-transparent bg-gradient-to-b from-slate-900 to-slate-400 dark:from-white dark:to-white/40 mb-6">
@@ -30,7 +30,7 @@ export default function NotFound() {
         </p>
         <Link
           href={`/${locale}`}
-          className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-indigo-600 dark:bg-emerald-600 text-white font-medium hover:opacity-90 transition-opacity shadow-lg"
+          className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-indigo-600 dark:bg-primary dark:text-primary-foreground text-white font-medium hover:opacity-90 transition-opacity shadow-lg"
         >
           {t("notFound.home")}
         </Link>

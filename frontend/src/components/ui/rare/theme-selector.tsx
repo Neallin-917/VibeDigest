@@ -241,7 +241,7 @@ export function ThemeSelector({
                   active ? "opacity-100" : "opacity-0",
                 )}
               />
-              <span className="pointer-events-none absolute -inset-[7px] rounded-[19px] border-[1.5px] sm:rounded-[23px] border-[#FC4C01]/0 transition-colors group-focus-visible:border-[#FC4C01]/60" />
+              <span className="pointer-events-none absolute -inset-[7px] rounded-[19px] border-[1.5px] sm:rounded-[23px] border-transparent transition-colors group-focus-visible:border-primary" />
             </button>
             {labels && (
               <span
@@ -249,7 +249,7 @@ export function ThemeSelector({
                 data-slot="theme-selector-label"
                 className={cn(
                   "text-xs font-medium transition-colors duration-150 motion-reduce:transition-none",
-                  active ? "text-black dark:text-white" : "text-[#868593]",
+                  active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
                 {theme.label}

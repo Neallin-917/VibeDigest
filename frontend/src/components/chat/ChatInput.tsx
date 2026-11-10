@@ -180,7 +180,7 @@ export function ChatInput({
         {/* Disclaimer - hidden on mobile for more space */}
         {!hideDisclaimer && (
           <div className="hidden md:block text-center mt-3">
-            <p className="text-[11px] font-medium tracking-wide text-foreground-subtle/80">
+            <p className="text-[11px] font-medium tracking-wide text-foreground-subtle">
               {t('chat.disclaimer')}
             </p>
           </div>

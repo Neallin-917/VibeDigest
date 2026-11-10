@@ -219,7 +219,7 @@ export default async function RootLayout({
             {auth}
             {children}
           </Providers>
-          <Toaster />
+          <Toaster toastOptions={{ style: { background: "var(--popover)", color: "var(--popover-foreground)", borderColor: "var(--border)" } }} />
           <Analytics />
           <SpeedInsights />
         </div>

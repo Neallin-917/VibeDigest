@@ -447,10 +447,10 @@ const RailToc = ({
                 onClick={() => select(i)}
                 aria-current={isActive ? "location" : undefined}
                 className={cn(
-                  "block w-full rounded-md py-1.5 pr-2 text-left leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+                  "block w-full rounded-md py-1.5 pr-2 text-left leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   isActive
                     ? "font-medium text-foreground"
-                    : "text-foreground/50 hover:text-foreground/80",
+                    : "text-muted-foreground hover:text-foreground",
                 )}
                 style={{
                   paddingLeft: RAIL_X + (item.depth ?? 0) * indent + LABEL_GAP,

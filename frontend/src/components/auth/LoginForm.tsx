@@ -199,7 +199,7 @@ export function LoginForm({ className, isModal = false }: LoginFormProps) {
     return (
         <Card className={`relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain motion-safe:transition-all motion-safe:duration-300 ${cardStyles} ${className}`}>
             {!isModal && (
-                <div className="absolute top-4 right-4 z-10">
+                <div className="relative z-10 flex justify-end px-4 pt-4">
                     <LanguageInlineSelect />
                 </div>
             )}

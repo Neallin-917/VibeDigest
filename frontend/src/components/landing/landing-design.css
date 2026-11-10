@@ -54,3 +54,27 @@
     grid-template-columns: calc((100% + 24px) / 4) minmax(0, 1fr);
   }
 }
+
+/* Keep the featured plan and FAQ within the neutral dark surface hierarchy. */
+.dark .landing-design .landing-plan-pro {
+  --foreground: #f4f4f5;
+  --foreground-soft: #d4d4d8;
+  --foreground-subtle: #a1a1aa;
+  --border: #52525b;
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-soft);
+}
+.dark .landing-design .landing-plan-pro button[aria-pressed="true"],
+.dark .landing-design .landing-plan-pro > button { background: var(--primary); color: var(--primary-foreground); }
+.dark .landing-design .landing-plan-pro > button:hover { background: var(--primary-strong); }
+.dark .landing-design .landing-plan-pro button[aria-pressed="false"] { color: var(--foreground-soft); }
+.dark .landing-faq-bubbles [data-slot="faq-answer"] > [role="region"] { background: var(--primary); color: var(--primary-foreground); border: 1px solid var(--primary); }
+.dark .landing-design .landing-digest { box-shadow: var(--shadow-soft); }
+
+/* Inverted answer bubbles need their own selection colors. */
+.dark .landing-faq-bubbles [data-slot="faq-answer"] > [role="region"]::selection,
+.dark .landing-faq-bubbles [data-slot="faq-answer"] > [role="region"] *::selection {
+  background: var(--primary-foreground);
+  color: var(--primary);
+}

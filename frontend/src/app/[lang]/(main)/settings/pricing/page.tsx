@@ -367,7 +367,7 @@ export default function PricingPage() {
                             {t("pricing.policies.terms")}
                         </Link>
                     </div>
-                    <p className="mt-3 text-center text-xs text-muted-foreground/60">
+                    <p className="mt-3 text-center text-xs text-muted-foreground">
                         {t("landing.footerCopyright", { year: new Date().getFullYear() })}
                     </p>
                 </footer>

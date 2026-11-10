@@ -137,7 +137,7 @@ export default async function AboutPage(props: Props) {
             </div>
 
             {/* Dark Mode Background */}
-            <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-[#0A0A0A]">
+            <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-background">
                 <div className="absolute inset-0 bg-grid opacity-20" />
             </div>
 
@@ -178,8 +178,8 @@ export default async function AboutPage(props: Props) {
                     </div>
 
                     {/* Founder Section */}
-                    <div className="relative p-10 rounded-[2rem] bg-gradient-to-br from-indigo-500/10 dark:from-emerald-500/10 via-transparent to-transparent border border-slate-200 dark:border-white/10 overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 dark:bg-emerald-500/10 blur-[100px] -z-10" />
+                    <div className="relative p-10 rounded-[2rem] bg-gradient-to-br from-indigo-500/10 dark:from-surface-raised via-transparent to-transparent border border-slate-200 dark:border-white/10 overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 dark:hidden blur-[100px] -z-10" />
 
                         <div className="flex flex-col md:flex-row gap-10 items-center md:items-start text-center md:text-left">
                             <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-200 to-gray-400 dark:from-gray-200 dark:to-gray-500 border-4 border-white/20 dark:border-white/10 flex-shrink-0 flex items-center justify-center text-slate-700 dark:text-black overflow-hidden">

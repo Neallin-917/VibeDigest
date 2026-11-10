@@ -80,7 +80,7 @@ export default async function TopicHubPage({ params, searchParams }: Props) {
     <div className="min-h-screen bg-transparent font-sans text-slate-800 dark:text-[#F5F5F5]">
       <LandingNav shell="library" />
 
-      <div className="fixed inset-0 -z-10 bg-[color:var(--background)] dark:bg-[#090b0b]">
+      <div className="fixed inset-0 -z-10 bg-[color:var(--background)] dark:bg-background">
         <div className="absolute inset-0 hidden bg-grid opacity-30 dark:block" />
       </div>
 

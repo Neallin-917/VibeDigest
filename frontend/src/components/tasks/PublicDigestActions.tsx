@@ -46,7 +46,7 @@ export function PublicDigestActions({
     <button
       type="button"
       onClick={copyShareLink}
-      className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
+      className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-foreground-soft dark:focus-visible:ring-ring dark:hover:text-foreground dark:hover:bg-accent"
       aria-live="polite"
     >
       {status === "copied"

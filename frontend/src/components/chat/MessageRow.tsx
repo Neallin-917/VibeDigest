@@ -44,7 +44,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ text }: { text: string }) {
       remarkPlugins={[remarkGfm]}
       components={{
         pre: ({ ...props }) => (
-          <div className="group relative my-3 w-full overflow-hidden rounded-lg border border-border-strong bg-foreground text-primary-foreground">
+          <div className="group relative my-3 w-full overflow-hidden rounded-lg border border-border-strong bg-foreground text-primary-foreground dark:bg-surface-raised dark:text-foreground">
             <div className="p-4 overflow-x-auto custom-scrollbar">
               <pre
                 {...props}

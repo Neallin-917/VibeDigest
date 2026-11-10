@@ -15,6 +15,7 @@ import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTr
 import { NAV_ITEMS } from "@/components/layout/navItems"
 import { FeedbackDialog } from "@/components/layout/FeedbackDialog"
 import { accountKeys, useCurrentUserQuery } from "@/hooks/useAccountQueries"
+import { AppearanceSelector } from "./AppearanceSelector"
 import { BrandLogo } from "./BrandLogo"
 
 function localizeNavHref(locale: string, href: string) {
@@ -60,6 +61,8 @@ export function MobileHeader() {
           <BrandLogo />
         </Link>
 
+        <div className="flex items-center gap-1">
+        <AppearanceSelector />
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="ghost" size="icon" aria-label={t("nav.menu")} suppressHydrationWarning>
@@ -109,6 +112,7 @@ export function MobileHeader() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
     </div>
   )

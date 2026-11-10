@@ -52,17 +52,14 @@ export default async function PrivacyPage({ params }: Props) {
         t("privacy.use.notices"),
     ]
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:bg-[#0A0A0A]">
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:bg-none dark:bg-background">
             <div className="landing-blobs pointer-events-none dark:hidden">
                 <div className="blob blob-1" />
                 <div className="blob blob-2" />
                 <div className="blob blob-3" />
             </div>
 
-            <div className="hidden dark:block absolute inset-0 -z-10 overflow-hidden">
-                <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl" />
-                <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-gradient-to-tr from-blue-500/10 to-transparent rounded-full blur-3xl" />
-            </div>
+
 
             <LandingNav />
 

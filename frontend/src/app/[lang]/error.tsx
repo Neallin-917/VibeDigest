@@ -30,7 +30,7 @@ export default function ErrorPage({
       </div>
 
       {/* Dark Mode Background */}
-      <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-[#0A0A0A]" />
+      <div className="fixed inset-0 hidden dark:block pointer-events-none -z-10 bg-background" />
 
       <div className="text-center max-w-md relative z-10">
         <p className="text-7xl font-extrabold bg-clip-text text-transparent bg-gradient-to-b from-red-600 to-red-300 dark:from-red-400 dark:to-red-200 mb-6">
@@ -45,7 +45,7 @@ export default function ErrorPage({
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={reset}
-            className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-indigo-600 dark:bg-emerald-600 text-white font-medium hover:opacity-90 transition-opacity shadow-lg"
+            className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-indigo-600 dark:bg-primary dark:text-primary-foreground text-white font-medium hover:opacity-90 transition-opacity shadow-lg"
           >
             {t("errorBoundary.retry")}
           </button>

@@ -307,3 +307,11 @@ and renewal status until a matching provider event arrives; do not guess or bulk
 Keep Coinbase webhook verification configured while historical orders need reconciliation.
 The existing refund eligibility rule is unchanged; any broader refund policy requires
 an explicit business decision. Search engine indexing remains a separate acceptance step.
+
+### Operations engagement collection
+
+`20261110071756_ops_engagement_events.sql` adds private minimal engagement events and an authenticated RPC. Apply the migration and deploy the frontend collector before enabling collection. The config table is intentionally empty: after checking the production collector, insert its actual enablement timestamp into `vibedigest_private.ops_engagement_config(singleton, started_at)`. Do not backdate it. Verify with an authorized external-account test and read back events; internal excluded accounts must produce no rows. No production migration or activation is performed by the daily report script.
+
+The collector rejects nonproduction hosts, preview/E2E traffic, anonymous users, and task events for another owner, guest/catalog/Demo/deleted/incomplete tasks. The reviewed nonempty exclusion list is required. Events contain only user/task IDs, event name, server timestamp and Shanghai date. Visits deduplicate per user/day; result events per user/task/type. No emails, IPs, message text or page URLs are stored. Reading is a browser-reported proxy: at least 20 cumulative seconds with summary in viewport and tab visible, not proof of comprehension.
+
+Daily view/read rates use tasks created and completed by that Shanghai day's end, and events received before that day's end. Cross-day reads are not counted in these same-day rates. Completion cutoff uses the existing task `updated_at` proxy. Seven-day revisit uses users registered seven days before the report date, with any authenticated visible visit on days 1–7. Missing schema/config, incomplete tracking coverage and empty cohorts are unavailable/no-sample, never zero. Coverage requires a full Shanghai day and, for revisit, the full cohort window. Collection outages must be investigated before interpreting zero events; deployment alone does not prove continuous delivery.

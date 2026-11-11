@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
+import { ResultEngagement } from '@/components/EngagementTracker'
 import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
 import { supportsVideoEmbed } from '@/components/tasks/VideoEmbed'
 import { useI18n } from '@/components/i18n/I18nProvider'
@@ -584,6 +585,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
         </div>
       ) : null}
 
+      <ResultEngagement taskId={snapshot.taskId} enabled={!isDemo && status === 'completed' && Boolean(summary)}>
       {conclusion ? (
         <KnowledgeCard title={t('tasks.summaryStructured.tldrTitle')} tone="lead">
           <p className="text-[17px] font-medium leading-7 text-foreground">{conclusion}</p>
@@ -637,6 +639,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
         items={evidenceItems}
       />
 
+      </ResultEngagement>
       {status === 'completed' && !summary && !safeError ? (
         <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
       ) : null}

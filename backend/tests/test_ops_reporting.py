@@ -153,7 +153,7 @@ class _FakeResult:
 
 class _FakeConnection:
     def __init__(self, rows, snapshot):
-        self.results = [None, _FakeResult(rows), _FakeResult(snapshot)]
+        self.results = [None, _FakeResult(rows), _FakeResult(snapshot), _FakeResult({"available": False})]
         self.statements = []
 
     def __enter__(self):
@@ -248,3 +248,27 @@ def test_write_report_rejects_unknown_format(tmp_path):
 
     with pytest.raises(ValueError, match="Unsupported output format"):
         write_report(report, tmp_path / "report.txt", "text")
+
+
+def test_engagement_missing_coverage_and_empty_samples_are_unknown():
+    row = dict(started_at=None, completed_tasks=0, viewed_tasks=0, read_tasks=0,
+               cohort_users=0, returned_users=0)
+    result = ops_reporting.engagement_metrics(row, date(2026, 11, 10), "Asia/Shanghai")
+    assert result["result_view_rate"] is None
+    assert result["completed_tasks"] is None
+    row["started_at"] = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    result = ops_reporting.engagement_metrics(row, date(2026, 11, 10), "Asia/Shanghai")
+    assert result["result_view_rate"] is None
+    assert result["revisit_7d_rate"] is None
+
+
+def test_engagement_mature_cohort_and_task_denominators():
+    row = dict(started_at=datetime(2026, 11, 1, tzinfo=timezone.utc),
+               completed_tasks=4, viewed_tasks=3, read_tasks=2, cohort_users=5, returned_users=1)
+    result = ops_reporting.engagement_metrics(row, date(2026, 11, 10), "Asia/Shanghai")
+    assert result["result_view_rate"] == .75
+    assert result["engaged_read_rate"] == .5
+    assert result["revisit_7d_rate"] == .2
+    immature = ops_reporting.engagement_metrics(row, date(2026, 11, 5), "Asia/Shanghai")
+    assert immature["result_view_rate"] == .75
+    assert immature["revisit_7d_rate"] is None

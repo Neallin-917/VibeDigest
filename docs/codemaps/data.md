@@ -126,3 +126,7 @@ return URL nor a client projection grants entitlement.
 New Coinbase charges are retired. Existing orders and signed Coinbase callbacks are
 retained for historical reconciliation; this change neither deletes old accounting
 records nor rewrites historical crypto subscription entitlements.
+
+### Private engagement events
+
+`vibedigest_private.ops_engagement_events` stores first-party authenticated `visit`, `result_view`, and `engaged_read` observations. The private definer validates `auth.uid()`, reviewed exclusions, task ownership and eligible completed user tasks; the public RPC is an invoker wrapper. Tables are not readable/writable by client roles. `ops_engagement_config.started_at` records explicit production activation. Frontend `/api/engagement` uses the verified user's Supabase session and restricts production origin; summary visibility instrumentation reports foreground reading. Metric definitions and activation procedure are owned by `docs/RUNBOOK.md`.

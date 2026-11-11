@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
+import { useCurrentUserQuery } from '@/hooks/useAccountQueries'
 
 export function engagementEnabled() {
   return typeof window !== 'undefined'
@@ -24,6 +25,7 @@ async function record(event: 'visit' | 'result_view' | 'engaged_read', taskId?: 
 // accounts or suppress a later authenticated visit after an anonymous response.
 export function EngagementTracker() {
   const pathname = usePathname()
+  const { data: user } = useCurrentUserQuery()
   useEffect(() => {
     if (!engagementEnabled()) return
     const visit = () => { if (document.visibilityState === 'visible') void record('visit') }
@@ -36,7 +38,7 @@ export function EngagementTracker() {
     nextDay()
     document.addEventListener('visibilitychange', visit)
     return () => { clearTimeout(midnight); document.removeEventListener('visibilitychange', visit) }
-  }, [pathname])
+  }, [pathname, user?.id])
   return null
 }
 

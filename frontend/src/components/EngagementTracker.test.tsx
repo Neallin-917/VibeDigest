@@ -2,10 +2,13 @@ import { act, render, cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ResultEngagement, EngagementTracker } from './EngagementTracker'
 vi.mock('next/navigation', () => ({ usePathname: () => '/en/chat' }))
+const account = vi.hoisted(() => ({ user: null as { id: string } | null }))
+vi.mock('@/hooks/useAccountQueries', () => ({ useCurrentUserQuery: () => ({ data: account.user }) }))
 let intersect: (entries: unknown[]) => void
 const fetchMock = vi.fn()
 const entry = (visible: boolean) => [{ isIntersecting: visible, intersectionRect: { height: visible ? 100 : 0 }, boundingClientRect: { height: 200 } }]
 beforeEach(() => {
+  account.user = null
   vi.useFakeTimers()
   vi.stubGlobal('location', new URL('https://www.vibedigest.io/en/chat'))
   vi.stubGlobal('fetch', fetchMock.mockReset().mockResolvedValue({ ok: true }))
@@ -46,4 +49,15 @@ it('accumulates across summary and key-ideas regions without counting offscreen 
   await act(async () => { intersect([event(summary, true)]); await vi.advanceTimersByTimeAsync(5_000) })
   await act(async () => { intersect([event(summary, false), event(ideas, true)]); await vi.advanceTimersByTimeAsync(15_000) })
   expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ event: 'engaged_read', taskId: 'task' })
+})
+
+it('records a visit after same-page sign-in despite an initial anonymous rejection', async () => {
+  fetchMock.mockResolvedValueOnce({ ok: false })
+  const { rerender } = render(<EngagementTracker />)
+  await act(async () => {})
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  account.user = { id: 'signed-in-user' }
+  await act(async () => { rerender(<EngagementTracker />) })
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ event: 'visit' })
 })

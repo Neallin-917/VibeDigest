@@ -67,6 +67,8 @@ select
     'vibedigest_private.accept_agent_turn(uuid,uuid,text,jsonb,text,uuid,jsonb,text,text[])'
   ) is not null and to_regprocedure(
     'vibedigest_private.claim_agent_continuation(uuid,uuid,text,bigint,integer)'
+  ) is not null and to_regprocedure(
+    'vibedigest_private.request_user_summary_locale(uuid,uuid,text,uuid,uuid)'
   ) is not null as agent_turns_ready,
   exists (
     select 1 from pg_publication_tables pt

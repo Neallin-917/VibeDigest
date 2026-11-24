@@ -194,6 +194,7 @@ class SummaryResponseV5(SummaryResponseV4):
     """V5 summary with a small, validated set of optional knowledge UI blocks."""
 
     version: int = Field(default=5)
+    title: str = Field(default="", description="Faithful digest title in the requested language")
     ui_blocks: List[KnowledgeUiBlock] = Field(default_factory=list, max_length=2)
 
     @field_validator("ui_blocks", mode="before")

@@ -94,6 +94,7 @@ describe.skipIf(!enabled)('hosted read-only continuation evaluation', { concurre
         if (id !== taskId) throw new Error('Fixture task mismatch')
         return data
       }),
+      requestSummaryLocale: vi.fn<TurnClient['requestSummaryLocale']>().mockRejectedValue(new Error('Fixture prohibits requesting language versions')),
       submit: vi.fn<TurnClient['submit']>().mockRejectedValue(new Error('Fixture prohibits task creation')),
       watch: vi.fn<TurnClient['watch']>().mockRejectedValue(new Error('Fixture prohibits another continuation')),
       finish: vi.fn<TurnClient['finish']>().mockResolvedValue({ saved: true }),

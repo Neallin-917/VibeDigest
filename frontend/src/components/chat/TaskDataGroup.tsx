@@ -1,8 +1,10 @@
 'use client'
 
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js'
 
+import { TaskSummaryVersionStatus } from '@/components/tasks/TaskSummaryVersionStatus'
+import { explicitSummaryLocale, missingSummaryVersionStatus } from '@/lib/task-summary-version'
 import { ResultEngagement } from '@/components/EngagementTracker'
 import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
 import { supportsVideoEmbed } from '@/components/tasks/VideoEmbed'
@@ -23,9 +25,7 @@ import { subscribeToTask } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
 import { trackGrowthEvent } from '@/lib/growth-events'
 import {
-  parseCurrentSummary,
   matchPublicSummaryOutput,
-  pickPreferredSummaryOutput,
   type CurrentSummary,
   type SummaryOutputCandidate,
 } from '@/lib/summary-contract'
@@ -45,6 +45,8 @@ type TaskSnapshot = {
   videoUrl?: string
   errorMessage?: string
   updatedAt?: string
+  privateUserSubmission?: boolean
+  explicitLocale?: Locale | null
 }
 
 type AudioData = {
@@ -75,6 +77,10 @@ function mapTaskRow(row: Record<string, unknown>, fallbackTaskId: string): TaskS
     videoUrl: asString(row.video_url),
     errorMessage: asString(row.error_message),
     updatedAt: asString(row.updated_at),
+    // Task RLS exposes a non-demo private row only to its authenticated owner.
+    privateUserSubmission: row.is_demo === false && row.workload_kind === 'user_submission'
+      && row.guest_id === null && row.is_deleted !== true,
+    explicitLocale: explicitSummaryLocale(row.output_intent),
   }
 }
 
@@ -125,17 +131,18 @@ function parseAudioContent(content: string | undefined): AudioData | null {
   }
 }
 
-function useTaskOutputs(taskId: string | undefined, locale: Locale, enabled = true) {
-  const [summary, setSummary] = useState<{ taskId: string; locale: Locale; value: CurrentSummary | null } | null>(null)
-  const [audioData, setAudioData] = useState<AudioData | null>(null)
+function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
+  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: SummaryOutputCandidate[] } | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
+  const refreshRef = useRef<() => void>(undefined)
+  const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
 
   useEffect(() => {
     if (!taskId || !supabase) return
 
-    let cancelled = false
-
+    let revision = 0
     const refresh = async () => {
+      const requestRevision = ++revision
       const { data } = await supabase
         .from('task_outputs')
         .select('kind, content, status, locale, created_at')
@@ -143,22 +150,9 @@ function useTaskOutputs(taskId: string | undefined, locale: Locale, enabled = tr
         .in('kind', ['summary', 'audio'])
         .order('created_at', { ascending: false })
 
-      if (cancelled || !data) return
-
-      const outputs = data as SummaryOutputCandidate[]
-      const summaryOutput = pickPreferredSummaryOutput(outputs, locale)
-      setSummary({
-        taskId,
-        locale,
-        value: taskId === LANDING_DEMO.id
-          ? matchPublicSummaryOutput(outputs, locale).summary
-          : summaryOutput ? parseCurrentSummary(summaryOutput.content) : null,
-      })
-
-      const audioOutput = outputs.find(output => output.kind === 'audio')
-      setAudioData(audioOutput ? parseAudioContent(asString(audioOutput.content)) : null)
+      if (requestRevision === revision && data) setSnapshot({ taskId, rows: data })
     }
-
+    refreshRef.current = refresh
     void refresh()
 
     const channel = supabase
@@ -167,21 +161,22 @@ function useTaskOutputs(taskId: string | undefined, locale: Locale, enabled = tr
         'postgres_changes',
         { event: '*', schema: 'public', table: 'task_outputs', filter: `task_id=eq.${taskId}` },
         (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          const next = payload.new
-          if (!isRecord(next)) return
-          const kind = asString(next.kind)
-          if (kind === 'summary' || kind === 'audio') void refresh()
+          const kind = isRecord(payload.new) ? payload.new.kind : undefined
+          if (payload.eventType === 'DELETE' || kind === 'summary' || kind === 'audio') void refresh()
         }
       )
-      .subscribe()
+      .subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
+        if (status === 'SUBSCRIBED') void refresh()
+      })
 
     return () => {
-      cancelled = true
+      ++revision
+      refreshRef.current = undefined
       void supabase.removeChannel(channel)
     }
-  }, [locale, supabase, taskId])
+  }, [supabase, taskId])
 
-  return { summary: summary?.taskId === taskId && summary?.locale === locale ? summary.value : null, audioData }
+  return { outputs: snapshot && snapshot.taskId === taskId ? snapshot.rows : null, refreshOutputs }
 }
 
 function createDemoSummary(locale: string): CurrentSummary {
@@ -465,17 +460,22 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const trackedTaskViewsRef = useRef<Set<string>>(new Set())
   const isDemo = isLocalUiDemo()
   const isLandingDemo = isDemo && taskStatus?.taskId === LANDING_DEMO.id
-  const liveSnapshot = useLiveTaskSnapshot(taskStatus, live && !isDemo)
+  const needsTaskPreference = taskStatus?.status === 'completed' && taskStatus.taskId !== LANDING_DEMO.id
+  const liveSnapshot = useLiveTaskSnapshot(taskStatus, !isDemo && (live || needsTaskPreference))
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo && !isLandingDemo)
-  const snapshot = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
-  const { summary: persistedSummary, audioData } = useTaskOutputs(snapshot?.taskId, locale, !isDemo)
+  const snapshot: TaskSnapshot | null | undefined = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
+  const { outputs, refreshOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
+  const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
+  const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
+  const targetLocale = explicitLocale ?? locale
+  const audioData = useMemo(() => parseAudioContent(asString(outputs?.find(output => output.kind === 'audio')?.content)), [outputs])
   // Local review uses the complete published output snapshot. Production
   // always reads its persisted summary through the existing task output query.
-  const summary = useMemo<CurrentSummary | null>(() => isLandingDemo
-    ? matchPublicSummaryOutput(landingDemoSummaries.outputs, locale).summary
-    : isDemo ? demoArtifact.summary : persistedSummary, [
-    demoArtifact.summary, isDemo, isLandingDemo, locale, persistedSummary,
-  ])
+  const summary = useMemo<CurrentSummary | null>(() => {
+    if (isLandingDemo) return matchPublicSummaryOutput(landingDemoSummaries.outputs, locale).summary
+    if (isDemo) return demoArtifact.summary
+    return outputs && languageResolved ? matchPublicSummaryOutput(outputs, targetLocale).summary : null
+  }, [demoArtifact.summary, isDemo, isLandingDemo, languageResolved, locale, outputs, targetLocale])
   const normalizedStatus = snapshot ? normalizeTaskStatus(snapshot.status) : null
 
   const hasNewFailure = normalizedStatus === 'failed'
@@ -501,7 +501,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
   const status = normalizeTaskStatus(snapshot.status)
   const title = getTaskDisplayTitle(
-    snapshot.videoTitle,
+    summary?.title || snapshot.videoTitle,
     snapshot.videoUrl,
     t('chat.tools.status.videoTask')
   )
@@ -640,8 +640,20 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
       />
 
       </ResultEngagement>
-      {status === 'completed' && !summary && !safeError ? (
-        <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
+
+      {status === 'completed' && !summary && !safeError && (isDemo || (outputs && languageResolved)) ? (
+        !isDemo && snapshot.privateUserSubmission && outputs ? (
+          <TaskSummaryVersionStatus
+            key={`${snapshot.taskId}-${targetLocale}`}
+            taskId={snapshot.taskId}
+            locale={locale}
+            target={targetLocale}
+            status={missingSummaryVersionStatus(outputs, targetLocale, explicitLocale)}
+            onCompleted={refreshOutputs}
+          />
+        ) : (
+          <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
+        )
       ) : null}
     </article>
   )

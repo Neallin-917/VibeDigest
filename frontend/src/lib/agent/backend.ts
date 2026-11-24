@@ -101,7 +101,12 @@ export function createTurnClient(turn: AgentTurn, signal?: AbortSignal) {
       taskId, includeSource, locale: turn.runtime_config.locale,
     }),
     history: () => call<{ messages: StoredChatMessageRow[] }>('history'),
-    submit: (videoUrl: string, locale: string) => call<Record<string, unknown>>('submit', { videoUrl, locale }),
+    submit: (videoUrl: string, explicitLocale?: AgentRuntimeConfig['locale']) =>
+      call<Record<string, unknown>>('submit', { videoUrl, locale: turn.runtime_config.locale, explicitLocale }),
+    requestSummaryLocale: (taskId: string, locale: AgentRuntimeConfig['locale']) =>
+      call<{ taskId: string; locale: AgentRuntimeConfig['locale']; status: 'pending' | 'processing' | 'completed' | 'failed' | 'unavailable' }>(
+        'summary-locale', { taskId, locale },
+      ),
     watch: (taskId: string) => call<Record<string, unknown>>('watch', { taskId, locale: turn.runtime_config.locale }),
     // Finish is deliberately independent of a disconnected browser signal.
     finish: (parts: ChatUIMessage['parts'], metadata: object, errorCode?: string) => agentBackend<{ saved: boolean }>(

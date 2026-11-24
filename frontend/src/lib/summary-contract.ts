@@ -59,6 +59,7 @@ export type StepsBlock = {
 export type CurrentSummaryUiBlock = ComparisonTableBlock | BarChartBlock | StepsBlock
 
 export interface CurrentSummary {
+  title?: string
   version: number
   language: string
   tl_dr?: string
@@ -298,6 +299,7 @@ export function parseCurrentSummary(content: unknown): CurrentSummary | null {
   return {
     version,
     language,
+    title: asNonEmptyString(value.title),
     tl_dr: asNonEmptyString(value.tl_dr),
     overview,
     keypoints,

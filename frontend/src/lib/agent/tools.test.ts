@@ -27,6 +27,7 @@ function setup(data = fixture(), options: Parameters<typeof createAgentTools>[2]
   const client = {
     read: vi.fn<TurnClient['read']>().mockResolvedValue(data), history: vi.fn<TurnClient['history']>(),
     submit: vi.fn<TurnClient['submit']>().mockResolvedValue({ taskId, waiting: true, status: 'pending' }),
+    requestSummaryLocale: vi.fn<TurnClient['requestSummaryLocale']>(),
     watch: vi.fn<TurnClient['watch']>().mockResolvedValue({ taskId, waiting: true, status: 'processing' }),
     finish: vi.fn<TurnClient['finish']>(),
   }
@@ -47,7 +48,7 @@ describe('shared Agent tool definitions', () => {
   it('exposes the same named business operations to both runtimes without model-supplied identity', () => {
     const { bundle } = setup()
     expect(Object.keys(bundle.tools)).toEqual(bundle.localTools.map(tool => tool.name))
-    expect(bundle.localTools.filter(tool => !tool.readOnly).map(tool => tool.name)).toEqual(['create_video_task', 'continue_when_ready'])
+    expect(bundle.localTools.filter(tool => !tool.readOnly).map(tool => tool.name)).toEqual(['create_video_task', 'request_summary_version', 'continue_when_ready'])
     const schemas = JSON.stringify(bundle.localTools.map(tool => tool.inputSchema))
     for (const field of ['userId', 'execution_token', turn.execution_token, 'runtimeConfig', 'threadId']) expect(schemas).not.toContain(field)
   })
@@ -65,6 +66,22 @@ describe('shared Agent tool definitions', () => {
     expect(bundle.localTools.map(tool => tool.name)).not.toContain('create_video_task')
   })
 
+  it('binds language versions to the current task and returns its localized detail link', async () => {
+    const { bundle, call, client } = setup(undefined, {}, { scope: 'source' })
+    client.requestSummaryLocale.mockResolvedValue({ taskId, locale: 'en', status: 'pending' })
+    await expect(call('request_summary_version', { taskId, locale: 'en' })).rejects.toThrow()
+    await expect(call('request_summary_version', { locale: 'fr' })).rejects.toThrow()
+    expect(client.requestSummaryLocale).not.toHaveBeenCalled()
+    expect(await call('request_summary_version', { locale: 'en' })).toEqual({
+      status: 'pending', locale: 'en', detailPath: '/zh/tasks/' + taskId + '?version=en',
+    })
+    expect(client.requestSummaryLocale).toHaveBeenCalledExactlyOnceWith(taskId, 'en')
+    expect(bundle.isWaiting()).toBe(false)
+    expect(client.submit).not.toHaveBeenCalled()
+    expect(client.watch).not.toHaveBeenCalled()
+    expect(createAgentTools({ ...turn, task_id: null }, client).tools).not.toHaveProperty('request_summary_version')
+  })
+
   it('validates strict inputs before executing business operations and always finishes progress', async () => {
     const onProgress = vi.fn()
     const { call, client } = setup(undefined, { onProgress })
@@ -79,7 +96,7 @@ describe('shared Agent tool definitions', () => {
   it('shares a 16-call budget across tools and does not execute the seventeenth call', async () => {
     const { call, client } = setup()
     for (let i = 0; i < 16; i++) await call('get_task_status', { taskId })
-    await expect(call('create_video_task', { videoUrl: 'https://youtu.be/fixture', locale: 'zh' })).resolves.toEqual({ error: expect.stringContaining('budget exhausted') })
+    await expect(call('create_video_task', { videoUrl: 'https://youtu.be/fixture', explicitLocale: 'zh' })).resolves.toEqual({ error: expect.stringContaining('budget exhausted') })
     expect(client.read).toHaveBeenCalledTimes(16)
     expect(client.submit).not.toHaveBeenCalled()
   })
@@ -275,7 +292,7 @@ describe('durable action receipts', () => {
     client.submit.mockRejectedValue(new AgentServiceError(402))
 
     await expect(call('create_video_task', {
-      videoUrl: 'https://youtu.be/fixture', locale: 'zh',
+      videoUrl: 'https://youtu.be/fixture', explicitLocale: 'zh',
     })).rejects.toMatchObject({ status: 402 })
     expect(bundle.quotaFailure()).toMatchObject({ status: 402 })
     expect(bundle.isWaiting()).toBe(false)
@@ -285,7 +302,7 @@ describe('durable action receipts', () => {
     const onPart = vi.fn()
     const { call, bundle, client } = setup(undefined, { onPart })
     expect(bundle.isWaiting()).toBe(false)
-    await call('create_video_task', { videoUrl: 'https://youtu.be/fixture', locale: 'en' })
+    await call('create_video_task', { videoUrl: 'https://youtu.be/fixture', explicitLocale: 'en' })
     expect(client.submit).toHaveBeenCalledWith('https://youtu.be/fixture', 'en')
     expect(bundle.isWaiting()).toBe(true)
     expect(bundle.taskParts).toEqual([{ type: 'data-task-status', id: 'task-status-' + taskId, data: { taskId, status: 'pending' } }])
@@ -304,7 +321,7 @@ describe('durable action receipts', () => {
     'does not manufacture a handoff from an unconfirmed response', async receipt => {
       const { call, client, bundle } = setup()
       client.submit.mockResolvedValue(receipt)
-      await call('create_video_task', { videoUrl: 'https://youtu.be/fixture', locale: 'zh' })
+      await call('create_video_task', { videoUrl: 'https://youtu.be/fixture', explicitLocale: 'zh' })
       expect(bundle.isWaiting()).toBe(false)
       expect(bundle.taskParts).toEqual([])
     },

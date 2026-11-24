@@ -88,10 +88,12 @@ async def test_handle_retry_output_script_success(mock_db_client, mock_summarize
         )
 
 @pytest.mark.asyncio
-async def test_handle_retry_output_summary_success(mock_db_client, mock_summarizer):
+@pytest.mark.parametrize("reuse_transcript", [False, True])
+async def test_handle_retry_output_summary_success(mock_db_client, mock_summarizer, reuse_transcript):
     mock_db_client.get_output.return_value = {
         "id": "out_2", "task_id": "task_1", "user_id": "u1", "kind": "summary"
     }
+    mock_db_client.get_output.return_value["intent"] = {"reuse_transcript": reuse_transcript}
     mock_db_client.get_task.return_value = {
         "video_title": "Video Title",
         "workload_kind": "user_submission",
@@ -120,6 +122,9 @@ async def test_handle_retry_output_summary_success(mock_db_client, mock_summariz
         
         await handle_retry_output("out_2", "u1")
         
+        if reuse_transcript:
+            mock_summarizer.optimize_transcript.assert_not_awaited()
+            assert mock_summarizer.summarize_in_language_with_anchors.await_args.args[0] == "Transcript Content"
         mock_summarizer.summarize_in_language_with_anchors.assert_called()
         mock_db_client.update_output_status.assert_any_call(
             "out_2", status="processing", progress=30, error=""

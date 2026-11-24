@@ -68,7 +68,7 @@ class SummaryEngine:
         Args:
             transcript: The transcript text to summarize
             target_language: Target language code
-            video_title: Optional video title (unused in V5)
+            video_title: Optional source title for the localized digest heading
             trace_metadata: Optional tracing metadata
 
         Returns:
@@ -84,6 +84,7 @@ class SummaryEngine:
         return await self._summarize_v5_dynamic(
             transcript,
             target_language,
+            video_title=video_title,
             trace_metadata=trace_metadata,
         )
 
@@ -91,6 +92,7 @@ class SummaryEngine:
         self,
         transcript: str,
         target_language: str,
+        video_title: Optional[str] = None,
         trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """V5 two-phase dynamic summary using structured output."""
@@ -140,6 +142,7 @@ class SummaryEngine:
             section_instructions=section_instructions,
         )
         phase2_user = SUMMARY_V5_PHASE2_USER.format(
+            video_title=video_title or "",
             content_form=plan_dict.get("content_form", "casual"),
             info_structure=plan_dict.get("info_structure", "thematic"),
             cognitive_goal=plan_dict.get("cognitive_goal", "digest"),

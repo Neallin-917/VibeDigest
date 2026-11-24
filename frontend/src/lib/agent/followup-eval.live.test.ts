@@ -94,6 +94,7 @@ describe.skipIf(!enabled)('local follow-up dataset execution (manual verdicts re
       content: [{ type: 'text', text: item.question }] }]
     const client: TurnClient = {
       history: vi.fn().mockResolvedValue({ messages }), read: vi.fn().mockResolvedValue(data),
+      requestSummaryLocale: vi.fn<TurnClient['requestSummaryLocale']>().mockRejectedValue(new Error('Fixture prohibits requesting language versions')),
       submit: vi.fn().mockRejectedValue(new Error('Fixture evaluation prohibits submission')),
       watch: vi.fn().mockRejectedValue(new Error('Fixture evaluation prohibits continuation')),
       finish: vi.fn().mockResolvedValue({ saved: true }),

@@ -126,22 +126,27 @@ describe('turn-scoped client', () => {
     await client.read('task-1', true)
     await client.history()
     await client.submit('https://youtu.be/example', 'en')
+    await client.submit('https://youtu.be/example')
+    await client.requestSummaryLocale('task-1', 'en')
     await client.watch('task-1')
     await client.finish([{ type: 'text', text: 'Answer' }], { model: 'fixture-smart' }, 'cancelled')
     const calls = fetchMock.mock.calls.map(args => {
       const [url, options] = args as [URL, RequestInit]
       return { path: url.pathname, payload: JSON.parse(String(options.body)) }
     })
-    expect(calls.map(call => call.path.split('/').at(-1))).toEqual(['read', 'read', 'history', 'submit', 'watch', 'finish'])
+    expect(calls.map(call => call.path.split('/').at(-1))).toEqual(['read', 'read', 'history', 'submit', 'submit', 'summary-locale', 'watch', 'finish'])
     for (const call of calls) {
       expect(call.path).toContain('/turns/' + turn.id + '/')
       expect(call.payload).toMatchObject({ userId: turn.user_id, token: turn.execution_token })
     }
     expect(calls[0].payload).toMatchObject({ includeSource: false, locale: 'zh' })
     expect(calls[1].payload).toMatchObject({ includeSource: true, locale: 'zh' })
-    expect(calls[3].payload).toMatchObject({ videoUrl: 'https://youtu.be/example', locale: 'en' })
-    expect(calls[4].payload).toMatchObject({ taskId: 'task-1', locale: 'zh' })
-    expect(calls[5].payload).toMatchObject({ parts: [{ type: 'text', text: 'Answer' }], errorCode: 'cancelled' })
+    expect(calls[3].payload).toMatchObject({ videoUrl: 'https://youtu.be/example', locale: 'zh', explicitLocale: 'en' })
+    expect(calls[4].payload).toMatchObject({ videoUrl: 'https://youtu.be/example', locale: 'zh' })
+    expect(calls[4].payload).not.toHaveProperty('explicitLocale')
+    expect(calls[5].payload).toMatchObject({ taskId: 'task-1', locale: 'en' })
+    expect(calls[6].payload).toMatchObject({ taskId: 'task-1', locale: 'zh' })
+    expect(calls[7].payload).toMatchObject({ parts: [{ type: 'text', text: 'Answer' }], errorCode: 'cancelled' })
   })
 
   it('cancels reads with the browser but keeps durable finish independent of it', async () => {

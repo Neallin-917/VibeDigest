@@ -85,6 +85,17 @@ class CancelCommand(Command):
 class SubmitCommand(TurnCommand):
     videoUrl: str = Field(min_length=1, max_length=4000)
     locale: Literal["zh", "en"]
+    explicitLocale: Literal["zh", "en"] | None = None
+
+
+class SummaryLocaleCommand(Command):
+    userId: UUID
+    taskId: UUID
+    locale: Literal["zh", "en"]
+
+
+class TurnSummaryLocaleCommand(SummaryLocaleCommand):
+    token: UUID
 
 
 class TaskCommand(TurnCommand):
@@ -201,8 +212,24 @@ def submit_video(turn_id: UUID, command: SubmitCommand, db: DB):
             token=str(command.token),
             video_url=command.videoUrl,
             locale=command.locale,
+            explicit_locale=command.explicitLocale,
         )
     )
+
+
+@router.post("/summary-locale")
+def ensure_interface_summary(command: SummaryLocaleCommand, db: DB):
+    return _execute(lambda: AgentTurns(db).request_summary_locale(
+        user_id=str(command.userId), task_id=str(command.taskId), locale=command.locale,
+    ))
+
+
+@router.post("/turns/{turn_id}/summary-locale")
+def request_summary_version(turn_id: UUID, command: TurnSummaryLocaleCommand, db: DB):
+    return _execute(lambda: AgentTurns(db).request_summary_locale(
+        user_id=str(command.userId), task_id=str(command.taskId), locale=command.locale,
+        turn_id=str(turn_id), token=str(command.token),
+    ))
 
 
 @router.post("/turns/{turn_id}/watch")

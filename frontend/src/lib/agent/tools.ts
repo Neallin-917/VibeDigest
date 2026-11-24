@@ -14,7 +14,12 @@ const taskInput = z.object({ taskId: z.uuid() }).strict()
 const MAX_TOOL_SEARCH_RESULTS = 8
 const searchInput = taskInput.extend({ query: z.string().trim().min(1).max(1000), limit: z.number().int().min(1).default(6) })
 const readInput = taskInput.extend({ segmentIds: z.array(z.string().min(1).max(100)).min(1).max(8) })
-const createInput = z.object({ videoUrl: z.url().max(4000), locale: z.enum(['zh', 'en']) }).strict()
+const supportedLocale = z.enum(['zh', 'en'])
+const createInput = z.object({
+  videoUrl: z.url().max(4000),
+  explicitLocale: supportedLocale.nullish().describe('Set only if the user explicitly chose the language of the digest. Omit or use null to use the UI language.'),
+}).strict()
+const versionInput = z.object({ locale: supportedLocale }).strict()
 
 export type SourceReference = { sourceId: string; url: string; title: string }
 
@@ -130,11 +135,19 @@ export function createAgentTools(
         return returnSegments(data, sourceContext(index, segmentIds), index)
       }),
   }
+  const boundTaskId = turn.task_id
   const actions = options.readOnly ? {} : {
     ...(turn.runtime_config.scope === 'source' ? {} : {
       create_video_task: define('create_video_task', 'Create one video task only when the user requests processing. Uses an atomic receipt; do not call for explanation-only or negated requests. The server validates the URL against user messages. Once accepted, stop: the Agent will continue after processing.', createInput,
-        async ({ videoUrl, locale }) => handoff(await client.submit(videoUrl, locale)), false),
+        async ({ videoUrl, explicitLocale }) => handoff(await client.submit(videoUrl, explicitLocale ?? undefined)), false),
     }),
+    ...(boundTaskId ? {
+      request_summary_version: define('request_summary_version', 'Save a complete English or Simplified Chinese digest on the current completed task. Use only when the user asks for a language version of the digest itself, never for a question or a translation of a chat reply. Return the provided detail link to the user.', versionInput,
+        async ({ locale }) => {
+          const { taskId, status } = await client.requestSummaryLocale(boundTaskId, locale)
+          return { status, locale, detailPath: `/${turn.runtime_config.locale}/tasks/${taskId}?version=${locale}` }
+        }, false),
+    } : {}),
     continue_when_ready: define('continue_when_ready', 'Continue the current user goal after a task finishes, without creating or retrying the video. Use for a revised goal while processing. Then stop and acknowledge the handoff.', taskInput,
       async ({ taskId }) => handoff(await client.watch(taskId)), false),
   }

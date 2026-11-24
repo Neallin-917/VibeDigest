@@ -250,6 +250,16 @@ describe("reading a private digest in the owner's preferred language", () => {
         expect(buildTaskReturnSuffix({ version: "fr" }, "zh")).toBe("")
     })
 
+    it("renders every saved keypoint in the owner's digest", async () => {
+        db.outputs = [{ kind: "summary", locale: "zh", status: "completed", content: {
+            version: 5, language: "zh", overview: "本期概览",
+            keypoints: Array.from({ length: 6 }, (_, index) => ({
+                title: `观点 ${index + 1}`, detail: `完整解释 ${index + 1}`, evidence: "Source evidence",
+            })),
+        } }]
+        expect(treeText(await page())).toContain("完整解释 6")
+    })
+
     it("prepares the interface language on open while offering the existing version", async () => {
         const result = await page()
         expect(versionStatus(result)).toBe("zh:request")

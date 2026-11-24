@@ -52,8 +52,11 @@ test.describe('Landing Page Acquisition Flow', () => {
         await expect(handoff.getByRole('link', { name: originalUrl })).toHaveAttribute('href', originalUrl)
 
         const retainedMessage = await page.evaluate(() => localStorage.getItem('vibedigest_pending_message'))
+        const next = new URL(page.url()).searchParams.get('next')
+        expect(next).toMatch(/^\/en\/chat\?threadId=[\da-f-]{36}$/)
         expect(JSON.parse(retainedMessage!)).toMatchObject({
-            version: 1, text: originalUrl, path: '/en/chat', scope: 'workspace',
+            version: 1, text: originalUrl, path: next, scope: 'workspace',
+            threadId: new URL(next!, page.url()).searchParams.get('threadId'),
         })
         expect(chatRequests).toEqual([])
 

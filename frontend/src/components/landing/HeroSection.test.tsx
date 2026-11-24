@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
     trackGrowthEvent: vi.fn(),
 }))
 
+const threadId = "306b6e50-5557-4556-befa-beda6ca9ddf6"
+vi.mock("uuid", () => ({ v4: () => threadId }))
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
     useRouter: () => ({ push: mocks.push }),
@@ -112,9 +115,9 @@ describe("HeroSection", () => {
         })
 
         expect(mocks.refetch).not.toHaveBeenCalled()
-        expect(matchingPendingHandoff(localStorage.getItem(PENDING_HANDOFF_KEY), { path: "/en/chat", scope: "workspace" }))
+        expect(matchingPendingHandoff(localStorage.getItem(PENDING_HANDOFF_KEY), { path: `/en/chat?threadId=${threadId}`, scope: "workspace", threadId }))
             .toBe("https://www.youtube.com/watch?v=test123")
-        expect(mocks.push).toHaveBeenCalledWith("/en/chat")
+        expect(mocks.push).toHaveBeenCalledWith(`/en/chat?threadId=${threadId}`)
         expect(mocks.trackGrowthEvent).toHaveBeenCalledWith("landing_agent_intent", {
             locale: "en",
             destination: "chat",
@@ -132,9 +135,9 @@ describe("HeroSection", () => {
             await mocks.submit?.(originalUrl)
         })
 
-        expect(matchingPendingHandoff(localStorage.getItem(PENDING_HANDOFF_KEY), { path: "/zh/chat", scope: "workspace" })).toBe(originalUrl)
+        expect(matchingPendingHandoff(localStorage.getItem(PENDING_HANDOFF_KEY), { path: `/zh/chat?threadId=${threadId}`, scope: "workspace", threadId })).toBe(originalUrl)
         expect(mocks.push).toHaveBeenCalledWith(
-            "/zh/login?next=%2Fzh%2Fchat",
+            `/zh/login?next=${encodeURIComponent(`/zh/chat?threadId=${threadId}`)}`,
         )
         expect(mocks.trackGrowthEvent).toHaveBeenCalledWith("landing_agent_intent", {
             locale: "zh",
@@ -154,7 +157,7 @@ describe("HeroSection", () => {
         })
 
         expect(mocks.refetch).toHaveBeenCalledTimes(1)
-        expect(mocks.push).toHaveBeenCalledWith("/en/chat")
+        expect(mocks.push).toHaveBeenCalledWith(`/en/chat?threadId=${threadId}`)
     })
 
     it.each([
@@ -181,6 +184,6 @@ describe("HeroSection", () => {
         expect(screen.queryByRole("alert")).not.toBeInTheDocument()
         expect(input).not.toHaveAttribute("aria-invalid")
         fireEvent.click(screen.getByRole("button", { name: "landing.createDigest" }))
-        await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/en/login?next=%2Fen%2Fchat"))
+        await waitFor(() => expect(mocks.push).toHaveBeenCalledWith(`/en/login?next=${encodeURIComponent(`/en/chat?threadId=${threadId}`)}`))
     })
 })

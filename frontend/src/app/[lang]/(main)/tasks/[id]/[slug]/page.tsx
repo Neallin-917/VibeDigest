@@ -326,7 +326,8 @@ export default async function TaskDetailPage(props: Props) {
     const hasSummary = Boolean(structuredSummary)
     const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200, contentLocale) : ""
     const leadSummary = structuredSummary?.tl_dr || structuredSummary?.overview || summaryExcerpt
-    const leadKeypoints = structuredSummary?.keypoints.slice(0, 3) ?? []
+    const keypoints = structuredSummary?.keypoints ?? []
+    const visibleKeypoints = ownerTask ? keypoints : keypoints.slice(0, 3)
     const visualBlocks = structuredSummary?.uiBlocks ?? []
     const title = task.video_title || copy.processedVideo
     const displayTitle = ((ownerTask && structuredSummary?.title) || title).replaceAll("—", "-")
@@ -393,9 +394,9 @@ export default async function TaskDetailPage(props: Props) {
 
     const readingItems = [
         { id: "task-summary-title", label: copy.summary },
-        ...(hasSummary && leadKeypoints.length > 0 ? [
+        ...(hasSummary && visibleKeypoints.length > 0 ? [
             { id: "task-key-ideas-title", label: copy.keyIdeas },
-            ...leadKeypoints.map((point, index) => ({ id: `task-idea-${index}`, label: point.title, depth: 1 })),
+            ...visibleKeypoints.slice(0, 3).map((point, index) => ({ id: `task-idea-${index}`, label: point.title, depth: 1 })),
         ] : []),
         { id: "task-follow-up", label: copy.followUp.title },
         ...(hasSummary && detailedSummaryMarkdown ? [{ id: "task-full-summary-title", label: copy.fullSummary }] : []),
@@ -512,13 +513,13 @@ export default async function TaskDetailPage(props: Props) {
                 </header>
                 <div className={readingStyles.sections}>
                     <article data-engagement-region className={cn("grid min-w-0 items-start gap-6 border-t border-border/70 pt-5", visualBlocks.length > 0 && "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-10")}>
-                        {hasSummary && leadKeypoints.length > 0 && (
+                        {hasSummary && visibleKeypoints.length > 0 && (
                             <section className="min-w-0 space-y-3" aria-labelledby="task-key-ideas-title">
                                 <Heading as="h2" variant="h2" id="task-key-ideas-title" className="scroll-mt-28">
                                     {copy.keyIdeas}
                                 </Heading>
                                 <ol className="divide-y divide-border/70">
-                                    {leadKeypoints.map((keypoint, index) => (
+                                    {visibleKeypoints.map((keypoint, index) => (
                                         <li
                                             key={`${keypoint.title}-${index}`}
                                             className="min-w-0"

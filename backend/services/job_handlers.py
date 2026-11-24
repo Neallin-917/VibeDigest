@@ -122,7 +122,7 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
     workload_kind = (task or {}).get("workload_kind") or WorkloadKind.USER_SUBMISSION
     # Catalog locales share the persisted transcript/evidence source. Rewriting
     # it for each missing language adds inference and can change source anchors.
-    if workload_kind != WorkloadKind.CATALOG_SUPPLY:
+    if workload_kind != WorkloadKind.CATALOG_SUPPLY and not (out.get("intent") or {}).get("reuse_transcript"):
         try:
             script_text = await summarizer.optimize_transcript(script_text)
         except Exception:

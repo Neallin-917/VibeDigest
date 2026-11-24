@@ -26,7 +26,7 @@ it.skipIf(process.env.RUN_LOCAL_AGENT_SMOKE !== '1' || Boolean(process.env.CI))(
     }
     const client: TurnClient = {
       history: vi.fn().mockResolvedValue({ messages: [{ id: 'smoke-user', role: 'user', created_at: new Date().toISOString(), content: [{ type: 'text', text: 'What batch size does this source recommend, and why? Verify against source evidence and cite its timestamp. Use one short sentence.' }] }] }),
-      read: vi.fn().mockResolvedValue(data), submit: vi.fn(), watch: vi.fn(), finish: vi.fn().mockResolvedValue({ saved: true }),
+      read: vi.fn().mockResolvedValue(data), submit: vi.fn(), requestSummaryLocale: vi.fn(), watch: vi.fn(), finish: vi.fn().mockResolvedValue({ saved: true }),
     }
     const deltas: string[] = []
     const result = await runTaskAgent(turn, client, { onText: delta => deltas.push(delta) })

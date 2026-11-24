@@ -100,6 +100,7 @@ class AgentTurns:
         token: str,
         video_url: str,
         locale: str,
+        explicit_locale: str | None = None,
         queue_name: str = "video_processing",
     ) -> dict[str, Any]:
         if not is_supported_content_url(video_url):
@@ -109,6 +110,8 @@ class AgentTurns:
             raise ValueError("Invalid video URL")
         # Personal goals belong to the private turn, not reusable public outputs.
         intent = build_output_intent(normalized, locale)
+        if explicit_locale is not None:
+            intent.update(target_locale=explicit_locale, locale_source="explicit_instruction")
         return self._call(
             "submit_agent_video_task",
             {
@@ -120,6 +123,16 @@ class AgentTurns:
                 "queue_name": queue_name,
             },
             {"turn_id": "uuid", "user_id": "uuid", "token": "uuid", "intent": "jsonb"},
+        )
+
+    def request_summary_locale(
+        self, *, user_id: str, task_id: str, locale: str,
+        turn_id: str | None = None, token: str | None = None,
+    ) -> dict[str, Any]:
+        return self._call(
+            "request_user_summary_locale",
+            {"user_id": user_id, "task_id": task_id, "locale": locale, "turn_id": turn_id, "token": token},
+            {"user_id": "uuid", "task_id": "uuid", "turn_id": "uuid", "token": "uuid"},
         )
 
     def watch(

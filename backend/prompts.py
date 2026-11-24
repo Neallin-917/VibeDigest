@@ -660,6 +660,7 @@ You must output this schema:
 {{
   "version": 5,
   "language": "{target_language}",
+  "title": string,              // Concise localized episode title faithful to the source
   "tl_dr": string,              // Ultra-concise 1-2 sentence takeaway
   "overview": string,           // Rich paragraph (150-250 words) with hook, thesis, flow, conclusion
   "keypoints": [                // 5-12 core insights (ALWAYS required)
@@ -735,6 +736,8 @@ PLANNED SECTIONS TO GENERATE: {planned_sections}
 """
 
 SUMMARY_V5_PHASE2_USER = """Generate the structured summary for this transcript.
+
+Source title: {video_title}
 
 Content Analysis:
 - Form: {content_form}

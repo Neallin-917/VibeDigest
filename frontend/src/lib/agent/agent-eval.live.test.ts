@@ -114,6 +114,7 @@ describe.skipIf(!enabled)('local Agent scenarios (manual model verdicts required
       content: [{ type: 'text', text: item.input.text }] })
     const client: TurnClient = {
       history: vi.fn().mockResolvedValue({ messages }), read: vi.fn().mockResolvedValue(data),
+      requestSummaryLocale: vi.fn<TurnClient['requestSummaryLocale']>().mockRejectedValue(new Error('Fixture prohibits requesting language versions')),
       submit: vi.fn().mockResolvedValue({ taskId, waiting: true, status: 'pending' }),
       watch: vi.fn().mockResolvedValue({ taskId, waiting: true, status: 'processing' }),
       finish: vi.fn().mockResolvedValue({ saved: true }),

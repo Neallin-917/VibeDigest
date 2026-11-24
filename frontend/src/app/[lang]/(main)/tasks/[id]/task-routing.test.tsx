@@ -227,3 +227,50 @@ describe("task reading navigation", () => {
         expect(items.map(item => item.id)).toEqual(["task-summary-title", "task-follow-up"])
     })
 })
+
+function versionStatus(node: unknown): string | undefined {
+    if (Array.isArray(node)) return node.map(versionStatus).find(Boolean)
+    if (!isValidElement<{ children?: unknown, target?: string, status?: string }>(node)) return
+    if (node.props.target && node.props.status) return `${node.props.target}:${node.props.status}`
+    return versionStatus(node.props.children)
+}
+
+describe("reading a private digest in the owner's preferred language", () => {
+    beforeEach(() => {
+        Object.assign(db.task!, { is_demo: false, workload_kind: "user_submission", publication_status: "private" })
+    })
+    const page = () => TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string), "zh"))
+
+    it("preserves an Agent version link through both canonical redirects", async () => {
+        const args = { ...props("old", "zh"), searchParams: Promise.resolve({ version: "en" }) }
+        const expected = `307:/zh/tasks/${id}/${buildTaskSlug(db.task!.video_title as string)}?version=en`
+        await expect(TaskRedirectPage(args)).rejects.toThrow(expected)
+        await expect(TaskDetailPage(args)).rejects.toThrow(expected)
+        expect(buildTaskReturnSuffix({ version: ["en", "zh"] }, "zh")).toBe("")
+        expect(buildTaskReturnSuffix({ version: "fr" }, "zh")).toBe("")
+    })
+
+    it("prepares the interface language on open while offering the existing version", async () => {
+        const result = await page()
+        expect(versionStatus(result)).toBe("zh:request")
+        expect(treeText(result)).toContain("打开英文版本")
+        const args = props(buildTaskSlug(db.task!.video_title as string), "zh")
+        const english = await TaskDetailPage({ ...args, searchParams: Promise.resolve({ ...state, version: "en" }) })
+        expect(versionStatus(english)).toBeUndefined()
+    })
+
+    it("shows the explicit original language until the owner requests another", async () => {
+        Object.assign(db.task!, { locale_source: "explicit_instruction", target_locale: "en" })
+        expect(versionStatus(await page())).toBeUndefined()
+        db.task!.preferred_summary_locale = "zh"
+        db.outputs.push({ kind: "summary", locale: "zh", status: "pending" })
+        expect(versionStatus(await page())).toBe("zh:waiting")
+    })
+
+    it("does not automatically retry failed versions or request one for public readers", async () => {
+        db.outputs.push({ kind: "summary", locale: "zh", status: "failed" })
+        expect(versionStatus(await page())).toBe("zh:unavailable")
+        db.task!.is_demo = true
+        expect(versionStatus(await page())).toBeUndefined()
+    })
+})

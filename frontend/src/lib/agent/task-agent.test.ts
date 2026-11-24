@@ -69,6 +69,7 @@ function clientFixture() {
     history: vi.fn<TurnClient['history']>().mockResolvedValue({ messages: [historyRow('user-1', 'user', [{ type: 'text', text: 'Explain tokenization with evidence.' }])] }),
     read: vi.fn<TurnClient['read']>().mockResolvedValue(sourceData),
     submit: vi.fn<TurnClient['submit']>().mockResolvedValue({ taskId, waiting: true, status: 'pending' }),
+    requestSummaryLocale: vi.fn<TurnClient['requestSummaryLocale']>(),
     watch: vi.fn<TurnClient['watch']>().mockResolvedValue({ taskId, waiting: true, status: 'processing' }),
     finish: vi.fn<TurnClient['finish']>().mockResolvedValue({ saved: true }),
   }
@@ -170,7 +171,7 @@ describe('hosted Agent execution with the real SDK tool loop', () => {
   })
 
   it('stops after an accepted action, without another model turn or an invented answer', async () => {
-    const model = modelFor([[toolEvent('create_video_task', { videoUrl: 'https://youtu.be/fixture', locale: 'en' })]])
+    const model = modelFor([[toolEvent('create_video_task', { videoUrl: 'https://youtu.be/fixture', explicitLocale: 'en' })]])
     const client = clientFixture()
     const result = await runTaskAgent(baseTurn, client)
     expect(model.doStreamCalls).toHaveLength(1)
@@ -251,6 +252,22 @@ describe('hosted Agent execution with the real SDK tool loop', () => {
     expect(model.doStreamCalls[0].tools?.map(tool => tool.name)).not.toContain('create_video_task')
     expect(JSON.stringify(model.doStreamCalls[0].prompt)).toContain('Scope: source.')
     expect(JSON.stringify(model.doStreamCalls[0].prompt)).toContain('Before answering source-related claims, obtain supporting evidence')
+  })
+
+  it('answers a whole-digest version request from the signed receipt without scheduling another video or answer', async () => {
+    const path = `/zh/tasks/${taskId}?version=zh`
+    const answer = `中文版正在准备中。[查看原任务](${path})`
+    const model = modelFor([[toolEvent('request_summary_version', { locale: 'zh' })], textEvents(answer)])
+    const client = clientFixture()
+    client.history.mockResolvedValue({ messages: [historyRow('user-1', 'user', [{ type: 'text', text: '这期给我一份中文版。' }])] })
+    client.requestSummaryLocale.mockResolvedValue({ taskId, locale: 'zh', status: 'processing' })
+    const result = await runTaskAgent({ ...baseTurn, runtime_config: { ...baseTurn.runtime_config, scope: 'source' } }, client)
+    expect(client.requestSummaryLocale).toHaveBeenCalledExactlyOnceWith(taskId, 'zh')
+    expect(JSON.stringify(model.doStreamCalls[1].prompt)).toContain(path)
+    expect(result.parts).toEqual([{ type: 'text', text: answer }])
+    expect(result.waiting).toBe(false)
+    expect(client.submit).not.toHaveBeenCalled()
+    expect(client.watch).not.toHaveBeenCalled()
   })
 
   it('preserves separate text blocks without exposing native tool stream parts', async () => {
@@ -344,7 +361,7 @@ describe('completion fencing and failures', () => {
   })
 
   it('accepts a fenced foreground acknowledgement when the task receipt is already durable', async () => {
-    modelFor([[toolEvent('create_video_task', { videoUrl: 'https://youtu.be/fixture', locale: 'zh' })]])
+    modelFor([[toolEvent('create_video_task', { videoUrl: 'https://youtu.be/fixture', explicitLocale: 'zh' })]])
     const client = clientFixture(); client.finish.mockResolvedValue({ saved: false })
     await expect(runTaskAgent(baseTurn, client)).resolves.toMatchObject({ waiting: true, saved: false })
     expect(client.finish).toHaveBeenCalledTimes(1)
@@ -368,7 +385,7 @@ describe('completion fencing and failures', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const model = modelFor([[toolEvent('create_video_task', {
-        videoUrl: 'https://youtu.be/fixture', locale: 'zh',
+        videoUrl: 'https://youtu.be/fixture', explicitLocale: 'zh',
       })]])
       const client = clientFixture()
       client.submit.mockRejectedValue(new AgentServiceError(402))
@@ -486,7 +503,7 @@ describe('official local Codex execution boundary', () => {
     expect(prompt).not.toContain(baseTurn.execution_token)
     expect(options).toMatchObject({ model: 'fixture-smart', reasoningEffort: 'high', instructions: expect.stringContaining('Current task: ' + taskId) })
     expect(options.instructions).toContain('Scope: workspace.')
-    expect(options.tools.map((tool: { name: string }) => tool.name)).toEqual(['get_task_status', 'get_task_context', 'search_source', 'read_source', 'create_video_task', 'continue_when_ready'])
+    expect(options.tools.map((tool: { name: string }) => tool.name)).toEqual(['get_task_status', 'get_task_context', 'search_source', 'read_source', 'create_video_task', 'request_summary_version', 'continue_when_ready'])
     expect(result.parts).toEqual([{ type: 'text', text: 'Local answer.' }])
     expect(result.metadata).toMatchObject({ runtime: 'codex_local', provider: 'codex_local', actualModel: 'fixture-local-actual', inputTokens: 10, outputTokens: 5, totalTokens: 15 })
     expect(onText.mock.calls).toEqual([['Local '], ['answer.']])

@@ -31,9 +31,11 @@ import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
 import { TaskContentDisclosure } from "@/components/tasks/TaskContentDisclosure"
 import { TaskReadingNav } from "@/components/tasks/TaskReadingNav"
 import readingStyles from "@/components/tasks/task-reading.module.css"
+import { explicitSummaryLocale, missingSummaryVersionStatus } from "@/lib/task-summary-version"
+import { TaskSummaryVersionStatus } from "@/components/tasks/TaskSummaryVersionStatus"
 import { TaskDetailRefresh } from "@/components/tasks/TaskDetailRefresh"
 import { parseLibraryReturnHref } from "@/lib/library-navigation"
-import { buildTaskReturnSuffix, getSingleSearchParam, THREAD_ID_PATTERN } from "@/lib/task-navigation"
+import { buildTaskReturnSuffix, getSingleSearchParam, THREAD_ID_PATTERN, type TaskReturnState } from "@/lib/task-navigation"
 import {
     buildPublicTaskJsonLd,
     buildPublicTaskMetadata,
@@ -50,12 +52,7 @@ type Props = {
         id: string
         slug: string
     }>
-    searchParams: Promise<{
-        from?: string | string[]
-        fromShow?: string | string[]
-        fromQuery?: string | string[]
-        threadId?: string | string[]
-    }>
+    searchParams: Promise<TaskReturnState>
 }
 
 function buildLibraryHref(locale: string, returnState: Awaited<Props["searchParams"]>) {
@@ -220,7 +217,7 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
     const [taskResult, outputsResult] = await Promise.all([
       supabase
         .from('tasks')
-        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, error_message, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags')
+        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, error_message, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags, workload_kind, guest_id, is_deleted, preferred_summary_locale:output_intent->>preferred_summary_locale, locale_source:output_intent->>locale_source, target_locale:output_intent->>target_locale')
         .eq('id', id)
         .maybeSingle(),
       supabase
@@ -308,18 +305,31 @@ export default async function TaskDetailPage(props: Props) {
         redirect(href)
     }
 
-    const summaryOutput = publicSummary.output
+    // RLS only exposes non-demo user submissions to their owner. Public digests
+    // always follow the route and the database's published-language projection.
+    const ownerTask = !task.is_demo && getOptionalValue(task, "guest_id") == null && getOptionalValue(task, "is_deleted") !== true
+        && getOptionalString(task, "workload_kind") === "user_submission"
+    const explicitLocale = explicitSummaryLocale(task)
+    const preview = getSingleSearchParam(returnState.version)
+    // The secondary "open existing version" link is a reading choice, not a generation request.
+    const previewExists = ownerTask && isLocale(preview) && (
+        outputs.some(output => output.locale === preview) || matchPublicSummaryOutput(outputs, preview).routeMatches
+    )
+    const previewLocale = previewExists ? preview : null
+    const contentLocale = ownerTask ? previewLocale ?? explicitLocale ?? locale : locale
+    const digest = ownerTask ? matchPublicSummaryOutput(outputs, contentLocale) : publicSummary
+    const summaryOutput = digest.output
     const detailedSummaryMarkdown = summaryOutput
-        ? buildDetailedSummaryMarkdownFromContent(summaryOutput.content, locale)
+        ? buildDetailedSummaryMarkdownFromContent(summaryOutput.content, contentLocale)
         : ""
-    const structuredSummary = publicSummary.summary
+    const structuredSummary = digest.summary
     const hasSummary = Boolean(structuredSummary)
-    const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200, locale) : ""
+    const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200, contentLocale) : ""
     const leadSummary = structuredSummary?.tl_dr || structuredSummary?.overview || summaryExcerpt
     const leadKeypoints = structuredSummary?.keypoints.slice(0, 3) ?? []
     const visualBlocks = structuredSummary?.uiBlocks ?? []
     const title = task.video_title || copy.processedVideo
-    const displayTitle = title.replaceAll("—", "-")
+    const displayTitle = ((ownerTask && structuredSummary?.title) || title).replaceAll("—", "-")
     const status = normalizeTaskStatus(task.status)
     const sourceFailure = /^(captions_unavailable|unsupported_source):/.exec(
         getOptionalString(task, "error_message")?.trim() ?? ""
@@ -356,10 +366,19 @@ export default async function TaskDetailPage(props: Props) {
         : null
     const summaryLanguageTag = resolveSummaryLanguageTag(structuredSummary?.language, locale)
     const evidenceLanguageTag = resolveEvidenceLanguageTag(getOptionalString(summaryOutput?.provenance, "transcript_language"))
-    const languageSwitchLocale = publicSummary.routeMatches ? null : publicSummary.alternativeLocale
-    const languageSwitchHref = languageSwitchLocale
-        ? `/${languageSwitchLocale}/tasks/${id}/${correctSlug}${buildTaskReturnSuffix(returnState, locale, languageSwitchLocale)}`
-        : ""
+    const versionStatus = ownerTask && status === "completed" && !hasSummary
+        ? missingSummaryVersionStatus(outputs, contentLocale, explicitLocale) : null
+    const languageSwitchLocale = digest.alternativeLocale
+    let languageSwitchHref = ""
+    if (languageSwitchLocale) {
+        if (ownerTask) {
+            const params = new URLSearchParams(buildTaskReturnSuffix(returnState, locale))
+            params.set("version", languageSwitchLocale)
+            languageSwitchHref = `/${locale}/tasks/${id}/${correctSlug}?${params}`
+        } else {
+            languageSwitchHref = `/${languageSwitchLocale}/tasks/${id}/${correctSlug}${buildTaskReturnSuffix(returnState, locale, languageSwitchLocale)}`
+        }
+    }
     const languageSwitchLabel = languageSwitchLocale
         ? getLocaleDisplayName(languageSwitchLocale, locale)
         : ""
@@ -456,17 +475,19 @@ export default async function TaskDetailPage(props: Props) {
                                         <p lang={summaryLanguageTag}>{leadSummary}</p>
                                     </TaskContentDisclosure>
                                     </div>
-                                ) : languageSwitchHref ? (
+                                ) : languageSwitchHref || versionStatus ? (
                                     <div className="max-w-[46rem] space-y-3">
-                                        <Text tone="muted">
-                                            {copy.summaryAvailableIn(languageSwitchLabel)}
-                                        </Text>
-                                        <Link
+                                        {versionStatus ? (
+                                            <TaskSummaryVersionStatus key={`${id}-${contentLocale}`} taskId={id} locale={locale} target={contentLocale} status={versionStatus} />
+                                        ) : (
+                                            <Text tone="muted">{copy.summaryAvailableIn(languageSwitchLabel)}</Text>
+                                        )}
+                                        {languageSwitchHref && <Link
                                             href={languageSwitchHref}
                                             className="inline-flex min-h-10 items-center rounded-full text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-foreground-soft dark:focus-visible:ring-ring dark:hover:text-foreground dark:hover:bg-accent"
                                         >
                                             {copy.switchToLanguage(languageSwitchLabel)}
-                                        </Link>
+                                        </Link>}
                                     </div>
                                 ) : (
                                     <Text tone="muted">

@@ -2,6 +2,7 @@ import { parseLibraryReturnHref } from "@/lib/library-navigation"
 import { localizePath } from "@/lib/locale-navigation"
 
 export type TaskReturnState = {
+    version?: string | string[]
     from?: string | string[]
     fromShow?: string | string[]
     fromQuery?: string | string[]
@@ -24,6 +25,8 @@ export function buildTaskReturnSuffix(returnState: TaskReturnState, locale: "en"
     if (/^[a-z0-9-]{1,64}$/.test(source)) params.set("fromShow", source)
     if (query) params.set("fromQuery", query.slice(0, 120))
     if (THREAD_ID_PATTERN.test(threadId)) params.set("threadId", threadId)
+    const version = getSingleSearchParam(returnState.version)
+    if (version === "en" || version === "zh") params.set("version", version)
     const search = params.toString()
     return search ? `?${search}` : ""
 }

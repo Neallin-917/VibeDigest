@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TaskDataGroup } from '../TaskDataGroup'
 import { LANDING_DEMO } from '@/lib/landing-demo'
@@ -19,6 +19,9 @@ const { mockSubscribeToTask, mockRemoveChannel, mockReadTaskOutputs } = vi.hoist
 const demoState = vi.hoisted(() => ({ enabled: false }))
 const i18nState = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' | 'ja' }))
 
+const router = { refresh: vi.fn() }
+vi.mock('next/navigation', () => ({ useRouter: () => router }))
+let notifyOutput: ((payload: unknown) => void) | undefined
 let taskOutputRows: Array<Record<string, unknown>> = []
 
 vi.mock('@/components/i18n/I18nProvider', () => ({
@@ -76,9 +79,10 @@ vi.mock('@/lib/supabase', () => ({
       }),
     }),
     channel: () => ({
-      on: () => ({
-        subscribe: () => ({}),
-      }),
+      on: (_event: string, _filter: unknown, listener: (payload: unknown) => void) => {
+        notifyOutput = listener
+        return { subscribe: () => ({}) }
+      },
     }),
     removeChannel: mockRemoveChannel,
   }),
@@ -102,11 +106,18 @@ function expectDigestTextVisible(text: string) {
 }
 
 describe('TaskDataGroup', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   beforeEach(() => {
+    notifyOutput = undefined
     taskOutputRows = []
     demoState.enabled = false
     i18nState.locale = 'en'
     vi.clearAllMocks()
+    mockSubscribeToTask.mockImplementation((id, listener) => {
+      listener({ id, status: 'completed', is_demo: false, guest_id: null, workload_kind: 'user_submission' })
+      return vi.fn()
+    })
   })
 
   it('does not fall back to the English landing digest when the route changes to Japanese', async () => {
@@ -118,9 +129,77 @@ describe('TaskDataGroup', () => {
     i18nState.locale = 'ja'
     rerender(<TaskDataGroup taskStatus={{ ...landingTaskStatus }} />)
     expect(screen.queryByText(english.tl_dr!)).not.toBeInTheDocument()
-    await waitFor(() => expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2))
+    expect(mockReadTaskOutputs).toHaveBeenCalledOnce()
     expect(screen.getByText('No summary available.')).toBeVisible()
     expect(screen.queryByText(english.overview)).not.toBeInTheDocument()
+  })
+
+  it('prepares the missing UI language once, then displays the committed version on the same card', async () => {
+    i18nState.locale = 'zh'
+    taskOutputRows = landingDemoSummaries.outputs.filter(output => output.content.language === 'en')
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    mockSubscribeToTask.mockImplementation((id, listener) => {
+      listener({ id, status: 'completed', workload_kind: 'user_submission', is_demo: false, guest_id: null })
+      return vi.fn()
+    })
+    render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: 'private-task' }} />)
+
+    expect(await screen.findByText('正在准备中文版…')).toBeVisible()
+    expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/private-task/summary-version', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ locale: 'zh' }),
+    }))
+    const english = matchPublicSummaryOutput(landingDemoSummaries.outputs, 'en').summary!
+    expect(screen.queryByText(english.tl_dr!)).not.toBeInTheDocument()
+
+    taskOutputRows = landingDemoSummaries.outputs
+    act(() => notifyOutput?.({ new: { kind: 'summary' } }))
+    expect(await screen.findByText(matchPublicSummaryOutput(landingDemoSummaries.outputs, 'zh').summary!.tl_dr!)).toBeVisible()
+    expect(post).toHaveBeenCalledTimes(1)
+  })
+
+  it('follows an explicit language change while the new version is still processing', async () => {
+    i18nState.locale = 'zh'
+    taskOutputRows = [
+      ...landingDemoSummaries.outputs.filter(output => output.content.language === 'en'),
+      { kind: 'summary', locale: 'zh', status: 'processing' },
+    ]
+    const fetchVersion = vi.fn()
+    vi.stubGlobal('fetch', fetchVersion)
+    const row = {
+      id: 'private-task', status: 'completed', workload_kind: 'user_submission', is_demo: false,
+      guest_id: null, output_intent: { locale_source: 'explicit_instruction', target_locale: 'en' },
+    }
+    let publishTask: ((row: Record<string, unknown>) => void) | undefined
+    mockSubscribeToTask.mockImplementation((_id, listener) => {
+      publishTask = listener
+      listener(row)
+      return vi.fn()
+    })
+    render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: row.id }} />)
+    expect(await screen.findByText(matchPublicSummaryOutput(landingDemoSummaries.outputs, 'en').summary!.tl_dr!)).toBeVisible()
+    act(() => publishTask?.({ ...row, output_intent: { ...row.output_intent, preferred_summary_locale: 'zh' } }))
+    expect(await screen.findByText('正在准备中文版…')).toBeVisible()
+    expect(screen.queryByText(matchPublicSummaryOutput(landingDemoSummaries.outputs, 'en').summary!.tl_dr!)).not.toBeInTheDocument()
+    taskOutputRows = landingDemoSummaries.outputs
+    act(() => notifyOutput?.({ new: { kind: 'summary' } }))
+    expect(await screen.findByText(matchPublicSummaryOutput(landingDemoSummaries.outputs, 'zh').summary!.tl_dr!)).toBeVisible()
+    expect(fetchVersion).not.toHaveBeenCalled()
+  })
+
+  it('keeps a public task without a matching language read-only', async () => {
+    i18nState.locale = 'zh'
+    taskOutputRows = landingDemoSummaries.outputs.filter(output => output.content.language === 'en')
+    const fetchVersion = vi.fn()
+    vi.stubGlobal('fetch', fetchVersion)
+    mockSubscribeToTask.mockImplementation((id, listener) => {
+      listener({ id, status: 'completed', is_demo: true, guest_id: null, workload_kind: 'user_submission' })
+      return vi.fn()
+    })
+    render(<TaskDataGroup live taskStatus={landingTaskStatus} />)
+    await waitFor(() => expect(mockReadTaskOutputs).toHaveBeenCalledOnce())
+    expect(screen.getByText('No summary available.')).toBeVisible()
+    expect(fetchVersion).not.toHaveBeenCalled()
   })
 
   it('renders the embedded player as soon as live video metadata arrives', async () => {

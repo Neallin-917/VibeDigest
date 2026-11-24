@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/I18nProvider"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { v4 as uuidv4 } from "uuid"
 import { cn } from "@/lib/utils"
 import { getSupportedUrlDetails } from "@/lib/urls"
 import { trackGrowthEvent } from "@/lib/growth-events"
@@ -29,9 +30,9 @@ export function HeroSection() {
         }
         setHasUrlError(false)
 
-        // Save message for handoff (works for both logged in and guest)
-        const chatPath = `/${locale}/chat`
-        savePendingHandoff(text, { path: chatPath, scope: 'workspace' })
+        const threadId = uuidv4()
+        const chatPath = `/${locale}/chat?threadId=${threadId}`
+        savePendingHandoff(text, { path: chatPath, scope: 'workspace', threadId })
 
         let user = currentUser
         if (isAccountPending) {

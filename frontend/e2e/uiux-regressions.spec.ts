@@ -58,7 +58,7 @@ test('Chinese hero keeps whole phrases and gives an inline recoverable URL error
   await expect(input).not.toHaveAttribute('aria-invalid', 'true')
   await page.getByRole('button', { name: '生成摘要', exact: true }).click()
   await expect(page).toHaveURL(/\/zh\/login\?next=/)
-  expect(new URL(page.url()).searchParams.get('next')).toBe('/zh/chat')
+  expect(new URL(page.url()).searchParams.get('next')).toMatch(/^\/zh\/chat\?threadId=[\da-f-]{36}$/)
   await page.screenshot({ path: `${outputDir}/login-handoff-zh-390.jpg`, type: 'jpeg' })
 })
 

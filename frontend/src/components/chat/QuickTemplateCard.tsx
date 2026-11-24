@@ -1,6 +1,6 @@
 'use client'
 
-import Image from 'next/image'
+import { CardThumbnail } from '@/components/templates/CardThumbnail'
 import { PlayCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChatExample } from '@/lib/chat-examples'
@@ -46,7 +46,7 @@ export function QuickTemplateCard({
       {/* Thumbnail */}
       <div className="relative aspect-video w-full overflow-hidden bg-surface-subtle">
         {task.thumbnail_url ? (
-          <Image
+          <CardThumbnail
             src={task.thumbnail_url}
             alt={task.video_title || t('tasks.videoThumbnailAlt')}
             fill

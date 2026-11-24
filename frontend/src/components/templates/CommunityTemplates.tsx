@@ -12,6 +12,7 @@ import { findPodcastSource, resolvePodcastSourceId, type PodcastSource } from "@
 import { buildTaskPath } from "@/lib/task-path"
 import { buildLibraryHref, libraryEpisodeAnchor, parseLibraryReturnHref } from "@/lib/library-navigation"
 import { cn } from "@/lib/utils"
+import { CardThumbnail } from "./CardThumbnail"
 import { TopicHubLinks } from "./TopicHubLinks"
 import { LANDING_PREVIEW_LIMIT, landingPreviewGrid, landingPreviewVisibility } from "./landingPreviewLayout"
 
@@ -281,7 +282,7 @@ function LandingEpisodeCard({ task, locale, copy }: { task: Task; locale: Locale
         >
             <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-surface-subtle sm:aspect-video">
                 {task.thumbnail_url && task.thumbnail_url !== failedThumbnail ? (
-                    <Image
+                    <CardThumbnail
                         src={task.thumbnail_url}
                         alt=""
                         fill
@@ -577,7 +578,7 @@ function CompactEpisodeRow({
             >
                 <div className="relative overflow-hidden bg-muted">
                     {task.thumbnail_url ? (
-                        <Image
+                        <CardThumbnail
                             src={task.thumbnail_url}
                             alt={title}
                             fill

@@ -212,39 +212,22 @@ const getTaskAndOutputs = cache(async (id: string, lang: string) => {
 
     const supabase = await createClient()
 
-    // Both reads use the same user-scoped client and RLS. Outputs depend only on
-    // the route ID, so avoid waiting for the task round trip before requesting them.
-    const [taskResult, outputsResult] = await Promise.all([
-      supabase
+    // A left embed preserves accessible tasks that have no summary yet.
+    // Both the parent record and its outputs remain subject to the reader's RLS.
+    const { data, error } = await supabase
         .from('tasks')
-        .select('id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, error_message, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags, workload_kind, guest_id, is_deleted, preferred_summary_locale:output_intent->>preferred_summary_locale, locale_source:output_intent->>locale_source, target_locale:output_intent->>target_locale')
+        .select(`id, video_title, video_url, thumbnail_url, author, author_url, duration, upload_date, status, error_message, is_demo, publication_status, podcast_source_slug, published_at, updated_at, public_quality_flags, workload_kind, guest_id, is_deleted, preferred_summary_locale:output_intent->>preferred_summary_locale, locale_source:output_intent->>locale_source, target_locale:output_intent->>target_locale,
+            task_outputs(kind, content, status, locale, created_at, updated_at, provenance)`)
         .eq('id', id)
-        .maybeSingle(),
-      supabase
-        .from('task_outputs')
-        .select('kind, content, status, locale, created_at, updated_at, provenance')
-        .eq('task_id', id)
-        .eq('kind', 'summary')
-        .order('created_at', { ascending: false }),
-    ])
-    const { data: task, error: taskError } = taskResult
+        .eq('task_outputs.kind', 'summary')
+        .order('created_at', { referencedTable: 'task_outputs', ascending: false })
+        .maybeSingle()
 
-    if (taskError) {
-        throw new Error("Failed to load task details", { cause: taskError })
-    }
+    if (error) throw new Error("Failed to load task details", { cause: error })
+    if (!data) return { task: null, outputs: [] }
 
-    // A missing/inaccessible task must not expose independently returned outputs.
-    let outputs: TaskOutput[] = []
-    if (task) {
-        const { data, error: outputsError } = outputsResult
-
-        if (outputsError) {
-            throw new Error("Failed to load task outputs", { cause: outputsError })
-        }
-        outputs = data || []
-    }
-
-    return { task, outputs }
+    const { task_outputs, ...task } = data
+    return { task, outputs: task_outputs as TaskOutput[] }
 })
 
 export async function generateMetadata(props: Props): Promise<Metadata> {

@@ -322,6 +322,18 @@ describe("CommunityTemplates", () => {
     expect(search).toHaveValue("agents")
   })
 
+  it.each([
+    ["?page=2.5", "all", "", 2],
+    ["?show=%20latent-space%20", "latent-space", "", 1],
+    ["?page=2&page=3&show=a16z&show=latent-space&q=a&q=e", "all", "", 1],
+    ["?page=99&q=%20agents%20", "all", "agents", 20],
+  ] as const)("keeps settled direct-entry results interactive for %s", (search, initialSource, initialQuery, currentPage) => {
+    window.history.replaceState({}, "", `/en/explore${search}`)
+    renderGallery({ initialSource, initialQuery, currentPage })
+    expect(document.getElementById("podcast-curated")).not.toHaveAttribute("inert")
+    expect(screen.queryByText("Loading results…")).not.toBeInTheDocument()
+  })
+
   it("disables stale results only until the history filters and page arrive", () => {
     window.history.replaceState({}, "", "/en/explore?show=latent-space&q=e")
     const view = renderGallery({ initialSource: "latent-space", initialQuery: "e" })

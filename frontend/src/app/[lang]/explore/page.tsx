@@ -1,3 +1,4 @@
+import { readLibraryParams } from "@/lib/library-navigation"
 
 import { ServerCommunityTemplates } from "@/components/templates/ServerCommunityTemplates"
 import { Suspense } from 'react'
@@ -78,9 +79,7 @@ export default async function ExplorePage({
     const [{ lang }, queryState] = await Promise.all([params, searchParams])
     const locale = isLocale(lang) ? lang : DEFAULT_LOCALE
     const copy = EXPLORE_COPY[locale]
-    const initialSource = typeof queryState.show === "string" ? queryState.show : "all"
-    const initialQuery = typeof queryState.q === "string" ? queryState.q.slice(0, 120) : ""
-    const initialPage = typeof queryState.page === "string" ? Number.parseInt(queryState.page, 10) : 1
+    const { source: initialSource, query: initialQuery, page: initialPage } = readLibraryParams(queryState)
 
     return (
         <div className="min-h-screen bg-transparent font-sans text-slate-800 dark:text-[#F5F5F5]">
@@ -98,7 +97,7 @@ export default async function ExplorePage({
                         intro={copy}
                         initialSource={initialSource}
                         initialQuery={initialQuery}
-                        page={Number.isFinite(initialPage) ? initialPage : 1}
+                        page={initialPage}
                     />
                 </Suspense>
             </main>

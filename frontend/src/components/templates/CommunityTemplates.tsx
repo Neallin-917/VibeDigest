@@ -11,7 +11,7 @@ import { getLocaleDisplayName, type Locale } from "@/lib/i18n"
 import { trackGrowthEvent } from "@/lib/growth-events"
 import { findPodcastSource, resolvePodcastSourceId, type PodcastSource } from "@/lib/podcast-sources"
 import { buildTaskPath } from "@/lib/task-path"
-import { buildLibraryHref, libraryEpisodeAnchor, parseLibraryReturnHref } from "@/lib/library-navigation"
+import { buildLibraryHref, libraryEpisodeAnchor, parseLibraryReturnHref, readLibraryParams } from "@/lib/library-navigation"
 import { cn } from "@/lib/utils"
 import { CardThumbnail } from "./CardThumbnail"
 import { TopicHubLinks } from "./TopicHubLinks"
@@ -189,8 +189,8 @@ const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
 
 function currentLibraryHref() {
     const { pathname, search } = window.location
-    const params = new URLSearchParams(search)
-    return buildLibraryHref(pathname, params.get("show") || "all", params.get("q") || "", Number(params.get("page")) || 1)
+    const { source, query, page } = readLibraryParams(new URLSearchParams(search))
+    return buildLibraryHref(pathname, source, query, page)
 }
 
 function taskDetailHref(task: Task, locale: Locale, returnHref?: string) {
@@ -753,9 +753,8 @@ export function CommunityTemplates({
             if (searchTimer.current !== null) window.clearTimeout(searchTimer.current)
             searchTimer.current = null
             const params = new URLSearchParams(window.location.search)
-            const historyQuery = params.get("q")?.slice(0, 120) || ""
-            const historySource = params.get("show") || "all"
-            const historyHref = buildLibraryHref(window.location.pathname, historySource, historyQuery, Number(params.get("page")) || 1)
+            const { source: historySource, query: historyQuery, page } = readLibraryParams(params)
+            const historyHref = buildLibraryHref(window.location.pathname, historySource, historyQuery, page)
             setQueryInput((current) => ({
                 observedHref: current.observedHref,
                 activePath: window.location.pathname,

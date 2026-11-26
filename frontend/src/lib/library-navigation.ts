@@ -1,6 +1,23 @@
 import { isLocale, type Locale } from "@/lib/i18n"
 import { isPodcastTopic } from "@/lib/topic-hubs"
 
+type LibraryParams = { show?: string | string[]; q?: string | string[]; page?: string | string[] }
+
+export function readLibraryParams(params: LibraryParams | URLSearchParams) {
+  function single(key: keyof LibraryParams) {
+    const value = params instanceof URLSearchParams ? params.getAll(key) : params[key]
+    if (typeof value === "string") return value
+    return value?.length === 1 ? value[0] : ""
+  }
+  const show = single("show").trim()
+  const page = Number.parseInt(single("page"), 10)
+  return {
+    source: /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(show) ? show : "all",
+    query: single("q").slice(0, 120).trim(),
+    page: Number.isFinite(page) ? Math.max(1, Math.min(page, 20)) : 1,
+  }
+}
+
 export function buildLibraryHref(pathname: string, sourceId: string, query: string, page: number) {
   const params = new URLSearchParams()
   if (sourceId !== "all" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(sourceId)) params.set("show", sourceId)

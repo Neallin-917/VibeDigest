@@ -59,7 +59,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
 vi.mock('@/lib/task-live', async importOriginal => ({
   ...await importOriginal<typeof import('@/lib/task-live')>(),
   readSubscribedTask: mockReadSubscribedTask,
-  subscribeToTask: mockSubscribeToTask,
+  subscribeToTask: (...[id, onRow, onCheck]: Parameters<typeof import('@/lib/task-live').subscribeToTask>) =>
+    mockSubscribeToTask(id, (row: Record<string, unknown>, checked = true) => onRow(row, checked), onCheck),
 }))
 
 vi.mock('@/lib/growth-events', () => growth)
@@ -374,6 +375,67 @@ describe('TaskDataGroup', () => {
         expect(document.activeElement?.tagName).toBe('H3')
       }
     }
+  })
+
+  it.each(['changed', 'unchanged', 'existing', 'denied'])('checks a provisional preference only before automatic generation (%s)', async outcome => {
+    let publish!: (row: Record<string, unknown>, checked: boolean) => void
+    let check!: (status: 'failed' | 'unavailable' | undefined) => void
+    const row = { id: 'provisional', status: 'completed', is_demo: false, guest_id: null, workload_kind: 'user_submission' }
+    mockSubscribeToTask.mockImplementation((_id, listener, onCheck) => {
+      publish = listener
+      check = onCheck
+      publish(row, false)
+      return vi.fn()
+    })
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    taskOutputRows = outcome === 'existing' ? existing.data : existing.data.filter(item => item.content.language === 'zh')
+    render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: row.id }} />)
+    if (outcome === 'existing') {
+      expect(await screen.findByText(overview)).toBeVisible()
+      expect(mockReadSubscribedTask).not.toHaveBeenCalled()
+    } else {
+      await waitFor(() => expect(mockReadSubscribedTask).toHaveBeenCalledExactlyOnceWith(row.id, 'en'))
+      expect(post).not.toHaveBeenCalled()
+      expect(screen.getByText('Checking task details…')).toBeVisible()
+      if (outcome === 'changed') {
+        act(() => check('failed'))
+        const retry = screen.getByRole('button', { name: 'Check again' })
+        act(() => { retry.focus(); retry.click() })
+        act(() => publish({ ...row, output_intent: { preferred_summary_locale: 'zh' } }, true))
+        expect(document.activeElement?.tagName).toBe('H3')
+        expect(screen.getByText(matchPublicSummaryOutput(existing.data, 'zh').summary!.overview)).toBeVisible()
+      } else if (outcome === 'unchanged') {
+        act(() => publish(row, true))
+        await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/provisional/summary-version',
+          expect.objectContaining({ method: 'POST', body: JSON.stringify({ locale: 'en' }) })))
+      } else {
+        act(() => check('unavailable'))
+        expect(screen.getByText('This version is currently unavailable.')).toBeVisible()
+        expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
+      }
+    }
+    if (outcome !== 'unchanged') expect(post).not.toHaveBeenCalled()
+    expect(mockReadTaskOutputs).toHaveBeenCalledOnce()
+  })
+
+  it('keeps an in-flight preference check scoped to the interface language that requested it', async () => {
+    let publish!: (row: Record<string, unknown>, checked: boolean | 'en' | 'zh') => void
+    const row = { id: 'switch-before-join', status: 'completed', is_demo: false, guest_id: null, workload_kind: 'user_submission' }
+    mockSubscribeToTask.mockImplementation((_id, listener) => { publish = listener; publish(row, false); return vi.fn() })
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    const props = { ...landingTaskStatus, taskId: row.id }
+    const { rerender } = render(<TaskDataGroup live taskStatus={props} />)
+    await waitFor(() => expect(mockReadSubscribedTask).toHaveBeenCalledWith(row.id, 'en'))
+    i18nState.locale = 'zh'
+    rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    act(() => publish(row, 'en'))
+    expect(mockReadSubscribedTask).toHaveBeenLastCalledWith(row.id, 'zh')
+    expect(post).not.toHaveBeenCalled()
+    act(() => publish(row, 'zh'))
+    await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/switch-before-join/summary-version',
+      expect.objectContaining({ body: JSON.stringify({ locale: 'zh' }) })))
   })
 
   it.each(['available', 'missing', 'denied'])('checks a failed language read on demand without a subscription update (%s)', async outcome => {

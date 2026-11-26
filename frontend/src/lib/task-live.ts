@@ -1,16 +1,20 @@
 import type { RealtimeChannel, RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js'
 
 import { createClient } from '@/lib/supabase'
+import type { Locale } from '@/lib/i18n'
 
+// true is a subscription-backed row; a locale marks an on-demand check for that target.
+export type TaskPreferenceCheck = boolean | Locale
 type TaskRow = Record<string, unknown>
-type TaskListener = (task: TaskRow) => void
-export type TaskReadCheck = 'failed' | 'rechecking' | undefined
+type TaskListener = (task: TaskRow, preferenceChecked: TaskPreferenceCheck) => void
+export type TaskReadCheck = 'failed' | 'rechecking' | 'unavailable' | undefined
 
 type TaskEntry = {
   channel: RealtimeChannel
   listeners: Map<number, { onRow: TaskListener; onCheck?: (check: TaskReadCheck) => void }>
   readCheck: TaskReadCheck
   snapshot: TaskRow | null
+  preferenceChecked: TaskPreferenceCheck
   pendingRead: { promise: Promise<number>; finish: (result: number | Promise<number>) => void } | null
 }
 
@@ -21,13 +25,14 @@ function isTaskRow(value: unknown): value is TaskRow {
   return typeof value === 'object' && value !== null
 }
 
-function publishTask(entry: TaskEntry, row: TaskRow) {
+function publishTask(entry: TaskEntry, row: TaskRow, preferenceChecked: TaskPreferenceCheck) {
   const previousTime = Date.parse(String(entry.snapshot?.updated_at ?? ''))
   const nextTime = Date.parse(String(row.updated_at ?? ''))
   if (Number.isFinite(previousTime) && Number.isFinite(nextTime) && nextTime < previousTime) return
   entry.snapshot = row
+  entry.preferenceChecked = preferenceChecked
   updateReadCheck(entry, undefined)
-  entry.listeners.forEach(({ onRow }) => onRow(row))
+  entry.listeners.forEach(({ onRow }) => onRow(row, preferenceChecked))
 }
 
 export function transientReadFailure(status: number) {
@@ -48,10 +53,10 @@ async function readTaskRow(taskId: string) {
   }
 }
 
-async function primeTask(taskId: string, entry: TaskEntry, afterConnect = false) {
+async function primeTask(taskId: string, entry: TaskEntry, reason: 'initial' | 'connected' | Locale = 'initial') {
   const previous = entry.pendingRead
-  if (!afterConnect && previous) return previous.promise
-  if (!afterConnect && entry.snapshot) return 200
+  if (reason !== 'connected' && previous) return previous.promise
+  if (entry.snapshot && (reason === 'initial' || (reason !== 'connected' && (entry.preferenceChecked === true || entry.preferenceChecked === reason)))) return 200
   if (entry.readCheck === 'failed') updateReadCheck(entry, 'rechecking')
 
   let finish!: (result: number | Promise<number>) => void
@@ -65,10 +70,14 @@ async function primeTask(taskId: string, entry: TaskEntry, afterConnect = false)
     if (entry.pendingRead !== read) return
     entry.pendingRead = null
     if (isTaskRow(data)) {
-      publishTask(entry, data)
+      const preferenceChecked = reason === 'initial' ? false : reason === 'connected' ? true : reason
+      publishTask(entry, data, preferenceChecked)
       finish(200)
     } else {
       if (!entry.snapshot) updateReadCheck(entry, transientReadFailure(status) ? 'failed' : undefined)
+      else if (!entry.preferenceChecked && reason !== 'initial') {
+        updateReadCheck(entry, transientReadFailure(status) ? 'failed' : 'unavailable')
+      }
       finish(status === 200 ? 404 : status)
     }
   })
@@ -90,13 +99,14 @@ function createTaskEntry(taskId: string): TaskEntry {
         },
         (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
           if (isTaskRow(payload.new)) {
-            publishTask(entry, payload.new)
+            publishTask(entry, payload.new, true)
           }
         }
       ),
     listeners: new Map(),
     readCheck: undefined,
     snapshot: null,
+    preferenceChecked: false,
     pendingRead: null,
   }
 
@@ -108,15 +118,15 @@ function createTaskEntry(taskId: string): TaskEntry {
     }
     if (connected || entry.listeners.size === 0) return
     connected = true
-    void primeTask(taskId, entry, true)
+    void primeTask(taskId, entry, 'connected')
   })
 
   return entry
 }
 
-export function readSubscribedTask(taskId: string) {
+export function readSubscribedTask(taskId: string, reason: 'initial' | Locale = 'initial') {
   const entry = taskEntries.get(taskId)
-  return entry ? primeTask(taskId, entry) : Promise.resolve(404)
+  return entry ? primeTask(taskId, entry, reason) : Promise.resolve(404)
 }
 
 export function subscribeToTask(taskId: string, listener: TaskListener, onCheck?: (check: TaskReadCheck) => void) {
@@ -131,7 +141,7 @@ export function subscribeToTask(taskId: string, listener: TaskListener, onCheck?
   onCheck?.(entry.readCheck)
 
   if (entry.snapshot) {
-    listener(entry.snapshot)
+    listener(entry.snapshot, entry.preferenceChecked)
   } else {
     void primeTask(taskId, entry)
   }

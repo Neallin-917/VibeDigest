@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -79,6 +80,7 @@ type PodcastCopy = {
     clearFilters: string
     loadMore: string
     keyPointUnit: string
+    loadingResults: string
     resultCount: string
     languageAvailable: (language: string) => string
 }
@@ -96,6 +98,7 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         clearFilters: "Clear filters",
         loadMore: "Load more",
         keyPointUnit: "key points",
+        loadingResults: "Loading results…",
         resultCount: "digests ready",
         languageAvailable: (language) => `Digest available in ${language}.`,
     },
@@ -111,6 +114,7 @@ const PODCAST_COPY: Record<Locale, PodcastCopy> = {
         clearFilters: "清除筛选",
         loadMore: "加载更多",
         keyPointUnit: "个关键观点",
+        loadingResults: "正在加载结果…",
         resultCount: "条已整理内容",
         languageAvailable: (language) => `该整理当前提供${language}版本。`,
     },
@@ -182,6 +186,12 @@ const episodeFooterVariants = cva("flex items-center justify-between gap-3", {
         role: "standard",
     },
 })
+
+function currentLibraryHref() {
+    const { pathname, search } = window.location
+    const params = new URLSearchParams(search)
+    return buildLibraryHref(pathname, params.get("show") || "all", params.get("q") || "", Number(params.get("page")) || 1)
+}
 
 function taskDetailHref(task: Task, locale: Locale, returnHref?: string) {
     const returnState = new URLSearchParams()
@@ -321,7 +331,7 @@ function EpisodeFeatureCard({
     locale: Locale
     copy: PodcastCopy
     returnHref?: string
-    onNavigate?: (taskId: string) => void
+    onNavigate?: (taskId: string, event: { preventDefault: () => void }) => void
     priority?: boolean
     role?: EpisodeCardRole
     sizes?: string
@@ -374,7 +384,7 @@ function EpisodeFeatureCard({
                 </div>
                 <Link
                     href={href}
-                    onNavigate={() => onNavigate?.(task.id)}
+                    onNavigate={(event) => onNavigate?.(task.id, event)}
                     aria-label={`${copy.read}: ${title}`}
                     onClick={() => trackGrowthEvent("library_digest_open", {
                         locale,
@@ -461,7 +471,7 @@ function PodcastFeatureGrid({
     locale: Locale
     copy: PodcastCopy
     returnHref?: string
-    onNavigate?: (taskId: string) => void
+    onNavigate?: (taskId: string, event: { preventDefault: () => void }) => void
 }) {
     if (tasks.length < 5) {
         const role: EpisodeCardRole = tasks.length === 1 ? "solo" : "standard"
@@ -555,7 +565,7 @@ function CompactEpisodeRow({
     task: Task
     locale: Locale
     returnHref?: string
-    onNavigate?: (taskId: string) => void
+    onNavigate?: (taskId: string, event: { preventDefault: () => void }) => void
 }) {
     const source = sourceForTask(task)
     if (!source) return null
@@ -568,7 +578,7 @@ function CompactEpisodeRow({
         <article id={libraryEpisodeAnchor(task.id)} className="w-full min-w-0 border border-border bg-card/80 [content-visibility:auto] [contain-intrinsic-block-size:auto_9rem]">
             <Link
                 href={href}
-                onNavigate={() => onNavigate?.(task.id)}
+                onNavigate={(event) => onNavigate?.(task.id, event)}
                 onClick={() => trackGrowthEvent("library_digest_open", {
                     locale,
                     source: source.id,
@@ -669,6 +679,8 @@ export function CommunityTemplates({
         })
     }
     const queryDraft = queryInput.draft
+    const [browserHref, setBrowserHref] = useState(initialHref)
+    const waitingForResults = browserHref !== initialHref
     const podcastCopy = PODCAST_COPY[locale]
     const selectedSource = queryInput.activeSource
     const query = initialQuery.slice(0, 120)
@@ -676,7 +688,14 @@ export function CommunityTemplates({
     const featuredTasks = initialTasks.slice(0, FEATURED_COUNT)
     const feedTasks = initialTasks.slice(FEATURED_COUNT)
 
-    function openDigest(taskId: string) {
+    function openDigest(taskId: string, event: { preventDefault: () => void }) {
+        // History can update before React commits the matching results.
+        const actualHref = currentLibraryHref()
+        if (actualHref !== initialHref) {
+            event.preventDefault()
+            setBrowserHref(actualHref)
+            return
+        }
         const entry = new URL(window.location.href)
         entry.hash = libraryEpisodeAnchor(taskId)
         window.history.replaceState(window.history.state, "", entry)
@@ -702,6 +721,16 @@ export function CommunityTemplates({
             lastSubmitted: href,
         }))
     }
+
+    useLayoutEffect(() => {
+        if (layout !== "gallery") return
+        const sync = () => setBrowserHref(currentLibraryHref())
+        sync()
+        // A history traversal exposes the new address before its RSC payload arrives.
+        const onHistory = () => flushSync(sync)
+        window.addEventListener("popstate", onHistory, true)
+        return () => window.removeEventListener("popstate", onHistory, true)
+    }, [layout, initialHref])
 
     useEffect(() => {
         if (layout !== "gallery" || !/^#episode-[a-zA-Z0-9_-]+$/.test(window.location.hash)) return
@@ -832,6 +861,7 @@ export function CommunityTemplates({
                     onNavigate={prepareLibraryNavigation}
                     className="min-w-0 flex-1"
                 />
+                {waitingForResults && <span role="status" className="text-sm text-muted-foreground">{podcastCopy.loadingResults}</span>}
                 <div id="podcast-sources" className="shrink-0 lg:max-w-64">
                     <label htmlFor="podcast-source-select" className="sr-only">{podcastCopy.sourceShelf}</label>
                     <select
@@ -855,7 +885,7 @@ export function CommunityTemplates({
             </div>
 
             {featuredTasks.length > 0 ? (
-                <section id="podcast-curated" aria-labelledby="podcast-curated-heading" className="scroll-mt-24 space-y-4">
+                <section id="podcast-curated" inert={waitingForResults} aria-busy={waitingForResults} aria-labelledby="podcast-curated-heading" className="scroll-mt-24 space-y-4">
                     <div className="flex items-center justify-between gap-4">
                         <h2 id="podcast-curated-heading" className="text-sm font-medium text-muted-foreground">{totalCount} {podcastCopy.resultCount}</h2>
                         {(selectedSource !== "all" || query) ? (
@@ -879,7 +909,7 @@ export function CommunityTemplates({
                     />
                 </section>
             ) : (
-                <section className="border border-dashed border-border-strong px-5 py-10 text-center">
+                <section inert={waitingForResults} aria-busy={waitingForResults} className="border border-dashed border-border-strong px-5 py-10 text-center">
                     <p className="text-sm text-muted-foreground" role="status">{podcastCopy.empty}</p>
                     {(selectedSource !== "all" || query) ? (
                         <Link
@@ -895,7 +925,7 @@ export function CommunityTemplates({
             )}
 
             {feedTasks.length > 0 ? (
-                <section id="podcast-feed" aria-labelledby="podcast-feed-heading" className="scroll-mt-24 space-y-4">
+                <section id="podcast-feed" inert={waitingForResults} aria-busy={waitingForResults} aria-labelledby="podcast-feed-heading" className="scroll-mt-24 space-y-4">
                     <h2 id="podcast-feed-heading" className="text-lg font-semibold text-foreground">{podcastCopy.recent}</h2>
                     <div className="grid min-w-0 gap-px bg-border lg:grid-cols-2">
                         {feedTasks.map((task) => (

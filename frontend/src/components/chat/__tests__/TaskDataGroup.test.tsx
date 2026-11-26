@@ -10,7 +10,8 @@ import { createTranslator } from '@/lib/i18n'
 
 const growth = vi.hoisted(() => ({ trackGrowthEvent: vi.fn() }))
 
-const { mockSubscribeToTask, mockRemoveChannel, mockReadTaskOutputs } = vi.hoisted(() => ({
+const { mockReadSubscribedTask, mockSubscribeToTask, mockRemoveChannel, mockReadTaskOutputs } = vi.hoisted(() => ({
+  mockReadSubscribedTask: vi.fn(),
   mockSubscribeToTask: vi.fn(),
   mockRemoveChannel: vi.fn(),
   mockReadTaskOutputs: vi.fn(),
@@ -56,6 +57,7 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
 }))
 
 vi.mock('@/lib/task-live', () => ({
+  readSubscribedTask: mockReadSubscribedTask,
   subscribeToTask: mockSubscribeToTask,
 }))
 
@@ -269,6 +271,55 @@ describe('TaskDataGroup', () => {
     expect(mockReadTaskOutputs).toHaveBeenCalledTimes(4)
     if (scope !== 'private' || outcome !== 'missing') expect(post).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
+  })
+
+  it.each(['private', 'public', 'denied', 'not-found', 'switch'])('checks unresolved task details before retrying cold outputs (%s)', async outcome => {
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    let publish!: (row: Record<string, unknown>) => void
+    mockSubscribeToTask.mockImplementation((_id, listener) => { publish = listener; return vi.fn() })
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    const manual = pendingOutputRead()
+    const props = { ...landingTaskStatus, taskId: 'unknown-task' }
+    const { rerender } = render(<TaskDataGroup live taskStatus={props} />)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await initial({ data: null, status: 503 })
+    await catchUp({ data: null, status: 503 })
+    expect(screen.getByText('Couldn’t load task details.')).toBeVisible()
+    const button = screen.getByRole('button', { name: 'Check again' })
+    mockReadSubscribedTask.mockResolvedValueOnce(503)
+    await act(async () => { button.click(); button.click() })
+    expect(mockReadSubscribedTask).toHaveBeenCalledExactlyOnceWith('unknown-task')
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2)
+    expect(button).toHaveAttribute('aria-disabled', 'false')
+
+    let complete!: (status: number) => void
+    mockReadSubscribedTask.mockReturnValueOnce(new Promise<number>(resolve => { complete = resolve }))
+    act(() => { button.focus(); button.click() })
+    expect(screen.getByText('Checking task details…')).toBeVisible()
+    if (outcome === 'switch') {
+      rerender(<TaskDataGroup live taskStatus={{ ...props, taskId: 'other-task' }} />)
+      await act(async () => complete(200))
+      expect(mockReadTaskOutputs).toHaveBeenCalledTimes(3) // Only the new task's initial read.
+    } else if (outcome === 'private' || outcome === 'public') {
+      await act(async () => {
+        publish({ id: props.taskId, status: 'completed', workload_kind: 'user_submission', is_demo: outcome === 'public',
+          guest_id: null, output_intent: { locale_source: 'explicit_instruction', target_locale: 'zh' } })
+        complete(200)
+      })
+      expect(mockReadTaskOutputs).toHaveBeenCalledTimes(3)
+      expect(post).not.toHaveBeenCalled()
+      await manual(existing)
+      const expected = matchPublicSummaryOutput(existing.data, outcome === 'private' ? 'zh' : 'en').summary!
+      expect(screen.getByText(expected.overview)).toBeVisible()
+      expect(document.activeElement?.tagName).toBe('H3')
+    } else {
+      await act(async () => complete(outcome === 'denied' ? 403 : 404))
+      expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2)
+    }
+    expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
+    expect(post).not.toHaveBeenCalled()
   })
 
   it.each(['available', 'missing', 'denied'])('checks a failed language read on demand without a subscription update (%s)', async outcome => {

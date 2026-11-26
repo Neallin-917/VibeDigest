@@ -6,7 +6,7 @@ vi.mock('@/lib/supabase', () => ({ createClient: () => ({
   removeChannel: live.removeChannel,
   from: () => ({ select: () => ({ eq: () => ({ single: live.single }) }) }),
 }) }))
-import { subscribeToTask } from './task-live'
+import { readSubscribedTask, subscribeToTask } from './task-live'
 
 describe('shared task subscription', () => {
   let onRow: (payload: { new: Record<string, unknown> }) => void
@@ -38,6 +38,25 @@ describe('shared task subscription', () => {
     expect(live.removeChannel).not.toHaveBeenCalled()
     cleanups.shift()!()
     expect(live.removeChannel).toHaveBeenCalledOnce()
+  })
+
+  it('coalesces manual checks with the pending prime and reads again after a failure', async () => {
+    let resolve!: (value: unknown) => void
+    live.single.mockReturnValueOnce(new Promise(r => { resolve = r }))
+    const listener = vi.fn()
+    cleanups.push(subscribeToTask('task-1', listener))
+    const first = readSubscribedTask('task-1')
+    const second = readSubscribedTask('task-1')
+    resolve({ data: null, status: 503 })
+    expect(await Promise.all([first, second])).toEqual([503, 503])
+    expect(live.single).toHaveBeenCalledOnce()
+    live.single.mockResolvedValueOnce({ data: null, status: 200 })
+    expect(await readSubscribedTask('task-1')).toBe(404)
+    expect(await readSubscribedTask('task-1')).toBe(200)
+    expect(await readSubscribedTask('task-1')).toBe(200)
+    expect(live.single).toHaveBeenCalledTimes(3)
+    expect(listener).toHaveBeenCalledOnce()
+    expect(await readSubscribedTask('not-subscribed')).toBe(404)
   })
 
   it('does not overwrite a newer realtime event with a delayed initial read', async () => {

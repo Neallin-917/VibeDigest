@@ -22,6 +22,7 @@ const i18nState = vi.hoisted(() => ({ locale: 'en' as 'en' | 'zh' | 'ja' }))
 const router = { refresh: vi.fn() }
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
 let notifyOutput: ((payload: unknown) => void) | undefined
+let notifyConnection: ((status: string) => void) | undefined
 let taskOutputRows: Array<Record<string, unknown>> = []
 
 vi.mock('@/components/i18n/I18nProvider', () => ({
@@ -70,10 +71,7 @@ vi.mock('@/lib/supabase', () => ({
       select: () => ({
         eq: () => ({
           in: () => ({
-            order: async () => {
-              mockReadTaskOutputs()
-              return { data: taskOutputRows }
-            },
+            order: () => mockReadTaskOutputs(),
           }),
         }),
       }),
@@ -81,7 +79,7 @@ vi.mock('@/lib/supabase', () => ({
     channel: () => ({
       on: (_event: string, _filter: unknown, listener: (payload: unknown) => void) => {
         notifyOutput = listener
-        return { subscribe: () => ({}) }
+        return { subscribe: (callback: (status: string) => void) => { notifyConnection = callback; return {} } }
       },
     }),
     removeChannel: mockRemoveChannel,
@@ -110,6 +108,8 @@ describe('TaskDataGroup', () => {
 
   beforeEach(() => {
     notifyOutput = undefined
+    notifyConnection = undefined
+    mockReadTaskOutputs.mockImplementation(async () => ({ data: taskOutputRows }))
     taskOutputRows = []
     demoState.enabled = false
     i18nState.locale = 'en'
@@ -118,6 +118,71 @@ describe('TaskDataGroup', () => {
       listener({ id, status: 'completed', is_demo: false, guest_id: null, workload_kind: 'user_submission' })
       return vi.fn()
     })
+  })
+
+  function pendingOutputRead() {
+    type Result = { data: Array<Record<string, unknown>> | null; status?: number }
+    let complete!: (result: Result) => void
+    const promise = new Promise<Result>(resolve => { complete = resolve })
+    mockReadTaskOutputs.mockReturnValueOnce(promise)
+    return (result: Result) => act(async () => { complete(result) })
+  }
+
+  const existing = { data: landingDemoSummaries.outputs }
+  const overview = matchPublicSummaryOutput(existing.data, 'en').summary!.overview
+
+  it('shows an initial digest while the subscription catch-up is pending or unavailable', async () => {
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    const reconnect = pendingOutputRead()
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await initial(existing)
+    expect(screen.getByText(overview)).toBeInTheDocument()
+    await catchUp({ data: null, status: 503 })
+    expect(screen.getByText(overview)).toBeInTheDocument()
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await reconnect({ data: [] })
+    expect(screen.queryByText(overview)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    { data: [] }, { data: null, status: 403 },
+  ])('keeps a late initial read from replacing a newer empty or inaccessible result', async result => {
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await catchUp(result)
+    await initial(existing)
+    expect(screen.queryByText(overview)).not.toBeInTheDocument()
+  })
+
+  it('ignores a previous task’s response and connection callback after switching cards', async () => {
+    const previous = pendingOutputRead()
+    const current = pendingOutputRead()
+    const { rerender } = render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    const oldConnection = notifyConnection
+    rerender(<TaskDataGroup taskStatus={{ ...landingTaskStatus, taskId: 'another-task' }} />)
+    await current(existing)
+    act(() => oldConnection?.('SUBSCRIBED'))
+    await previous({ data: [] })
+    expect(screen.getByText(overview)).toBeInTheDocument()
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits for the current read before requesting a missing private language', async () => {
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: 'private-task' }} />)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await initial({ data: [] })
+    expect(post).not.toHaveBeenCalled()
+    await catchUp(existing)
+    expect(screen.getByText(overview)).toBeInTheDocument()
+    expect(post).not.toHaveBeenCalled()
   })
 
   it('does not fall back to the English landing digest when the route changes to Japanese', async () => {

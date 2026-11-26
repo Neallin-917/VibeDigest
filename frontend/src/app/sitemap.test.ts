@@ -42,7 +42,7 @@ describe("public discovery metadata", () => {
 
     expect(supabaseMocks.from).toHaveBeenCalledWith("tasks")
     expect(supabaseMocks.query.select).toHaveBeenCalledWith(
-      "id, created_at, updated_at, published_at, video_title, public_quality_flags, task_outputs!inner(kind, status, updated_at, locale)",
+      "id, created_at, updated_at, published_at, video_title, language:public_quality_flags->language, available_languages_json:public_quality_flags->available_languages::text, task_outputs!inner(kind, status, updated_at, locale)",
     )
     expect(supabaseMocks.query.eq.mock.calls).toEqual(expect.arrayContaining([
       ["status", "completed"],
@@ -138,7 +138,7 @@ describe("public discovery metadata", () => {
         },
         { kind: "summary", status: "completed", updated_at: "invalid", locale: "zh" },
       ],
-      public_quality_flags: { language: "en" },
+      language: "en",
     }])
 
     const taskEntry = entries.find((entry) => entry.url.includes("/en/tasks/task-123/"))
@@ -168,6 +168,18 @@ describe("public discovery metadata", () => {
     )
   })
 
+  it("keeps a legacy summary discoverable in its projected language", async () => {
+    supabaseMocks.query.limit.mockResolvedValue({ data: [{
+      id: "legacy-summary", video_title: "Legacy digest",
+      created_at: "2026-08-30T08:00:00.000Z", updated_at: null, published_at: null,
+      language: "zh", available_languages_json: null,
+      task_outputs: [{ kind: "summary", status: "completed", locale: null, updated_at: null }],
+    }], error: null })
+
+    const entries = (await sitemap()).filter((entry) => entry.url.includes("/tasks/legacy-summary/"))
+    expect(entries.map((entry) => new URL(entry.url).pathname)).toEqual(["/zh/tasks/legacy-summary/Legacy-digest"])
+  })
+
   it("keeps crawler discovery on public pages and blocks application endpoints", () => {
     expect(robots()).toEqual({
       rules: {
@@ -183,11 +195,12 @@ describe("public discovery metadata", () => {
     { availability: [], expected: [] },
     { availability: ["zh"], expected: ["zh"] },
     { availability: undefined, expected: ["en", "zh"] },
+    { availability: null, expected: [] },
   ])("uses the database availability boundary for task sitemap entries: $availability", ({ availability, expected }) => {
     const entries = buildSitemapEntries([{
       id: "quality-boundary", video_title: "Qualified digest",
       created_at: "2026-08-30T08:00:00.000Z", updated_at: null, published_at: null,
-      public_quality_flags: { language: "en", available_languages: availability },
+      language: "en", available_languages_json: JSON.stringify(availability) ?? null,
       task_outputs: [
         { kind: "summary", status: "completed", updated_at: null, locale: "en" },
         { kind: "summary", status: "completed", updated_at: null, locale: "zh" },

@@ -680,6 +680,7 @@ export function CommunityTemplates({
     }
     const queryDraft = queryInput.draft
     const [browserHref, setBrowserHref] = useState(initialHref)
+    const touchDigestHref = useRef<string | null>(null)
     const waitingForResults = browserHref !== initialHref
     const podcastCopy = PODCAST_COPY[locale]
     const selectedSource = queryInput.activeSource
@@ -814,7 +815,25 @@ export function CommunityTemplates({
     const loadMoreHref = pathname ? buildLibraryHref(pathname, selectedSource, query, currentPage + 1) : "#"
 
     return (
-        <div className="space-y-5 sm:space-y-6">
+        <div
+            className="space-y-5 sm:space-y-6"
+            onPointerDownCapture={(event) => {
+                touchDigestHref.current = event.pointerType === "touch" && event.target instanceof Element
+                    ? event.target.closest('article a[href*="/tasks/"]')?.getAttribute("href") ?? null
+                    : null
+            }}
+            onPointerCancelCapture={() => { touchDigestHref.current = null }}
+            onClickCapture={(event) => {
+                const startedOn = touchDigestHref.current
+                touchDigestHref.current = null
+                if (!startedOn || event.detail === 0 || !(event.target instanceof Element)) return
+                const link = event.target.closest('a[href]')
+                if (link && link.getAttribute("href") !== startedOn) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+            }}
+        >
             {intro ? (
                 <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] lg:items-end">
                     <div className="max-w-3xl">

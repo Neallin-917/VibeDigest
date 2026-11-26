@@ -358,6 +358,33 @@ describe("CommunityTemplates", () => {
     expect(region()).toHaveAttribute("aria-busy", "false")
   })
 
+  it("ignores a touch that begins on a different digest before history restores the new list", () => {
+    const view = renderGallery({ initialTasks: [tasks[0]] })
+    const oldCard = screen.getByRole("link", { name: "View digest: Leading example" })
+    fireEvent.pointerDown(oldCard, { pointerType: "touch" })
+    window.history.replaceState({}, "", "/en/explore?q=new")
+    fireEvent.popState(window)
+    view.rerender(gallery({ initialQuery: "new", initialTasks: [tasks[1]] }))
+    const newCard = screen.getByRole("link", { name: "View digest: Later example" })
+
+    fireEvent.click(newCard, { detail: 1 })
+    expect(location.hash).toBe("")
+    fireEvent.pointerDown(newCard, { pointerType: "touch" })
+    fireEvent.click(newCard, { detail: 1 })
+    expect(location.hash).toBe("#episode-example-2")
+  })
+
+  it.each(["keyboard", "mouse", "cancelled touch"])("accepts a fresh %s activation after an interrupted touch", (input) => {
+    renderGallery()
+    const first = screen.getByRole("link", { name: "View digest: Leading example" })
+    const second = screen.getByRole("link", { name: "View digest: Later example" })
+    fireEvent.pointerDown(first, { pointerType: "touch" })
+    if (input === "cancelled touch") fireEvent.pointerCancel(first, { pointerType: "touch" })
+    if (input === "mouse") fireEvent.pointerDown(second, { pointerType: "mouse" })
+    fireEvent.click(second, { detail: input === "keyboard" ? 0 : 1 })
+    expect(location.hash).toBe("#episode-example-2")
+  })
+
   it("leaves the new history entry intact if a stale link activates before the next render", () => {
     renderGallery()
     const oldDigest = screen.getByRole("link", { name: "View digest: Leading example" })

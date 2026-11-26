@@ -102,6 +102,29 @@ describe('shared task subscription', () => {
     expect(live.single).toHaveBeenCalledTimes(5)
   })
 
+  it.each([503, 403])('reports a failed Chinese check after confirming English (%s)', async status => {
+    const row = { id: 'task-1', status: 'completed' }
+    const check = vi.fn()
+    const listener = vi.fn()
+    live.single.mockResolvedValue({ data: row })
+    cleanups.push(subscribeToTask(row.id, listener, check))
+    await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith(row, false))
+    expect(await readSubscribedTask(row.id, 'en')).toBe(200)
+    expect(listener).toHaveBeenLastCalledWith(row, 'en')
+    live.single.mockResolvedValueOnce({ data: null, status })
+    expect(await readSubscribedTask(row.id, 'zh')).toBe(status)
+    expect(check).toHaveBeenLastCalledWith(status === 503 ? 'failed' : 'unavailable')
+    expect(listener).toHaveBeenCalledTimes(2)
+    if (status === 503) {
+      const retry = readSubscribedTask(row.id, 'zh')
+      expect(check).toHaveBeenLastCalledWith('rechecking')
+      expect(await retry).toBe(200)
+      expect(listener).toHaveBeenLastCalledWith(row, 'zh')
+      expect(check).toHaveBeenLastCalledWith(undefined)
+    }
+    expect(live.single).toHaveBeenCalledTimes(status === 503 ? 4 : 3)
+  })
+
   it.each(['initial-first', 'connected-first'])('uses the post-connect result when reads overlap (%s)', async order => {
     let initial!: (value: unknown) => void
     let connected!: (value: unknown) => void

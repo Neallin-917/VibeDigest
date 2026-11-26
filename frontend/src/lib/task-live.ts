@@ -56,7 +56,8 @@ async function readTaskRow(taskId: string) {
 async function primeTask(taskId: string, entry: TaskEntry, reason: 'initial' | 'connected' | Locale = 'initial') {
   const previous = entry.pendingRead
   if (reason !== 'connected' && previous) return previous.promise
-  if (entry.snapshot && (reason === 'initial' || (reason !== 'connected' && (entry.preferenceChecked === true || entry.preferenceChecked === reason)))) return 200
+  const preferenceIsCurrent = () => entry.preferenceChecked === true || entry.preferenceChecked === reason
+  if (entry.snapshot && reason !== 'connected' && (reason === 'initial' || preferenceIsCurrent())) return 200
   if (entry.readCheck === 'failed') updateReadCheck(entry, 'rechecking')
 
   let finish!: (result: number | Promise<number>) => void
@@ -75,7 +76,7 @@ async function primeTask(taskId: string, entry: TaskEntry, reason: 'initial' | '
       finish(200)
     } else {
       if (!entry.snapshot) updateReadCheck(entry, transientReadFailure(status) ? 'failed' : undefined)
-      else if (!entry.preferenceChecked && reason !== 'initial') {
+      else if (reason !== 'initial' && !preferenceIsCurrent()) {
         updateReadCheck(entry, transientReadFailure(status) ? 'failed' : 'unavailable')
       }
       finish(status === 200 ? 404 : status)

@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Optional, List, Dict, Any, Tuple
 import re
 from urllib.parse import urlparse
@@ -763,119 +764,64 @@ class VideoProcessor:
         Attempt to download and parse subtitles via yt-dlp.
         Returns: (script_text_with_timestamps, raw_json_str, detected_language) or None
         """
-        import asyncio
-        import uuid
+        return await asyncio.to_thread(self._download_caption_tracks, url)
 
-        # Temp dir for subs
-        # Use centralized temp directory to keep things clean
+    def _download_caption_tracks(self, url: str) -> Optional[Tuple[str, str, str]]:
         sub_dir = Path("temp/subs")
         sub_dir.mkdir(parents=True, exist_ok=True)
-        unique_id = str(uuid.uuid4())[:8]
-        output_template = str(sub_dir / f"{unique_id}")  # yt-dlp will append .en.vtt
+        priorities = ("zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh", "en", "en-US")
+        priority = {lang: index for index, lang in enumerate(priorities)}
 
-        opts = {
-            "skip_download": True,
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            # Prefer manually created subs, then auto.
-            # We fetch all available to be safe, or specify langs.
-            # 'subtitleslangs': ['zh-Hans', 'zh-Hant', 'zh', 'en'], # Or 'all'
-            "subtitleslangs": ["en", "zh", "zh-Hans", "zh-Hant", "zh-CN", "zh-TW"],
-            "sleep_interval": 1,
-            "outtmpl": output_template,
-            "quiet": True,
-            "no_warnings": True,
-            "http_headers": self._build_http_headers(url),
-        }
-        opts.update(self._ydl_overrides())
-
-        logger.info(f"Trying yt-dlp subtitle extraction for {url}")
-
-        try:
-            import yt_dlp
-
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                await asyncio.to_thread(ydl.download, [url])
-
-            # Find the best subtitle file
-            # Priority: zh-Hans -> zh -> en
-            # Filenames will be roughly: unique_id.zh-Hans.vtt, unique_id.en.vtt
-
-            found_file = None
-            found_lang = "unknown"
-
-            # Simple priority list
-            priorities = ["zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh", "en", "en-US"]
-
-            for lang in priorities:
-                # Check for vtt
-                f = sub_dir / f"{unique_id}.{lang}.vtt"
-                if f.exists():
-                    found_file = f
-                    found_lang = (
-                        lang if "zh" in lang else "en"
-                    )  # Simplify lang code for system
-                    if "zh" in lang:
-                        found_lang = "zh"
-                    break
-
-            # Fallback: any vtt with unique_id
-            if not found_file:
-                logger.warning(
-                    f"No priority subtitle found. Checking all files in {sub_dir} for {unique_id}..."
-                )
-                for f in sub_dir.glob(f"{unique_id}.*.vtt"):
-                    logger.info(f"Found fallback subtitle: {f.name}")
-                    found_file = f
-                    # extract lang from filename if possible?
-                    # filename: id.LANG.vtt
-                    parts = f.name.split(".")
-                    if len(parts) >= 3:
-                        raw_lang = parts[-2]
-                        found_lang = "zh" if "zh" in raw_lang else raw_lang
-                    break
-
-            if found_file:
-                logger.info(f"Found subtitle file: {found_file}")
-                # Parse
-                md, segments = await asyncio.to_thread(self._parse_vtt, found_file)
-                if md and segments:
-                    # Construct raw_json compatible with Whisper
-                    raw_payload = {
-                        "text": "",  # optional
-                        "segments": segments,
-                        "source_timed": True,
-                        "language": found_lang,
-                    }
-                    # Cleanup
-                    try:
-                        found_file.unlink()
-                        # Cleanup other subs for this id?
-                        for f in sub_dir.glob(f"{unique_id}.*"):
-                            f.unlink()
-                    except Exception:
-                        pass
-
-                    return md, json.dumps(raw_payload, ensure_ascii=False), found_lang
-            else:
-                # Debug: List what WAS downloaded
-                all_files = list(sub_dir.glob(f"{unique_id}.*"))
-                logger.warning(
-                    f"Subtitle extraction finished but no file matched priorities. Files present: {[f.name for f in all_files]}"
-                )
-
-            # Clean up empty remnants
+        # The worker owns its directory until it finishes, including when the
+        # caller cancels its await while yt-dlp is still writing.
+        with TemporaryDirectory(dir=sub_dir) as directory:
+            track_dir = Path(directory)
+            opts = {
+                "skip_download": True,
+                "noplaylist": True,
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": ["en", "zh", "zh-Hans", "zh-Hant", "zh-CN", "zh-TW"],
+                "subtitlesformat": "vtt",
+                "sleep_interval": 1,
+                "outtmpl": str(track_dir / "captions"),
+                "quiet": True,
+                "no_warnings": True,
+                "http_headers": self._build_http_headers(url),
+                **self._ydl_overrides(),
+            }
             try:
-                for f in sub_dir.glob(f"{unique_id}.*"):
-                    f.unlink()
-            except Exception:
-                pass
+                import yt_dlp
 
-            return None
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    ydl.download([url])
+            except Exception as exc:
+                # A later track can fail after yt-dlp finalized an earlier VTT.
+                logger.warning("Subtitle batch interrupted (%s)", type(exc).__name__)
 
-        except Exception as e:
-            logger.warning(f"yt-dlp subtitle extraction failed: {e}")
-            return None
+            tracks = {
+                file.stem.removeprefix("captions."): file
+                for file in track_dir.glob("captions.*.vtt")
+            }
+            for lang in sorted(tracks, key=lambda code: (priority.get(code, len(priority)), code)):
+                try:
+                    markdown, segments = self._parse_vtt(tracks[lang])
+                except (OSError, ValueError):
+                    continue
+                if not markdown or not segments:
+                    continue
+                if any(segment["end"] <= segment["start"] for segment in segments):
+                    continue
+                if any(right["start"] < left["start"] for left, right in zip(segments, segments[1:])):
+                    continue
+                language = lang.removesuffix("-orig")
+                if language in {"zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh"}:
+                    language = "zh"
+                elif language == "en-US":
+                    language = "en"
+                raw = {"text": "", "segments": segments, "source_timed": True, "language": language}
+                return markdown, json.dumps(raw, ensure_ascii=False), language
+        return None
 
     async def extract_info_only(self, url: str) -> Dict[str, Any]:
         """

@@ -408,9 +408,9 @@ function EvidenceDisclosure({ title, items }: { title: string; items: EvidenceIt
             </span>
             <div>
               <p className="text-xs font-medium text-foreground">{item.label}</p>
-              <blockquote className="mt-1 border-l border-primary/40 pl-3 text-sm leading-6 text-muted-foreground">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 {item.text}
-              </blockquote>
+              </p>
             </div>
           </li>
         ))}

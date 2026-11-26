@@ -520,7 +520,7 @@ const SUMMARY_MARKDOWN_COPY = {
   },
   zh: {
     inBrief: '内容摘要', overview: '内容概览', keyPoints: '关键观点', sections: '更多内容',
-    whyItMatters: '为什么重要', evidence: '原文证据',
+    whyItMatters: '为什么重要', evidence: '支撑依据',
   },
 } as const
 

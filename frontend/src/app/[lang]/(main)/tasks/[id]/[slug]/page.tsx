@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Heading, Text } from "@/components/ui/typography"
 import { cn } from "@/lib/utils"
-import { normalizeTaskStatus } from "@/lib/safe-error"
+import { normalizeTaskStatus, sourceFailureMessageKey } from "@/lib/safe-error"
 import { createTranslator, getLocaleDisplayName, isLocale, type Locale } from "@/lib/i18n"
 import { getRawMessages } from "@/lib/i18n-messages"
 import { shouldUseDemoFixtures } from "@/lib/local-ui-demo"
@@ -340,15 +340,9 @@ export default async function TaskDetailPage(props: Props) {
     const title = task.video_title || copy.processedVideo
     const displayTitle = ((ownerTask && structuredSummary?.title) || title).replaceAll("—", "-")
     const status = normalizeTaskStatus(task.status)
-    const sourceFailure = /^(captions_unavailable|unsupported_source):/.exec(
-        getOptionalString(task, "error_message")?.trim() ?? ""
-    )?.[1]
+    const sourceFailure = sourceFailureMessageKey(getOptionalString(task, "error_message"))
     const failureCopy = sourceFailure
-        ? createTranslator(getRawMessages(locale))(
-            sourceFailure === "captions_unavailable"
-                ? "chat.tools.status.captionsUnavailable"
-                : "chat.tools.status.unsupportedSource"
-        )
+        ? createTranslator(getRawMessages(locale))(sourceFailure)
         : copy.failed
     const initialThreadId = getSingleSearchParam(returnState.threadId)
     const sourceLabel = task.video_url ? getSourceLabel(task.video_url, task.author) : ""

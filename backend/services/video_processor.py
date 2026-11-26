@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 import json
 
+from services.caption_errors import CaptionRateLimited, is_http_rate_limit
 from services.rolling_captions import parse_rolling_captions
 
 logger = logging.getLogger(__name__)
@@ -790,6 +791,7 @@ class VideoProcessor:
                 "http_headers": self._build_http_headers(url),
                 **self._ydl_overrides(),
             }
+            rate_limited = False
             try:
                 import yt_dlp
 
@@ -797,6 +799,7 @@ class VideoProcessor:
                     ydl.download([url])
             except Exception as exc:
                 # A later track can fail after yt-dlp finalized an earlier VTT.
+                rate_limited = is_http_rate_limit(exc)
                 logger.warning("Subtitle batch interrupted (%s)", type(exc).__name__)
 
             tracks = {
@@ -821,6 +824,8 @@ class VideoProcessor:
                     language = "en"
                 raw = {"text": "", "segments": segments, "source_timed": True, "language": language}
                 return markdown, json.dumps(raw, ensure_ascii=False), language
+            if rate_limited:
+                raise CaptionRateLimited
         return None
 
     async def extract_info_only(self, url: str) -> Dict[str, Any]:

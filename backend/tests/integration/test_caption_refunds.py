@@ -112,14 +112,16 @@ def test_new_submission_after_refund_is_charged(pgmq_db):
 
 
 @pytest.mark.asyncio
-async def test_real_pipeline_caption_failure_refunds_without_audio_or_model(pgmq_db, monkeypatch):
+@pytest.mark.parametrize("rate_limited", [False, True])
+async def test_real_pipeline_caption_failure_refunds_without_audio_or_model(pgmq_db, monkeypatch, rate_limited):
     import workflow
+    from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
     from services.job_handlers import NonRetryableJobError, run_pipeline
 
     user, task = _submit(pgmq_db)
     processor = MagicMock()
     processor.extract_info_only = AsyncMock(return_value={"title": "No captions", "duration": 60})
-    processor.extract_captions = AsyncMock(return_value=None)
+    processor.extract_captions = AsyncMock(return_value=None, side_effect=CaptionRateLimited if rate_limited else None)
     processor.download_and_convert = AsyncMock(side_effect=AssertionError("Audio download is retired"))
     provider = MagicMock(last_error="No transcript segments")
     provider.get_transcript_async = AsyncMock(return_value=(None, None, None))
@@ -132,7 +134,9 @@ async def test_real_pipeline_caption_failure_refunds_without_audio_or_model(pgmq
     with pytest.raises(NonRetryableJobError, match="captions_unavailable:"):
         await run_pipeline(task, pgmq_db.get_task(task)["video_url"], user)
     assert _balance(pgmq_db, task)["usage_count"] == 0
-    assert pgmq_db.get_task(task)["status"] == "error"
+    failed_task = pgmq_db.get_task(task)
+    assert failed_task["status"] == "error"
+    assert (failed_task["error_message"] == CAPTIONS_RATE_LIMITED) is rate_limited
     assert all(o["status"] == "error" for o in pgmq_db.get_task_outputs(task))
     processor.download_and_convert.assert_not_awaited()
     summarizer.assert_not_called()

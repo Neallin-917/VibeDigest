@@ -20,7 +20,7 @@ import {
   type ChatUIDataParts,
   type TaskLifecycleStatus,
 } from '@/lib/chat-ui'
-import { normalizeTaskStatus, sanitizeErrorMessage } from '@/lib/safe-error'
+import { normalizeTaskStatus, sanitizeErrorMessage, sourceFailureMessageKey } from '@/lib/safe-error'
 import { subscribeToTask } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
 import { trackGrowthEvent } from '@/lib/growth-events'
@@ -516,13 +516,11 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const evidenceItems = summary ? collectEvidence(summary) : []
   const stageLabel = getStageLabel(t, status, snapshot.progress)
   const sourceFailure = status === 'failed'
-    ? /^(captions_unavailable|unsupported_source):/.exec(snapshot.errorMessage?.trim() ?? '')?.[1]
-    : undefined
+    ? sourceFailureMessageKey(snapshot.errorMessage)
+    : null
   const safeError = status === 'failed' && snapshot.errorMessage
     ? sourceFailure
-      ? t(sourceFailure === 'captions_unavailable'
-        ? 'chat.tools.status.captionsUnavailable'
-        : 'chat.tools.status.unsupportedSource')
+      ? t(sourceFailure)
       : sanitizeErrorMessage(snapshot.errorMessage, t('chat.directSubmit.unavailable'))
     : null
   const canRetry = status === 'failed' && !sourceFailure && Boolean(onRetryTask)

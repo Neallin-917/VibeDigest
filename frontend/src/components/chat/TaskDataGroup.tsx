@@ -139,7 +139,7 @@ function parseAudioContent(content: string | undefined): AudioData | null {
 type OutputCheck = 'current' | 'checking' | 'failed' | 'rechecking'
 
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
-  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[]; check: OutputCheck } | null>(null)
+  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[] | null; check: OutputCheck } | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
   const refreshRef = useRef<(retryOnly?: boolean) => void>(undefined)
   const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
@@ -154,8 +154,10 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
     let latestCheck: OutputCheck = 'checking'
     const updateCheck = (check: OutputCheck) => {
       latestCheck = check
-      setSnapshot(previous => previous?.taskId === taskId && previous.check !== check
-        ? { ...previous, check } : previous)
+      setSnapshot(previous => {
+        if (previous?.taskId === taskId) return previous.check === check ? previous : { ...previous, check }
+        return check === 'failed' ? { taskId, rows: null, check } : previous
+      })
     }
     const refresh = async (retryOnly = false) => {
       if (!active || (retryOnly && latestCheck !== 'failed')) return
@@ -177,9 +179,14 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
         setSnapshot({ taskId, rows: data, check: latestCheck })
       } else if (status === 401 || status === 403) {
         appliedRevision = requestRevision
+        if (requestRevision === revision) latestCheck = 'current'
         setSnapshot(null)
       } else if (requestRevision === revision && (status === 0 || status === 408 || status === 429 || status >= 500)) {
         updateCheck('failed')
+      } else if (requestRevision === revision && latestCheck === 'rechecking') {
+        appliedRevision = requestRevision
+        latestCheck = 'current'
+        setSnapshot(null)
       }
     }
     refreshRef.current = refresh
@@ -506,6 +513,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
+  const recheck = outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined
   const focusScope = `${snapshot?.taskId}:${targetLocale}`
   const pendingRecoveryFocus = useRef<string | null>(null)
   const digestHeading = useRef<HTMLHeadingElement>(null)
@@ -708,22 +716,22 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
       </ResultEngagement>
 
-      {status === 'completed' && !summary && !safeError && (isDemo || (outputs && languageResolved)) ? (
-        !isDemo && snapshot.privateUserSubmission && outputs ? (
+      {status === 'completed' && !summary && !safeError && (isDemo || (languageResolved && (outputs || recheck))) ? (
+        !isDemo && (snapshot.privateUserSubmission || recheck) ? (
           <TaskSummaryVersionStatus
             key={`${snapshot.taskId}-${targetLocale}`}
             taskId={snapshot.taskId}
             locale={locale}
             target={targetLocale}
-            status={outputCheck === 'current' ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
-            recheck={outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined}
+            status={snapshot.privateUserSubmission && outputs && outputCheck === 'current' ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
+            recheck={recheck}
             recoveryButtonRef={rememberFocusedRemoval}
             statusRef={registerLanguageStatus}
             onRecheck={recheckOutputs}
             onCompleted={refreshOutputs}
           />
         ) : isDemo || outputCheck === 'current' ? (
-          <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
+          <p ref={registerLanguageStatus} tabIndex={-1} className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
         ) : null
       ) : null}
     </article>

@@ -78,6 +78,59 @@ describe('shared task subscription', () => {
     expect(live.single).toHaveBeenCalledTimes(3)
   })
 
+  it.each(['initial-first', 'connected-first'])('uses the post-connect result when reads overlap (%s)', async order => {
+    let initial!: (value: unknown) => void
+    let connected!: (value: unknown) => void
+    live.single.mockReturnValueOnce(new Promise(resolve => { initial = resolve }))
+      .mockReturnValueOnce(new Promise(resolve => { connected = resolve }))
+    const listener = vi.fn()
+    cleanups.push(subscribeToTask('task-1', listener))
+    const manual = readSubscribedTask('task-1')
+    expect(live.channel).toHaveBeenCalledWith('shared_task_task-1', { config: { postgres_changes_options: { wait: true } } })
+    onStatus('SUBSCRIBED')
+    onStatus('SUBSCRIBED')
+    const shared = readSubscribedTask('task-1')
+    expect(live.single).toHaveBeenCalledTimes(2)
+    const stale = { data: { id: 'task-1', locale: 'en' } }
+    if (order === 'initial-first') {
+      initial(stale)
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(listener).not.toHaveBeenCalled()
+    }
+    connected({ data: { id: 'task-1', locale: 'zh' } })
+    expect(await Promise.all([manual, shared])).toEqual([200, 200])
+    if (order === 'connected-first') initial(stale)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(listener).toHaveBeenCalledExactlyOnceWith({ id: 'task-1', locale: 'zh' })
+    onStatus('CHANNEL_ERROR')
+    onStatus('SUBSCRIBED')
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2))
+    expect(live.single).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not restore a pre-connection row after the new read fails or continue after close', async () => {
+    let initial!: (value: unknown) => void
+    live.single.mockReturnValueOnce(new Promise(resolve => { initial = resolve }))
+      .mockResolvedValueOnce({ data: null, status: 503 })
+    const listener = vi.fn()
+    const check = vi.fn()
+    cleanups.push(subscribeToTask('task-1', listener, check))
+    const waiting = readSubscribedTask('task-1')
+    onStatus('SUBSCRIBED')
+    expect(await waiting).toBe(503)
+    initial({ data: { id: 'task-1', status: 'completed' } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(listener).not.toHaveBeenCalled()
+    expect(check).toHaveBeenLastCalledWith('failed')
+    live.single.mockReturnValueOnce(new Promise(() => {}))
+    const pending = readSubscribedTask('task-1')
+    cleanups.shift()!()
+    expect(await pending).toBe(404)
+    onStatus('CLOSED')
+    onStatus('SUBSCRIBED')
+    expect(live.single).toHaveBeenCalledTimes(3)
+  })
+
   it('does not overwrite a newer realtime event with a delayed initial read', async () => {
     let resolveRead!: (value: unknown) => void
     live.single.mockReturnValue(new Promise((resolve) => { resolveRead = resolve }))

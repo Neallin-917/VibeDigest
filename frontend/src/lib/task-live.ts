@@ -11,7 +11,7 @@ type TaskEntry = {
   listeners: Map<number, { onRow: TaskListener; onCheck?: (check: TaskReadCheck) => void }>
   readCheck: TaskReadCheck
   snapshot: TaskRow | null
-  primePromise: Promise<number> | null
+  pendingRead: { promise: Promise<number>; finish: (result: number | Promise<number>) => void } | null
 }
 
 const taskEntries = new Map<string, TaskEntry>()
@@ -40,44 +40,46 @@ function updateReadCheck(entry: TaskEntry, check: TaskReadCheck) {
   entry.listeners.forEach(({ onCheck }) => onCheck?.(check))
 }
 
-async function primeTask(taskId: string, entry: TaskEntry, force = false) {
-  if (!force && entry.snapshot) return 200
-  if (entry.primePromise) return entry.primePromise
+async function readTaskRow(taskId: string) {
+  try {
+    return await createClient().from('tasks').select('*').eq('id', taskId).single()
+  } catch {
+    return { data: null, status: 0 }
+  }
+}
 
+async function primeTask(taskId: string, entry: TaskEntry, afterConnect = false) {
+  const previous = entry.pendingRead
+  if (!afterConnect && previous) return previous.promise
+  if (!afterConnect && entry.snapshot) return 200
   if (entry.readCheck === 'failed') updateReadCheck(entry, 'rechecking')
-  const supabase = createClient()
-  entry.primePromise = (async () => {
-    const { data, status } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('id', taskId)
-      .single()
 
+  let finish!: (result: number | Promise<number>) => void
+  const promise = new Promise<number>(resolve => { finish = resolve })
+  const read = { promise, finish }
+  entry.pendingRead = read
+  // A read started before the channel connected can miss a committed change.
+  // Move its callers onto the new read even if the older request is stalled.
+  previous?.finish(promise)
+  void readTaskRow(taskId).then(({ data, status }) => {
+    if (entry.pendingRead !== read) return
+    entry.pendingRead = null
     if (isTaskRow(data)) {
       publishTask(entry, data)
-      return 200
+      finish(200)
+    } else {
+      if (!entry.snapshot) updateReadCheck(entry, transientReadFailure(status) ? 'failed' : undefined)
+      finish(status === 200 ? 404 : status)
     }
-    return status === 200 ? 404 : status
-  })().catch(() => {
-    // A transport failure leaves the last committed snapshot in place.
-    return 0
-  }).then(status => {
-    if (!entry.snapshot) {
-      updateReadCheck(entry, transientReadFailure(status) ? 'failed' : undefined)
-    }
-    return status
-  }).finally(() => {
-    entry.primePromise = null
   })
-
-  return entry.primePromise
+  return promise
 }
 
 function createTaskEntry(taskId: string): TaskEntry {
   const supabase = createClient()
   const entry: TaskEntry = {
     channel: supabase
-      .channel(`shared_task_${taskId}`)
+      .channel(`shared_task_${taskId}`, { config: { postgres_changes_options: { wait: true } } })
       .on(
         'postgres_changes',
         {
@@ -95,11 +97,18 @@ function createTaskEntry(taskId: string): TaskEntry {
     listeners: new Map(),
     readCheck: undefined,
     snapshot: null,
-    primePromise: null,
+    pendingRead: null,
   }
 
+  let connected = false
   entry.channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
-    if (status === 'SUBSCRIBED') void primeTask(taskId, entry, true)
+    if (status !== 'SUBSCRIBED') {
+      connected = false
+      return
+    }
+    if (connected || entry.listeners.size === 0) return
+    connected = true
+    void primeTask(taskId, entry, true)
   })
 
   return entry
@@ -135,6 +144,8 @@ export function subscribeToTask(taskId: string, listener: TaskListener, onCheck?
     if (currentEntry.listeners.size > 0) return
 
     taskEntries.delete(taskId)
+    currentEntry.pendingRead?.finish(404)
+    currentEntry.pendingRead = null
     void createClient().removeChannel(currentEntry.channel)
   }
 }

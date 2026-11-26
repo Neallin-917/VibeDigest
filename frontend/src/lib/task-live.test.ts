@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const live = vi.hoisted(() => ({ single: vi.fn(), removeChannel: vi.fn(), channel: vi.fn() }))
+const live = vi.hoisted(() => ({ single: vi.fn(), abortSignal: vi.fn(), removeChannel: vi.fn(), channel: vi.fn() }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({
   channel: live.channel,
   removeChannel: live.removeChannel,
-  from: () => ({ select: () => ({ eq: () => ({ single: live.single }) }) }),
+  from: () => ({ select: () => ({ eq: () => ({ abortSignal: live.abortSignal }) }) }),
 }) }))
 import { readSubscribedTask, subscribeToTask } from './task-live'
 
@@ -14,6 +14,7 @@ describe('shared task subscription', () => {
   const cleanups: (() => void)[] = []
   beforeEach(() => {
     vi.clearAllMocks()
+    live.abortSignal.mockReturnValue({ single: live.single })
     live.single.mockResolvedValue({ data: { id: 'task-1', status: 'failed', updated_at: '2026-09-07T01:00:00Z' } })
     live.channel.mockImplementation(() => {
       const channel = {
@@ -155,6 +156,32 @@ describe('shared task subscription', () => {
     expect(live.single).toHaveBeenCalledTimes(3)
   })
 
+  it.each([200, 503])('aborts only the superseded transport and delivers the new result to every waiter (%s)', async status => {
+    const listener = vi.fn()
+    const check = vi.fn()
+    let complete!: (result: unknown) => void
+    live.single.mockImplementationOnce(() => new Promise((_resolve, reject) => {
+      const signal: AbortSignal = live.abortSignal.mock.lastCall![0]
+      signal.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true })
+    })).mockReturnValueOnce(new Promise(resolve => { complete = resolve }))
+    cleanups.push(subscribeToTask('task-1', listener, check), subscribeToTask('task-1', vi.fn()))
+    const earlier = readSubscribedTask('task-1')
+    const joined = readSubscribedTask('task-1', 'en')
+    const first: AbortSignal = live.abortSignal.mock.lastCall![0]
+    cleanups.pop()!()
+    expect(first.aborted).toBe(false)
+    onStatus('SUBSCRIBED')
+    onStatus('SUBSCRIBED')
+    const current = readSubscribedTask('task-1')
+    expect(first.aborted).toBe(true)
+    expect(live.abortSignal.mock.lastCall![0].aborted).toBe(false)
+    complete({ data: status === 200 ? { id: 'task-1', status: 'completed' } : null, status })
+    expect(await Promise.all([earlier, joined, current])).toEqual([status, status, status])
+    expect(live.single).toHaveBeenCalledTimes(2)
+    expect(listener).toHaveBeenCalledTimes(status === 200 ? 1 : 0)
+    expect(check).toHaveBeenLastCalledWith(status === 200 ? undefined : 'failed')
+  })
+
   it('does not restore a pre-connection row after the new read fails or continue after close', async () => {
     let initial!: (value: unknown) => void
     live.single.mockReturnValueOnce(new Promise(resolve => { initial = resolve }))
@@ -173,6 +200,7 @@ describe('shared task subscription', () => {
     const pending = readSubscribedTask('task-1')
     cleanups.shift()!()
     expect(await pending).toBe(404)
+    expect(live.abortSignal.mock.lastCall![0].aborted).toBe(true)
     onStatus('CLOSED')
     onStatus('SUBSCRIBED')
     expect(live.single).toHaveBeenCalledTimes(3)

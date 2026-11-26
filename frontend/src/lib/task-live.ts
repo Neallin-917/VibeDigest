@@ -15,7 +15,7 @@ type TaskEntry = {
   readCheck: TaskReadCheck
   snapshot: TaskRow | null
   preferenceChecked: TaskPreferenceCheck
-  pendingRead: { promise: Promise<number>; finish: (result: number | Promise<number>) => void } | null
+  pendingRead: { controller: AbortController; promise: Promise<number>; finish: (result: number | Promise<number>) => void } | null
 }
 
 const taskEntries = new Map<string, TaskEntry>()
@@ -45,9 +45,9 @@ function updateReadCheck(entry: TaskEntry, check: TaskReadCheck) {
   entry.listeners.forEach(({ onCheck }) => onCheck?.(check))
 }
 
-async function readTaskRow(taskId: string) {
+async function readTaskRow(taskId: string, signal: AbortSignal) {
   try {
-    return await createClient().from('tasks').select('*').eq('id', taskId).single()
+    return await createClient().from('tasks').select('*').eq('id', taskId).abortSignal(signal).single()
   } catch {
     return { data: null, status: 0 }
   }
@@ -62,12 +62,13 @@ async function primeTask(taskId: string, entry: TaskEntry, reason: 'initial' | '
 
   let finish!: (result: number | Promise<number>) => void
   const promise = new Promise<number>(resolve => { finish = resolve })
-  const read = { promise, finish }
+  const read = { promise, finish, controller: new AbortController() }
   entry.pendingRead = read
   // A read started before the channel connected can miss a committed change.
   // Move its callers onto the new read even if the older request is stalled.
   previous?.finish(promise)
-  void readTaskRow(taskId).then(({ data, status }) => {
+  previous?.controller.abort()
+  void readTaskRow(taskId, read.controller.signal).then(({ data, status }) => {
     if (entry.pendingRead !== read) return
     entry.pendingRead = null
     if (isTaskRow(data)) {
@@ -155,8 +156,10 @@ export function subscribeToTask(taskId: string, listener: TaskListener, onCheck?
     if (currentEntry.listeners.size > 0) return
 
     taskEntries.delete(taskId)
-    currentEntry.pendingRead?.finish(404)
+    const pending = currentEntry.pendingRead
     currentEntry.pendingRead = null
+    pending?.finish(404)
+    pending?.controller.abort()
     void createClient().removeChannel(currentEntry.channel)
   }
 }

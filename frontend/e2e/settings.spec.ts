@@ -56,6 +56,39 @@ test.describe('Settings Page', () => {
     }]);
   });
 
+  test('follows a mobile credit-pack link through a simulated checkout', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'chromium-guest', 'Uses a signed-in visitor');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route('**/rest/v1/profiles*', route => route.fulfill({
+      json: { tier: 'free', usage_count: 0, usage_limit: 3, extra_credits: 0 },
+    }));
+
+    let orders = 0;
+    await page.route('**/api/create-checkout-session', async route => {
+      const request = route.request();
+      expect(request.method()).toBe('POST');
+      expect(request.headers().authorization).toBe('Bearer fake-jwt-token');
+      const form = await new Response(request.postData(), {
+        headers: { 'Content-Type': request.headers()['content-type'] },
+      }).formData();
+      expect(form.get('plan_key')).toBe('credit_pack');
+      orders++;
+      await route.fulfill({ json: { url: 'http://localhost:3001/mock-order' } });
+    });
+    await page.route('**/mock-order', route => route.fulfill({
+      contentType: 'text/html', body: '<h1>Test order</h1>',
+    }));
+
+    await page.goto('/zh');
+    await page.getByRole('button', { name: '查看充值包' }).click();
+    await expect(page).toHaveURL(/\/zh\/settings\/pricing#topup$/);
+    await expect(page.locator('#topup')).toBeInViewport();
+    await expect(page.locator('#topup')).toContainText('50');
+    await page.getByRole('button', { name: /购买/ }).click();
+    await expect(page.getByRole('heading', { name: 'Test order' })).toBeVisible();
+    expect(orders).toBe(1);
+  });
+
   test('should render settings page correctly for authenticated user', async ({ page }, testInfo) => {
     // Settings is a protected route — only run this test when auth storageState is available
     test.skip(testInfo.project.name === 'chromium-guest', 'Protected route requires authenticated project');

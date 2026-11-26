@@ -135,6 +135,26 @@ describe("PricingPage", () => {
         )
     })
 
+    it("blocks subscription checkout until the account plan is known", async () => {
+        mockSingle.mockResolvedValue({ data: null, error: new Error("Offline") })
+        renderPricingPage()
+        const upgrade = screen.getByRole("button", { name: "pricing.pro.button" })
+        expect(upgrade).toBeDisabled()
+        expect(await screen.findByRole("status")).toHaveTextContent("pricing.profileError")
+        fireEvent.click(upgrade)
+        expect(ApiClient.createCheckoutSession).not.toHaveBeenCalled()
+    })
+
+    it("requires a live session before creating a top-up order", async () => {
+        mockGetSession.mockResolvedValue({ data: { session: null } })
+        renderPricingPage()
+        const topup = screen.getByRole("button", { name: "pricing.topup.button" })
+        await waitFor(() => expect(topup).toBeEnabled())
+        fireEvent.click(topup)
+        expect(await screen.findByRole("status")).toHaveTextContent("pricing.authRequired")
+        expect(ApiClient.createCheckoutSession).not.toHaveBeenCalled()
+    })
+
     it("tracks a Pro annual checkout redirect only after a real checkout URL is returned", async () => {
         mockSingle.mockResolvedValue({
             data: {
@@ -153,6 +173,7 @@ describe("PricingPage", () => {
         await screen.findByText("pricing.pro.button")
         expect(screen.queryByText("free")).not.toBeInTheDocument()
         expect(screen.getByText("pricing.free.title")).toBeInTheDocument()
+        await waitFor(() => expect(screen.getByText("pricing.pro.button")).toBeEnabled())
         fireEvent.click(screen.getByText("pricing.pro.button"))
 
         await waitFor(() => {
@@ -170,7 +191,8 @@ describe("PricingPage", () => {
         expect(mockAssign).toHaveBeenCalledWith("https://checkout.example/pro-annual")
     })
 
-    it("tracks the monthly Pro checkout mapping when annual billing is turned off", async () => {
+    it("preserves a monthly landing selection at checkout", async () => {
+        navigation.searchParams = new URLSearchParams("billing=monthly")
         mockSingle.mockResolvedValue({
             data: {
                 tier: "free",
@@ -185,7 +207,8 @@ describe("PricingPage", () => {
         })
         renderPricingPage()
 
-        fireEvent.click(await screen.findByRole("radio", { name: "pricing.pro.monthly" }))
+        expect(await screen.findByRole("radio", { name: "pricing.pro.monthly" })).toBeChecked()
+        await waitFor(() => expect(screen.getByText("pricing.pro.button")).toBeEnabled())
         fireEvent.click(screen.getByText("pricing.pro.button"))
 
         await waitFor(() => {
@@ -266,7 +289,8 @@ describe("PricingPage", () => {
         })
         renderPricingPage()
 
-        fireEvent.click(await screen.findByText("pricing.pro.button"))
+        await waitFor(() => expect(screen.getByText("pricing.pro.button")).toBeEnabled())
+        fireEvent.click(screen.getByText("pricing.pro.button"))
 
         expect(await screen.findByRole("status")).toHaveTextContent("pricing.checkoutError")
         expect(growth.trackGrowthEvent).not.toHaveBeenCalledWith("pricing_checkout_redirect", expect.anything())

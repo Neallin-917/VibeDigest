@@ -13,9 +13,10 @@ import { getCustomerPlanDisplay, getPlanCopyVariables } from "@/lib/billing/plan
 import { trackGrowthEvent } from "@/lib/growth-events"
 
 type PricingPlanKey = "pro" | "free" | "topup"
-function getPlanDestination(locale: string, plan: PricingPlanKey) {
+function getPlanDestination(locale: string, plan: PricingPlanKey, billing: "monthly" | "annual") {
     if (plan === "free") return `/${locale}/chat`
-    return `/${locale}/settings/pricing#${plan}`
+    const query = plan === "pro" && billing === "monthly" ? "?billing=monthly" : ""
+    return `/${locale}/settings/pricing${query}#${plan}`
 }
 
 export function PricingSection() {
@@ -25,7 +26,7 @@ export function PricingSection() {
     const { data: user, refetch: refetchUser } = useCurrentUserQuery()
 
     const handlePlanClick = async (plan: PricingPlanKey) => {
-        const destination = getPlanDestination(locale, plan)
+        const destination = getPlanDestination(locale, plan, billingPeriod)
         const resolvedUser = user === undefined
             ? (await refetchUser()).data
             : user
@@ -53,7 +54,7 @@ export function PricingSection() {
     const annual = billingPeriod === "annual"
     const plans = [
         { ...catalog.basic, key: "free" as const, price: catalog.basic.priceLabel, billing: catalog.basic.description, cta: t("landing.getStarted") },
-        { ...catalog.pro, key: "pro" as const, price: annual ? catalog.pro.annualEffectiveMonthlyLabel : catalog.pro.monthlyPriceLabel, billing: annual ? t("landing.proAnnualBilling", planVars) : t("landing.proMonthlyBilling"), cta: t("landing.viewPlan") },
+        { ...catalog.pro, key: "pro" as const, price: annual ? catalog.pro.annualPriceLabel : catalog.pro.monthlyPriceLabel, billing: annual ? t("landing.annualEquivalent", planVars) : t("landing.proMonthlyBilling"), cta: t("landing.viewPlan") },
     ]
 
     return (
@@ -88,7 +89,7 @@ export function PricingSection() {
                             <div aria-live={plan.key === "pro" ? "polite" : undefined} aria-atomic="true" className="mt-5">
                                 <p className="flex flex-wrap items-baseline gap-2">
                                     <span className="text-[56px] font-normal leading-tight tracking-[-0.035em] text-foreground">{plan.price}</span>
-                                    {plan.key === "pro" && <span className="text-[13px] text-foreground-soft">{t("pricing.pro.unit")}</span>}
+                                    {plan.key === "pro" && <span className="text-[13px] text-foreground-soft">{t(annual ? "landing.annualUnit" : "pricing.pro.unit")}</span>}
                                 </p>
                                 <p className="mt-2 min-h-6 text-xs leading-relaxed text-foreground-soft">{plan.billing}</p>
                             </div>
@@ -107,7 +108,7 @@ export function PricingSection() {
                         <span>{catalog.topUp.priceLabel} · {catalog.topUp.features.join(" · ")}</span>
                     </p>
                     <Button variant="link" onClick={() => handlePlanClick("topup")} className="h-auto shrink-0 px-0 py-2 text-[13px] font-semibold text-primary-strong">
-                        {t("pricing.topup.button")}<ArrowRight className="size-4" aria-hidden="true" />
+                        {t("landing.viewCreditPack")}<ArrowRight className="size-4" aria-hidden="true" />
                     </Button>
                 </div>
                 <p className="mt-6 max-w-xl text-xs leading-relaxed text-foreground-subtle">

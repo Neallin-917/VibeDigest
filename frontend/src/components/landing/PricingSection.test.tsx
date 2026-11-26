@@ -34,7 +34,7 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
                 "landing.mostPopular": "Most popular",
                 "landing.viewPlan": "View plan",
                 "landing.effectiveMonthly": "effective / month",
-                "landing.proAnnualBilling": "{annualPrice} billed annually.",
+                "landing.annualEquivalent": "Equivalent to {annualMonthlyPrice} per month.",
                 "landing.proMonthlyBilling": "Billed monthly.",
                 "pricing.pro.monthly": "Monthly",
                 "pricing.pro.annual": "Annual",
@@ -45,7 +45,7 @@ vi.mock("@/components/i18n/I18nProvider", () => ({
                 "pricing.pro.title": "Pro",
                 "pricing.topup.title": "Top-up",
                 "pricing.topup.desc": "Pay once",
-                "pricing.topup.button": "Buy credits",
+                "landing.viewCreditPack": "View credit pack",
                 "pricing.features.monthlyVideos": "{count} videos / month",
                 "pricing.features.saveNotes": "Save notes",
                 "pricing.features.multilingualSummaries": "Multilingual summaries",
@@ -90,7 +90,7 @@ describe("PricingSection", () => {
 
         expect(screen.getByRole("button", { name: "View plan" })).toBeInTheDocument()
         expect(screen.queryByRole("button", { name: "Upgrade" })).not.toBeInTheDocument()
-        expect(screen.getByText("$8.25")).toBeInTheDocument()
+        expect(screen.getByText("$99")).toBeInTheDocument()
         expect(screen.getByText(/\$4\.99 · 50 videos per pack · Never expires/)).toBeInTheDocument()
         expect(screen.queryByText("$5.00")).not.toBeInTheDocument()
     })
@@ -99,18 +99,20 @@ describe("PricingSection", () => {
         const user = userEvent.setup()
         renderPricingSection()
         expect(screen.getByRole("button", { name: "Annual" })).toHaveAttribute("aria-pressed", "true")
-        expect(screen.getByText("$8.25")).toBeInTheDocument()
-        expect(screen.getByText("$99 billed annually.")).toBeInTheDocument()
+        expect(screen.getByText("$99")).toBeInTheDocument()
+        expect(screen.getByText("Equivalent to $8.25 per month.")).toBeInTheDocument()
         expect(screen.getByText("100 videos / month")).toBeInTheDocument()
         await user.click(screen.getByRole("button", { name: "Monthly" }))
         expect(screen.getByRole("button", { name: "Monthly" })).toHaveAttribute("aria-pressed", "true")
         expect(screen.getByRole("button", { name: "Annual" })).toHaveAttribute("aria-pressed", "false")
         expect(screen.getByText("$9.99")).toBeInTheDocument()
         expect(screen.getByText("Billed monthly.")).toBeInTheDocument()
-        expect(screen.queryByText("$99 billed annually.")).not.toBeInTheDocument()
+        await user.click(screen.getByRole("button", { name: "View plan" }))
+        expect(mockPush).toHaveBeenCalledWith("/en/login?next=%2Fen%2Fsettings%2Fpricing%3Fbilling%3Dmonthly%23pro")
+        expect(screen.queryByText("Equivalent to $8.25 per month.")).not.toBeInTheDocument()
         await user.click(screen.getByRole("button", { name: "Annual" }))
-        expect(screen.getByText("$8.25")).toBeInTheDocument()
-        expect(screen.getByText("$99 billed annually.")).toBeInTheDocument()
+        expect(screen.getByText("$99")).toBeInTheDocument()
+        expect(screen.getByText("Equivalent to $8.25 per month.")).toBeInTheDocument()
     })
 
     it("reuses the landing account lookup across plan actions", async () => {
@@ -120,7 +122,7 @@ describe("PricingSection", () => {
         await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1))
 
         await user.click(screen.getByRole("button", { name: "View plan" }))
-        await user.click(screen.getByRole("button", { name: "Buy credits" }))
+        await user.click(screen.getByRole("button", { name: "View credit pack" }))
 
         expect(mockGetUser).toHaveBeenCalledTimes(1)
         expect(mockPush).toHaveBeenNthCalledWith(1, "/en/login?next=%2Fen%2Fsettings%2Fpricing%23pro")
@@ -130,7 +132,7 @@ describe("PricingSection", () => {
     it.each([
         { name: "View plan", plan: "pro", next: "/en/settings/pricing#pro" },
         { name: "Get started", plan: "free", next: "/en/chat" },
-        { name: "Buy credits", plan: "topup", next: "/en/settings/pricing#topup" },
+        { name: "View credit pack", plan: "topup", next: "/en/settings/pricing#topup" },
     ] as const)("tracks pricing_plan_open for %s before sending visitors to login", async ({ name, plan, next }) => {
         const user = userEvent.setup()
         renderPricingSection()
@@ -149,7 +151,7 @@ describe("PricingSection", () => {
     it.each([
         { name: "View plan", plan: "pro", destination: "pricing", path: "/en/settings/pricing#pro" },
         { name: "Get started", plan: "free", destination: "chat", path: "/en/chat" },
-        { name: "Buy credits", plan: "topup", destination: "pricing", path: "/en/settings/pricing#topup" },
+        { name: "View credit pack", plan: "topup", destination: "pricing", path: "/en/settings/pricing#topup" },
     ] as const)("preserves a signed-in visitor's $plan intent", async ({ name, plan, destination, path }) => {
         const user = userEvent.setup()
         mockGetUser.mockResolvedValue({

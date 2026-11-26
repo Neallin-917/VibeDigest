@@ -15,6 +15,7 @@ const queryState = vi.hoisted(() => ({
   eqCalls: [] as Array<[string, unknown]>,
   inCalls: [] as Array<[string, unknown[]]>,
   limits: [] as number[],
+  reads: [] as Array<{ table: string; count?: string; preferred: boolean }>,
   languageFilters: [] as string[],
 }))
 const fixtureMode = vi.hoisted(() => ({ enabled: false }))
@@ -22,11 +23,11 @@ const fixtureMode = vi.hoisted(() => ({ enabled: false }))
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
-      let countOnly = false
+      let requestedCount: string | undefined
       let hasLanguageFilter = false
       const query = {
-        select: (_columns: string, options?: { head?: boolean }) => {
-          countOnly = options?.head === true
+        select: (_columns: string, options?: { count?: string }) => {
+          requestedCount = options?.count
           return query
         },
         eq: (column: string, value: unknown) => {
@@ -49,14 +50,11 @@ vi.mock("@/lib/supabase/server", () => ({
           return query
         },
         then: (resolve: (value: QueryResult) => unknown, reject: (reason: unknown) => unknown) => {
+          queryState.reads.push({ table, count: requestedCount, preferred: hasLanguageFilter })
           const result = table === "podcast_library_source_counts"
             ? queryState.sources
-            : countOnly
-              ? { ...queryState.tasks, data: null }
-              : hasLanguageFilter
-                ? queryState.preferredTasks
-                : queryState.tasks
-          return Promise.resolve(result).then(resolve, reject)
+            : hasLanguageFilter ? queryState.preferredTasks : queryState.tasks
+          return Promise.resolve({ ...result, count: requestedCount ? result.count : null }).then(resolve, reject)
         },
       }
       return query
@@ -76,10 +74,12 @@ vi.mock("./CommunityTemplates", () => ({
     initialTasks,
     sourceItems = [],
     totalCount = 0,
+    hasMore,
   }: {
     initialStatus: string
     initialTasks: Array<{ video_title?: string; source?: { name: string }; takeaway?: string; takeawayLocale?: string | null }>
     sourceItems?: Array<{ source: { name: string }; count: number }>
+    hasMore?: boolean
     totalCount?: number
   }) => (
     <>
@@ -98,6 +98,7 @@ vi.mock("./CommunityTemplates", () => ({
       <div data-testid="source-shelf">
         {sourceItems.map((item) => `${item.source.name}:${item.count}`).join(",")}
       </div>
+      <div data-testid="has-more">{String(hasMore)}</div>
       <div data-testid="total-count">{totalCount}</div>
     </>
   ),
@@ -134,6 +135,7 @@ describe("ServerCommunityTemplates", () => {
     queryState.eqCalls = []
     queryState.inCalls = []
     queryState.limits = []
+    queryState.reads = []
     queryState.languageFilters = []
   })
 
@@ -165,6 +167,7 @@ describe("ServerCommunityTemplates", () => {
     render(await ServerCommunityTemplates({ layout: "landingPreview", limit: 8, locale }))
 
     expect(queryState.limits).toEqual([24, 24])
+    expect(queryState.reads.every((read) => !read.count)).toBe(true)
     expect(screen.getByTestId("community-status").textContent).toBe(
       "ready:repeat-1,unique-b,unique-c,unique-d,unique-e,unique-f,unique-g,unique-h"
     )
@@ -195,6 +198,22 @@ describe("ServerCommunityTemplates", () => {
 
     expect(screen.getByTestId("community-status").textContent).toBe("ready:a-1,a-2,b-1")
     expect(queryState.limits.filter((limit) => limit !== 200)).toEqual([18, 18])
+  })
+
+  it.each([
+    { page: 2, total: 37, more: true },
+    { page: 2, total: 36, more: false },
+    { page: 1, total: 0, more: false },
+  ])("gets the filtered total and page in three requests (page $page, total $total)", async ({ page, total, more }) => {
+    queryState.tasks = { data: [], count: total, error: null }
+    render(await ServerCommunityTemplates({ layout: "gallery", locale: "zh", page, initialQuery: "agent", initialSource: "latent-space" }))
+
+    expect(queryState.reads).toHaveLength(3)
+    expect(queryState.reads.filter((read) => read.count)).toEqual([
+      { table: "tasks", count: "exact", preferred: false },
+    ])
+    expect(screen.getByTestId("total-count").textContent).toBe(String(total))
+    expect(screen.getByTestId("has-more").textContent).toBe(String(more))
   })
 
   it("builds a source shelf from local fixtures instead of collapsing to all only", async () => {

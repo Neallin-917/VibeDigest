@@ -312,6 +312,7 @@ export async function ServerCommunityTemplates({
   const supabase = await createClient()
 
   const createTasksQuery = (queryLimit: number, preferredLocale?: Locale) => {
+    const count = layout !== "landingPreview" && !preferredLocale ? "exact" : undefined
     let query = supabase
       .from("tasks")
       .select(`
@@ -340,7 +341,7 @@ export async function ServerCommunityTemplates({
           catalog_order
         )
       )
-    `)
+    `, { count })
       .eq("is_demo", true)
       .eq("status", "completed")
       .eq("publication_status", "published")
@@ -392,17 +393,6 @@ export async function ServerCommunityTemplates({
 
   const activeSource = normalizedSource
 
-  let totalQuery = supabase
-    .from("tasks")
-    .select("id", { count: "exact", head: true })
-    .eq("is_demo", true)
-    .eq("status", "completed")
-    .eq("publication_status", "published")
-
-  totalQuery = applySearchLike(totalQuery, normalizedQuery)
-  if (topicSourceIds.length > 0) totalQuery = totalQuery.in("podcast_source_slug", topicSourceIds)
-  if (activeSource !== "all") totalQuery = totalQuery.eq("podcast_source_slug", activeSource)
-
   let tasksQuery = createTasksQuery(pageLimit)
   tasksQuery = applySearchLike(tasksQuery, normalizedQuery)
   if (activeSource !== "all") tasksQuery = tasksQuery.eq("podcast_source_slug", activeSource)
@@ -413,22 +403,18 @@ export async function ServerCommunityTemplates({
 
   const [
     sourceItems,
-    { count: totalCount, error: totalError },
-    { data, error },
+    { data, count: totalCount, error },
     { data: preferredData, error: preferredError },
   ] = await Promise.all([
     fetchSourceShelf(supabase, topic),
-    totalQuery,
     tasksQuery,
     preferredTasksQuery,
   ])
 
-  if (error || totalError || preferredError) {
+  if (error || preferredError) {
     console.error("Failed to fetch public demo tasks", {
       tasksCode: error?.code,
       tasksMessage: error?.message,
-      countCode: totalError?.code,
-      countMessage: totalError?.message,
       preferredTasksCode: preferredError?.code,
       preferredTasksMessage: preferredError?.message,
     })
@@ -441,7 +427,7 @@ export async function ServerCommunityTemplates({
     <CommunityTemplates
       showHeader={showHeader}
       initialTasks={initialTasks}
-      initialStatus={error || totalError ? "unavailable" : "ready"}
+      initialStatus={error ? "unavailable" : "ready"}
       layout={layout}
       locale={locale}
       copy={copy}

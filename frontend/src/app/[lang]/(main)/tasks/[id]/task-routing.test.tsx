@@ -187,6 +187,24 @@ describe("task reading navigation", () => {
         return [{ type: node.type, props: node.props }, ...elements(node.props.children)]
     }
 
+    it.each([
+        ["ar", "OpenRouter يدعم الإصدار 2026.", "rtl"],
+        ["ar", "English passage from a translated transcript.", "auto"],
+        ["fa", "API در سال ۲۰۲۶", "rtl"],
+        ["ar-Latn", "Romanized Arabic", "auto"],
+        ["und", "2026: العربية", "auto"],
+    ])("sets the reading direction of %s evidence %s", async (language, evidence, direction) => {
+        db.outputs = [{ kind: "summary", status: "completed", locale: "en",
+            provenance: { transcript_language: language },
+            content: { version: 5, language: "en", overview: "Overview", keypoints: [
+                { title: "Claim", detail: "Explanation", evidence },
+            ] },
+        }]
+        const nodes = elements(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string), "en")))
+        const passage = nodes.find(node => node.type === "p" && node.props.children === evidence)
+        expect(passage?.props).toMatchObject({ lang: language, dir: direction })
+    })
+
     it.each([["en", "transcribed, translated, or paraphrased"], ["zh", "转录、翻译或转述"]])("explains the provenance of supporting text once in %s", async (lang, wording) => {
         db.outputs = [{ kind: "summary", status: "completed", locale: lang, content: {
             version: 5, language: lang, overview: "Overview", keypoints: [

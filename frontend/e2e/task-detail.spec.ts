@@ -16,6 +16,26 @@ test.describe("Public task detail", () => {
         await page.setViewportSize({ width: 390, height: 844 })
     })
 
+    test("confines automatic text direction to the evidence passage", async ({ page }) => {
+        await page.goto(TASK_PATH)
+        const card = page.locator('[data-slot="task-keypoint"]').first()
+        const disclosure = card.locator("details")
+        const evidence = disclosure.getByText("本地演示数据", { exact: true })
+        await expect(evidence).toBeVisible()
+        await expect(evidence).toHaveAttribute("lang", "zh")
+        await expect(evidence).toHaveAttribute("dir", "auto")
+        await expect(evidence).toHaveCSS("direction", "ltr")
+
+        // Probe the browser's auto fallback on the real evidence element.
+        // The demo fixture itself contains Chinese evidence.
+        await evidence.evaluate(element => { element.textContent = "(2026) العربية OpenAI" })
+        const mixedEvidence = disclosure.getByText("(2026) العربية OpenAI", { exact: true })
+        await expect(mixedEvidence).toHaveCSS("direction", "rtl")
+        await expect(mixedEvidence).toHaveAttribute("lang", "zh")
+        await expect(card.getByRole("heading", { level: 3 })).toHaveCSS("direction", "ltr")
+        await expect(disclosure.getByText("支撑证据", { exact: true })).toHaveCSS("direction", "ltr")
+    })
+
     test("keeps the reading flow concise and does not expose a transcript", async ({ page }) => {
         const pageErrors: string[] = []
         page.on("pageerror", (error) => pageErrors.push(error.message))

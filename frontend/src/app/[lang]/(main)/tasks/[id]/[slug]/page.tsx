@@ -369,6 +369,7 @@ export default async function TaskDetailPage(props: Props) {
         : null
     const summaryLanguageTag = resolveSummaryLanguageTag(structuredSummary?.language, locale)
     const evidenceLanguageTag = resolveEvidenceLanguageTag(getOptionalString(summaryOutput?.provenance, "transcript_language"))
+    const arabicScript = new Intl.Locale(evidenceLanguageTag).maximize().script === "Arab"
     const versionStatus = ownerTask && status === "completed" && !hasSummary
         ? missingSummaryVersionStatus(outputs, contentLocale, explicitLocale) : null
     const languageSwitchLocale = digest.alternativeLocale
@@ -545,7 +546,13 @@ export default async function TaskDetailPage(props: Props) {
                                                         )}
                                                         <div className="mt-3 border-l-2 border-primary/30 pl-3">
                                                             <p className="text-xs font-semibold text-primary">{copy.evidence}</p>
-                                                            <p lang={evidenceLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
+                                                            <p
+                                                                lang={evidenceLanguageTag}
+                                                                dir={arabicScript && /\p{Script=Arabic}/u.test(keypoint.evidence) ? "rtl" : "auto"}
+                                                                className="pb-1 pt-2 text-start text-sm leading-6 text-muted-foreground"
+                                                            >
+                                                                {keypoint.evidence}
+                                                            </p>
                                                             {keypoint.sourceLink && (
                                                                 <a
                                                                     href={keypoint.sourceLink.href}

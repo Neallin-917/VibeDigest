@@ -9,6 +9,8 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 import json
 
+from services.rolling_captions import parse_rolling_captions
+
 logger = logging.getLogger(__name__)
 
 
@@ -669,6 +671,13 @@ class VideoProcessor:
         except Exception:
             return "", []
 
+        rolling = parse_rolling_captions(content)
+        if rolling:
+            markdown = "\n\n".join(
+                f"[{cue['start']:.2f}-{cue['end']:.2f}] {cue['text']}" for cue in rolling
+            )
+            return markdown, rolling
+
         # Remove header (WEBVTT...)
         lines = content.splitlines()
         if lines and lines[0].strip().startswith("WEBVTT"):
@@ -696,8 +705,12 @@ class VideoProcessor:
                 return float(m) * 60 + float(s)
             return 0.0
 
-        for line in lines:
-            line = line.strip()
+        for raw_line in lines:
+            line = raw_line.strip()
+            # Rolling display files can begin a cue with a space-only display
+            # row. Preserve its timestamp if the general parser is used.
+            if raw_line and not line and current_start is not None and not current_text:
+                continue
             if not line:
                 # End of cue (empty line separator)
                 if current_start is not None and current_text:

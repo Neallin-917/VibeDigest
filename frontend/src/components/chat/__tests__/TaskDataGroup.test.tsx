@@ -407,8 +407,8 @@ describe('TaskDataGroup', () => {
   it.each([
     ['en', 'captions_unavailable: rate_limited', 'Caption requests are temporarily limited. Submit this video again later.'],
     ['zh', 'captions_unavailable: rate_limited', '字幕服务暂时限流，请稍后重新提交此视频。'],
-    ['en', 'captions_unavailable', 'This video has no usable captions. Try a YouTube video with existing captions.'],
-    ['zh', 'captions_unavailable', '此视频暂无可用字幕，请换一个已有字幕的 YouTube 视频。'],
+    ['en', 'captions_unavailable', 'We couldn’t retrieve usable captions for this video. Try another YouTube video with captions.'],
+    ['zh', 'captions_unavailable', '这次未能取得可用字幕，请试试其他带字幕的 YouTube 视频。'],
     ['en', 'unsupported_source', 'This source is not supported. Try a YouTube video with existing captions.'],
     ['zh', 'unsupported_source', '暂不支持此来源，请换一个已有字幕的 YouTube 视频。'],
   ] as const)('localizes permanent source failures without offering retry: %s %s', (locale, code, message) => {

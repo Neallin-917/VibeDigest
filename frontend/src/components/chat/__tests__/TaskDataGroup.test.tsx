@@ -591,6 +591,57 @@ describe('TaskDataGroup', () => {
     expect(fetchVersion).not.toHaveBeenCalled()
   })
 
+  it.each(['public', 'private', 'denied'])('recovers a completed history card with no source URL (%s)', async outcome => {
+    type Check = 'failed' | 'rechecking' | undefined
+    let publish!: (row: Record<string, unknown>) => void
+    let check!: (value: Check) => void
+    mockSubscribeToTask.mockImplementation((_id, listener, onCheck) => {
+      publish = listener
+      check = onCheck
+      return vi.fn()
+    })
+    const post = vi.fn()
+    vi.stubGlobal('fetch', post)
+    taskOutputRows = existing.data
+    const { container } = render(<TaskDataGroup taskStatus={{ taskId: 'legacy', status: 'completed', progress: 100 }} />)
+    await waitFor(() => expect(mockReadTaskOutputs).toHaveBeenCalledOnce())
+    act(() => check('failed'))
+    const retry = screen.getByRole('button', { name: 'Check again' })
+    act(() => { retry.focus(); retry.click() })
+    expect(mockReadSubscribedTask).toHaveBeenCalledExactlyOnceWith('legacy')
+    expect(container.querySelector('iframe, audio, a[href]')).toBeNull()
+    act(() => {
+      check(undefined)
+      if (outcome !== 'denied') publish({ id: 'legacy', status: 'completed', is_demo: outcome === 'public',
+        guest_id: null, workload_kind: 'user_submission',
+        output_intent: { locale_source: 'explicit_instruction', target_locale: 'zh' } })
+    })
+    if (outcome !== 'denied') {
+      const expected = matchPublicSummaryOutput(existing.data, outcome === 'private' ? 'zh' : 'en').summary!
+      expect(screen.getByText(expected.overview)).toBeVisible()
+      expect(document.activeElement?.tagName).toBe('H3')
+      expect(container.querySelector('iframe, audio')).toBeNull()
+      act(() => publish({ id: 'legacy', status: 'completed', is_demo: outcome === 'public', guest_id: null,
+        workload_kind: 'user_submission', video_title: 'Recovered source', video_url: 'https://www.youtube.com/watch?v=video-123',
+        output_intent: { locale_source: 'explicit_instruction', target_locale: 'zh' } }))
+      expect(container.querySelector('iframe')).toHaveAttribute('src', expect.stringContaining('/embed/video-123'))
+      expect(screen.getByText(expected.overview)).toBeVisible()
+    } else {
+      expect(screen.queryByText(overview)).not.toBeInTheDocument()
+      expect(container.querySelector('iframe, audio')).toBeNull()
+    }
+    expect(post).not.toHaveBeenCalled()
+    expect(mockReadTaskOutputs).toHaveBeenCalledOnce()
+  })
+
+  it('plays a persisted audio output without a video source', async () => {
+    taskOutputRows = [...existing.data, { kind: 'audio', content: JSON.stringify({ audioUrl: 'https://example.com/episode.mp3' }) }]
+    const { container } = render(<TaskDataGroup taskStatus={{ taskId: 'audio-only', status: 'completed', progress: 100 }} />)
+    expect(await screen.findByText(overview)).toBeVisible()
+    expect(container.querySelector('audio source')).toHaveAttribute('src', 'https://example.com/episode.mp3')
+    expect(container.querySelector('iframe')).toBeNull()
+  })
+
   it('renders the embedded player as soon as live video metadata arrives', async () => {
     let publishTask: ((row: Record<string, unknown>) => void) | undefined
     mockSubscribeToTask.mockImplementation((_taskId, listener) => {

@@ -592,7 +592,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
     trackGrowthEvent('task_result_view', { locale })
   }, [isDemo, locale, normalizedStatus, snapshot?.taskId, summary])
 
-  if (!snapshot || !snapshot.videoUrl) return null
+  if (!snapshot || (!snapshot.videoUrl && normalizedStatus !== 'completed')) return null
 
   const status = normalizeTaskStatus(snapshot.status)
   const title = getTaskDisplayTitle(
@@ -601,7 +601,8 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
     t('chat.tools.status.videoTask')
   )
   const hasSourceMetadata = isUsableTaskTitle(snapshot.videoTitle) || Boolean(snapshot.thumbnailUrl)
-  const canRenderVideo = supportsVideoEmbed(snapshot.videoUrl)
+  const canRenderVideo = Boolean(snapshot.videoUrl && supportsVideoEmbed(snapshot.videoUrl))
+  const playerUrl = snapshot.videoUrl || (languageResolved ? audioData?.audioUrl : undefined)
   const mediaType = canRenderVideo ? 'video' : 'audio'
   const canRenderMedia = canRenderVideo || Boolean(audioData?.audioUrl)
   const showPlayer = canRenderMedia && (hasSourceMetadata || status === 'completed')
@@ -637,24 +638,26 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
   return (
     <article className="w-full space-y-3" data-testid="inline-task-artifact">
-      {showPlayer ? (
+      {showPlayer && playerUrl ? (
         <VideoPlayer
           mediaType={mediaType}
-          videoUrl={snapshot.videoUrl}
+          videoUrl={playerUrl}
           title={title}
           coverUrl={snapshot.thumbnailUrl}
           audioUrl={audioData?.audioUrl}
           audioCoverUrl={audioData?.coverUrl}
           sourceUrl={snapshot.videoUrl}
         />
-      ) : (
+      ) : snapshot.videoUrl ? (
         <section className="rounded-2xl border border-border bg-surface-raised px-5 py-4">
           <p className="truncate text-sm font-medium text-foreground">{title}</p>
           <p className="mt-1 text-sm text-muted-foreground" role="status" aria-live="polite">
             {stageLabel}
           </p>
         </section>
-      )}
+      ) : isUsableTaskTitle(summary?.title || snapshot.videoTitle) ? (
+        <h3 className="break-words text-sm font-medium text-foreground">{title}</h3>
+      ) : null}
 
       {showPlayer && !summary && status !== 'completed' && !safeError ? (
         <p className="px-1 text-sm text-muted-foreground" role="status" aria-live="polite">

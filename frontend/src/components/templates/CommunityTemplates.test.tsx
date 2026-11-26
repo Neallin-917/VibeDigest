@@ -323,9 +323,11 @@ describe("CommunityTemplates", () => {
   })
 
   it("disables stale results only until the history filters and page arrive", () => {
+    window.history.replaceState({}, "", "/en/explore?show=latent-space&q=e")
     const view = renderGallery({ initialSource: "latent-space", initialQuery: "e" })
     const region = () => document.getElementById("podcast-curated")
 
+    expect(region()).not.toHaveAttribute("inert")
     window.history.replaceState({}, "", "/en/explore?show=a16z&q=a&page=2")
     let guardedDuringHistoryEvent = false
     window.addEventListener("popstate", () => {

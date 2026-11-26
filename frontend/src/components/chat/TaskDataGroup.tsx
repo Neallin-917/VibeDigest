@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js'
 
 import { TaskSummaryVersionStatus } from '@/components/tasks/TaskSummaryVersionStatus'
@@ -350,11 +350,13 @@ function KnowledgeCard({
   children,
   tone = 'default',
   meta,
+  headingRef,
 }: {
   title: string
   children: React.ReactNode
   tone?: 'default' | 'lead'
   meta?: string
+  headingRef?: React.Ref<HTMLHeadingElement>
 }) {
   return (
     <section
@@ -369,7 +371,7 @@ function KnowledgeCard({
         <span aria-hidden="true" className="absolute inset-y-5 left-0 w-0.5 rounded-r-full bg-primary" />
       ) : null}
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3
+        <h3 ref={headingRef} tabIndex={headingRef ? -1 : undefined}
           className={cn(
             'font-semibold',
             tone === 'lead'
@@ -504,6 +506,35 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
+  const focusScope = `${snapshot?.taskId}:${targetLocale}`
+  const pendingRecoveryFocus = useRef<string | null>(null)
+  const digestHeading = useRef<HTMLHeadingElement>(null)
+  const languageStatus = useRef<HTMLParagraphElement>(null)
+  const rememberFocusedRemoval = useCallback((element: HTMLElement | null) => {
+    if (!element) return
+    // Capture focus before the browser blurs a control removed by React.
+    return () => {
+      if (element.ownerDocument.hasFocus() && element.ownerDocument.activeElement === element) {
+        pendingRecoveryFocus.current = focusScope
+      }
+    }
+  }, [focusScope])
+  const registerLanguageStatus = useCallback((element: HTMLParagraphElement | null) => {
+    languageStatus.current = element
+    if (!element) return
+    const remember = rememberFocusedRemoval(element)
+    return () => {
+      remember?.()
+      languageStatus.current = null
+    }
+  }, [rememberFocusedRemoval])
+  useLayoutEffect(() => {
+    const pending = pendingRecoveryFocus.current
+    pendingRecoveryFocus.current = null
+    if (pending !== focusScope || document.activeElement !== document.body) return
+    const destination = digestHeading.current ?? languageStatus.current
+    destination?.focus()
+  })
   const audioData = useMemo(() => parseAudioContent(asString(outputs?.find(output => output.kind === 'audio')?.content)), [outputs])
   // Local review uses the complete published output snapshot. Production
   // always reads its persisted summary through the existing task output query.
@@ -622,7 +653,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
       <ResultEngagement taskId={snapshot.taskId} enabled={!isDemo && status === 'completed' && Boolean(summary)}>
       {conclusion ? (
-        <KnowledgeCard title={t('tasks.summaryStructured.tldrTitle')} tone="lead">
+        <KnowledgeCard title={t('tasks.summaryStructured.tldrTitle')} tone="lead" headingRef={digestHeading}>
           <p className="text-[17px] font-medium leading-7 text-foreground">{conclusion}</p>
         </KnowledgeCard>
       ) : null}
@@ -686,6 +717,8 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
             target={targetLocale}
             status={outputCheck === 'current' ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
             recheck={outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined}
+            recoveryButtonRef={rememberFocusedRemoval}
+            statusRef={registerLanguageStatus}
             onRecheck={recheckOutputs}
             onCompleted={refreshOutputs}
           />

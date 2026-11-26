@@ -19,10 +19,12 @@ const copy = {
 }
 
 /** Start only after a private detail page is opened. Realtime handles subsequent changes. */
-export function TaskSummaryVersionStatus({ taskId, locale, target, status, recheck, onRecheck, onCompleted }: {
+export function TaskSummaryVersionStatus({ taskId, locale, target, status, recheck, onRecheck, onCompleted, recoveryButtonRef, statusRef }: {
   taskId: string
   locale: Locale
   target: Locale
+  recoveryButtonRef?: React.Ref<HTMLButtonElement>
+  statusRef?: React.Ref<HTMLParagraphElement>
   recheck?: 'failed' | 'rechecking'
   onRecheck?: () => void
   onCompleted?: () => void
@@ -66,14 +68,14 @@ export function TaskSummaryVersionStatus({ taskId, locale, target, status, reche
     return (
       <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
         <p role="status">{checking ? copy[locale].checking : copy[locale].failed[target]}</p>
-        <Button type="button" variant="link" size="sm" className="min-h-11 px-2" aria-disabled={checking}
+        <Button ref={recoveryButtonRef} type="button" variant="link" size="sm" className="min-h-11 px-2" aria-disabled={checking}
           onClick={() => { if (!checking) onRecheck() }}>
           {copy[locale].recheck}
         </Button>
       </div>
     )
   }
-  return <p role="status" className="text-sm text-muted-foreground">{
+  return <p ref={statusRef} tabIndex={statusRef ? -1 : undefined} role="status" className="text-sm text-muted-foreground">{
     confirmedStatus === 'unavailable' || (confirmedStatus === 'request' && unavailable)
       ? copy[locale].unavailable : copy[locale][target]
   }</p>

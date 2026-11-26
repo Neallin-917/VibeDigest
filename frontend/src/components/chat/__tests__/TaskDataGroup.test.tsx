@@ -222,6 +222,55 @@ describe('TaskDataGroup', () => {
     }
   })
 
+  it.each([
+    ['private', 'existing'], ['private', 'missing'], ['private', 'denied'],
+    ['public', 'existing'], ['public', 'missing'], ['public', 'not-found'],
+  ] as const)('recovers a cold %s digest after two transient failures (%s)', async (scope, outcome) => {
+    mockSubscribeToTask.mockImplementation((id, listener) => {
+      listener({ id, status: 'completed', workload_kind: 'user_submission', is_demo: scope === 'public', guest_id: null })
+      return vi.fn()
+    })
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    const manual = pendingOutputRead()
+    const nextManual = pendingOutputRead()
+    render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: 'cold-task' }} />)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await catchUp({ data: null, status: 503 })
+    await initial({ data: null, status: 503 })
+    const retry = screen.getByRole('button', { name: 'Check again' })
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2)
+    act(() => { retry.focus(); retry.click(); retry.click() })
+    expect(retry).toHaveAttribute('aria-disabled', 'true')
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(3)
+    await manual({ data: null, status: 503 })
+    expect(retry).toHaveFocus()
+    expect(retry).toHaveAttribute('aria-disabled', 'false')
+    act(() => retry.click())
+    expect(post).not.toHaveBeenCalled()
+
+    if (outcome === 'existing') {
+      await nextManual(existing)
+      expect(screen.getByText(overview)).toBeVisible()
+      expect(document.activeElement?.tagName).toBe('H3')
+    } else if (outcome === 'missing') {
+      await nextManual({ data: [] })
+      if (scope === 'private') {
+        await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/cold-task/summary-version',
+          expect.objectContaining({ method: 'POST', body: JSON.stringify({ locale: 'en' }) })))
+      } else {
+        expect(screen.getByText('No summary available.')).toHaveFocus()
+      }
+    } else {
+      await nextManual({ data: null, status: outcome === 'denied' ? 403 : 404 })
+    }
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(4)
+    if (scope !== 'private' || outcome !== 'missing') expect(post).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
+  })
+
   it.each(['available', 'missing', 'denied'])('checks a failed language read on demand without a subscription update (%s)', async outcome => {
     const englishOnly = { data: existing.data.filter(row => row.content.language === 'en') }
     const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })

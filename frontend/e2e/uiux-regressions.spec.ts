@@ -89,9 +89,15 @@ test('library puts the first digest in view and returns to the originating card'
   expect((await card.boundingBox())!.y).toBeLessThan(150)
   await expect(digest).toBeFocused()
   await expect(digest).toBeInViewport()
+})
 
+test('browser Back restores the digest link when the library entry starts without an anchor', async ({ page }) => {
+  await page.goto('/en/explore?show=latent-space&q=Prediction&page=2')
+  expect(new URL(page.url()).hash).toBe('')
+  const digest = page.locator('[data-card-role]').first().getByRole('link', { name: /^View digest:/ })
+  await digest.focus()
   await digest.press('Enter')
-  await expect(back).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Back to podcast library' })).toBeVisible()
   await page.goBack()
   await expect(page.getByRole('searchbox')).toHaveValue('Prediction')
   await expect(page).toHaveURL(/show=latent-space&q=Prediction&page=2#episode-/)

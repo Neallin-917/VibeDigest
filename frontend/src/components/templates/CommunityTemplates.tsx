@@ -321,7 +321,7 @@ function EpisodeFeatureCard({
     locale: Locale
     copy: PodcastCopy
     returnHref?: string
-    onNavigate?: () => void
+    onNavigate?: (taskId: string) => void
     priority?: boolean
     role?: EpisodeCardRole
     sizes?: string
@@ -374,7 +374,7 @@ function EpisodeFeatureCard({
                 </div>
                 <Link
                     href={href}
-                    onNavigate={onNavigate}
+                    onNavigate={() => onNavigate?.(task.id)}
                     aria-label={`${copy.read}: ${title}`}
                     onClick={() => trackGrowthEvent("library_digest_open", {
                         locale,
@@ -461,7 +461,7 @@ function PodcastFeatureGrid({
     locale: Locale
     copy: PodcastCopy
     returnHref?: string
-    onNavigate?: () => void
+    onNavigate?: (taskId: string) => void
 }) {
     if (tasks.length < 5) {
         const role: EpisodeCardRole = tasks.length === 1 ? "solo" : "standard"
@@ -555,7 +555,7 @@ function CompactEpisodeRow({
     task: Task
     locale: Locale
     returnHref?: string
-    onNavigate?: () => void
+    onNavigate?: (taskId: string) => void
 }) {
     const source = sourceForTask(task)
     if (!source) return null
@@ -565,10 +565,10 @@ function CompactEpisodeRow({
     const localizedTakeaway = task.takeawayLocale === locale ? task.takeaway : null
 
     return (
-        <article id={libraryEpisodeAnchor(task.id)} className="w-full min-w-0 border border-border bg-card/80 [content-visibility:auto]">
+        <article id={libraryEpisodeAnchor(task.id)} className="w-full min-w-0 border border-border bg-card/80 [content-visibility:auto] [contain-intrinsic-block-size:auto_9rem]">
             <Link
                 href={href}
-                onNavigate={onNavigate}
+                onNavigate={() => onNavigate?.(task.id)}
                 onClick={() => trackGrowthEvent("library_digest_open", {
                     locale,
                     source: source.id,
@@ -676,7 +676,11 @@ export function CommunityTemplates({
     const featuredTasks = initialTasks.slice(0, FEATURED_COUNT)
     const feedTasks = initialTasks.slice(FEATURED_COUNT)
 
-    function cancelPendingSearch() {
+    function openDigest(taskId: string) {
+        const entry = new URL(window.location.href)
+        entry.hash = libraryEpisodeAnchor(taskId)
+        window.history.replaceState(window.history.state, "", entry)
+
         if (searchTimer.current !== null) window.clearTimeout(searchTimer.current)
         searchTimer.current = null
         setQueryInput((current) => ({
@@ -698,6 +702,18 @@ export function CommunityTemplates({
             lastSubmitted: href,
         }))
     }
+
+    useEffect(() => {
+        if (layout !== "gallery" || !/^#episode-[a-zA-Z0-9_-]+$/.test(window.location.hash)) return
+        const episode = document.getElementById(window.location.hash.slice(1))
+        const link = episode?.querySelector<HTMLAnchorElement>('a[href*="/tasks/"]')
+        if (!link) return
+        const frame = requestAnimationFrame(() => {
+            link.focus({ preventScroll: true })
+            link.scrollIntoView({ block: "center", behavior: "instant" })
+        })
+        return () => cancelAnimationFrame(frame)
+    }, [layout, initialHref])
 
     useEffect(() => {
         if (layout === "gallery") trackGrowthEvent("library_view", { locale })
@@ -859,7 +875,7 @@ export function CommunityTemplates({
                         locale={locale}
                         copy={podcastCopy}
                         returnHref={returnHref}
-                        onNavigate={cancelPendingSearch}
+                        onNavigate={openDigest}
                     />
                 </section>
             ) : (
@@ -884,7 +900,7 @@ export function CommunityTemplates({
                     <div className="grid min-w-0 gap-px bg-border lg:grid-cols-2">
                         {feedTasks.map((task) => (
                             <div key={task.id} className="min-w-0 bg-background">
-                                <CompactEpisodeRow task={task} locale={locale} returnHref={returnHref} onNavigate={cancelPendingSearch} />
+                                <CompactEpisodeRow task={task} locale={locale} returnHref={returnHref} onNavigate={openDigest} />
                             </div>
                         ))}
                     </div>

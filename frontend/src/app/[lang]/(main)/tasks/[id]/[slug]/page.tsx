@@ -183,6 +183,7 @@ const DETAIL_COPY = {
         moreFull: "Expand full summary", lessFull: "Collapse full summary",
         summary: "Summary", keyIdeas: "Key ideas", fullSummary: "Read the full digest", original: "Open Original Video",
         share: "Copy share link", copied: "Copied", copyFailed: "Copy failed",
+        evidenceGuide: "Supporting text may be transcribed, translated, or paraphrased.",
         whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at", openSource: "Open original source",
         failed: "This task did not complete. You can retry it below.",
         pending: "Summary not available yet. Check back once processing completes.",
@@ -203,6 +204,7 @@ const DETAIL_COPY = {
         moreFull: "展开完整整理", lessFull: "收起完整整理",
         summary: "内容摘要", keyIdeas: "关键观点", fullSummary: "完整整理", original: "打开原视频",
         share: "复制分享链接", copied: "已复制", copyFailed: "复制失败",
+        evidenceGuide: "支撑文字可能经过转录、翻译或转述。",
         whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点", openSource: "查看原始来源",
         failed: "这项任务未能完成，可以在下方重试。",
         pending: "整理内容尚未生成，请在处理完成后回来查看。",
@@ -524,6 +526,7 @@ export default async function TaskDetailPage(props: Props) {
                                 <Heading as="h2" variant="h2" id="task-key-ideas-title" className="scroll-mt-28">
                                     {copy.keyIdeas}
                                 </Heading>
+                                <p className="text-sm leading-6 text-muted-foreground">{copy.evidenceGuide}</p>
                                 <ol className="divide-y divide-border/70">
                                     {visibleKeypoints.map((keypoint, index) => (
                                         <li

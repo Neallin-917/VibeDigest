@@ -183,6 +183,19 @@ describe("task reading navigation", () => {
         return [{ type: node.type, props: node.props }, ...elements(node.props.children)]
     }
 
+    it.each([["en", "transcribed, translated, or paraphrased"], ["zh", "转录、翻译或转述"]])("explains the provenance of supporting text once in %s", async (lang, wording) => {
+        db.outputs = [{ kind: "summary", status: "completed", locale: lang, content: {
+            version: 5, language: lang, overview: "Overview", keypoints: [
+                { title: "Claim", detail: "Explanation", evidence: "Saved supporting words" },
+                { title: "Another claim", detail: "Another explanation", evidence: "Another passage" },
+            ],
+        } }]
+        const nodes = elements(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string), lang)))
+        const paragraphs = nodes.filter(node => node.type === "p").map(node => treeText(node.props.children))
+        expect(paragraphs.filter(text => text.includes(wording))).toHaveLength(1)
+        expect(paragraphs).toContain("Saved supporting words")
+    })
+
     it.each([
         ["en", "https://www.youtube.com/watch?v=source", undefined, "https://www.youtube.com/watch?v=source", "Open original source"],
         ["zh", "https://www.youtube.com/watch?v=source", undefined, "https://www.youtube.com/watch?v=source", "查看原始来源"],

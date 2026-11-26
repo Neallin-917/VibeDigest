@@ -279,7 +279,7 @@ describe('summary-contract', () => {
     expect(markdown).toContain('## 内容概览')
     expect(markdown).toContain('## 关键观点')
     expect(markdown).toContain('为什么重要: Why it matters.')
-    expect(markdown).toContain('原文证据: Quoted support.')
+    expect(markdown).toContain('支撑依据: Quoted support.')
     expect(markdown).toContain('## 更多内容')
   })
 

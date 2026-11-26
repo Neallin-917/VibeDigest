@@ -338,7 +338,7 @@ describe('TaskDataGroup', () => {
     expect(screen.queryByText('Continue reading')).not.toBeInTheDocument()
     expect(screen.getByText('Evidence')).toBeInTheDocument()
     expect(screen.queryByText('00:32')).not.toBeInTheDocument()
-    expect(screen.getByText('A source quote.')).toBeInTheDocument()
+    expect(screen.getByText('A source quote.').tagName).toBe('P')
     await waitFor(() => {
       expect(growth.trackGrowthEvent).toHaveBeenCalledExactlyOnceWith('task_result_view', {
         locale: 'en',

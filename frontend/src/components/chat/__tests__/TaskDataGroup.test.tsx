@@ -297,7 +297,7 @@ describe('TaskDataGroup', () => {
     }
   })
 
-  it('does not redirect focus into a different language when its card replaces the check button', async () => {
+  it.each(['language', 'task'])('does not redirect focus across a different %s', async change => {
     const initial = pendingOutputRead()
     const catchUp = pendingOutputRead()
     const props = { ...landingTaskStatus, taskId: 'private-task' }
@@ -308,8 +308,14 @@ describe('TaskDataGroup', () => {
     rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
     await catchUp({ data: null, status: 503 })
     screen.getByRole('button', { name: '重新检查' }).focus()
-    i18nState.locale = 'en'
-    rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    if (change === 'language') {
+      i18nState.locale = 'en'
+      rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    } else {
+      const next = pendingOutputRead()
+      rerender(<TaskDataGroup live taskStatus={{ ...props, taskId: 'another-task' }} />)
+      await next(existing)
+    }
     expect(screen.getByRole('heading', { name: 'One conclusion' })).not.toHaveFocus()
   })
 

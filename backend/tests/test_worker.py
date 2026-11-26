@@ -62,7 +62,7 @@ def video_job(*, message_id: int = 11, read_count: int = 1) -> QueuedJob:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("code", ["captions_unavailable", "unsupported_source"])
+@pytest.mark.parametrize("code", ["captions_unavailable", "captions_unavailable: rate_limited", "unsupported_source"])
 async def test_caption_failure_redelivery_archives_without_running_pipeline(code):
     queue = MagicMock()
     instance = TaskWorker(queue, worker_config())

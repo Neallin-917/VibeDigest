@@ -1,10 +1,12 @@
 import json
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 import yt_dlp
 
+from services.caption_errors import CaptionRateLimited
 from services.video_processor import VideoProcessor
 
 
@@ -33,13 +35,27 @@ def download(tmp_path, monkeypatch):
             template = factory.call_args.args[0]["outtmpl"]
             for suffix, body in files:
                 Path(f"{template}.{suffix}").write_bytes(body)
+            if isinstance(error, BaseException):
+                raise error
+            if error == "rate_limited":
+                from yt_dlp.networking import Response
+                from yt_dlp.networking.exceptions import HTTPError
+
+                response = Response(BytesIO(), "https://fixture.invalid", {}, status=429)
+                try:
+                    raise HTTPError(response)
+                except HTTPError as cause:
+                    raise yt_dlp.utils.DownloadError("private transport diagnostic") from cause
             if error:
-                raise yt_dlp.utils.DownloadError("HTTP Error 429: Too Many Requests")
+                raise yt_dlp.utils.DownloadError("Caption transfer interrupted")
             return 0
 
         downloader.download.side_effect = write_tracks
         monkeypatch.setattr(yt_dlp, "YoutubeDL", factory)
-        result = await processor.extract_captions(URL)
+        try:
+            result = await processor.extract_captions(URL)
+        except CaptionRateLimited as exc:
+            result = exc
 
         factory.assert_called_once()
         downloader.download.assert_called_once_with([URL])
@@ -114,3 +130,38 @@ async def test_successful_download_preserves_usable_language_priority(download):
     assert json.loads(raw)["segments"] == [
         {"start": 4.0, "end": 6.0, "text": "中文字幕。"}
     ]
+
+@pytest.mark.asyncio
+async def test_http_429_is_reported_without_a_completed_track(download):
+    missing = await download([("zh-Hans.vtt.part", CHINESE)], error="rate_limited")
+    assert isinstance(missing, CaptionRateLimited)
+
+
+@pytest.mark.asyncio
+async def test_completed_track_wins_over_http_429(download):
+    assert_english(await download([("en.vtt", ENGLISH)], error="rate_limited"))
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_download_error_can_store_http_status_only_in_exc_info(download, status):
+    from yt_dlp.networking import Response
+    from yt_dlp.networking.exceptions import HTTPError
+
+    response = Response(BytesIO(), "https://fixture.invalid", {}, status=status)
+    transport = HTTPError(response)
+    wrapped = yt_dlp.utils.DownloadError(
+        "Subtitle transfer failed", exc_info=(type(transport), transport, None)
+    )
+
+    result = await download([], error=wrapped)
+    assert wrapped.__cause__ is None and wrapped.__context__ is None
+    if status == 429:
+        assert isinstance(result, CaptionRateLimited)
+    else:
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_text_mention_of_429_is_not_http_rate_limiting(download):
+    error = yt_dlp.utils.DownloadError("Unable to read subtitle item 429")
+    assert await download([], error=error) is None

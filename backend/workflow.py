@@ -17,6 +17,7 @@ from dependencies import (
     get_supadata_client,
 )
 from services.summarizer.validation import parse_summary_payload_v4, validate_catalog_summary_payload
+from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
 from services.output_intent import resolve_output_intent
 from services.execution_policy import (
     CATALOG_SUMMARY_LOCALES,
@@ -273,6 +274,8 @@ async def _ingest_vtt(video_url: str, task_id: str) -> Optional[Dict]:
                 "transcript_lang": lang,
                 "transcript_source": "vtt",
             }
+    except CaptionRateLimited:
+        return {"error": CAPTIONS_RATE_LIMITED}
     except Exception as e:
         logger.warning(f"Strategy 2 (Direct VTT) failed: {e}")
         return {"error": f"Direct VTT failed: {e}"}
@@ -400,6 +403,8 @@ async def ingest(state: VideoProcessingState) -> Dict:
         # Provider diagnostics stay in server logs, not public task errors.
         logger.info("Caption acquisition failed for task %s: %s", task_id, strategy_errors)
         error = "captions_unavailable: No usable captions were found. Audio transcription is not supported."
+        if CAPTIONS_RATE_LIMITED in strategy_errors:
+            error = CAPTIONS_RATE_LIMITED
         _get_db_client().fail_caption_task(task_id, error)
         updates["errors"] = [error]
         updates["ingest_error"] = error
@@ -640,6 +645,10 @@ async def cleanup(state: VideoProcessingState) -> Dict:
         except Exception as e:
             logger.warning(f"Cleanup failed: {e}")
 
+    # Caption failure and its original reason were committed with the refund.
+    if state.get("ingest_error"):
+        return {}
+
     # Final Task Status Update
     if not state.get("errors"):
         _get_db_client().update_task_status(
@@ -679,7 +688,11 @@ def build_graph():
         route_after_cache,
         {"cleanup": "cleanup", "ingest": "ingest", "cognition": "cognition"},
     )
-    workflow.add_edge("ingest", "cognition")
+    workflow.add_conditional_edges(
+        "ingest",
+        lambda state: "cleanup" if state.get("ingest_error") else "cognition",
+        {"cleanup": "cleanup", "cognition": "cognition"},
+    )
     workflow.add_edge("cognition", "cleanup")
     workflow.add_edge("cleanup", END)
 

@@ -511,17 +511,21 @@ class TestIngest:
         assert result["transcript_text"] == "VTT transcript"
 
     @pytest.mark.asyncio
-    async def test_youtube_all_strategies_fail(self, mock_db, mock_supadata, mock_vp, mock_summarizer):
+    @pytest.mark.parametrize("rate_limited", [False, True])
+    async def test_youtube_all_strategies_fail(self, mock_db, mock_supadata, mock_vp, mock_summarizer, rate_limited):
         """Both caption sources fail → atomic failure without audio fallback."""
+        from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
         mock_vp.extract_info_only.return_value = {
             "title": "Fail Video", "thumbnail": None, "duration": 0,
             "author": "", "audio_url": None,
         }
         # Supadata fails
         mock_supadata.get_transcript_async.return_value = (None, None, None)
-        mock_supadata.last_error = "API down"
+        mock_supadata.last_error = "Supadata API rate-limited (429)"
         # VTT fails
         mock_vp.extract_captions.return_value = None
+        if rate_limited:
+            mock_vp.extract_captions.side_effect = CaptionRateLimited
         # An audio download would fail if a removed fallback were invoked.
         mock_vp.download_and_convert.side_effect = Exception("Download failed: 403")
 
@@ -532,6 +536,7 @@ class TestIngest:
         assert result.get("ingest_error") is not None
         mock_db.fail_caption_task.assert_called_once_with(state["task_id"], result["ingest_error"])
         assert result["ingest_error"].startswith("captions_unavailable:")
+        assert (result["ingest_error"] == CAPTIONS_RATE_LIMITED) is rate_limited
         mock_vp.download_and_convert.assert_not_called()
 
     @pytest.mark.asyncio
@@ -742,6 +747,15 @@ class TestCognition:
 
 class TestCleanup:
     """Test cleanup node: file deletion and final status."""
+
+    @pytest.mark.asyncio
+    async def test_atomic_caption_failure_is_not_overwritten(self, mock_db, tmp_path):
+        audio = tmp_path / "temporary-media"
+        audio.touch()
+        error = "captions_unavailable: rate_limited: Temporary caption limit."
+        await cleanup(_make_state(errors=[error], ingest_error=error, audio_path=str(audio)))
+        assert not audio.exists()
+        mock_db.update_task_status.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_errors_completed(self, mock_db):

@@ -67,3 +67,11 @@ export function normalizeTaskStatus(status: unknown): NormalizedTaskStatus {
   if (status === 'failed' || status === 'error') return 'failed'
   return 'pending'
 }
+
+export function sourceFailureMessageKey(error: string | null | undefined) {
+  const message = error?.trimStart() ?? ''
+  if (message.startsWith('captions_unavailable: rate_limited:')) return 'chat.tools.status.captionsRateLimited'
+  if (message.startsWith('captions_unavailable:')) return 'chat.tools.status.captionsUnavailable'
+  if (message.startsWith('unsupported_source:')) return 'chat.tools.status.unsupportedSource'
+  return null
+}

@@ -262,6 +262,63 @@ describe('TaskDataGroup', () => {
     expect(mockReadTaskOutputs).toHaveBeenCalledTimes(4)
   })
 
+  it.each([
+    ['available', false], ['missing', false], ['available', true], ['missing', true],
+  ] as const)('restores the focus of a removed check button (%s, moved away: %s)', async (outcome, movedAway) => {
+    const englishOnly = { data: existing.data.filter(row => row.content.language === 'en') }
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    const manual = pendingOutputRead()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) }))
+    const props = { ...landingTaskStatus, taskId: 'private-task' }
+    const card = () => <><TaskDataGroup live taskStatus={{ ...props }} /><input aria-label="Chat input" /></>
+    const { rerender } = render(card())
+    await initial(englishOnly)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    i18nState.locale = 'zh'
+    rerender(card())
+    await catchUp({ data: null, status: 503 })
+    const check = screen.getByRole('button', { name: '重新检查' })
+    check.focus()
+    act(() => check.click())
+    const input = screen.getByRole('textbox', { name: 'Chat input' })
+    if (movedAway) input.focus()
+    await manual(outcome === 'available' ? existing : englishOnly)
+    const destination = outcome === 'available'
+      ? screen.getByRole('heading', { name: 'One conclusion' })
+      : screen.getByText('正在准备中文版…')
+    expect(movedAway ? input : destination).toHaveFocus()
+    expect(destination).toHaveAttribute('tabindex', '-1')
+    if (outcome === 'missing') {
+      const completed = pendingOutputRead()
+      act(() => notifyOutput?.({ new: { kind: 'summary' } }))
+      await completed(existing)
+      expect(movedAway ? input : screen.getByRole('heading', { name: 'One conclusion' })).toHaveFocus()
+    }
+  })
+
+  it.each(['language', 'task'])('does not redirect focus across a different %s', async change => {
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    const props = { ...landingTaskStatus, taskId: 'private-task' }
+    const { rerender } = render(<TaskDataGroup live taskStatus={props} />)
+    await initial({ data: existing.data.filter(row => row.content.language === 'en') })
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    i18nState.locale = 'zh'
+    rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    await catchUp({ data: null, status: 503 })
+    screen.getByRole('button', { name: '重新检查' }).focus()
+    if (change === 'language') {
+      i18nState.locale = 'en'
+      rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    } else {
+      const next = pendingOutputRead()
+      rerender(<TaskDataGroup live taskStatus={{ ...props, taskId: 'another-task' }} />)
+      await next(existing)
+    }
+    expect(screen.getByRole('heading', { name: 'One conclusion' })).not.toHaveFocus()
+  })
+
   it('ignores an older failed read while a newer language check is pending', async () => {
     const initial = pendingOutputRead()
     const older = pendingOutputRead()
@@ -324,9 +381,9 @@ describe('TaskDataGroup', () => {
     render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: 'private-task' }} />)
 
     expect(await screen.findByText('正在准备中文版…')).toBeVisible()
-    expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/private-task/summary-version', expect.objectContaining({
+    await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/private-task/summary-version', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ locale: 'zh' }),
-    }))
+    })))
     const english = matchPublicSummaryOutput(landingDemoSummaries.outputs, 'en').summary!
     expect(screen.queryByText(english.tl_dr!)).not.toBeInTheDocument()
 

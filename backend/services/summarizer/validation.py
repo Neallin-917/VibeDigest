@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict
 
 from utils.language_utils import normalize_lang_code
+from services.summarizer.evidence_anchors import add_source_anchors
 
 from services.summarizer.models import SummaryResponseV4, SummaryResponseV5
 
@@ -36,7 +37,7 @@ def _require_non_empty(value: str, field_name: str) -> None:
         raise ValueError(f"Summary payload missing {field_name}")
 
 
-def parse_summary_payload_v4(summary: Any) -> Dict[str, Any]:
+def parse_summary_payload_v4(summary: Any, *, timed_transcript: str | None = None) -> Dict[str, Any]:
     """Validate persisted V4/V5 summaries and drop invalid optional V5 UI blocks."""
 
     payload = _coerce_summary_payload(summary)
@@ -65,6 +66,8 @@ def parse_summary_payload_v4(summary: Any) -> Dict[str, Any]:
 
     normalized = validated.model_dump()
     normalized["version"] = version
+    if timed_transcript:
+        add_source_anchors(normalized["keypoints"], timed_transcript)
     return normalized
 
 

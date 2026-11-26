@@ -97,7 +97,13 @@ class TestSupadataClient429Retry:
 
 class TestSupadataBackwardCompatibility:
     @pytest.mark.asyncio
-    async def test_single_key_behavior_unchanged(self):
+    @pytest.mark.parametrize(("content", "source_timed"), [
+        ([{"text": "Native.", "offset": 0, "duration": 3000}], True),
+        ([{"text": "Unknown.", "duration": 3000}], False),
+        ([{"text": "Some", "offset": 0, "duration": 1000},
+          {"text": "words.", "offset": 5000, "duration": 1000}], False),
+    ])
+    async def test_single_key_behavior_unchanged(self, content, source_timed):
         """Single key mode behavior matches pre-modification behavior."""
         client = SupadataClient(api_keys=["my_key"])
 
@@ -109,9 +115,7 @@ class TestSupadataBackwardCompatibility:
             return _make_response(
                 200,
                 {
-                    "content": [
-                        {"text": "Test content.", "offset": 0, "duration": 3000}
-                    ],
+                    "content": content,
                     "lang": "en",
                 },
             )
@@ -121,6 +125,7 @@ class TestSupadataBackwardCompatibility:
         with patch("services.supadata_client.httpx.AsyncClient", return_value=mock_client):
             markdown, raw_json, lang = await client.get_transcript_async("https://youtube.com/watch?v=test")
 
+        assert json.loads(raw_json)["source_timed"] is source_timed
         assert used_headers["x-api-key"] == "my_key"
         assert json.loads(raw_json)["model"] == "supadata-native"
         assert markdown is not None

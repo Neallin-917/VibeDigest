@@ -167,10 +167,22 @@ class SupadataClient:
                     detected_lang = data.get("lang", "unknown")
 
                     # Convert to OpenAI-compatible segments
+                    source_timed = True
+                    previous_offset = 0
                     openai_segments = []
                     for seg in content:
                         offset_ms = seg.get("offset", 0)
                         duration_ms = seg.get("duration", 0)
+                        native_offset = seg.get("offset")
+                        if (
+                            type(native_offset) not in (int, float)
+                            or not previous_offset <= native_offset <= 2**53 - 1
+                            or type(duration_ms) not in (int, float)
+                            or not 0 <= duration_ms <= 2**53 - 1
+                        ):
+                            source_timed = False
+                        else:
+                            previous_offset = native_offset
                         text = seg.get("text", "")
                         start_s = offset_ms / 1000.0
                         end_s = (offset_ms + duration_ms) / 1000.0
@@ -201,6 +213,9 @@ class SupadataClient:
                         if not current_parts:
                             current_chunk["start"] = start
 
+                        # A merged caption cannot prove continuity across a gap or overlap.
+                        if current_parts and start != current_chunk["end"]:
+                            source_timed = False
                         current_parts.append(text)
                         current_chunk["end"] = end
 
@@ -259,6 +274,7 @@ class SupadataClient:
                     raw_payload = {
                         "version": 1,
                         "model": "supadata-native",
+                        "source_timed": source_timed,
                         "language": detected_lang,
                         "segments": final_segments,
                     }

@@ -831,6 +831,7 @@ class VideoProcessor:
                     raw_payload = {
                         "text": "",  # optional
                         "segments": segments,
+                        "source_timed": True,
                         "language": found_lang,
                     }
                     # Cleanup

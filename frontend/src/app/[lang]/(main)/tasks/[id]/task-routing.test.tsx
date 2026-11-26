@@ -190,6 +190,8 @@ describe("task reading navigation", () => {
     it.each([
         ["ar", "OpenRouter يدعم الإصدار 2026.", "rtl"],
         ["ar", "English passage from a translated transcript.", "auto"],
+        ["ar", "The Arabic word مرحبا means hello.", "auto"],
+        ["ar", "这里是中文翻译，阿拉伯语写作 مرحبا。", "auto"],
         ["fa", "API در سال ۲۰۲۶", "rtl"],
         ["ar-Latn", "Romanized Arabic", "auto"],
         ["und", "2026: العربية", "auto"],

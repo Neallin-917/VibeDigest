@@ -134,6 +134,15 @@ function formatTimestamp(seconds: number) {
         : `${minutes}:${String(remainder).padStart(2, "0")}`
 }
 
+function evidenceDirection(arabicSource: boolean, passage: string) {
+    if (!arabicSource) return "auto"
+
+    // A translated passage may retain a single word in the source script.
+    const letters = passage.match(/\p{Letter}/gu) ?? []
+    const arabicLetters = letters.filter(letter => /\p{Script=Arabic}/u.test(letter))
+    return arabicLetters.length * 2 > letters.length ? "rtl" : "auto"
+}
+
 function evidenceSourceLink(videoUrl: string | null | undefined, seconds?: number) {
     if (!videoUrl) return null
     try {
@@ -548,7 +557,7 @@ export default async function TaskDetailPage(props: Props) {
                                                             <p className="text-xs font-semibold text-primary">{copy.evidence}</p>
                                                             <p
                                                                 lang={evidenceLanguageTag}
-                                                                dir={arabicScript && /\p{Script=Arabic}/u.test(keypoint.evidence) ? "rtl" : "auto"}
+                                                                dir={evidenceDirection(arabicScript, keypoint.evidence)}
                                                                 className="pb-1 pt-2 text-start text-sm leading-6 text-muted-foreground"
                                                             >
                                                                 {keypoint.evidence}

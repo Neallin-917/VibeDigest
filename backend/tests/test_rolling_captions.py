@@ -59,6 +59,7 @@ def test_late_unrecognized_cue_falls_back_for_the_whole_file(tmp_path, settings,
         cue("01.050", "03.000", carry, "New words", settings),
     )
     assert segments == [
+        {"start": 0.0, "end": 1.0, "text": "Keep me"},
         {"start": 1.0, "end": 1.05, "text": "Keep me"},
         {"start": 1.05, "end": 3.0, "text": carry + " New words"},
     ]

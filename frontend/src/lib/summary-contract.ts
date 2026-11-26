@@ -350,6 +350,15 @@ export function normalizeSummaryLanguageTag(language?: string | null) {
   }
 }
 
+export function evidenceDirection(arabicSource: boolean, passage: string) {
+    if (!arabicSource) return "auto"
+
+    // A translated passage may retain a single word in the source script.
+    const letters = passage.match(/\p{Letter}/gu) ?? []
+    const arabicLetters = letters.filter(letter => /\p{Script=Arabic}/u.test(letter))
+    return arabicLetters.length * 2 > letters.length ? "rtl" : "auto"
+}
+
 export function resolveSummaryLocale(language?: string | null): Locale | null {
   const baseLanguage = normalizeSummaryLanguageTag(language)?.split('-')[0]
   return baseLanguage === 'en' || baseLanguage === 'zh'

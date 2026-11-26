@@ -32,6 +32,7 @@ import { PublicDigestActions } from "@/components/tasks/PublicDigestActions"
 import { TaskContentDisclosure } from "@/components/tasks/TaskContentDisclosure"
 import { TaskReadingNav } from "@/components/tasks/TaskReadingNav"
 import readingStyles from "@/components/tasks/task-reading.module.css"
+import { evidenceDirection } from "@/lib/summary-contract"
 import { explicitSummaryLocale, missingSummaryVersionStatus } from "@/lib/task-summary-version"
 import { TaskSummaryVersionStatus } from "@/components/tasks/TaskSummaryVersionStatus"
 import { TaskDetailRefresh } from "@/components/tasks/TaskDetailRefresh"
@@ -132,15 +133,6 @@ function formatTimestamp(seconds: number) {
     return hours > 0
         ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
         : `${minutes}:${String(remainder).padStart(2, "0")}`
-}
-
-function evidenceDirection(arabicSource: boolean, passage: string) {
-    if (!arabicSource) return "auto"
-
-    // A translated passage may retain a single word in the source script.
-    const letters = passage.match(/\p{Letter}/gu) ?? []
-    const arabicLetters = letters.filter(letter => /\p{Script=Arabic}/u.test(letter))
-    return arabicLetters.length * 2 > letters.length ? "rtl" : "auto"
 }
 
 function evidenceSourceLink(videoUrl: string | null | undefined, seconds?: number) {

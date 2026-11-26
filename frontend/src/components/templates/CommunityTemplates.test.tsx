@@ -322,6 +322,50 @@ describe("CommunityTemplates", () => {
     expect(search).toHaveValue("agents")
   })
 
+  it.each([
+    ["?page=2.5", "all", "", 2],
+    ["?show=%20latent-space%20", "latent-space", "", 1],
+    ["?page=2&page=3&show=a16z&show=latent-space&q=a&q=e", "all", "", 1],
+    ["?page=99&q=%20agents%20", "all", "agents", 20],
+  ] as const)("keeps settled direct-entry results interactive for %s", (search, initialSource, initialQuery, currentPage) => {
+    window.history.replaceState({}, "", `/en/explore${search}`)
+    renderGallery({ initialSource, initialQuery, currentPage })
+    expect(document.getElementById("podcast-curated")).not.toHaveAttribute("inert")
+    expect(screen.queryByText("Loading results…")).not.toBeInTheDocument()
+  })
+
+  it("disables stale results only until the history filters and page arrive", () => {
+    window.history.replaceState({}, "", "/en/explore?show=latent-space&q=e")
+    const view = renderGallery({ initialSource: "latent-space", initialQuery: "e" })
+    const region = () => document.getElementById("podcast-curated")
+
+    expect(region()).not.toHaveAttribute("inert")
+    window.history.replaceState({}, "", "/en/explore?show=a16z&q=a&page=2")
+    let guardedDuringHistoryEvent = false
+    window.addEventListener("popstate", () => {
+      guardedDuringHistoryEvent = !!region()?.hasAttribute("inert")
+    }, { once: true })
+    fireEvent.popState(window)
+    expect(guardedDuringHistoryEvent).toBe(true)
+    expect(screen.getByRole("status")).toHaveTextContent("Loading results")
+    expect(region()).toHaveAttribute("inert")
+    expect(region()).toHaveAttribute("aria-busy", "true")
+    expect(screen.getByRole("searchbox")).toBeEnabled()
+
+    view.rerender(gallery({ initialSource: "a16z", initialQuery: "a", currentPage: 2 }))
+    expect(screen.queryByText("Loading results…")).not.toBeInTheDocument()
+    expect(region()).not.toHaveAttribute("inert")
+    expect(region()).toHaveAttribute("aria-busy", "false")
+  })
+
+  it("leaves the new history entry intact if a stale link activates before the next render", () => {
+    renderGallery()
+    const oldDigest = screen.getByRole("link", { name: "View digest: Leading example" })
+    window.history.replaceState({}, "", "/en/explore?q=restored#episode-restored")
+    fireEvent.click(oldDigest)
+    expect(window.location.hash).toBe("#episode-restored")
+  })
+
   it("preserves topic, filters, loaded page and the episode anchor in a detail return link", () => {
     navigation.pathname = "/en/topics/agents"
     renderGallery({ initialSource: "latent-space", initialQuery: "AI", currentPage: 3 })

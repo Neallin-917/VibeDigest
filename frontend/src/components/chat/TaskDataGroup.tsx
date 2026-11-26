@@ -21,7 +21,7 @@ import {
   type TaskLifecycleStatus,
 } from '@/lib/chat-ui'
 import { normalizeTaskStatus, sanitizeErrorMessage, sourceFailureMessageKey } from '@/lib/safe-error'
-import { subscribeToTask } from '@/lib/task-live'
+import { readSubscribedTask, subscribeToTask } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
 import { trackGrowthEvent } from '@/lib/growth-events'
 import {
@@ -138,12 +138,16 @@ function parseAudioContent(content: string | undefined): AudioData | null {
 
 type OutputCheck = 'current' | 'checking' | 'failed' | 'rechecking'
 
+function transientReadFailure(status: number) {
+  return status === 0 || status === 408 || status === 429 || status >= 500
+}
+
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
   const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[] | null; check: OutputCheck } | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
-  const refreshRef = useRef<(retryOnly?: boolean) => void>(undefined)
+  const refreshRef = useRef<(retryOnly?: boolean, metadataFirst?: boolean) => void>(undefined)
   const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
-  const recheckOutputs = useCallback(() => refreshRef.current?.(true), [])
+  const recheckOutputs = useCallback((metadataFirst = false) => refreshRef.current?.(true, metadataFirst), [])
 
   useEffect(() => {
     if (!taskId || !supabase) return
@@ -159,10 +163,23 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
         return check === 'failed' ? { taskId, rows: null, check } : previous
       })
     }
-    const refresh = async (retryOnly = false) => {
+    const refresh = async (retryOnly = false, metadataFirst = false) => {
       if (!active || (retryOnly && latestCheck !== 'failed')) return
       const requestRevision = ++revision
       updateCheck(latestCheck === 'failed' || latestCheck === 'rechecking' ? 'rechecking' : 'checking')
+      if (metadataFirst) {
+        const status = await readSubscribedTask(taskId)
+        if (!active || requestRevision !== revision) return
+        if (status !== 200) {
+          if (transientReadFailure(status)) updateCheck('failed')
+          else {
+            appliedRevision = requestRevision
+            latestCheck = 'current'
+            setSnapshot(null)
+          }
+          return
+        }
+      }
       const { data, status } = await supabase
         .from('task_outputs')
         .select('kind, content, status, locale, created_at, transcript_language:provenance->>transcript_language')
@@ -181,7 +198,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
         appliedRevision = requestRevision
         if (requestRevision === revision) latestCheck = 'current'
         setSnapshot(null)
-      } else if (requestRevision === revision && (status === 0 || status === 408 || status === 429 || status >= 500)) {
+      } else if (requestRevision === revision && transientReadFailure(status)) {
         updateCheck('failed')
       } else if (requestRevision === revision && latestCheck === 'rechecking') {
         appliedRevision = requestRevision
@@ -514,7 +531,8 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
   const recheck = outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined
-  const focusScope = `${snapshot?.taskId}:${targetLocale}`
+  const metadataFocusScope = `${snapshot?.taskId}:${locale}:metadata`
+  const focusScope = languageResolved ? `${snapshot?.taskId}:${targetLocale}` : metadataFocusScope
   const pendingRecoveryFocus = useRef<string | null>(null)
   const digestHeading = useRef<HTMLHeadingElement>(null)
   const languageStatus = useRef<HTMLParagraphElement>(null)
@@ -539,7 +557,8 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   useLayoutEffect(() => {
     const pending = pendingRecoveryFocus.current
     pendingRecoveryFocus.current = null
-    if (pending !== focusScope || document.activeElement !== document.body) return
+    if (pending !== focusScope && pending !== metadataFocusScope) return
+    if (document.activeElement !== document.body) return
     const destination = digestHeading.current ?? languageStatus.current
     destination?.focus()
   })
@@ -716,18 +735,19 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
       </ResultEngagement>
 
-      {status === 'completed' && !summary && !safeError && (isDemo || (languageResolved && (outputs || recheck))) ? (
+      {status === 'completed' && !summary && !safeError && (isDemo || (languageResolved && outputs) || recheck) ? (
         !isDemo && (snapshot.privateUserSubmission || recheck) ? (
           <TaskSummaryVersionStatus
-            key={`${snapshot.taskId}-${targetLocale}`}
+            key={`${snapshot.taskId}-${outputs ? targetLocale : 'read'}`}
             taskId={snapshot.taskId}
             locale={locale}
             target={targetLocale}
             status={snapshot.privateUserSubmission && outputs && outputCheck === 'current' ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
             recheck={recheck}
+            awaitingTask={!languageResolved}
             recoveryButtonRef={rememberFocusedRemoval}
             statusRef={registerLanguageStatus}
-            onRecheck={recheckOutputs}
+            onRecheck={() => recheckOutputs(!languageResolved)}
             onCompleted={refreshOutputs}
           />
         ) : isDemo || outputCheck === 'current' ? (

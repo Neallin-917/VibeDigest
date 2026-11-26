@@ -9,7 +9,7 @@ type TaskEntry = {
   channel: RealtimeChannel
   listeners: Map<number, TaskListener>
   snapshot: TaskRow | null
-  primePromise: Promise<void> | null
+  primePromise: Promise<number> | null
 }
 
 const taskEntries = new Map<string, TaskEntry>()
@@ -28,11 +28,12 @@ function publishTask(entry: TaskEntry, row: TaskRow) {
 }
 
 async function primeTask(taskId: string, entry: TaskEntry, force = false) {
-  if ((!force && entry.snapshot) || entry.primePromise) return
+  if (!force && entry.snapshot) return 200
+  if (entry.primePromise) return entry.primePromise
 
   const supabase = createClient()
   entry.primePromise = (async () => {
-    const { data } = await supabase
+    const { data, status } = await supabase
       .from('tasks')
       .select('*')
       .eq('id', taskId)
@@ -40,14 +41,17 @@ async function primeTask(taskId: string, entry: TaskEntry, force = false) {
 
     if (isTaskRow(data)) {
       publishTask(entry, data)
+      return 200
     }
+    return status === 200 ? 404 : status
   })().catch(() => {
-    // Keep the latest committed snapshot during a transient read failure.
+    // A transport failure leaves the last committed snapshot in place.
+    return 0
   }).finally(() => {
     entry.primePromise = null
   })
 
-  await entry.primePromise
+  return entry.primePromise
 }
 
 function createTaskEntry(taskId: string): TaskEntry {
@@ -79,6 +83,11 @@ function createTaskEntry(taskId: string): TaskEntry {
   })
 
   return entry
+}
+
+export function readSubscribedTask(taskId: string) {
+  const entry = taskEntries.get(taskId)
+  return entry ? primeTask(taskId, entry) : Promise.resolve(404)
 }
 
 export function subscribeToTask(taskId: string, listener: TaskListener) {

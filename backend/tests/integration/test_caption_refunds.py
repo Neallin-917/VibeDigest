@@ -5,6 +5,8 @@ from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+from services.caption_errors import CaptionProviderUnavailable, CaptionRateLimited
 from sqlalchemy.exc import DBAPIError
 
 from services.task_queue import PostgresTaskQueue
@@ -112,16 +114,15 @@ def test_new_submission_after_refund_is_charged(pgmq_db):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("rate_limited", [False, True])
-async def test_real_pipeline_caption_failure_refunds_without_audio_or_model(pgmq_db, monkeypatch, rate_limited):
+@pytest.mark.parametrize("error_type", [None, CaptionRateLimited, CaptionProviderUnavailable])
+async def test_real_pipeline_caption_failure_refunds_without_audio_or_model(pgmq_db, monkeypatch, error_type):
     import workflow
-    from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
     from services.job_handlers import NonRetryableJobError, run_pipeline
 
     user, task = _submit(pgmq_db)
     processor = MagicMock()
     processor.extract_info_only = AsyncMock(return_value={"title": "No captions", "duration": 60})
-    processor.extract_captions = AsyncMock(return_value=None, side_effect=CaptionRateLimited if rate_limited else None)
+    processor.extract_captions = AsyncMock(return_value=None, side_effect=error_type)
     processor.download_and_convert = AsyncMock(side_effect=AssertionError("Audio download is retired"))
     provider = MagicMock(last_error="No transcript segments")
     provider.get_transcript_async = AsyncMock(return_value=(None, None, None))
@@ -136,7 +137,7 @@ async def test_real_pipeline_caption_failure_refunds_without_audio_or_model(pgmq
     assert _balance(pgmq_db, task)["usage_count"] == 0
     failed_task = pgmq_db.get_task(task)
     assert failed_task["status"] == "error"
-    assert failed_task["error_message"] == (CAPTIONS_RATE_LIMITED if rate_limited else ERROR)
+    assert failed_task["error_message"] == (error_type.public_message if error_type else ERROR)
     assert all(o["status"] == "error" for o in pgmq_db.get_task_outputs(task))
     processor.download_and_convert.assert_not_awaited()
     summarizer.assert_not_called()

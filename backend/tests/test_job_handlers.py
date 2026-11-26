@@ -51,6 +51,7 @@ async def test_run_pipeline_failure(mock_db_client):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("error", [
     "captions_unavailable: No usable captions were found.",
+    "captions_unavailable: provider_unavailable: Temporary service failure.",
     "captions_unavailable: rate_limited: Caption requests were temporarily rate limited.",
     "unsupported_source: Only YouTube videos with existing captions are supported.",
 ])

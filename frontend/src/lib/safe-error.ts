@@ -70,6 +70,7 @@ export function normalizeTaskStatus(status: unknown): NormalizedTaskStatus {
 
 export function sourceFailureMessageKey(error: string | null | undefined) {
   const message = error?.trimStart() ?? ''
+  if (message.startsWith('captions_unavailable: provider_unavailable:')) return 'chat.tools.status.captionServiceUnavailable'
   if (message.startsWith('captions_unavailable: rate_limited:')) return 'chat.tools.status.captionsRateLimited'
   if (message.startsWith('captions_unavailable:')) return 'chat.tools.status.captionsUnavailable'
   if (message.startsWith('unsupported_source:')) return 'chat.tools.status.unsupportedSource'

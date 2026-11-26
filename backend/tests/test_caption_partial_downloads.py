@@ -6,7 +6,11 @@ from unittest.mock import MagicMock
 import pytest
 import yt_dlp
 
-from services.caption_errors import CaptionRateLimited
+from services.caption_errors import (
+    CaptionProviderUnavailable,
+    CaptionRateLimited,
+    CaptionRequestFailure,
+)
 from services.video_processor import VideoProcessor
 
 
@@ -41,20 +45,24 @@ def download(tmp_path, monkeypatch):
                 from yt_dlp.networking import Response
                 from yt_dlp.networking.exceptions import HTTPError
 
-                response = Response(BytesIO(), "https://fixture.invalid", {}, status=429)
+                response = Response(
+                    BytesIO(), "https://fixture.invalid", {}, status=429
+                )
                 try:
                     raise HTTPError(response)
                 except HTTPError as cause:
-                    raise yt_dlp.utils.DownloadError("private transport diagnostic") from cause
+                    raise yt_dlp.utils.DownloadError(
+                        "private transport diagnostic"
+                    ) from cause
             if error:
                 raise yt_dlp.utils.DownloadError("Caption transfer interrupted")
             return 0
 
         downloader.download.side_effect = write_tracks
-        monkeypatch.setattr(yt_dlp, "YoutubeDL", factory)
+        monkeypatch.setattr("services.caption_downloader.CaptionYoutubeDL", factory)
         try:
             result = await processor.extract_captions(URL)
-        except CaptionRateLimited as exc:
+        except CaptionRequestFailure as exc:
             result = exc
 
         factory.assert_called_once()
@@ -131,6 +139,7 @@ async def test_successful_download_preserves_usable_language_priority(download):
         {"start": 4.0, "end": 6.0, "text": "中文字幕。"}
     ]
 
+
 @pytest.mark.asyncio
 async def test_http_429_is_reported_without_a_completed_track(download):
     missing = await download([("zh-Hans.vtt.part", CHINESE)], error="rate_limited")
@@ -141,27 +150,73 @@ async def test_http_429_is_reported_without_a_completed_track(download):
 async def test_completed_track_wins_over_http_429(download):
     assert_english(await download([("en.vtt", ENGLISH)], error="rate_limited"))
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("status", [429, 503])
-async def test_download_error_can_store_http_status_only_in_exc_info(download, status):
+
+def wrapped_transport(error):
+    return yt_dlp.utils.DownloadError(
+        "Subtitle transfer failed", exc_info=(type(error), error, None)
+    )
+
+
+def http_failure(status):
     from yt_dlp.networking import Response
     from yt_dlp.networking.exceptions import HTTPError
 
-    response = Response(BytesIO(), "https://fixture.invalid", {}, status=status)
-    transport = HTTPError(response)
-    wrapped = yt_dlp.utils.DownloadError(
-        "Subtitle transfer failed", exc_info=(type(transport), transport, None)
-    )
-
-    result = await download([], error=wrapped)
-    assert wrapped.__cause__ is None and wrapped.__context__ is None
-    if status == 429:
-        assert isinstance(result, CaptionRateLimited)
-    else:
-        assert result is None
+    return HTTPError(Response(BytesIO(), "https://fixture.invalid", {}, status=status))
 
 
 @pytest.mark.asyncio
-async def test_text_mention_of_429_is_not_http_rate_limiting(download):
-    error = yt_dlp.utils.DownloadError("Unable to read subtitle item 429")
-    assert await download([], error=error) is None
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (429, CaptionRateLimited),
+        (503, CaptionProviderUnavailable),
+        (403, type(None)),
+        (404, type(None)),
+    ],
+)
+async def test_download_error_can_store_http_status_only_in_exc_info(
+    download, status, expected
+):
+    wrapped = wrapped_transport(http_failure(status))
+    result = await download([], error=wrapped)
+    assert wrapped.__cause__ is None and wrapped.__context__ is None
+    assert type(result) is expected
+
+
+@pytest.mark.asyncio
+async def test_wrapped_timeout_is_temporary_provider_failure(download):
+    assert isinstance(
+        await download([], error=wrapped_transport(TimeoutError())),
+        CaptionProviderUnavailable,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [403, 404])
+async def test_http_status_supersedes_an_underlying_timeout(download, status):
+    error = http_failure(status)
+    error.__context__ = TimeoutError()
+    assert await download([], error=wrapped_transport(error)) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cause", [http_failure(503), TimeoutError()], ids=["503", "timeout"]
+)
+async def test_completed_track_wins_over_temporary_provider_failure(download, cause):
+    assert_english(
+        await download([("en.vtt", ENGLISH)], error=wrapped_transport(cause))
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message", ["Unable to read subtitle item 429", "HTTP 503: timed out"]
+)
+async def test_untyped_diagnostic_is_not_a_provider_status(download, message):
+    assert await download([], error=yt_dlp.utils.DownloadError(message)) is None
+
+
+@pytest.mark.asyncio
+async def test_no_tracks_without_transport_failure_returns_none(download):
+    assert await download([]) is None

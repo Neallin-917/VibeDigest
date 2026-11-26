@@ -78,6 +78,53 @@ describe('shared task subscription', () => {
     expect(live.single).toHaveBeenCalledTimes(3)
   })
 
+  it('confirms a provisional row on demand, shares the pending read, and reuses its result', async () => {
+    const row = { id: 'task-1', status: 'completed' }
+    live.single.mockResolvedValueOnce({ data: row })
+    const listener = vi.fn()
+    const check = vi.fn()
+    cleanups.push(subscribeToTask(row.id, listener, check))
+    await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith(row, false))
+    live.single.mockResolvedValueOnce({ data: null, status: 503 })
+    expect(await readSubscribedTask(row.id, 'en')).toBe(503)
+    expect(check).toHaveBeenLastCalledWith('failed')
+    live.single.mockResolvedValueOnce({ data: null, status: 403 })
+    expect(await readSubscribedTask(row.id, 'en')).toBe(403)
+    expect(check).toHaveBeenLastCalledWith('unavailable')
+    live.single.mockResolvedValueOnce({ data: row })
+    const first = readSubscribedTask(row.id, 'en')
+    const second = readSubscribedTask(row.id, 'en')
+    expect(await Promise.all([first, second])).toEqual([200, 200])
+    expect(listener).toHaveBeenLastCalledWith(row, 'en')
+    expect(await readSubscribedTask(row.id, 'en')).toBe(200)
+    expect(live.single).toHaveBeenCalledTimes(4)
+    expect(await readSubscribedTask(row.id, 'zh')).toBe(200)
+    expect(live.single).toHaveBeenCalledTimes(5)
+  })
+
+  it.each([503, 403])('reports a failed Chinese check after confirming English (%s)', async status => {
+    const row = { id: 'task-1', status: 'completed' }
+    const check = vi.fn()
+    const listener = vi.fn()
+    live.single.mockResolvedValue({ data: row })
+    cleanups.push(subscribeToTask(row.id, listener, check))
+    await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith(row, false))
+    expect(await readSubscribedTask(row.id, 'en')).toBe(200)
+    expect(listener).toHaveBeenLastCalledWith(row, 'en')
+    live.single.mockResolvedValueOnce({ data: null, status })
+    expect(await readSubscribedTask(row.id, 'zh')).toBe(status)
+    expect(check).toHaveBeenLastCalledWith(status === 503 ? 'failed' : 'unavailable')
+    expect(listener).toHaveBeenCalledTimes(2)
+    if (status === 503) {
+      const retry = readSubscribedTask(row.id, 'zh')
+      expect(check).toHaveBeenLastCalledWith('rechecking')
+      expect(await retry).toBe(200)
+      expect(listener).toHaveBeenLastCalledWith(row, 'zh')
+      expect(check).toHaveBeenLastCalledWith(undefined)
+    }
+    expect(live.single).toHaveBeenCalledTimes(status === 503 ? 4 : 3)
+  })
+
   it.each(['initial-first', 'connected-first'])('uses the post-connect result when reads overlap (%s)', async order => {
     let initial!: (value: unknown) => void
     let connected!: (value: unknown) => void
@@ -101,7 +148,7 @@ describe('shared task subscription', () => {
     expect(await Promise.all([manual, shared])).toEqual([200, 200])
     if (order === 'connected-first') initial(stale)
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(listener).toHaveBeenCalledExactlyOnceWith({ id: 'task-1', locale: 'zh' })
+    expect(listener).toHaveBeenCalledExactlyOnceWith({ id: 'task-1', locale: 'zh' }, true)
     onStatus('CHANNEL_ERROR')
     onStatus('SUBSCRIBED')
     await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2))

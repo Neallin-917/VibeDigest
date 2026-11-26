@@ -21,7 +21,7 @@ import {
   type TaskLifecycleStatus,
 } from '@/lib/chat-ui'
 import { normalizeTaskStatus, sanitizeErrorMessage, sourceFailureMessageKey } from '@/lib/safe-error'
-import { readSubscribedTask, subscribeToTask, transientReadFailure, type TaskReadCheck } from '@/lib/task-live'
+import { readSubscribedTask, subscribeToTask, transientReadFailure, type TaskPreferenceCheck, type TaskReadCheck } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
 import { trackGrowthEvent } from '@/lib/growth-events'
 import {
@@ -48,6 +48,7 @@ type TaskSnapshot = {
   videoUrl?: string
   errorMessage?: string
   updatedAt?: string
+  preferenceChecked?: TaskPreferenceCheck
   privateUserSubmission?: boolean
   explicitLocale?: Locale | null
 }
@@ -115,8 +116,8 @@ function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false
   useEffect(() => {
     if (!live || !seed?.taskId) return
 
-    return subscribeToTask(seed.taskId, row => {
-      setLiveSnapshot(mapTaskRow(row, seed.taskId))
+    return subscribeToTask(seed.taskId, (row, preferenceChecked) => {
+      setLiveSnapshot({ ...mapTaskRow(row, seed.taskId), preferenceChecked })
     }, check => setLastCheck(check ? { taskId: seed.taskId, check } : null))
   }, [live, seed?.taskId])
 
@@ -530,9 +531,10 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const targetLocale = explicitLocale ?? locale
   const outputRecheck = outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined
   const metadataOnly = !languageResolved && outputs !== null && !outputRecheck
-  const recheck = metadataOnly ? taskReadCheck : outputRecheck
+  const metadataRecheck = taskReadCheck === 'failed' || taskReadCheck === 'rechecking' ? taskReadCheck : undefined
   const metadataFocusScope = `${snapshot?.taskId}:${locale}:metadata`
-  const focusScope = languageResolved ? `${snapshot?.taskId}:${targetLocale}` : metadataFocusScope
+  const preferenceChecked = snapshot?.preferenceChecked === true || snapshot?.preferenceChecked === targetLocale
+  const focusScope = languageResolved && preferenceChecked ? `${snapshot?.taskId}:${targetLocale}` : metadataFocusScope
   const pendingRecoveryFocus = useRef<string | null>(null)
   const digestHeading = useRef<HTMLHeadingElement>(null)
   const languageStatus = useRef<HTMLParagraphElement>(null)
@@ -571,6 +573,14 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
     return null
   }, [isLandingDemo, isDemo, locale, outputs, languageResolved, targetLocale])
   const summary = isDemo && !isLandingDemo ? demoArtifact.summary : matched?.summary
+  const versionStatus = snapshot?.privateUserSubmission && outputs && outputCheck === 'current' && !summary
+    ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null
+  const needsPreferenceCheck = snapshot?.status === 'completed' && versionStatus === 'request' && !preferenceChecked
+  const taskId = snapshot?.taskId
+  useEffect(() => {
+    if (needsPreferenceCheck && taskId) void readSubscribedTask(taskId, targetLocale)
+  }, [needsPreferenceCheck, snapshot?.preferenceChecked, taskId, targetLocale])
+  const recheck = needsPreferenceCheck ? (metadataRecheck ?? 'rechecking') : (metadataOnly ? metadataRecheck : outputRecheck)
   const normalizedStatus = snapshot ? normalizeTaskStatus(snapshot.status) : null
 
   const hasNewFailure = normalizedStatus === 'failed'
@@ -745,13 +755,14 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
             taskId={snapshot.taskId}
             locale={locale}
             target={targetLocale}
-            status={snapshot.privateUserSubmission && outputs && outputCheck === 'current' ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
+            status={needsPreferenceCheck ? (taskReadCheck === 'unavailable' ? 'unavailable' : null) : versionStatus}
             recheck={recheck}
-            awaitingTask={!languageResolved}
+            awaitingTask={!languageResolved || needsPreferenceCheck}
             recoveryButtonRef={rememberFocusedRemoval}
             statusRef={registerLanguageStatus}
             onRecheck={() => {
-              if (metadataOnly) void readSubscribedTask(snapshot.taskId)
+              if (needsPreferenceCheck) void readSubscribedTask(snapshot.taskId, targetLocale)
+              else if (metadataOnly) void readSubscribedTask(snapshot.taskId)
               else recheckOutputs(!languageResolved)
             }}
             onCompleted={refreshOutputs}

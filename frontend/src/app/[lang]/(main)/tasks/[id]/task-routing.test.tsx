@@ -183,6 +183,41 @@ describe("task reading navigation", () => {
         return [{ type: node.type, props: node.props }, ...elements(node.props.children)]
     }
 
+    it.each([
+        ["en", "https://www.youtube.com/watch?v=source", undefined, "https://www.youtube.com/watch?v=source", "Open original source"],
+        ["zh", "https://www.youtube.com/watch?v=source", undefined, "https://www.youtube.com/watch?v=source", "查看原始来源"],
+        ["en", "https://youtu.be/source?t=5s", 74.8, "https://youtu.be/source?t=74s", "Open source at 1:14"],
+        ["zh", "https://www.youtube.com/watch?v=source", 0, "https://www.youtube.com/watch?v=source&t=0s", "打开原视频时间点 0:00"],
+        ["en", "https://www.youtube.com/shorts/source", 100, "https://www.youtube.com/watch?v=source&t=100s", "Open source at 1:40"],
+        ["en", "https://www.youtube-nocookie.com/embed/source", 30, "https://www.youtube-nocookie.com/embed/source?start=30", "Open source at 0:30"],
+        ["en", "youtube.com/watch?v=source", 8, "https://youtube.com/watch?v=source&t=8s", "Open source at 0:08"],
+        ["en", "https://www.youtu.be/source", 2, "https://www.youtu.be/source?t=2s", "Open source at 0:02"],
+        ["en", "https://www.youtube.com/watch/?v=source&list=p#t=42", 6, "https://www.youtube.com/watch/?v=source&list=p&t=6s", "Open source at 0:06"],
+        ["en", "https://www.youtube.com/live/source", 6, "https://www.youtube.com/watch?v=source&t=6s", "Open source at 0:06"],
+        ["en", "https://www.youtube.com/embed/source?start=60&t=80s#chapter", 10, "https://www.youtube.com/embed/source?start=10#chapter", "Open source at 0:10"],
+        ["en", "https://podcasts.apple.com/episode/id1", 100, "https://podcasts.apple.com/episode/id1", "Open original source"],
+        ["en", "https://youtu.be/source", -3, "https://youtu.be/source", "Open original source"],
+        ["en", "", 23, null, null],
+        ["en", "ftp://example.com/public.txt", 23, null, null],
+        ["en", "invalid source", 23, null, null],
+    ] as const)("links the evidence to its source for %s %s at %s", async (lang, source, startSeconds, href, label) => {
+        db.task!.video_url = source
+        db.outputs = [{ kind: "summary", status: "completed", locale: lang, content: {
+            version: 5, language: lang, overview: "Overview", keypoints: [
+                { title: "Claim", detail: "Explanation", evidence: "Quotation", startSeconds },
+            ],
+        } }]
+        const nodes = elements(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string), lang)))
+        const link = nodes.find(node => node.type === "a" && node.props["aria-describedby"] === "task-idea-0")
+        if (!href) {
+            expect(link).toBeUndefined()
+            expect(nodes.some(node => node.type === "a" && node.props.href === source)).toBe(false)
+            return
+        }
+        expect(link?.props.href).toBe(href)
+        expect(treeText(link?.props.children)).toContain(label)
+    })
+
     it("links every reading entry to an actual rendered section, including key ideas", async () => {
         const nodes = elements(await TaskDetailPage(props(buildTaskSlug(db.task!.video_title as string))))
         const navigation = nodes.find(node => typeof node.type === "function" && node.type.name === "TaskReadingNav")!

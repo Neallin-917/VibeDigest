@@ -1,3 +1,4 @@
+import { getSupportedUrlDetails } from "@/lib/urls"
 import { ResultEngagement } from '@/components/EngagementTracker'
 
 import { createClient } from "@/lib/supabase-server"
@@ -133,17 +134,35 @@ function formatTimestamp(seconds: number) {
         : `${minutes}:${String(remainder).padStart(2, "0")}`
 }
 
-function buildTimestampUrl(videoUrl: string, seconds: number) {
+function evidenceSourceLink(videoUrl: string | null | undefined, seconds?: number) {
+    if (!videoUrl) return null
     try {
-        const url = new URL(videoUrl)
-        if (url.hostname === "youtu.be" || url.hostname.endsWith("youtube.com")) {
-            url.searchParams.set("t", `${Math.max(0, Math.floor(seconds))}s`)
-            return url.toString()
+        const supportedSource = getSupportedUrlDetails(videoUrl)
+        const url = new URL(supportedSource?.href ?? videoUrl)
+        if (url.protocol !== "http:" && url.protocol !== "https:") return null
+        const [kind, id] = url.pathname.split("/").filter(Boolean)
+        const privacyEmbed = (url.hostname === "youtube-nocookie.com" || url.hostname.endsWith(".youtube-nocookie.com"))
+            && kind === "embed" && Boolean(id)
+        if ((privacyEmbed || supportedSource) && typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0) {
+            const isShortLink = url.hostname.replace(/^www\./, "") === "youtu.be"
+            if (!isShortLink && (kind === "shorts" || kind === "live")) {
+                url.searchParams.set("v", id)
+                url.pathname = "/watch"
+            }
+            const embed = !isShortLink && kind === "embed"
+            for (const param of ["t", "start", "time_continue"]) url.searchParams.delete(param)
+            if (/^#t=/.test(url.hash)) {
+                const fragment = new URLSearchParams(url.hash.slice(1))
+                fragment.delete("t")
+                url.hash = fragment.toString()
+            }
+            url.searchParams.set(embed ? "start" : "t", embed ? String(Math.floor(seconds)) : `${Math.floor(seconds)}s`)
+            return { href: url.href, time: formatTimestamp(seconds) }
         }
+        return { href: url.href, time: null }
     } catch {
-        return videoUrl
+        return null
     }
-    return videoUrl
 }
 
 type TaskOutput = {
@@ -164,7 +183,7 @@ const DETAIL_COPY = {
         moreFull: "Expand full summary", lessFull: "Collapse full summary",
         summary: "Summary", keyIdeas: "Key ideas", fullSummary: "Read the full digest", original: "Open Original Video",
         share: "Copy share link", copied: "Copied", copyFailed: "Copy failed",
-        whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at",
+        whyItMatters: "Why it matters", evidence: "Supporting evidence", openAt: "Open source at", openSource: "Open original source",
         failed: "This task did not complete. You can retry it below.",
         pending: "Summary not available yet. Check back once processing completes.",
         summaryAvailableIn: (language: string) => `This digest is currently available in ${language}.`,
@@ -184,7 +203,7 @@ const DETAIL_COPY = {
         moreFull: "展开完整整理", lessFull: "收起完整整理",
         summary: "内容摘要", keyIdeas: "关键观点", fullSummary: "完整整理", original: "打开原视频",
         share: "复制分享链接", copied: "已复制", copyFailed: "复制失败",
-        whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点",
+        whyItMatters: "为什么重要", evidence: "支撑证据", openAt: "打开原视频时间点", openSource: "查看原始来源",
         failed: "这项任务未能完成，可以在下方重试。",
         pending: "整理内容尚未生成，请在处理完成后回来查看。",
         summaryAvailableIn: (language: string) => `该整理当前提供${language}版本。`,
@@ -310,7 +329,11 @@ export default async function TaskDetailPage(props: Props) {
     const summaryExcerpt = summaryOutput ? buildSummaryExcerptFromContent(summaryOutput.content, 200, contentLocale) : ""
     const leadSummary = structuredSummary?.tl_dr || structuredSummary?.overview || summaryExcerpt
     const keypoints = structuredSummary?.keypoints ?? []
-    const visibleKeypoints = ownerTask ? keypoints : keypoints.slice(0, 3)
+    const originalSource = evidenceSourceLink(task.video_url)
+    const visibleKeypoints = (ownerTask ? keypoints : keypoints.slice(0, 3)).map(point => ({
+        ...point,
+        sourceLink: point.startSeconds === undefined ? originalSource : evidenceSourceLink(task.video_url, point.startSeconds),
+    }))
     const visualBlocks = structuredSummary?.uiBlocks ?? []
     const title = task.video_title || copy.processedVideo
     const displayTitle = ((ownerTask && structuredSummary?.title) || title).replaceAll("—", "-")
@@ -485,8 +508,8 @@ export default async function TaskDetailPage(props: Props) {
                         <aside data-slot="task-source-media" className={readingStyles.source} aria-labelledby="task-source-title">
                             <h2 id="task-source-title" className="sr-only">{copy.source}</h2>
                             <TaskSourceCover thumbnailUrl={task.thumbnail_url} videoUrl={task.video_url} title={displayTitle} />
-                            {task.video_url && (
-                                <a href={task.video_url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-sm">
+                            {originalSource && (
+                                <a href={originalSource.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-sm">
                                     <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
                                     {copy.original}
                                 </a>
@@ -526,14 +549,15 @@ export default async function TaskDetailPage(props: Props) {
                                                         <div className="mt-3 border-l-2 border-primary/30 pl-3">
                                                             <p className="text-xs font-semibold text-primary">{copy.evidence}</p>
                                                             <p lang={evidenceLanguageTag} className="pb-1 pt-2 text-sm leading-6 text-muted-foreground">{keypoint.evidence}</p>
-                                                            {typeof keypoint.startSeconds === "number" && task.video_url && (
+                                                            {keypoint.sourceLink && (
                                                                 <a
-                                                                    href={buildTimestampUrl(task.video_url, keypoint.startSeconds)}
+                                                                    href={keypoint.sourceLink.href}
+                                                                    aria-describedby={`task-idea-${index}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
                                                                     className="mb-1 inline-flex min-h-8 items-center rounded-full text-xs font-semibold text-emerald-700 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-foreground-soft dark:focus-visible:ring-ring dark:hover:text-foreground"
                                                                 >
-                                                                    {copy.openAt} {formatTimestamp(keypoint.startSeconds)}
+                                                                    {keypoint.sourceLink.time ? `${copy.openAt} ${keypoint.sourceLink.time}` : copy.openSource}
                                                                     <ExternalLink className="ml-1.5 size-3" aria-hidden="true" />
                                                                 </a>
                                                             )}

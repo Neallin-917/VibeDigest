@@ -1,6 +1,14 @@
 import { render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+type QueryRead = {
+  table: string
+  count?: string
+  preferred: boolean
+  search?: [string, string]
+  source?: unknown
+}
+
 type QueryError = { code: string; message: string }
 type QueryResult = {
   data: Array<Record<string, unknown>> | null
@@ -15,7 +23,7 @@ const queryState = vi.hoisted(() => ({
   eqCalls: [] as Array<[string, unknown]>,
   inCalls: [] as Array<[string, unknown[]]>,
   limits: [] as number[],
-  reads: [] as Array<{ table: string; count?: string; preferred: boolean }>,
+  reads: [] as QueryRead[],
   languageFilters: [] as string[],
 }))
 const fixtureMode = vi.hoisted(() => ({ enabled: false }))
@@ -23,19 +31,19 @@ const fixtureMode = vi.hoisted(() => ({ enabled: false }))
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
-      let requestedCount: string | undefined
-      let hasLanguageFilter = false
+      const read: QueryRead = { table, preferred: false }
       const query = {
         select: (_columns: string, options?: { count?: string }) => {
-          requestedCount = options?.count
+          read.count = options?.count
           return query
         },
         eq: (column: string, value: unknown) => {
           queryState.eqCalls.push([column, value])
+          if (column === "podcast_source_slug") read.source = value
           return query
         },
         or: (filter: string) => {
-          hasLanguageFilter = true
+          read.preferred = true
           queryState.languageFilters.push(filter)
           return query
         },
@@ -43,18 +51,21 @@ vi.mock("@/lib/supabase/server", () => ({
           queryState.inCalls.push([column, values])
           return query
         },
-        ilike: () => query,
+        ilike: (column: string, pattern: string) => {
+          read.search = [column, pattern]
+          return query
+        },
         order: () => query,
         limit: (value: number) => {
           queryState.limits.push(value)
           return query
         },
         then: (resolve: (value: QueryResult) => unknown, reject: (reason: unknown) => unknown) => {
-          queryState.reads.push({ table, count: requestedCount, preferred: hasLanguageFilter })
+          queryState.reads.push(read)
           const result = table === "podcast_library_source_counts"
             ? queryState.sources
-            : hasLanguageFilter ? queryState.preferredTasks : queryState.tasks
-          return Promise.resolve({ ...result, count: requestedCount ? result.count : null }).then(resolve, reject)
+            : read.preferred ? queryState.preferredTasks : queryState.tasks
+          return Promise.resolve({ ...result, count: read.count ? result.count : null }).then(resolve, reject)
         },
       }
       return query
@@ -210,7 +221,7 @@ describe("ServerCommunityTemplates", () => {
 
     expect(queryState.reads).toHaveLength(3)
     expect(queryState.reads.filter((read) => read.count)).toEqual([
-      { table: "tasks", count: "exact", preferred: false },
+      { table: "tasks", count: "exact", preferred: false, source: "latent-space", search: ["library_search_text", "%agent%"] },
     ])
     expect(screen.getByTestId("total-count").textContent).toBe(String(total))
     expect(screen.getByTestId("has-more").textContent).toBe(String(more))

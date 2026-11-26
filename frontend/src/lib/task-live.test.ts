@@ -59,6 +59,25 @@ describe('shared task subscription', () => {
     expect(await readSubscribedTask('not-subscribed')).toBe(404)
   })
 
+  it('shares a failed first read and clears the recovery state on denial or a later realtime row', async () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    live.single.mockResolvedValueOnce({ data: null, status: 503 })
+    cleanups.push(subscribeToTask('task-1', vi.fn(), first))
+    await vi.waitFor(() => expect(first).toHaveBeenLastCalledWith('failed'))
+    live.single.mockResolvedValueOnce({ data: null, status: 403 })
+    cleanups.push(subscribeToTask('task-1', vi.fn(), second))
+    expect(second.mock.calls.slice(0, 2)).toEqual([['failed'], ['rechecking']])
+    await vi.waitFor(() => expect(first).toHaveBeenLastCalledWith(undefined))
+    expect(second).toHaveBeenLastCalledWith(undefined)
+    onRow({ new: { id: 'task-1', status: 'completed' } })
+    live.single.mockResolvedValueOnce({ data: null, status: 503 })
+    onStatus('SUBSCRIBED')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(second).toHaveBeenLastCalledWith(undefined)
+    expect(live.single).toHaveBeenCalledTimes(3)
+  })
+
   it('does not overwrite a newer realtime event with a delayed initial read', async () => {
     let resolveRead!: (value: unknown) => void
     live.single.mockReturnValue(new Promise((resolve) => { resolveRead = resolve }))

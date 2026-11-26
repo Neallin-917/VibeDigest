@@ -56,7 +56,8 @@ vi.mock('@/components/i18n/I18nProvider', () => ({
   }),
 }))
 
-vi.mock('@/lib/task-live', () => ({
+vi.mock('@/lib/task-live', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/task-live')>(),
   readSubscribedTask: mockReadSubscribedTask,
   subscribeToTask: mockSubscribeToTask,
 }))
@@ -320,6 +321,59 @@ describe('TaskDataGroup', () => {
     }
     expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
     expect(post).not.toHaveBeenCalled()
+  })
+
+  it.each(['public', 'private', 'denied', 'empty-public', 'empty-private', 'empty-explicit'])('recovers only the task details when outputs already loaded (%s)', async outcome => {
+    type ReadCheck = 'failed' | 'rechecking' | undefined
+    let publish!: (row: Record<string, unknown>) => void
+    let check!: (value: ReadCheck) => void
+    mockSubscribeToTask.mockImplementation((_id, listener, onCheck) => {
+      publish = listener
+      check = onCheck
+      return vi.fn()
+    })
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: 'cached' }} />)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    const rows = outcome.startsWith('empty') ? { data: [] } : existing
+    await initial(rows)
+    await catchUp(rows)
+    expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
+    act(() => check('failed'))
+    const retry = screen.getByRole('button', { name: 'Check again' })
+    mockReadSubscribedTask.mockImplementationOnce(() => { check('rechecking'); return Promise.resolve(503) })
+    act(() => { retry.focus(); retry.click() })
+    expect(retry).toHaveAttribute('aria-disabled', 'true')
+    act(() => check('failed'))
+    expect(retry).toHaveFocus()
+    expect(retry).toHaveAttribute('aria-disabled', 'false')
+    expect(post).not.toHaveBeenCalled()
+    act(() => {
+      retry.click()
+      check(undefined)
+      if (outcome !== 'denied') publish({
+        id: 'cached', status: 'completed', workload_kind: 'user_submission', is_demo: outcome.includes('public'),
+        guest_id: null, output_intent: outcome === 'empty-private' ? null : { locale_source: 'explicit_instruction', target_locale: 'zh' },
+      })
+    })
+    expect(mockReadSubscribedTask).toHaveBeenCalledTimes(2)
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
+    if (outcome === 'empty-private') {
+      await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/cached/summary-version',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ locale: 'en' }) })))
+    } else {
+      expect(post).not.toHaveBeenCalled()
+      if (outcome === 'empty-explicit') expect(screen.getByText('This version is currently unavailable.')).toBeVisible()
+      if (outcome === 'empty-public') expect(screen.getByText('No summary available.')).toBeVisible()
+      if (outcome === 'public' || outcome === 'private') {
+        expect(screen.getByText(matchPublicSummaryOutput(existing.data, outcome === 'public' ? 'en' : 'zh').summary!.overview)).toBeVisible()
+        expect(document.activeElement?.tagName).toBe('H3')
+      }
+    }
   })
 
   it.each(['available', 'missing', 'denied'])('checks a failed language read on demand without a subscription update (%s)', async outcome => {

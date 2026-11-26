@@ -4,10 +4,12 @@ import { createClient } from '@/lib/supabase'
 
 type TaskRow = Record<string, unknown>
 type TaskListener = (task: TaskRow) => void
+export type TaskReadCheck = 'failed' | 'rechecking' | undefined
 
 type TaskEntry = {
   channel: RealtimeChannel
-  listeners: Map<number, TaskListener>
+  listeners: Map<number, { onRow: TaskListener; onCheck?: (check: TaskReadCheck) => void }>
+  readCheck: TaskReadCheck
   snapshot: TaskRow | null
   primePromise: Promise<number> | null
 }
@@ -24,13 +26,25 @@ function publishTask(entry: TaskEntry, row: TaskRow) {
   const nextTime = Date.parse(String(row.updated_at ?? ''))
   if (Number.isFinite(previousTime) && Number.isFinite(nextTime) && nextTime < previousTime) return
   entry.snapshot = row
-  entry.listeners.forEach((listener) => listener(row))
+  updateReadCheck(entry, undefined)
+  entry.listeners.forEach(({ onRow }) => onRow(row))
+}
+
+export function transientReadFailure(status: number) {
+  return status === 0 || status === 408 || status === 429 || status >= 500
+}
+
+function updateReadCheck(entry: TaskEntry, check: TaskReadCheck) {
+  if (entry.readCheck === check) return
+  entry.readCheck = check
+  entry.listeners.forEach(({ onCheck }) => onCheck?.(check))
 }
 
 async function primeTask(taskId: string, entry: TaskEntry, force = false) {
   if (!force && entry.snapshot) return 200
   if (entry.primePromise) return entry.primePromise
 
+  if (entry.readCheck === 'failed') updateReadCheck(entry, 'rechecking')
   const supabase = createClient()
   entry.primePromise = (async () => {
     const { data, status } = await supabase
@@ -47,6 +61,11 @@ async function primeTask(taskId: string, entry: TaskEntry, force = false) {
   })().catch(() => {
     // A transport failure leaves the last committed snapshot in place.
     return 0
+  }).then(status => {
+    if (!entry.snapshot) {
+      updateReadCheck(entry, transientReadFailure(status) ? 'failed' : undefined)
+    }
+    return status
   }).finally(() => {
     entry.primePromise = null
   })
@@ -73,7 +92,8 @@ function createTaskEntry(taskId: string): TaskEntry {
           }
         }
       ),
-    listeners: new Map<number, TaskListener>(),
+    listeners: new Map(),
+    readCheck: undefined,
     snapshot: null,
     primePromise: null,
   }
@@ -90,7 +110,7 @@ export function readSubscribedTask(taskId: string) {
   return entry ? primeTask(taskId, entry) : Promise.resolve(404)
 }
 
-export function subscribeToTask(taskId: string, listener: TaskListener) {
+export function subscribeToTask(taskId: string, listener: TaskListener, onCheck?: (check: TaskReadCheck) => void) {
   let entry = taskEntries.get(taskId)
   if (!entry) {
     entry = createTaskEntry(taskId)
@@ -98,7 +118,8 @@ export function subscribeToTask(taskId: string, listener: TaskListener) {
   }
 
   const listenerId = nextListenerId++
-  entry.listeners.set(listenerId, listener)
+  entry.listeners.set(listenerId, { onRow: listener, onCheck })
+  onCheck?.(entry.readCheck)
 
   if (entry.snapshot) {
     listener(entry.snapshot)

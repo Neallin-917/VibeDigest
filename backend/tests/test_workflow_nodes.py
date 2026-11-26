@@ -749,6 +749,15 @@ class TestCleanup:
     """Test cleanup node: file deletion and final status."""
 
     @pytest.mark.asyncio
+    async def test_atomic_caption_failure_is_not_overwritten(self, mock_db, tmp_path):
+        audio = tmp_path / "temporary-media"
+        audio.touch()
+        error = "captions_unavailable: rate_limited: Temporary caption limit."
+        await cleanup(_make_state(errors=[error], ingest_error=error, audio_path=str(audio)))
+        assert not audio.exists()
+        mock_db.update_task_status.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_no_errors_completed(self, mock_db):
         """No errors → task marked COMPLETED."""
         state = _make_state(errors=[], audio_path=None)

@@ -645,6 +645,10 @@ async def cleanup(state: VideoProcessingState) -> Dict:
         except Exception as e:
             logger.warning(f"Cleanup failed: {e}")
 
+    # Caption failure and its original reason were committed with the refund.
+    if state.get("ingest_error"):
+        return {}
+
     # Final Task Status Update
     if not state.get("errors"):
         _get_db_client().update_task_status(
@@ -684,7 +688,11 @@ def build_graph():
         route_after_cache,
         {"cleanup": "cleanup", "ingest": "ingest", "cognition": "cognition"},
     )
-    workflow.add_edge("ingest", "cognition")
+    workflow.add_conditional_edges(
+        "ingest",
+        lambda state: "cleanup" if state.get("ingest_error") else "cognition",
+        {"cleanup": "cleanup", "cognition": "cognition"},
+    )
     workflow.add_edge("cognition", "cleanup")
     workflow.add_edge("cleanup", END)
 

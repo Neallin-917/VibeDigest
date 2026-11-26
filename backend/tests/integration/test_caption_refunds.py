@@ -136,7 +136,7 @@ async def test_real_pipeline_caption_failure_refunds_without_audio_or_model(pgmq
     assert _balance(pgmq_db, task)["usage_count"] == 0
     failed_task = pgmq_db.get_task(task)
     assert failed_task["status"] == "error"
-    assert (failed_task["error_message"] == CAPTIONS_RATE_LIMITED) is rate_limited
+    assert failed_task["error_message"] == (CAPTIONS_RATE_LIMITED if rate_limited else ERROR)
     assert all(o["status"] == "error" for o in pgmq_db.get_task_outputs(task))
     processor.download_and_convert.assert_not_awaited()
     summarizer.assert_not_called()

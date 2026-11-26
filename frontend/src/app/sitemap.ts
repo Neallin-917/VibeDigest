@@ -12,7 +12,8 @@ export type PublicSitemapTask = {
   created_at: string
   updated_at: string | null
   published_at: string | null
-  public_quality_flags?: { language?: string | null; available_languages?: unknown } | null
+  language?: string | null
+  available_languages_json?: string | null
   task_outputs?: Array<{
     kind?: string | null
     status?: string | null
@@ -54,8 +55,9 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
     const summaryModifiedDates = completedSummaryOutputs.map((output) => output.updated_at)
     const locales = listPublicSummaryLocales(
       completedSummaryOutputs,
-      task.public_quality_flags?.language,
-      task.public_quality_flags?.available_languages
+      task.language,
+      // Missing keys allow legacy locale fallback. Explicit JSON null closes publication.
+      task.available_languages_json == null ? undefined : JSON.parse(task.available_languages_json)
     )
     const lastModified = latestValidDate(
       task.updated_at,
@@ -88,7 +90,7 @@ export function buildSitemapEntries(tasks: PublicSitemapTask[]): MetadataRoute.S
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data: tasks, error } = await supabasePublic
     .from('tasks')
-    .select('id, created_at, updated_at, published_at, video_title, public_quality_flags, task_outputs!inner(kind, status, updated_at, locale)')
+    .select('id, created_at, updated_at, published_at, video_title, language:public_quality_flags->language, available_languages_json:public_quality_flags->available_languages::text, task_outputs!inner(kind, status, updated_at, locale)')
     .eq('status', 'completed')
     .eq('is_demo', true)
     .eq('publication_status', 'published')

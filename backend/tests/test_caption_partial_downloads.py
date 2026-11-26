@@ -35,6 +35,8 @@ def download(tmp_path, monkeypatch):
             template = factory.call_args.args[0]["outtmpl"]
             for suffix, body in files:
                 Path(f"{template}.{suffix}").write_bytes(body)
+            if isinstance(error, BaseException):
+                raise error
             if error == "rate_limited":
                 from yt_dlp.networking import Response
                 from yt_dlp.networking.exceptions import HTTPError
@@ -138,3 +140,28 @@ async def test_http_429_is_reported_without_a_completed_track(download):
 @pytest.mark.asyncio
 async def test_completed_track_wins_over_http_429(download):
     assert_english(await download([("en.vtt", ENGLISH)], error="rate_limited"))
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_download_error_can_store_http_status_only_in_exc_info(download, status):
+    from yt_dlp.networking import Response
+    from yt_dlp.networking.exceptions import HTTPError
+
+    response = Response(BytesIO(), "https://fixture.invalid", {}, status=status)
+    transport = HTTPError(response)
+    wrapped = yt_dlp.utils.DownloadError(
+        "Subtitle transfer failed", exc_info=(type(transport), transport, None)
+    )
+
+    result = await download([], error=wrapped)
+    assert wrapped.__cause__ is None and wrapped.__context__ is None
+    if status == 429:
+        assert isinstance(result, CaptionRateLimited)
+    else:
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_text_mention_of_429_is_not_http_rate_limiting(download):
+    error = yt_dlp.utils.DownloadError("Unable to read subtitle item 429")
+    assert await download([], error=error) is None

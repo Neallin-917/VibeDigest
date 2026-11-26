@@ -12,10 +12,17 @@ class CaptionRateLimited(Exception):
 def is_http_rate_limit(exc: BaseException) -> bool:
     """yt-dlp wraps its transport's HTTPError in DownloadError."""
     seen = set()
-    current = exc
-    while current is not None and id(current) not in seen:
+    pending = [exc]
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
         seen.add(id(current))
         if getattr(current, "status", None) == 429 or getattr(current, "code", None) == 429:
             return True
-        current = current.__cause__ or current.__context__
+        links = [current.__cause__, current.__context__]
+        exc_info = getattr(current, "exc_info", None)
+        if isinstance(exc_info, tuple) and len(exc_info) >= 2:
+            links.append(exc_info[1])
+        pending.extend(link for link in links if isinstance(link, BaseException))
     return False

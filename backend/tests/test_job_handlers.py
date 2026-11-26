@@ -223,7 +223,11 @@ async def test_catalog_retry_validates_target_locale_and_quality(mock_db_client,
         "locale": locale, "intent": {"target_locale": other_locale},
     }
     mock_db_client.get_task.return_value = {"workload_kind": "catalog_supply"}
-    mock_db_client.get_task_outputs.return_value = [{"kind": "script", "content": "Shared source"}]
+    evidence = "The source provides this complete passage."
+    raw = json.dumps({"source_timed": True, "segments": [{"start": 26, "text": evidence}]})
+    mock_db_client.get_task_outputs.return_value = [
+        {"kind": "script", "content": "Shared source"}, {"kind": "script_raw", "content": raw},
+    ]
     mock_summarizer.optimize_transcript.return_value = "Shared source"
     payload = {
         "version": 5, "language": locale,
@@ -231,6 +235,7 @@ async def test_catalog_retry_validates_target_locale_and_quality(mock_db_client,
         "tl_dr": "A clear public takeaway with enough context for a useful summary.",
         "keypoints": [{"title": "Title", "detail": "Detail", "evidence": "Evidence"}] * 3,
     }
+    payload["keypoints"][0] = {"title": "Title", "detail": "Detail", "evidence": evidence, "startSeconds": 999}
     if failure == "wrong_language":
         payload["language"] = other_locale
     elif failure == "short_overview":
@@ -250,6 +255,8 @@ async def test_catalog_retry_validates_target_locale_and_quality(mock_db_client,
             assert not any(c.kwargs.get("status") == "completed" for c in mock_db_client.update_output_status.call_args_list)
         else:
             await handle_retry_output("out-bilingual", "u1")
+            saved = json.loads(mock_db_client.update_output_status.call_args.kwargs["content"])
+            assert saved["keypoints"][0]["startSeconds"] == 26
             assert mock_db_client.update_output_status.call_args.kwargs["locale"] == locale
     assert mock_summarizer.summarize_in_language_with_anchors.call_args.kwargs["summary_language"] == locale
     mock_summarizer.optimize_transcript.assert_not_awaited()

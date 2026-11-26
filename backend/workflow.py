@@ -431,6 +431,7 @@ async def _run_summarize(
     user_id: str,
     transcript_language: Optional[str],
     transcript_source: Optional[str],
+    transcript_raw: Optional[str] = None,
 ):
     active_output: Optional[Dict[str, Any]] = None
     try:
@@ -536,7 +537,12 @@ async def _run_summarize(
                 target_language=target_language,
                 trace_metadata=trace_meta,
             )
-            payload = parse_summary_payload_v4(summary)
+            payload = parse_summary_payload_v4(
+                summary,
+                timed_transcript=(
+                    transcript_raw if workload_kind == WorkloadKind.CATALOG_SUPPLY else None
+                ),
+            )
             if normalize_lang_code(payload.get("language")) != target_language:
                 raise ValueError(
                     f"Summary language does not match requested locale {target_language}"
@@ -598,6 +604,7 @@ async def cognition(state: VideoProcessingState) -> Dict:
         state["user_id"],
         transcript_language=state.get("transcript_lang"),
         transcript_source=state.get("transcript_source"),
+        transcript_raw=state.get("transcript_raw"),
     )
 
     updates: Dict[str, Any] = {}

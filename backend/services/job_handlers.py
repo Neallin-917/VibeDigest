@@ -164,7 +164,12 @@ async def handle_retry_output(output_id: str, user_id: str) -> None:
             video_title=video_title,
             script_raw_json=script_raw_json,
         )
-        payload = parse_summary_payload_v4(summary_json)
+        payload = parse_summary_payload_v4(
+            summary_json,
+            timed_transcript=(
+                script_raw_json if workload_kind == WorkloadKind.CATALOG_SUPPLY else None
+            ),
+        )
         if normalize_lang_code(payload.get("language")) != target_language:
             raise ValueError(f"Summary language does not match requested locale {target_language}")
         if workload_kind == WorkloadKind.CATALOG_SUPPLY and target_language in {"en", "zh"}:

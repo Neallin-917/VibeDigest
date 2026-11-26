@@ -656,13 +656,14 @@ class TestCognition:
             {"id": "summary-en", "kind": "summary", "locale": "en", "status": "pending"},
             {"id": "summary-zh", "kind": "summary", "locale": "zh", "status": "pending"},
         ]
-        mock_summarizer.summarize.side_effect = [
-            MockModel(_valid_catalog_summary_payload("en")),
-            MockModel(_valid_catalog_summary_payload("zh")),
-        ]
-
+        evidence = "The source provides this complete passage."
+        payloads = [_valid_catalog_summary_payload(locale) for locale in ("en", "zh")]
+        for payload in payloads:
+            payload["keypoints"][0]["evidence"] = evidence
+        mock_summarizer.summarize.side_effect = [MockModel(payload) for payload in payloads]
+        raw = json.dumps({"source_timed": True, "segments": [{"start": 26, "text": evidence}]})
         result = await cognition(
-            _make_state(transcript_text=transcript, transcript_lang="en")
+            _make_state(transcript_text=transcript, transcript_lang="en", transcript_raw=raw)
         )
 
         assert result["final_summary_json"]["language"] == "en"
@@ -675,6 +676,8 @@ class TestCognition:
             for call in mock_db.update_output_status.call_args_list
             if call.kwargs.get("status") == TaskStatus.COMPLETED
         ]
+        assert [json.loads(call.kwargs["content"])["keypoints"][0]["startSeconds"]
+                for call in completed_calls] == [26, 26]
         assert [call.args[0] for call in completed_calls] == ["summary-en", "summary-zh"]
         assert [call.kwargs["locale"] for call in completed_calls] == ["en", "zh"]
         assert all(

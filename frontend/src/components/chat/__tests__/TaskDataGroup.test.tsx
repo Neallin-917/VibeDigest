@@ -222,6 +222,66 @@ describe('TaskDataGroup', () => {
     }
   })
 
+  it.each(['available', 'missing', 'denied'])('checks a failed language read on demand without a subscription update (%s)', async outcome => {
+    const englishOnly = { data: existing.data.filter(row => row.content.language === 'en') }
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    const manual = pendingOutputRead()
+    const secondManual = pendingOutputRead()
+    const props = { ...landingTaskStatus, taskId: 'private-task' }
+    const { rerender } = render(<TaskDataGroup live taskStatus={props} />)
+    await initial(englishOnly)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    i18nState.locale = 'zh'
+    rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    await catchUp({ data: null, status: 503 })
+    expect(screen.getByText('暂时无法确认中文版。')).toBeVisible()
+    const retry = screen.getByRole('button', { name: '重新检查' })
+    act(() => { retry.click(); retry.click() })
+    expect(retry).toHaveAttribute('aria-disabled', 'true')
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(3)
+    expect(post).not.toHaveBeenCalled()
+    await manual({ data: null, status: 503 })
+    expect(retry).toHaveAttribute('aria-disabled', 'false')
+    act(() => retry.click())
+    if (outcome === 'available') {
+      await secondManual(existing)
+      expect(screen.getByText(matchPublicSummaryOutput(existing.data, 'zh').summary!.overview)).toBeVisible()
+      expect(post).not.toHaveBeenCalled()
+    } else if (outcome === 'missing') {
+      await secondManual(englishOnly)
+      await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/private-task/summary-version',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ locale: 'zh' }) })))
+    } else {
+      await secondManual({ data: null, status: 403 })
+      expect(post).not.toHaveBeenCalled()
+    }
+    expect(screen.queryByRole('button', { name: '重新检查' })).not.toBeInTheDocument()
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(4)
+  })
+
+  it('ignores an older failed read while a newer language check is pending', async () => {
+    const initial = pendingOutputRead()
+    const older = pendingOutputRead()
+    const newest = pendingOutputRead()
+    const post = vi.fn()
+    vi.stubGlobal('fetch', post)
+    const props = { ...landingTaskStatus, taskId: 'private-task' }
+    const { rerender } = render(<TaskDataGroup live taskStatus={props} />)
+    await initial({ data: existing.data.filter(row => row.content.language === 'en') })
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    act(() => notifyOutput?.({ new: { kind: 'summary' } }))
+    i18nState.locale = 'zh'
+    rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    await older({ data: null, status: 503 })
+    expect(screen.queryByRole('button', { name: '重新检查' })).not.toBeInTheDocument()
+    await newest(existing)
+    expect(screen.getByText(matchPublicSummaryOutput(existing.data, 'zh').summary!.overview)).toBeVisible()
+    expect(post).not.toHaveBeenCalled()
+  })
+
   it('keeps an already requested language stable across a catch-up that still reports it missing', async () => {
     i18nState.locale = 'zh'
     const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })

@@ -15,13 +15,17 @@ export function TaskSummaryVersionStatus({ taskId, locale, target, status, onCom
   locale: Locale
   target: Locale
   onCompleted?: () => void
-  status: 'request' | 'waiting' | 'unavailable'
+  status: 'request' | 'waiting' | 'unavailable' | null
 }) {
+  // A refresh may temporarily withdraw confirmation. Keep the last decision for
+  // this mounted task and locale so an existing request is not started again.
+  const [confirmedStatus, setConfirmedStatus] = useState(status)
+  if (status && status !== confirmedStatus) setConfirmedStatus(status)
   const router = useRouter()
   const [unavailable, setUnavailable] = useState(false)
 
   useEffect(() => {
-    if (status !== 'request') return
+    if (confirmedStatus !== 'request') return
     let active = true
     async function requestVersion() {
       try {
@@ -43,10 +47,11 @@ export function TaskSummaryVersionStatus({ taskId, locale, target, status, onCom
     }
     void requestVersion()
     return () => { active = false }
-  }, [onCompleted, router, status, target, taskId])
+  }, [confirmedStatus, onCompleted, router, target, taskId])
 
+  if (!confirmedStatus) return null
   return <p role="status" className="text-sm text-muted-foreground">{
-    status === 'unavailable' || (status === 'request' && unavailable)
+    confirmedStatus === 'unavailable' || (confirmedStatus === 'request' && unavailable)
       ? copy[locale].unavailable : copy[locale][target]
   }</p>
 }

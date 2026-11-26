@@ -137,7 +137,7 @@ function parseAudioContent(content: string | undefined): AudioData | null {
 }
 
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
-  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[]; currentAtRead: boolean } | null>(null)
+  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[]; outputsAreCurrent: boolean } | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
   const refreshRef = useRef<() => void>(undefined)
   const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
@@ -151,6 +151,8 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
     const refresh = async () => {
       if (!active) return
       const requestRevision = ++revision
+      setSnapshot(previous => previous?.taskId === taskId && previous.outputsAreCurrent
+        ? { ...previous, outputsAreCurrent: false } : previous)
       const { data, status } = await supabase
         .from('task_outputs')
         .select('kind, content, status, locale, created_at, transcript_language:provenance->>transcript_language')
@@ -163,7 +165,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
       if (!active || requestRevision <= appliedRevision) return
       if (data) {
         appliedRevision = requestRevision
-        setSnapshot({ taskId, rows: data, currentAtRead: requestRevision === revision })
+        setSnapshot({ taskId, rows: data, outputsAreCurrent: requestRevision === revision })
       } else if (status === 401 || status === 403) {
         appliedRevision = requestRevision
         setSnapshot(null)
@@ -194,7 +196,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
   }, [supabase, taskId])
 
   const current = snapshot?.taskId === taskId ? snapshot : null
-  return { outputs: current?.rows ?? null, currentAtRead: current?.currentAtRead ?? false, refreshOutputs }
+  return { outputs: current?.rows ?? null, outputsAreCurrent: current?.outputsAreCurrent ?? false, refreshOutputs }
 }
 
 function createDemoSummary(locale: string): CurrentSummary {
@@ -487,7 +489,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const liveSnapshot = useLiveTaskSnapshot(taskStatus, !isDemo && (live || needsTaskPreference))
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo && !isLandingDemo)
   const snapshot: TaskSnapshot | null | undefined = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
-  const { outputs, currentAtRead, refreshOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
+  const { outputs, outputsAreCurrent, refreshOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
   const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
@@ -664,19 +666,19 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
       </ResultEngagement>
 
-      {status === 'completed' && !summary && !safeError && (isDemo || (outputs && currentAtRead && languageResolved)) ? (
+      {status === 'completed' && !summary && !safeError && (isDemo || (outputs && languageResolved)) ? (
         !isDemo && snapshot.privateUserSubmission && outputs ? (
           <TaskSummaryVersionStatus
             key={`${snapshot.taskId}-${targetLocale}`}
             taskId={snapshot.taskId}
             locale={locale}
             target={targetLocale}
-            status={missingSummaryVersionStatus(outputs, targetLocale, explicitLocale)}
+            status={outputsAreCurrent ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
             onCompleted={refreshOutputs}
           />
-        ) : (
+        ) : isDemo || outputsAreCurrent ? (
           <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
-        )
+        ) : null
       ) : null}
     </article>
   )

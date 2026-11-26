@@ -109,7 +109,7 @@ describe('TaskDataGroup', () => {
   beforeEach(() => {
     notifyOutput = undefined
     notifyConnection = undefined
-    mockReadTaskOutputs.mockImplementation(async () => ({ data: taskOutputRows }))
+    mockReadTaskOutputs.mockReset().mockImplementation(async () => ({ data: taskOutputRows }))
     taskOutputRows = []
     demoState.enabled = false
     i18nState.locale = 'en'
@@ -183,6 +183,59 @@ describe('TaskDataGroup', () => {
     await catchUp(existing)
     expect(screen.getByText(overview)).toBeInTheDocument()
     expect(post).not.toHaveBeenCalled()
+  })
+
+  it.each(['available', 'missing', 'unconfirmed'])('checks the selected locale against the latest read (%s)', async outcome => {
+    const englishOnly = { data: existing.data.filter(row => row.content.language === 'en') }
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    const initial = pendingOutputRead()
+    const refresh = pendingOutputRead()
+    const props = { ...landingTaskStatus, taskId: 'private-task' }
+    const { rerender } = render(<TaskDataGroup live taskStatus={props} />)
+    await initial(englishOnly)
+    expect(screen.getByText(overview)).toBeInTheDocument()
+
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    expect(screen.getByText(overview)).toBeInTheDocument()
+    i18nState.locale = 'zh'
+    rerender(<TaskDataGroup live taskStatus={{ ...props }} />)
+    expect(post).not.toHaveBeenCalled()
+    expect(screen.queryByText(overview)).not.toBeInTheDocument()
+
+    if (outcome === 'available') {
+      await refresh(existing)
+      expect(screen.getByText(matchPublicSummaryOutput(existing.data, 'zh').summary!.overview)).toBeInTheDocument()
+      expect(post).not.toHaveBeenCalled()
+    } else if (outcome === 'missing') {
+      await refresh(englishOnly)
+      await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/private-task/summary-version',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ locale: 'zh' }) })))
+    } else {
+      await refresh({ data: null, status: 503 })
+      expect(post).not.toHaveBeenCalled()
+      const reconnect = pendingOutputRead()
+      act(() => notifyConnection?.('SUBSCRIBED'))
+      await reconnect(existing)
+      expect(screen.getByText(matchPublicSummaryOutput(existing.data, 'zh').summary!.overview)).toBeInTheDocument()
+      expect(post).not.toHaveBeenCalled()
+    }
+  })
+
+  it('keeps an already requested language stable across a catch-up that still reports it missing', async () => {
+    i18nState.locale = 'zh'
+    const post = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'pending' }) })
+    vi.stubGlobal('fetch', post)
+    const initial = pendingOutputRead()
+    const refresh = pendingOutputRead()
+    const englishOnly = { data: existing.data.filter(row => row.content.language === 'en') }
+    render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: 'private-task' }} />)
+    await initial(englishOnly)
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    expect(screen.getByRole('status')).toHaveTextContent('正在准备中文版')
+    await refresh(englishOnly)
+    expect(post).toHaveBeenCalledTimes(1)
   })
 
   it('does not fall back to the English landing digest when the route changes to Japanese', async () => {

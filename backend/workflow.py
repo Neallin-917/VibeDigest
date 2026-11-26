@@ -17,7 +17,7 @@ from dependencies import (
     get_supadata_client,
 )
 from services.summarizer.validation import parse_summary_payload_v4, validate_catalog_summary_payload
-from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
+from services.caption_errors import CAPTIONS_PROVIDER_UNAVAILABLE, CAPTIONS_RATE_LIMITED, CaptionRequestFailure
 from services.output_intent import resolve_output_intent
 from services.execution_policy import (
     CATALOG_SUMMARY_LOCALES,
@@ -274,8 +274,8 @@ async def _ingest_vtt(video_url: str, task_id: str) -> Optional[Dict]:
                 "transcript_lang": lang,
                 "transcript_source": "vtt",
             }
-    except CaptionRateLimited:
-        return {"error": CAPTIONS_RATE_LIMITED}
+    except CaptionRequestFailure as exc:
+        return {"error": exc.public_message}
     except Exception as e:
         logger.warning(f"Strategy 2 (Direct VTT) failed: {e}")
         return {"error": f"Direct VTT failed: {e}"}
@@ -403,8 +403,8 @@ async def ingest(state: VideoProcessingState) -> Dict:
         # Provider diagnostics stay in server logs, not public task errors.
         logger.info("Caption acquisition failed for task %s: %s", task_id, strategy_errors)
         error = "captions_unavailable: No usable captions were found. Audio transcription is not supported."
-        if CAPTIONS_RATE_LIMITED in strategy_errors:
-            error = CAPTIONS_RATE_LIMITED
+        if strategy_errors and strategy_errors[-1] in (CAPTIONS_RATE_LIMITED, CAPTIONS_PROVIDER_UNAVAILABLE):
+            error = strategy_errors[-1]
         _get_db_client().fail_caption_task(task_id, error)
         updates["errors"] = [error]
         updates["ingest_error"] = error

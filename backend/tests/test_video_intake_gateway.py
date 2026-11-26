@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
+from services.caption_errors import CaptionProviderUnavailable, CaptionRateLimited
 from services.video_intake import VideoIntakeGateway, VideoIntakeOptions
 
 
@@ -107,13 +107,14 @@ async def test_gateway_falls_back_to_vtt_when_supadata_has_no_content():
 
 
 @pytest.mark.asyncio
-async def test_gateway_reports_rate_limit_without_private_transport_details():
+@pytest.mark.parametrize("failure", [CaptionRateLimited, CaptionProviderUnavailable])
+async def test_gateway_reports_provider_failure_without_private_transport_details(failure):
     processor = FakeVideoProcessor()
-    processor.extract_captions = AsyncMock(side_effect=CaptionRateLimited("private diagnostic"))
+    processor.extract_captions = AsyncMock(side_effect=failure("private diagnostic"))
     gateway = VideoIntakeGateway(supadata_client=FakeSupadata((None, None, None)), video_processor=processor)
     result = await gateway.get_video_context(VideoIntakeOptions(url="https://youtube.com/watch?v=abc"))
-    assert result.errors == [CAPTIONS_RATE_LIMITED]
-    assert result.attempts[-1].message == CAPTIONS_RATE_LIMITED
+    assert result.errors == [failure.public_message]
+    assert result.attempts[-1].message == failure.public_message
     processor.extract_captions.assert_awaited_once()
 
 

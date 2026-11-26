@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlparse
 
-from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
+from services.caption_errors import CAPTIONS_PROVIDER_UNAVAILABLE, CAPTIONS_RATE_LIMITED, CaptionRequestFailure
 from services.supadata_client import SupadataClient
 from services.video_processor import VideoProcessor
 from utils.url import is_supported_content_url, normalize_video_url
@@ -217,8 +217,8 @@ class VideoIntakeGateway:
                 )
             )
 
-        if attempts and attempts[-1].message == CAPTIONS_RATE_LIMITED:
-            errors.append(CAPTIONS_RATE_LIMITED)
+        if attempts and attempts[-1].message in (CAPTIONS_RATE_LIMITED, CAPTIONS_PROVIDER_UNAVAILABLE):
+            errors.append(attempts[-1].message)
         else:
             errors.append("No usable captions are available. Audio transcription is not supported.")
         return "none", "", None, "unknown"
@@ -249,8 +249,8 @@ class VideoIntakeGateway:
     ) -> Optional[Tuple[str, str, Optional[str], str]]:
         try:
             result = await self.video_processor.extract_captions(normalized_url)
-        except CaptionRateLimited:
-            attempts.append(ProviderAttempt("vtt", "failed", CAPTIONS_RATE_LIMITED))
+        except CaptionRequestFailure as exc:
+            attempts.append(ProviderAttempt("vtt", "failed", exc.public_message))
             return None
         except Exception as exc:
             attempts.append(ProviderAttempt("vtt", "failed", str(exc)))

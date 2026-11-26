@@ -127,7 +127,9 @@ function treeText(node: unknown): string {
 
 describe("task detail source failures", () => {
     it.each([
+        ["en", "captions_unavailable: provider_unavailable", "The caption service is temporarily unavailable. Submit this video again later."],
         ["en", "captions_unavailable: rate_limited", "Caption requests are temporarily limited. Submit this video again later."],
+        ["zh", "captions_unavailable: provider_unavailable", "字幕服务暂时无法响应，请稍后重新提交此视频。"],
         ["zh", "captions_unavailable: rate_limited", "字幕服务暂时限流，请稍后重新提交此视频。"],
         ["en", "captions_unavailable", "We couldn’t retrieve usable captions for this video. Try another YouTube video with captions."],
         ["zh", "captions_unavailable", "这次未能取得可用字幕，请试试其他带字幕的 YouTube 视频。"],

@@ -7,6 +7,8 @@ but validates internal decision logic, error handling, and state transitions.
 
 import json
 import pytest
+
+from services.caption_errors import CaptionProviderUnavailable, CaptionRateLimited
 from typing import cast
 from unittest.mock import MagicMock, AsyncMock, patch
 from uuid import uuid4
@@ -511,10 +513,9 @@ class TestIngest:
         assert result["transcript_text"] == "VTT transcript"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("rate_limited", [False, True])
-    async def test_youtube_all_strategies_fail(self, mock_db, mock_supadata, mock_vp, mock_summarizer, rate_limited):
+    @pytest.mark.parametrize("error_type", [None, CaptionRateLimited, CaptionProviderUnavailable])
+    async def test_youtube_all_strategies_fail(self, mock_db, mock_supadata, mock_vp, mock_summarizer, error_type):
         """Both caption sources fail → atomic failure without audio fallback."""
-        from services.caption_errors import CAPTIONS_RATE_LIMITED, CaptionRateLimited
         mock_vp.extract_info_only.return_value = {
             "title": "Fail Video", "thumbnail": None, "duration": 0,
             "author": "", "audio_url": None,
@@ -524,8 +525,8 @@ class TestIngest:
         mock_supadata.last_error = "Supadata API rate-limited (429)"
         # VTT fails
         mock_vp.extract_captions.return_value = None
-        if rate_limited:
-            mock_vp.extract_captions.side_effect = CaptionRateLimited
+        if error_type:
+            mock_vp.extract_captions.side_effect = error_type
         # An audio download would fail if a removed fallback were invoked.
         mock_vp.download_and_convert.side_effect = Exception("Download failed: 403")
 
@@ -536,7 +537,10 @@ class TestIngest:
         assert result.get("ingest_error") is not None
         mock_db.fail_caption_task.assert_called_once_with(state["task_id"], result["ingest_error"])
         assert result["ingest_error"].startswith("captions_unavailable:")
-        assert (result["ingest_error"] == CAPTIONS_RATE_LIMITED) is rate_limited
+        if error_type:
+            assert result["ingest_error"] == error_type.public_message
+        else:
+            assert result["ingest_error"].startswith("captions_unavailable: No usable captions")
         mock_vp.download_and_convert.assert_not_called()
 
     @pytest.mark.asyncio

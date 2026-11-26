@@ -21,7 +21,7 @@ import {
   type TaskLifecycleStatus,
 } from '@/lib/chat-ui'
 import { normalizeTaskStatus, sanitizeErrorMessage, sourceFailureMessageKey } from '@/lib/safe-error'
-import { readSubscribedTask, subscribeToTask } from '@/lib/task-live'
+import { readSubscribedTask, subscribeToTask, transientReadFailure, type TaskReadCheck } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
 import { trackGrowthEvent } from '@/lib/growth-events'
 import {
@@ -110,15 +110,17 @@ function resolveTaskSnapshot(
 function useLiveTaskSnapshot(seed?: ChatUIDataParts['task-status'], live = false) {
   const [liveSnapshot, setLiveSnapshot] = useState<TaskSnapshot | null>(null)
 
+  const [lastCheck, setLastCheck] = useState<{ taskId: string; check: TaskReadCheck } | null>(null)
+
   useEffect(() => {
     if (!live || !seed?.taskId) return
 
     return subscribeToTask(seed.taskId, row => {
       setLiveSnapshot(mapTaskRow(row, seed.taskId))
-    })
+    }, check => setLastCheck(check ? { taskId: seed.taskId, check } : null))
   }, [live, seed?.taskId])
 
-  return resolveTaskSnapshot(seed, liveSnapshot)
+  return { snapshot: resolveTaskSnapshot(seed, liveSnapshot), check: lastCheck?.taskId === seed?.taskId ? lastCheck?.check : undefined }
 }
 
 function parseAudioContent(content: string | undefined): AudioData | null {
@@ -137,10 +139,6 @@ function parseAudioContent(content: string | undefined): AudioData | null {
 }
 
 type OutputCheck = 'current' | 'checking' | 'failed' | 'rechecking'
-
-function transientReadFailure(status: number) {
-  return status === 0 || status === 408 || status === 429 || status >= 500
-}
 
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
   const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[] | null; check: OutputCheck } | null>(null)
@@ -523,14 +521,16 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const isDemo = isLocalUiDemo()
   const isLandingDemo = isDemo && taskStatus?.taskId === LANDING_DEMO.id
   const needsTaskPreference = taskStatus?.status === 'completed' && taskStatus.taskId !== LANDING_DEMO.id
-  const liveSnapshot = useLiveTaskSnapshot(taskStatus, !isDemo && (live || needsTaskPreference))
+  const { snapshot: liveSnapshot, check: taskReadCheck } = useLiveTaskSnapshot(taskStatus, !isDemo && (live || needsTaskPreference))
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo && !isLandingDemo)
   const snapshot: TaskSnapshot | null | undefined = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
   const { outputs, outputCheck, refreshOutputs, recheckOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
   const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
-  const recheck = outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined
+  const outputRecheck = outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined
+  const metadataOnly = !languageResolved && outputs !== null && !outputRecheck
+  const recheck = metadataOnly ? taskReadCheck : outputRecheck
   const metadataFocusScope = `${snapshot?.taskId}:${locale}:metadata`
   const focusScope = languageResolved ? `${snapshot?.taskId}:${targetLocale}` : metadataFocusScope
   const pendingRecoveryFocus = useRef<string | null>(null)
@@ -747,7 +747,10 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
             awaitingTask={!languageResolved}
             recoveryButtonRef={rememberFocusedRemoval}
             statusRef={registerLanguageStatus}
-            onRecheck={() => recheckOutputs(!languageResolved)}
+            onRecheck={() => {
+              if (metadataOnly) void readSubscribedTask(snapshot.taskId)
+              else recheckOutputs(!languageResolved)
+            }}
             onCompleted={refreshOutputs}
           />
         ) : isDemo || outputCheck === 'current' ? (

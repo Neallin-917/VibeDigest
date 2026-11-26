@@ -9,6 +9,8 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 import json
 
+from services.rolling_captions import parse_rolling_captions
+
 logger = logging.getLogger(__name__)
 
 
@@ -668,6 +670,13 @@ class VideoProcessor:
             content = vtt_path.read_text(encoding="utf-8")
         except Exception:
             return "", []
+
+        rolling = parse_rolling_captions(content)
+        if rolling:
+            markdown = "\n\n".join(
+                f"[{cue['start']:.2f}-{cue['end']:.2f}] {cue['text']}" for cue in rolling
+            )
+            return markdown, rolling
 
         # Remove header (WEBVTT...)
         lines = content.splitlines()

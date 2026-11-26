@@ -634,12 +634,22 @@ describe('TaskDataGroup', () => {
     expect(mockReadTaskOutputs).toHaveBeenCalledOnce()
   })
 
-  it('plays a persisted audio output without a video source', async () => {
-    taskOutputRows = [...existing.data, { kind: 'audio', content: JSON.stringify({ audioUrl: 'https://example.com/episode.mp3' }) }]
-    const { container } = render(<TaskDataGroup taskStatus={{ taskId: 'audio-only', status: 'completed', progress: 100 }} />)
+  it.each([
+    ['https://cdn.apple.com/episode.mp3', undefined, null],
+    ['https://cdn.xiaoyuzhoufm.com/episode.mp3', undefined, null],
+    ['https://cdn.apple.com/episode.mp3', 'https://www.xiaoyuzhoufm.com/episode/123', 'Xiaoyuzhou'],
+    ['https://cdn.xiaoyuzhoufm.com/episode.mp3', 'https://podcasts.apple.com/podcast/id123', 'Apple Podcasts'],
+  ] as const)('plays %s and uses the original source %s for its platform label', async (audioUrl, sourceUrl, expectedLabel) => {
+    taskOutputRows = [...existing.data, { kind: 'audio', content: JSON.stringify({ audioUrl }) }]
+    const { container } = render(<TaskDataGroup taskStatus={{ taskId: 'audio-only', status: 'completed', progress: 100, videoUrl: sourceUrl }} />)
     expect(await screen.findByText(overview)).toBeVisible()
-    expect(container.querySelector('audio source')).toHaveAttribute('src', 'https://example.com/episode.mp3')
+    expect(container.querySelector('audio')).toHaveAttribute('controls')
+    expect(container.querySelector('audio source')).toHaveAttribute('src', audioUrl)
     expect(container.querySelector('iframe')).toBeNull()
+    for (const label of ['Apple Podcasts', 'Xiaoyuzhou']) {
+      if (label === expectedLabel) expect(screen.getByText(label)).toBeVisible()
+      else expect(screen.queryByText(label)).not.toBeInTheDocument()
+    }
   })
 
   it('renders the embedded player as soon as live video metadata arrives', async () => {

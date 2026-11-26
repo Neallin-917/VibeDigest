@@ -381,9 +381,9 @@ describe('TaskDataGroup', () => {
     render(<TaskDataGroup live taskStatus={{ ...landingTaskStatus, taskId: 'private-task' }} />)
 
     expect(await screen.findByText('正在准备中文版…')).toBeVisible()
-    expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/private-task/summary-version', expect.objectContaining({
+    await waitFor(() => expect(post).toHaveBeenCalledExactlyOnceWith('/api/tasks/private-task/summary-version', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ locale: 'zh' }),
-    }))
+    })))
     const english = matchPublicSummaryOutput(landingDemoSummaries.outputs, 'en').summary!
     expect(screen.queryByText(english.tl_dr!)).not.toBeInTheDocument()
 

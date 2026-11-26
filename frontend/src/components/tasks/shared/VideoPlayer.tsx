@@ -32,7 +32,7 @@ export function VideoPlayer({
           <AudioEmbed
             audioUrl={audioUrl}
             coverUrl={audioCoverUrl || coverUrl}
-            sourceUrl={sourceUrl || videoUrl}
+            sourceUrl={sourceUrl}
             title={title}
           />
         ) : (

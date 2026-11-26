@@ -136,11 +136,14 @@ function parseAudioContent(content: string | undefined): AudioData | null {
   }
 }
 
+type OutputCheck = 'current' | 'checking' | 'failed' | 'rechecking'
+
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
-  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[]; outputsAreCurrent: boolean } | null>(null)
+  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[]; check: OutputCheck } | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
-  const refreshRef = useRef<() => void>(undefined)
+  const refreshRef = useRef<(retryOnly?: boolean) => void>(undefined)
   const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
+  const recheckOutputs = useCallback(() => refreshRef.current?.(true), [])
 
   useEffect(() => {
     if (!taskId || !supabase) return
@@ -148,11 +151,16 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
     let revision = 0
     let appliedRevision = 0
     let active = true
-    const refresh = async () => {
-      if (!active) return
+    let latestCheck: OutputCheck = 'checking'
+    const updateCheck = (check: OutputCheck) => {
+      latestCheck = check
+      setSnapshot(previous => previous?.taskId === taskId && previous.check !== check
+        ? { ...previous, check } : previous)
+    }
+    const refresh = async (retryOnly = false) => {
+      if (!active || (retryOnly && latestCheck !== 'failed')) return
       const requestRevision = ++revision
-      setSnapshot(previous => previous?.taskId === taskId && previous.outputsAreCurrent
-        ? { ...previous, outputsAreCurrent: false } : previous)
+      updateCheck(latestCheck === 'failed' || latestCheck === 'rechecking' ? 'rechecking' : 'checking')
       const { data, status } = await supabase
         .from('task_outputs')
         .select('kind, content, status, locale, created_at, transcript_language:provenance->>transcript_language')
@@ -165,10 +173,13 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
       if (!active || requestRevision <= appliedRevision) return
       if (data) {
         appliedRevision = requestRevision
-        setSnapshot({ taskId, rows: data, outputsAreCurrent: requestRevision === revision })
+        if (requestRevision === revision) latestCheck = 'current'
+        setSnapshot({ taskId, rows: data, check: latestCheck })
       } else if (status === 401 || status === 403) {
         appliedRevision = requestRevision
         setSnapshot(null)
+      } else if (requestRevision === revision && (status === 0 || status === 408 || status === 429 || status >= 500)) {
+        updateCheck('failed')
       }
     }
     refreshRef.current = refresh
@@ -196,7 +207,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
   }, [supabase, taskId])
 
   const current = snapshot?.taskId === taskId ? snapshot : null
-  return { outputs: current?.rows ?? null, outputsAreCurrent: current?.outputsAreCurrent ?? false, refreshOutputs }
+  return { outputs: current?.rows ?? null, outputCheck: current?.check, refreshOutputs, recheckOutputs }
 }
 
 function createDemoSummary(locale: string): CurrentSummary {
@@ -489,7 +500,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const liveSnapshot = useLiveTaskSnapshot(taskStatus, !isDemo && (live || needsTaskPreference))
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo && !isLandingDemo)
   const snapshot: TaskSnapshot | null | undefined = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
-  const { outputs, outputsAreCurrent, refreshOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
+  const { outputs, outputCheck, refreshOutputs, recheckOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
   const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
@@ -673,10 +684,12 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
             taskId={snapshot.taskId}
             locale={locale}
             target={targetLocale}
-            status={outputsAreCurrent ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
+            status={outputCheck === 'current' ? missingSummaryVersionStatus(outputs, targetLocale, explicitLocale) : null}
+            recheck={outputCheck === 'failed' || outputCheck === 'rechecking' ? outputCheck : undefined}
+            onRecheck={recheckOutputs}
             onCompleted={refreshOutputs}
           />
-        ) : isDemo || outputsAreCurrent ? (
+        ) : isDemo || outputCheck === 'current' ? (
           <p className="px-1 text-sm text-muted-foreground">{t('chat.inlineResult.noSummary')}</p>
         ) : null
       ) : null}

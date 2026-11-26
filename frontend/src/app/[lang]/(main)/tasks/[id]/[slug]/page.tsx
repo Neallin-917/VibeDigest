@@ -137,12 +137,13 @@ function formatTimestamp(seconds: number) {
 function evidenceSourceLink(videoUrl: string | null | undefined, seconds?: number) {
     if (!videoUrl) return null
     try {
-        const url = new URL(videoUrl)
+        const supportedSource = getSupportedUrlDetails(videoUrl)
+        const url = new URL(supportedSource?.href ?? videoUrl)
         if (url.protocol !== "http:" && url.protocol !== "https:") return null
         const [kind, id] = url.pathname.split("/").filter(Boolean)
         const privacyEmbed = (url.hostname === "youtube-nocookie.com" || url.hostname.endsWith(".youtube-nocookie.com"))
             && kind === "embed" && Boolean(id)
-        if ((privacyEmbed || getSupportedUrlDetails(url.href)) && typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0) {
+        if ((privacyEmbed || supportedSource) && typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0) {
             const isShortLink = url.hostname.replace(/^www\./, "") === "youtu.be"
             if (!isShortLink && (kind === "shorts" || kind === "live")) {
                 url.searchParams.set("v", id)

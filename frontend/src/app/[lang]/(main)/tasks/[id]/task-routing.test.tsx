@@ -190,6 +190,7 @@ describe("task reading navigation", () => {
         ["zh", "https://www.youtube.com/watch?v=source", 0, "https://www.youtube.com/watch?v=source&t=0s", "打开原视频时间点 0:00"],
         ["en", "https://www.youtube.com/shorts/source", 100, "https://www.youtube.com/watch?v=source&t=100s", "Open source at 1:40"],
         ["en", "https://www.youtube-nocookie.com/embed/source", 30, "https://www.youtube-nocookie.com/embed/source?start=30", "Open source at 0:30"],
+        ["en", "youtube.com/watch?v=source", 8, "https://youtube.com/watch?v=source&t=8s", "Open source at 0:08"],
         ["en", "https://www.youtu.be/source", 2, "https://www.youtu.be/source?t=2s", "Open source at 0:02"],
         ["en", "https://www.youtube.com/watch/?v=source&list=p#t=42", 6, "https://www.youtube.com/watch/?v=source&list=p&t=6s", "Open source at 0:06"],
         ["en", "https://www.youtube.com/live/source", 6, "https://www.youtube.com/watch?v=source&t=6s", "Open source at 0:06"],

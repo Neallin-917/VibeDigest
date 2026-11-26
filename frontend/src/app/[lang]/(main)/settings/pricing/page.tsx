@@ -27,7 +27,7 @@ type CheckoutBilling = "monthly" | "annual" | "one_time"
 export default function PricingPage() {
     const { t, locale } = useI18n()
     const searchParams = useSearchParams()
-    const [isAnnual, setIsAnnual] = useState(true)
+    const [isAnnual, setIsAnnual] = useState(() => searchParams.get("billing") !== "monthly")
     const [loadingAction, setLoadingAction] = useState<BillingAction | null>(null)
     const [actionError, setActionError] = useState<string | null>(null)
     const [supabase] = useState(() => createClient())
@@ -101,7 +101,7 @@ export default function PricingPage() {
         }
     }
 
-    const profileKnown = !profileLoading && profile !== null
+    const profileKnown = !profileLoading && !profileError && profile !== null
     const isPro = profileKnown && profile.tier === 'pro'
     const displayError = actionError ?? (profileError ? t("pricing.profileError") : null)
     const catalog = getCustomerPlanDisplay(t)
@@ -198,23 +198,18 @@ export default function PricingPage() {
                             isPro && "ring-2 ring-primary"
                         )}
                     >
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                            <Badge className="border-0 bg-primary-strong px-3 py-1 text-xs text-primary-foreground hover:bg-primary-strong">
-                                {t("landing.mostPopular")}
-                            </Badge>
-                        </div>
                         {isPro && (
                             <div className="absolute top-0 right-0 p-4">
                                 <Badge className="bg-primary-strong text-primary-foreground">{t("pricing.active")}</Badge>
                             </div>
                         )}
-                        <CardHeader className="relative pt-8">
+                        <CardHeader className="relative">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <Heading as="h3" variant="h3">
                                     {catalog.pro.title}
                                 </Heading>
                                 {!isPro && (
-                                    <fieldset className="flex gap-1 rounded-lg border border-border bg-background p-1">
+                                    <fieldset disabled={loadingAction !== null} className="flex gap-1 rounded-lg border border-border bg-background p-1">
                                         <legend className="sr-only">{t("pricing.billingPeriod")}</legend>
                                         {([false, true] as const).map((annual) => (
                                             <label key={String(annual)} className="relative cursor-pointer">
@@ -242,27 +237,16 @@ export default function PricingPage() {
                             ) : (
                                 <>
                                     <div className="mt-2 flex items-baseline gap-2">
-                                        {isAnnual && (
-                                            <Text
-                                                as="span"
-                                                variant="bodySm"
-                                                tone="muted"
-                                                weight="medium"
-                                                className="line-through tabular-nums text-xs"
-                                            >
-                                                {catalog.pro.monthlyPriceLabel}
-                                            </Text>
-                                        )}
                                         <span className="text-2xl leading-none font-bold tabular-nums">
-                                            {isAnnual ? catalog.pro.annualEffectiveMonthlyLabel : catalog.pro.monthlyPriceLabel}
+                                            {isAnnual ? catalog.pro.annualPriceLabel : catalog.pro.monthlyPriceLabel}
                                         </span>
                                         <Text as="span" variant="caption" tone="muted">
-                                            {t("pricing.pro.unit")}
+                                            {t(isAnnual ? "landing.annualUnit" : "pricing.pro.unit")}
                                         </Text>
                                     </div>
                                     {isAnnual && (
                                         <Text variant="caption" tone="muted" className="mt-1 text-xs leading-5">
-                                            {catalog.pro.description}
+                                            {t("landing.annualEquivalent", { annualMonthlyPrice: catalog.pro.annualEffectiveMonthlyLabel })}
                                         </Text>
                                     )}
                                 </>
@@ -300,7 +284,7 @@ export default function PricingPage() {
                                         "pro",
                                         isAnnual ? "annual" : "monthly",
                                     )}
-                                    disabled={loadingAction !== null}
+                                    disabled={!profileKnown || loadingAction !== null}
                                 >
                                     {loadingAction === "pro" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                     {t("pricing.pro.button")}

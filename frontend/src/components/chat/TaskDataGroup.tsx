@@ -25,8 +25,11 @@ import { subscribeToTask } from '@/lib/task-live'
 import { getTaskDisplayTitle, isUsableTaskTitle } from '@/lib/task-display-title'
 import { trackGrowthEvent } from '@/lib/growth-events'
 import {
+  evidenceDirection,
   matchPublicSummaryOutput,
+  normalizeSummaryLanguageTag,
   type CurrentSummary,
+  type PublicSummaryMatch,
   type SummaryOutputCandidate,
 } from '@/lib/summary-contract'
 
@@ -53,6 +56,8 @@ type AudioData = {
   audioUrl: string
   coverUrl?: string
 }
+
+type ChatOutput = SummaryOutputCandidate & { transcript_language?: string | null }
 
 type EvidenceItem = {
   label: string
@@ -132,7 +137,7 @@ function parseAudioContent(content: string | undefined): AudioData | null {
 }
 
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
-  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: SummaryOutputCandidate[] } | null>(null)
+  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[] } | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
   const refreshRef = useRef<() => void>(undefined)
   const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
@@ -145,7 +150,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
       const requestRevision = ++revision
       const { data } = await supabase
         .from('task_outputs')
-        .select('kind, content, status, locale, created_at')
+        .select('kind, content, status, locale, created_at, transcript_language:provenance->>transcript_language')
         .eq('task_id', taskId)
         .in('kind', ['summary', 'audio'])
         .order('created_at', { ascending: false })
@@ -391,8 +396,10 @@ function collectEvidence(summary: CurrentSummary): EvidenceItem[] {
   return items.slice(0, 8)
 }
 
-function EvidenceDisclosure({ title, items }: { title: string; items: EvidenceItem[] }) {
+function EvidenceDisclosure({ title, items, sourceLanguage }: { title: string; items: EvidenceItem[]; sourceLanguage?: string | null }) {
   if (items.length === 0) return null
+  const language = normalizeSummaryLanguageTag(sourceLanguage)
+  const arabicSource = Boolean(language && new Intl.Locale(language).maximize().script === "Arab")
 
   return (
     <details className="rounded-2xl border border-border/80 bg-surface-raised/80 px-5 py-4">
@@ -401,19 +408,22 @@ function EvidenceDisclosure({ title, items }: { title: string; items: EvidenceIt
         <span className="text-xs font-medium tabular-nums text-muted-foreground">{String(items.length).padStart(2, '0')}</span>
       </summary>
       <ol className="mt-4 space-y-3 border-t border-border/70 pt-4">
-        {items.map((item, index) => (
-          <li key={`${item.label}-${index}`} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3">
-            <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <div>
-              <p className="text-xs font-medium text-foreground">{item.label}</p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {item.text}
-              </p>
-            </div>
-          </li>
-        ))}
+        {items.map((item, index) => {
+          const direction = evidenceDirection(arabicSource, item.text)
+          return (
+            <li key={`${item.label}-${index}`} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3">
+              <span aria-hidden="true" className="pt-0.5 text-[11px] font-medium tabular-nums text-primary/80">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <p className="text-xs font-medium text-foreground">{item.label}</p>
+                <p dir={direction} lang={direction === "rtl" ? language ?? undefined : undefined} className="mt-1 text-start text-sm leading-6 text-muted-foreground">
+                  {item.text}
+                </p>
+              </div>
+            </li>
+          )
+        })}
       </ol>
     </details>
   )
@@ -471,11 +481,12 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const audioData = useMemo(() => parseAudioContent(asString(outputs?.find(output => output.kind === 'audio')?.content)), [outputs])
   // Local review uses the complete published output snapshot. Production
   // always reads its persisted summary through the existing task output query.
-  const summary = useMemo<CurrentSummary | null>(() => {
-    if (isLandingDemo) return matchPublicSummaryOutput(landingDemoSummaries.outputs, locale).summary
-    if (isDemo) return demoArtifact.summary
-    return outputs && languageResolved ? matchPublicSummaryOutput(outputs, targetLocale).summary : null
-  }, [demoArtifact.summary, isDemo, isLandingDemo, languageResolved, locale, outputs, targetLocale])
+  const matched = useMemo<PublicSummaryMatch<ChatOutput> | null>(() => {
+    if (isLandingDemo) return matchPublicSummaryOutput(landingDemoSummaries.outputs, locale)
+    if (!isDemo && outputs && languageResolved) return matchPublicSummaryOutput(outputs, targetLocale)
+    return null
+  }, [isLandingDemo, isDemo, locale, outputs, languageResolved, targetLocale])
+  const summary = isDemo && !isLandingDemo ? demoArtifact.summary : matched?.summary
   const normalizedStatus = snapshot ? normalizeTaskStatus(snapshot.status) : null
 
   const hasNewFailure = normalizedStatus === 'failed'
@@ -635,6 +646,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
       <EvidenceDisclosure
         title={t('tasks.summaryStructured.evidenceLabel')}
         items={evidenceItems}
+        sourceLanguage={matched?.output?.transcript_language}
       />
 
       </ResultEngagement>

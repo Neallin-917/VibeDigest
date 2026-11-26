@@ -241,6 +241,36 @@ describe('TaskDataGroup', () => {
     expect(screen.getByText('Getting video details')).toBeInTheDocument()
   })
 
+  it.each([
+    ['ar', 'rtl'],
+    [null, 'auto'],
+    ['invalid tag', 'auto'],
+  ])('uses only the matched summary’s source language (%s) to direct its evidence', async (language, direction) => {
+    const arabic = 'OpenRouter يدعم الإصدار 2026.'
+    const english = 'The Arabic word مرحبا means hello.'
+    taskOutputRows = ['zh', 'en'].map(locale => ({
+      kind: 'summary', status: 'completed', locale,
+      transcript_language: locale === 'en' ? language : 'en',
+      content: {
+        version: 5, language: locale, overview: 'Overview',
+        keypoints: [
+          { title: 'First', detail: 'First detail', evidence: arabic },
+          { title: 'Second', detail: 'Second detail', evidence: english },
+        ],
+      },
+    }))
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    const passage = await screen.findByText(arabic)
+    expect(passage).toHaveAttribute('dir', direction)
+    if (direction === 'rtl') expect(passage).toHaveAttribute('lang', 'ar')
+    expect(screen.getByText(english)).toHaveAttribute('dir', 'auto')
+    expect(screen.getByText(english)).not.toHaveAttribute('lang')
+    const row = passage.closest('li')!
+    expect(row).not.toHaveAttribute('dir')
+    expect(row.querySelector('span')).toHaveTextContent('01')
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(1)
+  })
+
   it('shows the complete persisted digest without hiding its overview, insights, or sections', async () => {
     taskOutputRows = [
       {

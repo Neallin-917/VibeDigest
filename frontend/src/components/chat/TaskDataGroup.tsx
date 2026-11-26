@@ -137,7 +137,7 @@ function parseAudioContent(content: string | undefined): AudioData | null {
 }
 
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
-  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[] } | null>(null)
+  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[]; currentAtRead: boolean } | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
   const refreshRef = useRef<() => void>(undefined)
   const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
@@ -146,16 +146,28 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
     if (!taskId || !supabase) return
 
     let revision = 0
+    let appliedRevision = 0
+    let active = true
     const refresh = async () => {
+      if (!active) return
       const requestRevision = ++revision
-      const { data } = await supabase
+      const { data, status } = await supabase
         .from('task_outputs')
         .select('kind, content, status, locale, created_at, transcript_language:provenance->>transcript_language')
         .eq('task_id', taskId)
         .in('kind', ['summary', 'audio'])
         .order('created_at', { ascending: false })
 
-      if (requestRevision === revision && data) setSnapshot({ taskId, rows: data })
+      // A pending catch-up can fail. Keep the newest successful read, including
+      // an empty result, and never let a late response replace it.
+      if (!active || requestRevision <= appliedRevision) return
+      if (data) {
+        appliedRevision = requestRevision
+        setSnapshot({ taskId, rows: data, currentAtRead: requestRevision === revision })
+      } else if (status === 401 || status === 403) {
+        appliedRevision = requestRevision
+        setSnapshot(null)
+      }
     }
     refreshRef.current = refresh
     void refresh()
@@ -175,13 +187,14 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
       })
 
     return () => {
-      ++revision
+      active = false
       refreshRef.current = undefined
       void supabase.removeChannel(channel)
     }
   }, [supabase, taskId])
 
-  return { outputs: snapshot && snapshot.taskId === taskId ? snapshot.rows : null, refreshOutputs }
+  const current = snapshot?.taskId === taskId ? snapshot : null
+  return { outputs: current?.rows ?? null, currentAtRead: current?.currentAtRead ?? false, refreshOutputs }
 }
 
 function createDemoSummary(locale: string): CurrentSummary {
@@ -474,7 +487,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const liveSnapshot = useLiveTaskSnapshot(taskStatus, !isDemo && (live || needsTaskPreference))
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo && !isLandingDemo)
   const snapshot: TaskSnapshot | null | undefined = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
-  const { outputs, refreshOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
+  const { outputs, currentAtRead, refreshOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
   const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
@@ -651,7 +664,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
       </ResultEngagement>
 
-      {status === 'completed' && !summary && !safeError && (isDemo || (outputs && languageResolved)) ? (
+      {status === 'completed' && !summary && !safeError && (isDemo || (outputs && currentAtRead && languageResolved)) ? (
         !isDemo && snapshot.privateUserSubmission && outputs ? (
           <TaskSummaryVersionStatus
             key={`${snapshot.taskId}-${targetLocale}`}

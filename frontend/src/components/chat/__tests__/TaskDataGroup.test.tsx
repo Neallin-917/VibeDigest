@@ -75,7 +75,7 @@ vi.mock('@/lib/supabase', () => ({
       select: () => ({
         eq: () => ({
           in: () => ({
-            order: () => mockReadTaskOutputs(),
+            order: () => ({ abortSignal: (signal: AbortSignal) => mockReadTaskOutputs(signal) }),
           }),
         }),
       }),
@@ -135,6 +135,37 @@ describe('TaskDataGroup', () => {
   const existing = { data: landingDemoSummaries.outputs }
   const overview = matchPublicSummaryOutput(existing.data, 'en').summary!.overview
 
+  it('cancels all remaining output reads on unmount and keeps another card’s requests alive', async () => {
+    const first = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    const retained = pendingOutputRead()
+    const removed = render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    const oldConnection = notifyConnection
+    act(() => oldConnection?.('SUBSCRIBED'))
+    render(<TaskDataGroup taskStatus={{ ...landingTaskStatus, taskId: 'retained-card' }} />)
+    const [initialSignal, catchUpSignal, retainedSignal] = mockReadTaskOutputs.mock.calls.map(call => call[0] as AbortSignal)
+    expect([initialSignal.aborted, catchUpSignal.aborted, retainedSignal.aborted]).toEqual([false, false, false])
+    removed.unmount()
+    expect([initialSignal.aborted, catchUpSignal.aborted, retainedSignal.aborted]).toEqual([true, true, false])
+    act(() => oldConnection?.('SUBSCRIBED'))
+    await retained(existing)
+    await first({ data: null, status: 0 })
+    await catchUp({ data: null, status: 0 })
+    expect(screen.getByText(overview)).toBeVisible()
+    expect(mockReadTaskOutputs).toHaveBeenCalledTimes(3)
+  })
+
+  it('accepts an initial successful output even after a newer catch-up failed', async () => {
+    const initial = pendingOutputRead()
+    const catchUp = pendingOutputRead()
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await catchUp({ data: null, status: 503 })
+    expect(mockReadTaskOutputs.mock.calls.every(([signal]) => !signal.aborted)).toBe(true)
+    await initial(existing)
+    expect(screen.getByText(overview)).toBeVisible()
+  })
+
   it('shows an initial digest while the subscription catch-up is pending or unavailable', async () => {
     const initial = pendingOutputRead()
     const catchUp = pendingOutputRead()
@@ -168,6 +199,8 @@ describe('TaskDataGroup', () => {
     const { rerender } = render(<TaskDataGroup taskStatus={landingTaskStatus} />)
     const oldConnection = notifyConnection
     rerender(<TaskDataGroup taskStatus={{ ...landingTaskStatus, taskId: 'another-task' }} />)
+    expect(mockReadTaskOutputs.mock.calls[0][0].aborted).toBe(true)
+    expect(mockReadTaskOutputs.mock.calls[1][0].aborted).toBe(false)
     await current(existing)
     act(() => oldConnection?.('SUBSCRIBED'))
     await previous({ data: [] })

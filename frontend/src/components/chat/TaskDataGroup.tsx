@@ -153,7 +153,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
 
     let revision = 0
     let appliedRevision = 0
-    let active = true
+    const requests = new AbortController()
     let latestCheck: OutputCheck = 'checking'
     const updateCheck = (check: OutputCheck) => {
       latestCheck = check
@@ -163,12 +163,12 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
       })
     }
     const refresh = async (retryOnly = false, metadataFirst = false) => {
-      if (!active || (retryOnly && latestCheck !== 'failed')) return
+      if (requests.signal.aborted || (retryOnly && latestCheck !== 'failed')) return
       const requestRevision = ++revision
       updateCheck(latestCheck === 'failed' || latestCheck === 'rechecking' ? 'rechecking' : 'checking')
       if (metadataFirst) {
         const status = await readSubscribedTask(taskId)
-        if (!active || requestRevision !== revision) return
+        if (requests.signal.aborted || requestRevision !== revision) return
         if (status !== 200) {
           if (transientReadFailure(status)) updateCheck('failed')
           else {
@@ -185,10 +185,11 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
         .eq('task_id', taskId)
         .in('kind', ['summary', 'audio'])
         .order('created_at', { ascending: false })
+        .abortSignal(requests.signal)
 
       // A pending catch-up can fail. Keep the newest successful read, including
       // an empty result, and never let a late response replace it.
-      if (!active || requestRevision <= appliedRevision) return
+      if (requests.signal.aborted || requestRevision <= appliedRevision) return
       if (data) {
         appliedRevision = requestRevision
         if (requestRevision === revision) latestCheck = 'current'
@@ -223,7 +224,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
       })
 
     return () => {
-      active = false
+      requests.abort()
       refreshRef.current = undefined
       void supabase.removeChannel(channel)
     }

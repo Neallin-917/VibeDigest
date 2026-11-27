@@ -141,8 +141,15 @@ function parseAudioContent(content: string | undefined): AudioData | null {
 
 type OutputCheck = 'current' | 'checking' | 'failed' | 'rechecking'
 
+type OutputSnapshot = {
+  taskId: string
+  rows: ChatOutput[] | null
+  check: OutputCheck
+  accessStatus?: 401 | 403
+}
+
 function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
-  const [snapshot, setSnapshot] = useState<{ taskId: string; rows: ChatOutput[] | null; check: OutputCheck } | null>(null)
+  const [snapshot, setSnapshot] = useState<OutputSnapshot | null>(null)
   const supabase = useMemo(() => (enabled ? createClient() : null), [enabled])
   const refreshRef = useRef<(retryOnly?: boolean, metadataFirst?: boolean) => void>(undefined)
   const refreshOutputs = useCallback(() => refreshRef.current?.(), [])
@@ -174,7 +181,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
           else {
             appliedRevision = requestRevision
             latestCheck = 'current'
-            setSnapshot(null)
+            setSnapshot(status === 401 || status === 403 ? { taskId, rows: null, check: 'current', accessStatus: status } : null)
           }
           return
         }
@@ -197,7 +204,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
       } else if (status === 401 || status === 403) {
         appliedRevision = requestRevision
         if (requestRevision === revision) latestCheck = 'current'
-        setSnapshot(null)
+        setSnapshot({ taskId, rows: null, check: latestCheck, accessStatus: status })
       } else if (requestRevision === revision && transientReadFailure(status)) {
         updateCheck('failed')
       } else if (requestRevision === revision && latestCheck === 'rechecking') {
@@ -231,7 +238,7 @@ function useTaskOutputs(taskId: string | undefined, enabled: boolean) {
   }, [supabase, taskId])
 
   const current = snapshot?.taskId === taskId ? snapshot : null
-  return { outputs: current?.rows ?? null, outputCheck: current?.check, refreshOutputs, recheckOutputs }
+  return { outputs: current?.rows ?? null, outputCheck: current?.check, accessStatus: current?.accessStatus, refreshOutputs, recheckOutputs }
 }
 
 function createDemoSummary(locale: string): CurrentSummary {
@@ -526,7 +533,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
   const { snapshot: liveSnapshot, check: taskReadCheck } = useLiveTaskSnapshot(taskStatus, !isDemo && (live || needsTaskPreference))
   const demoArtifact = useLocalDemoArtifact(taskStatus, locale, isDemo && !isLandingDemo)
   const snapshot: TaskSnapshot | null | undefined = isDemo ? resolveTaskSnapshot(taskStatus, demoArtifact.snapshot) : liveSnapshot
-  const { outputs, outputCheck, refreshOutputs, recheckOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
+  const { outputs, outputCheck, accessStatus, refreshOutputs, recheckOutputs } = useTaskOutputs(snapshot?.taskId, !isDemo)
   const languageResolved = snapshot?.taskId === LANDING_DEMO.id || snapshot?.privateUserSubmission !== undefined
   const explicitLocale = snapshot?.privateUserSubmission ? snapshot.explicitLocale ?? null : null
   const targetLocale = explicitLocale ?? locale
@@ -753,6 +760,12 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
       />
 
       </ResultEngagement>
+
+      {status === 'completed' && accessStatus ? (
+        <p ref={registerLanguageStatus} tabIndex={-1} role="status" className="px-1 text-sm text-muted-foreground">
+          {t(accessStatus === 401 ? 'chat.inlineResult.authenticationRequired' : 'chat.inlineResult.accessDenied')}
+        </p>
+      ) : null}
 
       {status === 'completed' && !summary && !safeError && (isDemo || (languageResolved && outputs) || recheck) ? (
         !isDemo && (snapshot.privateUserSubmission || recheck) ? (

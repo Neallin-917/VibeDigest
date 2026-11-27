@@ -7,7 +7,7 @@ import type { Locale } from '@/lib/i18n'
 export type TaskPreferenceCheck = boolean | Locale
 type TaskRow = Record<string, unknown>
 type TaskListener = (task: TaskRow, preferenceChecked: TaskPreferenceCheck) => void
-export type TaskReadCheck = 'failed' | 'rechecking' | 'unavailable' | undefined
+export type TaskReadCheck = 'failed' | 'rechecking' | 'unavailable' | 401 | 403 | undefined
 
 type TaskEntry = {
   channel: RealtimeChannel
@@ -76,8 +76,10 @@ async function primeTask(taskId: string, entry: TaskEntry, reason: 'initial' | '
       publishTask(entry, data, preferenceChecked)
       finish(200)
     } else {
-      if (!entry.snapshot) updateReadCheck(entry, transientReadFailure(status) ? 'failed' : undefined)
-      else if (reason !== 'initial' && !preferenceIsCurrent()) {
+      if (!entry.snapshot) {
+        const accessStatus = status === 401 || status === 403 ? status : undefined
+        updateReadCheck(entry, transientReadFailure(status) ? 'failed' : accessStatus)
+      } else if (reason !== 'initial' && !preferenceIsCurrent()) {
         updateReadCheck(entry, transientReadFailure(status) ? 'failed' : 'unavailable')
       }
       finish(status === 200 ? 404 : status)

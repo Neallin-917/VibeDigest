@@ -60,17 +60,17 @@ describe('shared task subscription', () => {
     expect(await readSubscribedTask('not-subscribed')).toBe(404)
   })
 
-  it('shares a failed first read and clears the recovery state on denial or a later realtime row', async () => {
+  it.each([401, 403])('shares a failed first read, publishes HTTP %s, and clears it on a realtime row', async status => {
     const first = vi.fn()
     const second = vi.fn()
     live.single.mockResolvedValueOnce({ data: null, status: 503 })
     cleanups.push(subscribeToTask('task-1', vi.fn(), first))
     await vi.waitFor(() => expect(first).toHaveBeenLastCalledWith('failed'))
-    live.single.mockResolvedValueOnce({ data: null, status: 403 })
+    live.single.mockResolvedValueOnce({ data: null, status })
     cleanups.push(subscribeToTask('task-1', vi.fn(), second))
     expect(second.mock.calls.slice(0, 2)).toEqual([['failed'], ['rechecking']])
-    await vi.waitFor(() => expect(first).toHaveBeenLastCalledWith(undefined))
-    expect(second).toHaveBeenLastCalledWith(undefined)
+    await vi.waitFor(() => expect(first).toHaveBeenLastCalledWith(status))
+    expect(second).toHaveBeenLastCalledWith(status)
     onRow({ new: { id: 'task-1', status: 'completed' } })
     live.single.mockResolvedValueOnce({ data: null, status: 503 })
     onStatus('SUBSCRIBED')

@@ -654,6 +654,17 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
     }
   }
 
+  const detailAccessStatus = taskReadCheck === 401 || taskReadCheck === 403 ? taskReadCheck : undefined
+  const denied = detailAccessStatus ?? accessStatus
+  const accessNotice = denied ? (
+    <p ref={registerLanguageStatus} tabIndex={-1} role="status" className="px-1 text-sm text-muted-foreground">
+      {t(denied === 401 ? 'chat.inlineResult.authenticationRequired' : 'chat.inlineResult.accessDenied')}
+    </p>
+  ) : null
+  if (detailAccessStatus && status === 'completed') {
+    return <article className="w-full space-y-3" data-testid="inline-task-artifact">{accessNotice}</article>
+  }
+
   return (
     <article className="w-full space-y-3" data-testid="inline-task-artifact">
       {showPlayer && playerUrl ? (
@@ -761,11 +772,7 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
       </ResultEngagement>
 
-      {status === 'completed' && accessStatus ? (
-        <p ref={registerLanguageStatus} tabIndex={-1} role="status" className="px-1 text-sm text-muted-foreground">
-          {t(accessStatus === 401 ? 'chat.inlineResult.authenticationRequired' : 'chat.inlineResult.accessDenied')}
-        </p>
-      ) : null}
+      {status === 'completed' ? accessNotice : null}
 
       {status === 'completed' && !summary && !safeError && (isDemo || (languageResolved && outputs) || recheck) ? (
         !isDemo && (snapshot.privateUserSubmission || recheck) ? (

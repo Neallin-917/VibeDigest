@@ -29,7 +29,7 @@ let taskOutputRows: Array<Record<string, unknown>> = []
 vi.mock('@/components/i18n/I18nProvider', () => ({
   useI18n: () => ({
     t: (key: string) => {
-      if (key === 'chat.tools.status.captionServiceUnavailable' || key === 'chat.tools.status.captionsRateLimited' || key === 'chat.tools.status.captionsUnavailable' || key === 'chat.tools.status.unsupportedSource') {
+      if (key === 'chat.inlineResult.authenticationRequired' || key === 'chat.inlineResult.accessDenied' || key === 'chat.tools.status.captionServiceUnavailable' || key === 'chat.tools.status.captionsRateLimited' || key === 'chat.tools.status.captionsUnavailable' || key === 'chat.tools.status.unsupportedSource') {
         return createTranslator(getRawMessages(i18nState.locale === 'zh' ? 'zh' : 'en'))(key)
       }
       const labels: Record<string, string> = {
@@ -189,6 +189,35 @@ describe('TaskDataGroup', () => {
     expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()
     expect(screen.getByText(overview)).toBeVisible()
     expect(moveAway ? outside : screen.getByRole('heading', { name: 'One conclusion' })).toHaveFocus()
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [401, 'Sign in to view this digest.'],
+    [403, 'You don’t have access to this digest.'],
+  ] as const)('clears the retained digest and focuses the access notice after HTTP %s', async (status, message) => {
+    const initial = pendingOutputRead()
+    const update = pendingOutputRead()
+    const manual = pendingOutputRead()
+    const restored = pendingOutputRead()
+    const post = vi.fn()
+    vi.stubGlobal('fetch', post)
+    render(<TaskDataGroup taskStatus={landingTaskStatus} />)
+    await initial(existing)
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    await update({ data: null, status: 503 })
+    const retry = screen.getByRole('button', { name: 'Check again' })
+    act(() => { retry.focus(); retry.click() })
+    await manual({ data: null, status })
+    expect(screen.queryByText(overview)).not.toBeInTheDocument()
+    const notice = screen.getByText(message)
+    expect(notice).toHaveFocus()
+    act(() => notifyConnection?.('SUBSCRIBED'))
+    expect(notice).toHaveFocus()
+    await restored(existing)
+    expect(screen.queryByText(message)).not.toBeInTheDocument()
+    expect(screen.getByText(overview)).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'One conclusion' })).toHaveFocus()
     expect(post).not.toHaveBeenCalled()
   })
 

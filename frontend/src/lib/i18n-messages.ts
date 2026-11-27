@@ -559,6 +559,8 @@ const enMessages = {
       },
       inlineResult: {
         noSummary: "No summary available.",
+        authenticationRequired: "Sign in to view this digest.",
+        accessDenied: "You don’t have access to this digest.",
       },
       tools: {
         result: "Result",
@@ -1240,6 +1242,8 @@ const zhMessages: MessageShape<typeof enMessages> = {
       },
       inlineResult: {
         noSummary: "暂无摘要。",
+        authenticationRequired: "请登录后查看此摘要。",
+        accessDenied: "你没有权限查看此摘要。",
       },
       tools: {
         result: "结果",

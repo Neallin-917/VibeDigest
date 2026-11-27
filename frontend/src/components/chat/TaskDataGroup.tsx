@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js'
 
-import { TaskSummaryVersionStatus } from '@/components/tasks/TaskSummaryVersionStatus'
+import { DigestReadRecovery, TaskSummaryVersionStatus } from '@/components/tasks/TaskSummaryVersionStatus'
 import { explicitSummaryLocale, missingSummaryVersionStatus } from '@/lib/task-summary-version'
 import { ResultEngagement } from '@/components/EngagementTracker'
 import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
@@ -690,6 +690,11 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {status === 'completed' && summary && outputRecheck ? (
+        <DigestReadRecovery locale={locale} target="updates" checking={outputRecheck === 'rechecking'}
+          onRecheck={() => recheckOutputs()} buttonRef={rememberFocusedRemoval} />
       ) : null}
 
       <ResultEngagement taskId={snapshot.taskId} enabled={!isDemo && status === 'completed' && Boolean(summary)}>

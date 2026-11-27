@@ -9,15 +9,40 @@ const copy = {
   en: {
     en: 'Preparing the English digest…', zh: 'Preparing the Chinese digest…', unavailable: 'This version is currently unavailable.',
     failed: { en: 'Couldn’t check the English digest.', zh: 'Couldn’t check the Chinese digest.' },
+    updateFailed: 'Couldn’t check for digest updates.', updateChecking: 'Checking for digest updates…',
     taskFailed: 'Couldn’t load task details.', taskChecking: 'Checking task details…',
     checking: 'Checking this version…', recheck: 'Check again',
   },
   zh: {
     en: '正在准备英文版…', zh: '正在准备中文版…', unavailable: '这个语言版本暂时无法提供。',
     failed: { en: '暂时无法确认英文版。', zh: '暂时无法确认中文版。' },
+    updateFailed: '暂时无法检查摘要更新。', updateChecking: '正在检查摘要更新…',
     taskFailed: '暂时无法读取任务详情。', taskChecking: '正在检查任务详情…',
     checking: '正在检查此版本…', recheck: '重新检查',
   },
+}
+
+export function DigestReadRecovery({ locale, target, checking, onRecheck, buttonRef }: {
+  locale: Locale
+  target: Locale | 'task' | 'updates'
+  checking: boolean
+  onRecheck: () => void
+  buttonRef?: React.Ref<HTMLButtonElement>
+}) {
+  const text = copy[locale]
+  let message: string
+  if (target === 'updates') message = checking ? text.updateChecking : text.updateFailed
+  else if (target === 'task') message = checking ? text.taskChecking : text.taskFailed
+  else message = checking ? text.checking : text.failed[target]
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+      <p role="status">{message}</p>
+      <Button ref={buttonRef} type="button" variant="link" size="sm" className="min-h-11 px-2" aria-disabled={checking}
+        onClick={() => { if (!checking) onRecheck() }}>
+        {text.recheck}
+      </Button>
+    </div>
+  )
 }
 
 /** Start only after a private detail page is opened. Realtime handles subsequent changes. */
@@ -67,19 +92,8 @@ export function TaskSummaryVersionStatus({ taskId, locale, target, status, reche
 
   if (!confirmedStatus) {
     if (!recheck || !onRecheck) return null
-    const checking = recheck === 'rechecking'
-    const message = awaitingTask
-      ? (checking ? copy[locale].taskChecking : copy[locale].taskFailed)
-      : (checking ? copy[locale].checking : copy[locale].failed[target])
-    return (
-      <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-        <p role="status">{message}</p>
-        <Button ref={recoveryButtonRef} type="button" variant="link" size="sm" className="min-h-11 px-2" aria-disabled={checking}
-          onClick={() => { if (!checking) onRecheck() }}>
-          {copy[locale].recheck}
-        </Button>
-      </div>
-    )
+    return <DigestReadRecovery locale={locale} target={awaitingTask ? 'task' : target}
+      checking={recheck === 'rechecking'} onRecheck={onRecheck} buttonRef={recoveryButtonRef} />
   }
   return <p ref={statusRef} tabIndex={statusRef ? -1 : undefined} role="status" className="text-sm text-muted-foreground">{
     confirmedStatus === 'unavailable' || (confirmedStatus === 'request' && unavailable)

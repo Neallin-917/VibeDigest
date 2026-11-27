@@ -412,8 +412,8 @@ describe('TaskDataGroup', () => {
     expect(post).not.toHaveBeenCalled()
   })
 
-  it.each(['public', 'private', 'denied', 'empty-public', 'empty-private', 'empty-explicit'])('recovers only the task details when outputs already loaded (%s)', async outcome => {
-    type ReadCheck = 'failed' | 'rechecking' | undefined
+  it.each(['public', 'private', 'forbidden', 'sign-in', 'empty-public', 'empty-private', 'empty-explicit'])('recovers only the task details when outputs already loaded (%s)', async outcome => {
+    type ReadCheck = 'failed' | 'rechecking' | 401 | 403 | undefined
     let publish!: (row: Record<string, unknown>) => void
     let check!: (value: ReadCheck) => void
     mockSubscribeToTask.mockImplementation((_id, listener, onCheck) => {
@@ -442,8 +442,9 @@ describe('TaskDataGroup', () => {
     expect(post).not.toHaveBeenCalled()
     act(() => {
       retry.click()
-      check(undefined)
-      if (outcome !== 'denied') publish({
+      const denied = outcome === 'forbidden' ? 403 : outcome === 'sign-in' ? 401 : undefined
+      check(denied)
+      if (!denied) publish({
         id: 'cached', status: 'completed', workload_kind: 'user_submission', is_demo: outcome.includes('public'),
         guest_id: null, output_intent: outcome === 'empty-private' ? null : { locale_source: 'explicit_instruction', target_locale: 'zh' },
       })
@@ -456,6 +457,10 @@ describe('TaskDataGroup', () => {
         expect.objectContaining({ method: 'POST', body: JSON.stringify({ locale: 'en' }) })))
     } else {
       expect(post).not.toHaveBeenCalled()
+      if (outcome === 'forbidden' || outcome === 'sign-in') {
+        expect(screen.getByText(outcome === 'forbidden' ? 'You don’t have access to this digest.' : 'Sign in to view this digest.')).toHaveFocus()
+        expect(screen.queryByText('Ready')).not.toBeInTheDocument()
+      }
       if (outcome === 'empty-explicit') expect(screen.getByText('This version is currently unavailable.')).toBeVisible()
       if (outcome === 'empty-public') expect(screen.getByText('No summary available.')).toBeVisible()
       if (outcome === 'public' || outcome === 'private') {

@@ -22,6 +22,20 @@ const copy = {
   },
 }
 
+export function DigestRecheckButton({ locale, checking, onRecheck, buttonRef }: {
+  locale: Locale
+  checking: boolean
+  onRecheck: () => void
+  buttonRef?: React.Ref<HTMLButtonElement>
+}) {
+  return (
+    <Button ref={buttonRef} type="button" variant="link" size="sm" className="min-h-11 px-2" aria-busy={checking} aria-disabled={checking}
+      onClick={() => { if (!checking) onRecheck() }}>
+      {copy[locale].recheck}
+    </Button>
+  )
+}
+
 export function DigestReadRecovery({ locale, target, checking, onRecheck, buttonRef }: {
   locale: Locale
   target: Locale | 'task' | 'updates'
@@ -37,10 +51,7 @@ export function DigestReadRecovery({ locale, target, checking, onRecheck, button
   return (
     <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
       <p role="status">{message}</p>
-      <Button ref={buttonRef} type="button" variant="link" size="sm" className="min-h-11 px-2" aria-disabled={checking}
-        onClick={() => { if (!checking) onRecheck() }}>
-        {text.recheck}
-      </Button>
+      <DigestRecheckButton locale={locale} checking={checking} onRecheck={onRecheck} buttonRef={buttonRef} />
     </div>
   )
 }

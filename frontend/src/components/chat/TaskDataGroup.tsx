@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js'
 
-import { DigestReadRecovery, TaskSummaryVersionStatus } from '@/components/tasks/TaskSummaryVersionStatus'
+import { DigestRecheckButton, DigestReadRecovery, TaskSummaryVersionStatus } from '@/components/tasks/TaskSummaryVersionStatus'
 import { explicitSummaryLocale, missingSummaryVersionStatus } from '@/lib/task-summary-version'
 import { ResultEngagement } from '@/components/EngagementTracker'
 import { VideoPlayer } from '@/components/tasks/shared/VideoPlayer'
@@ -656,13 +656,19 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
   const detailAccessStatus = taskReadCheck === 401 || taskReadCheck === 403 ? taskReadCheck : undefined
   const denied = detailAccessStatus ?? accessStatus
-  const accessNotice = denied ? (
-    <p ref={registerLanguageStatus} tabIndex={-1} role="status" className="px-1 text-sm text-muted-foreground">
-      {t(denied === 401 ? 'chat.inlineResult.authenticationRequired' : 'chat.inlineResult.accessDenied')}
-    </p>
+  const accessPanel = denied ? (
+    <div className="flex flex-wrap items-center gap-x-2">
+      <p ref={registerLanguageStatus} tabIndex={-1} role="status" className="px-1 text-sm text-muted-foreground">
+        {t(denied === 401 ? 'chat.inlineResult.authenticationRequired' : 'chat.inlineResult.accessDenied')}
+      </p>
+      {!detailAccessStatus && outputRecheck ? (
+        <DigestRecheckButton locale={locale} checking={outputRecheck === 'rechecking'}
+          onRecheck={() => recheckOutputs(!languageResolved)} buttonRef={rememberFocusedRemoval} />
+      ) : null}
+    </div>
   ) : null
   if (detailAccessStatus && status === 'completed') {
-    return <article className="w-full space-y-3" data-testid="inline-task-artifact">{accessNotice}</article>
+    return <article className="w-full space-y-3" data-testid="inline-task-artifact">{accessPanel}</article>
   }
 
   return (
@@ -680,9 +686,11 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
       ) : snapshot.videoUrl ? (
         <section className="rounded-2xl border border-border bg-surface-raised px-5 py-4">
           <p className="truncate text-sm font-medium text-foreground">{title}</p>
-          <p className="mt-1 text-sm text-muted-foreground" role="status" aria-live="polite">
-            {stageLabel}
-          </p>
+          {!denied ? (
+            <p className="mt-1 text-sm text-muted-foreground" role="status" aria-live="polite">
+              {stageLabel}
+            </p>
+          ) : null}
         </section>
       ) : isUsableTaskTitle(summary?.title || snapshot.videoTitle) ? (
         <h3 className="break-words text-sm font-medium text-foreground">{title}</h3>
@@ -772,9 +780,9 @@ function TaskDataGroupComponent({ taskStatus, live = false, onRetryTask }: TaskD
 
       </ResultEngagement>
 
-      {status === 'completed' ? accessNotice : null}
+      {status === 'completed' ? accessPanel : null}
 
-      {status === 'completed' && !summary && !safeError && (isDemo || (languageResolved && outputs) || recheck) ? (
+      {status === 'completed' && !denied && !summary && !safeError && (isDemo || (languageResolved && outputs) || recheck) ? (
         !isDemo && (snapshot.privateUserSubmission || recheck) ? (
           <TaskSummaryVersionStatus
             key={`${snapshot.taskId}-${outputs ? targetLocale : 'read'}`}
